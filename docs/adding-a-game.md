@@ -2,19 +2,26 @@
 
 ## Does it belong here?
 
-It has to pass all four:
+It has to pass all five:
 
-1. **No equipment.** No cards, no board, no app, no shared screen. Voice, or a
-   phone camera at most.
-2. **No setup.** Explainable out loud in under a minute, to someone who is
-   tired and lying down.
-3. **Built for two.** Not scaled down from a party game.
-4. **You end up closer.** By laughing, by learning something, or by having made
-   a thing together. "Fun but you feel nothing afterward" is a fine game — it's
-   just not one for this repo.
+1. **Built for two.** Not scaled down from a party game.
+2. **Runs alongside a conversation.** You're on the phone with the other
+   player. A game that demands your full attention is a game that ends the
+   call it was supposed to fill.
+3. **Finishes in a sitting, and survives a gap.** Ten to twenty minutes,
+   ending complete. Three weeks later, nothing to relearn and nothing lost.
+4. **Different on the tenth night than the first.** Something accrues — a
+   score across sessions, content that opens up, or your own past play
+   becoming the material.
+5. **You end up closer.** By laughing, by learning something, or by having
+   made a thing together. "Fun but you feel nothing afterward" is a fine
+   game — it's just not one for this repo.
 
-A game that fails #1 or #2 but is otherwise great is worth noting in the
-relevant game's **Variations** section rather than adding as its own page.
+Never: streaks you can break, decay, daily quotas, or anything that nags one
+of you about the other. See [scope.md](scope.md#the-session-shape).
+
+A game that fails #2 or #3 but is otherwise great is worth noting in a
+related game's **Variations** section rather than adding as its own page.
 
 ## How
 
@@ -33,7 +40,8 @@ relevant game's **Variations** section rather than adding as its own page.
 ## Style
 
 - Second person. "You go first," not "the first player goes first."
-- Short sentences. These pages get read aloud over a phone.
+- Short sentences. These pages get read aloud over a phone, and they're the
+  rules screen inside the game itself.
 - Give real examples of prompts and categories. A game page with no starter
   prompts is a game nobody will play — coming up with the first prompt is the
   actual barrier, every time.

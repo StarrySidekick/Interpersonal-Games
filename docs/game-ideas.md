@@ -1,222 +1,205 @@
 # Game ideas
 
-Candidates for the screen track, with the honest version of what each one
-costs to build. Read [scope.md](scope.md) first — the engines (A: shared
-seed, B: link-passing, C: ledger) are named there.
+Candidates, with the honest version of what each costs. Read
+[scope.md](scope.md) first — the engines (A: shared seed, B: link-passing,
+C: the record) and the session shape are defined there.
 
-Every entry has a **fallback** line, because of the rule that keeps this
-repo itself: if the phone dies, the game has to keep going.
-
----
-
-## Phase 1 — referee tools
-
-Not new games. Small screens that remove the one annoying part of a game
-that already works. Cheap to build, impossible to get wrong, and they prove
-out the site shell.
-
-### The Challenger
-*Ghost's dictionary, settled without an argument.*
-**Engine:** none (static word list) · **Effort:** S
-
-Type the string, it tells you whether a word can still be built and shows
-the shortest one. Ends the "is that even a word" stall that kills Ghost's
-back half. Only the challenged player looks — that's the whole design.
-
-**Fallback:** you argue about it, which is how Ghost has always worked.
-
-### The Clock
-*A shot clock for Category Ping-Pong.*
-**Engine:** none · **Effort:** S
-
-Tap to pass, five seconds a turn, audible tick so the person not holding it
-can hear the pressure. Also picks the category, which is the actual barrier
-every time.
-
-**Fallback:** count out loud. Worse, but fine.
-
-### The Keeper
-*Twenty Questions where neither of you has to think of the thing.*
-**Engine:** A (seed + role) · **Effort:** S
-
-Both open the same code. One phone shows the object, the other shows the
-question count. Removes the worst part of Twenty Questions — being the one
-who has to invent something interesting under pressure — and makes it
-playable when you're both too tired to be clever.
-
-**Fallback:** think of something yourself, like a person from history.
-
-### The Decks
-*Prompt decks for the games that live or die on their first prompt.*
-**Engine:** C (remembers what you've used) · **Effort:** S
-
-Would You Rather, The First Time I…, Two Truths and a Hope. Forty good
-prompts each, never repeated to the same pair. The repo's own docs already
-say the first prompt is the real barrier — this is that, solved.
-
-**Fallback:** the prompts are printed on the game's own page.
+Every entry has a **long arc** line, because a game that's identical on the
+tenth night doesn't survive the way these are meant to be played.
 
 ---
 
-## Phase 2 — live screen games (Engine A)
+## Live games — Engine A
 
-Both on a call, both on the same room code. The screen keeps a secret or
-holds a board; the call does everything else.
+Both on a call, both on the same room code. The screen holds a secret or a
+board; the call does the rest.
 
 ### The Dial ★
-*You know where the target is. All you can do is describe it.*
-**Engine:** A · **Time:** 10–30 min · **Effort:** M
+*You can see exactly where the target is. All you can do is describe it.*
+**Sitting:** 10–20 min · **Round:** 90 sec · **Effort:** M
 
-Both phones show the same spectrum — *overrated ↔ underrated*, *a snack ↔
-a meal*, *would call in sick for ↔ would go in for*. Your phone also shows
-a narrow target band on that line; theirs doesn't. You give one clue. They
-drag the dial. Score by how close. Swap.
+Both phones show the same spectrum — *overrated ↔ underrated*, *a snack ↔ a
+meal*, *would call in sick for ↔ would go in for*. Your phone also shows a
+narrow target band on that line. Theirs doesn't. You give one clue. They drag
+the dial. Score by distance. Swap.
 
-Why the screen earns it: the target has to be hidden and precise, and it has
-to be the *same* line for both of you. Voice can't do that. Everything else
-— the clue, the argument about whether "a bagel" is a snack or a meal, which
-is the actual game — is pure conversation.
+The screen is doing something a conversation can't: holding a precise hidden
+value on a line you both see. Everything else — the clue, the argument about
+whether a bagel is a snack or a meal — is the conversation, which is the
+actual game.
 
-Descended from *Wavelength* (Wolfgang Warsch / CMYK). Credit it on the page,
-and write our own spectrum pairs; the good ones are the ones about the two
-of you anyway.
+**Long arc:** a running *calibration* number — how close you land, averaged
+over every session ever. It goes up. It is the single most legible "we know
+each other better than we did in March" number in this whole list. Plus
+spectrum packs that open up as you play, and eventually spectrums built out
+of your own past rounds.
 
-**Fallback:** "pick a number 1 to 10 and give me a clue." Genuinely playable.
+Descended from *Wavelength* (Wolfgang Warsch / CMYK) — credit it on the
+page, and write our own pairs. The good ones are about the two of you anyway.
 
 ### Talk Me Through It
 *You have the map. They're the one in the building.*
-**Engine:** A · **Time:** 10–20 min · **Effort:** M–L
+**Sitting:** 15–25 min · **Effort:** M–L
 
-One phone shows a small grid with the layout and the hazards. The other
-shows only where they are and which way they're facing. You talk them out.
-Co-op, no score, and it fails hilariously when you say "left" and mean your
-left.
+One phone shows the layout and the hazards. The other shows only where they
+are and which way they're facing. You talk them out. Co-op, no score, and it
+falls apart hilariously the moment you say "left" and mean your left.
 
-Why the screen earns it: it's the purest expression of *the call is the
-network*. The entire game is the bandwidth between two people trying to be
-clear.
+The purest version of *the call is the network* — the entire game is the
+bandwidth between two people trying to be clear.
 
-Biggest build risk here — needs a level generator, a renderer, and a real
-difficulty curve. Don't make it the first one.
+**Long arc:** the best structural fit for intermittent play in the list. A
+campaign you chip at: two or three floors a sitting, ten minutes each,
+picked up whenever. New mechanics introduced slowly (doors, then darkness,
+then a second floor you can't both see).
 
-**Fallback:** none, honestly. This is the one game that needs the screen.
-Flag it as the exception rather than pretend otherwise.
+Biggest build risk here — level design, a renderer, and a real difficulty
+curve. Worth it, but not first.
 
 ### Impostor Word
 *Five words each. One of yours is different. Find it by talking around it.*
-**Engine:** A · **Time:** 5–15 min · **Effort:** S–M
+**Sitting:** 10 min · **Round:** 3 min · **Effort:** S–M
 
-You both get the same five words except one, which differs by a little
-(*ocean* / *sea*) or a lot. You take turns saying something true about your
-list without naming anything. Then you both guess which one was swapped.
+You get the same five words except one, swapped for something a little off
+(*ocean* / *sea*) or a lot. Take turns saying something true about your list
+without naming anything on it. Then both guess which was swapped.
 
-Cheap to build, endlessly replayable, and it produces the specific pleasure
-of realizing you've been talking past each other for four minutes.
+Cheap to build, endlessly replayable, and it reliably produces the specific
+pleasure of realising you've been talking past each other for four minutes.
 
-**Fallback:** works with two written lists on paper.
+**Long arc:** difficulty that tracks you — the swaps get subtler the better
+you get. Modest, but real.
 
 ### Blind Agreement
-*Same question, both answer secretly, reveal on three.*
-**Engine:** A + C · **Time:** 5 min a round, forever · **Effort:** S
+*Same question, both answer in secret, reveal on three.*
+**Round:** 30 sec · **Effort:** S
 
-Both phones show the same twelve options and the same prompt — *which of
+Both phones show the same prompt and the same twelve options — *which of
 these would we actually cook this week*, *which of these is the vacation*.
-Pick without telling. Reveal together. Score is how often you match, and
-the score is cumulative across every session you've ever played.
+Pick without telling. Reveal together.
 
-This is the quiet one that turns out to be the most-played, because it's
-thirty seconds long and the number goes up over months.
+**Long arc:** this is the accrual game. The match rate is cumulative across
+every session you've ever played, and the app remembers the specific ones
+you missed. "We have never once agreed about breakfast" is a better output
+than any score.
 
-**Fallback:** count to three and say it out loud.
+The quiet one that probably gets played most, because it's thirty seconds
+long and slots into any gap in a call.
 
 ---
 
-## Phase 3 — slow games (Engine B)
+## Slow games — Engine B
 
-Turn, link, thread, three days later. For the weeks you can't get on a call.
+A turn, a link, your thread. For the weeks you can't get on a call — which,
+given how this is meant to be played, is most weeks.
 
 ### How Well Do You Know Me ★
-*You answer. They guess what you answered. Both scores go up.*
-**Engine:** B + C · **Time:** 2 min a turn · **Effort:** M
+*You answer. They guess what you answered. Two scores, and the gap is the
+interesting part.*
+**Turn:** 2 min · **Effort:** M
 
-You answer a question about yourself and predict their answer to the same
-one. Send the link. They do the same, and opening theirs reveals both. Score
-tracks two separate things: how well you know them, and how well they know
-you — which are different numbers, and the gap is the interesting part.
+You answer a question about yourself, and predict their answer to the same
+one. Send the link. They do the same, and opening it reveals both sides.
+Score tracks two separate numbers — how well you know them, how well they
+know you — which are rarely equal, and the difference is a conversation.
 
-This is the strongest "you end up closer" candidate in the whole list, and
-it works entirely async.
+**Long arc:** the strongest in the collection. The question deck deepens as
+you go, it re-asks old questions months later to show what changed, and the
+"you were wrong about this" list is the best raw material for an actual
+phone call that any of these produce.
 
-**Fallback:** ask the question on the phone. That's just a conversation,
-which is the point.
+### The Map ★
+*Every session you play puts something on a map only the two of you have.*
+**Effort:** M (as a layer over other games)
+
+Not a game on its own — a place the others feed. Finish a sitting and you
+name what happened; it becomes a location. A street named after the round
+where neither of you could describe "sturdy." Over months it becomes a
+readable object: the record made visible, in a form that isn't a stats page.
+
+**Long arc:** it *is* the long arc. Build it as the front page of the record
+and let every game write to it.
+
+### Set and Solve
+*One of you builds a small puzzle. The other has a few days to crack it.*
+**Turn:** 5 min to set, 5 to solve · **Effort:** M
+
+Asymmetric daily-puzzle shape, but *you* are the setter, not an algorithm.
+Build a word ladder, a hidden rule, a five-clue thing. Send it. They solve
+whenever. Then you swap.
+
+**Long arc:** naturally intermittent, and the setter's skill grows visibly.
+The archive of puzzles you built for each other is worth keeping.
 
 ### Exquisite Corpse
-*One line each, and you can only see the last one.*
-**Engine:** B · **Effort:** S
+*One line each, and you only see the last one.*
+**Effort:** S
 
-The parlour game, in a link. Write a line, the page hides everything but
-your last sentence, send it on. After twelve turns the whole thing unrolls.
-Archive the finished ones — the archive is the reason to play.
+The parlour game, in a link. Write a line, everything but your final
+sentence is hidden, send it on. After twelve turns the whole thing unrolls.
+Cheapest thing in the list that produces a keepable object.
 
-**Fallback:** it's a folk game with paper. That's where it came from.
+**Long arc:** the archive of finished ones. Little else — and that's fine
+for something this cheap.
 
 ### Draw This Back
-*You draw, they title it, you draw the title.*
-**Engine:** B (or C + share sheet) · **Effort:** M
+*You draw. They title it. You draw the title.*
+**Effort:** M
 
-Canvas in, canvas out. The drift is the joke. Watch the URL size — a drawing
-may need to go through the ledger and the share sheet rather than a link.
+The drift is the joke. Watch payload size — a drawing likely has to move
+through the record and the share sheet rather than a URL.
 
-**Fallback:** send the drawing in the thread yourself.
-
-### Photo Tennis, kept
-*The game that's already in this repo, with the year-end print built.*
-**Engine:** C · **Effort:** M
-
-Don't rebuild the game — it works fine in a text thread. Build the archive:
-drop the pair in, it lays out the year in order. The repo's own page already
-says the annual print is the real reason to play.
-
-**Fallback:** it *is* the fallback. The game never needed us.
+**Long arc:** the gallery, which is genuinely funny in bulk.
 
 ---
 
-## The layer over all of it (Engine C)
+## Small things worth building early
 
-### The Season
-Not a game. A running record — what you played, when, the streak, the
-running Blind Agreement score, the Exquisite Corpse you finished in March.
-Every twelve weeks it offers a recap page you can send.
+Low risk, high ratio, and useful for shaking out the shell.
 
-This is the difference between a site you use twice and a thing that's part
-of how two people talk. Build it early enough that games can write to it
-from day one, and make export a prompt at the end of a good session, not a
-setting nobody finds.
+- **The Clock** — shot clock and category picker for fast word games. Audible
+  tick, so the person not holding it can hear the pressure. (S)
+- **The Keeper** — Twenty Questions where the app knows the object, so
+  neither of you has to invent one while tired. Engine A, roles. (S)
+- **The Challenger** — settles whether a word can still be built in Ghost,
+  which is the argument that stalls that game every time. (S)
+- **The Decks** — good prompts for the conversation games, never repeating
+  to the same pair. The repo's own docs say the first prompt is the real
+  barrier; this is that, solved. (S)
 
 ---
 
-## The recommended first three
+## The recommended path
 
-After Phase 1's four small tools:
+**Phase 1, build one thing properly: The Dial.** It's the clearest
+demonstration of why a screen belongs in a phone call, it's the one you'll
+actually play the most, and its calibration score forces us to build the
+record correctly on the first game rather than bolting it on later.
 
-1. **The Dial** — the demo. Shows immediately why a screen belongs in a
-   phone call, and it's the one you'll play the most.
-2. **Blind Agreement** — cheapest to build, and the first game to write to
-   The Season, which proves the ledger.
-3. **How Well Do You Know Me** — the async one, and the one that does the
-   thing this collection is actually for.
+**Phase 2, add two:**
 
-That's one live game, one repeat-session hook, one slow game — one of each
-engine, so nothing about the architecture stays theoretical.
+- **How Well Do You Know Me** — proves Engine B, and does the thing this
+  whole collection is for.
+- **Blind Agreement** — cheap, and it makes the record visibly accumulate
+  from the very first sitting.
+
+**Then The Map**, once there are three games feeding it something worth
+drawing.
+
+That's one live game, one async game, one thirty-second game, and the
+record they all write to — nothing about the architecture left theoretical.
 
 ---
 
 ## Considered, and why not yet
 
-- **A Codenames Duet-alike.** Great two-player game, but it's a product with
-  an author and a box, and the good version is close enough to be a copy.
-- **Anything realtime-competitive** (racing, reflex). The call is the whole
-  point, and you can't talk while twitching.
-- **Trivia.** Somebody wins, nobody's closer, and the internet is full of it.
-- **Anything needing accounts or a server.** Rules it out on privacy before
+- **A Codenames Duet-alike.** Excellent two-player game, but it's a product
+  with an author and a box, and the good version is close enough to be a
+  copy.
+- **Anything realtime-twitchy.** You can't talk while reacting, and the
+  talking is the point.
+- **Trivia.** Someone wins, nobody's closer, and the internet is full of it.
+- **Streaks, daily quotas, decay.** See rule 2 of the session shape — the app
+  never gets to be a third party nagging one of you.
+- **Anything needing accounts or a server.** Ruled out on privacy before
   it's ruled out on hosting.

@@ -1,180 +1,201 @@
 # Scoping the app
 
-Where this repo goes next: a GitHub Pages site you can actually play on,
-without stopping being a collection of games you can play with nothing.
+What we're building, what shape a session has, and how two phones share a
+game with no server behind them.
 
-## What we're actually building
+## What this is
 
-Two people on a phone call. Each holding their own phone. The call carries
-the talking. The screen carries the things a voice can't hold — a hidden
-target, a shared board, a shot clock, a record of the last four months.
+Real games, with a real interface, on your phone. Usually played while
+you're on the phone with the person you're playing against — the call
+carries the talking, the screen carries the game.
 
-The bar is set by what's on either side of it:
+Where it sits, by what's on either side of it:
 
-- **GamePigeon is too little.** Not because the games are bad. Because they
-  are solo games with a turn notification. You play your move alone, at a
-  red light, and the other person is a scoreboard. Nobody talks.
-- **A console game is too much.** It needs a room, a couch, a night you
-  scheduled, and forty minutes before it's fun.
+- **GamePigeon is too thin.** Not because the games are bad. Because they're
+  solo games with a turn notification. You play your move alone at a red
+  light, and the other person is a scoreboard. Nothing accumulates, and
+  nobody talks.
+- **A console game is too heavy.** It needs a night you scheduled, a room, a
+  controller, and forty minutes before it's fun.
 
-The gap in between: **a game that runs underneath a conversation.** You are
-already on the phone. The game gives the call a shape so it doesn't end at
-"so, how was your day." If a real conversation breaks out and you abandon
-the game twenty minutes in, the game worked (house rule 7).
+The gap: **a game that runs alongside a conversation.** You're already on the
+phone. The game gives the call a shape, so it doesn't end at "so, how was
+your day."
 
-## The rule we have to change
+> An earlier draft of this repo said these games had to work with *no app, no
+> screen, no equipment*. That was wrong, and it's been removed. The screen is
+> the point — it's what lets a game keep a secret, hold a board, remember a
+> season, and be genuinely designed rather than merely explained.
 
-Rule 1 of this collection is *no equipment, no app, no shared screen*. A
-web app fails it. That's fine — but we should break it deliberately, once,
-and write down what replaces it.
+## The session shape
 
-**Proposal: the collection becomes two tracks.**
+This is the constraint that decides almost every other question, and the one
+most easily forgotten once you're building screens.
 
-- **Voice track** — the twelve games already here. Unchanged. Still the
-  default, still the ones that work while walking the dog.
-- **Screen track** — new games where the phone earns its place by doing
-  something a voice genuinely cannot: keep a secret from one of you, hold a
-  board you both need to see, judge a challenge, remember a season.
+**You play a little at first. Then it comes back, intermittently, for
+months.** Not daily. Not on a schedule. Whenever you're both on the phone
+again — which might be Thursday, or might be three weeks from now.
 
-And **one new rule that protects the point of the repo:**
+Three time-scales, and each one has to work on its own:
 
-> **Every screen game degrades to a voice game.** If a battery dies mid-round
-> you can finish with the rules you already know. The phone is a dealer, a
-> referee, and a memory. It is never the opponent, and it is never the thing
-> you're both looking at instead of listening.
+| Scale | Length | Has to feel like |
+|---|---|---|
+| **A round** | 1–3 min | one complete thing. You can stop after any round. |
+| **A sitting** | 10–20 min | finished, not interrupted. Nothing left hanging. |
+| **The arc** | months | the tenth time is different from the first. |
 
-If a game idea can't survive that rule, it's a good game for a different
-repo. This is the single filter that keeps us from building a worse version
-of a thing that already exists on the App Store.
+What falls out of that, as rules:
 
-## The constraint that shapes everything
+1. **Every sitting ends complete.** No saved state you have to resume to make
+   sense of. If you played four rounds and hung up, that was a whole game.
+2. **Things accrue; nothing decays.** No streaks to break, no wilting plant,
+   no "you haven't played in 12 days." Guilt mechanics are poison in
+   something two people use to stay close — the app must never become a
+   third party nagging one of them. Coming back after a month should be
+   greeted with *what you've built so far*, not a penalty.
+3. **Re-entry costs nothing.** Three weeks later, neither of you remembers
+   the rules. One tap to resume, rules always on the same screen, no
+   tutorial to sit through again.
+4. **The tenth session isn't the first session again.** Something has to
+   change over the arc — content that opens up, difficulty that tracks you,
+   or your own past play becoming the material. This is the hard part, and
+   it's the difference between a thing you use twice and a thing that
+   becomes part of how two people talk.
+5. **The record is a first-class feature, not a stats page.** What you've
+   made together is the reason to come back. Build it early enough that
+   every game writes to it from its first commit.
+
+## The constraint that shapes the build
 
 GitHub Pages is static. No server, no sockets, no accounts, no database,
-nothing that can go down at 11pm. Rather than fight that, take it as the
-design brief — and notice that it lines up exactly with a privacy
-requirement we'd want anyway. Some of these games ask real questions. Those
-answers should never touch a server, ours or anyone's.
+nothing that can go down at 11pm. That lines up with something we'd want
+anyway: some of these games ask real questions, and those answers should
+never touch anyone's server, ours included.
 
-Three ways two phones can share a game with no backend at all:
+Three ways two phones share a game with no backend at all.
 
 ### Engine A — the shared seed
 
 Both of you type the same short room code (`otter-lamp-97`). The code seeds
 a deterministic random generator, so both phones independently generate the
-*identical* game — same words, same board, same target. You each pick a
-role (whoever said the code out loud is A), and the two roles can be shown
-different things from the same seed. That's asymmetric information with
-zero network.
+*identical* game — same words, same board, same target. Pick a role, and the
+two roles can be shown different things from the same seed. Asymmetric
+information, zero network.
 
-- **Best for:** live calls, competitive and co-op games, anything with a
-  secret.
-- **Costs:** both must type the code correctly; no way to enforce turn order
-  or stop cheating. Neither matters when you're on the phone with someone
+- **For:** live play while you're on the call. Anything with a secret.
+- **Costs:** you both have to type it right; nothing enforces turn order or
+  prevents cheating. Neither matters when you're on the phone with someone
   you like.
 
 ### Engine B — the link
 
-Game state encoded into the URL fragment. You play your turn, the page hands
-you a link, you paste it into the thread. They open it, see your turn, play
-theirs, send one back. The fragment (`#...`) is never sent to any server, so
-even the answers stay on the two phones.
+A turn encoded into the URL fragment. You play, the page hands you a link,
+you paste it into your thread. They open it, see your turn, play theirs,
+send one back. The fragment is never sent to any server, so the contents
+stay on the two phones.
 
-- **Best for:** time zones, slow games, anything that survives three days
-  between turns. The Photo Tennis end of the collection.
-- **Costs:** URL length caps what a turn can carry (a few KB — plenty for
-  words, not for images).
+- **For:** the weeks you can't get on a call. Time zones. Slow games.
+- **Costs:** a few KB per turn — plenty for words, not for images.
 
-### Engine C — the ledger
+### Engine C — the record
 
-`localStorage`. Scores, streaks, what you played and when, the things you
-made together, an end-of-season recap. Exportable as a single code so it
-survives a new phone, and importable so both of you can hold a copy.
+`localStorage`, plus export. Scores, sessions, the things you made, the
+season. Exportable as one code so it survives a new phone and so you can
+both hold a copy.
 
-- **Best for:** the reason to come back. This is what a GamePigeon thread
-  doesn't have.
-- **Costs:** clearing your browser data loses it. Make export a prompt, not
-  a settings screen.
+- **For:** everything in the session-shape section above.
+- **Costs:** clearing browser data loses it. So export has to be a prompt at
+  the end of a good sitting, not a setting nobody finds.
 
-### Deliberately not: realtime sync
+### Not doing: realtime sync
 
 WebRTC or a hosted realtime database would let both screens update live. It
 also adds a signaling service, an outage mode, an account, and a privacy
-story we don't want. Skip it — because of the one idea this whole thing
-rests on:
+story we don't want — to solve a problem we mostly don't have:
 
-> **The call is the network.** Two people on a phone have a zero-latency,
-> perfectly reliable channel between them already. Every sync problem is
-> solved by one of you reading something out loud. Design toward that
-> instead of around it.
+> **The call is the network.** Two people on the phone already have a
+> zero-latency channel between them. Most sync problems are solved by one of
+> you saying something out loud. Design toward that.
+
+Worth revisiting only for a game that genuinely needs sub-second shared
+state, and we should be suspicious of any design that claims to.
 
 ## Phases
 
-**Phase 0 — the site.** Mobile-first reader for the twelve games that exist.
-Dark by default, big type, one tap from the front page to playing. No build
-step: plain HTML, ES modules, JSON data files. This alone is worth shipping.
+**Phase 0 — the shell.** Front page, the record, and the room-code flow.
+Dark, mobile-first, no build step: plain HTML, ES modules, JSON data. One
+throwaway game to prove the whole path end to end.
 
-**Phase 1 — referee tools.** Not new games — small screens that make the
-existing games better, with no design risk. A challenge dictionary for
-Ghost. A shot clock for Category Ping-Pong. A secret-keeper for Twenty
-Questions, so neither of you has to think of the object. Prompt decks for
-Would You Rather and The First Time I…. Ships the site with real utility and
-proves the layout.
+**Phase 1 — the first real game, all the way finished.** One game with
+actual UI, actual polish, and its long-arc hook working. Better to have one
+game somebody plays in month three than six that get opened once.
 
-**Phase 2 — Engine A and the first real screen games.** Three, not ten. See
-[game-ideas.md](game-ideas.md) for the candidates and the recommended three.
+**Phase 2 — one per engine.** A live game, an async game, and the shared
+record they both write to. See [game-ideas.md](game-ideas.md) for candidates
+and the recommended set.
 
-**Phase 3 — Engine B and Engine C.** The async games and the ledger. This is
-where "repeat sessions over a longer period" stops being a hope and becomes
-a feature: a season, a streak, a recap you didn't have to assemble.
+**Phase 3 — the arc.** Seasons, recaps, the things that only make sense
+after ten sittings. Some of this can only be designed once there's real play
+to look at.
 
-**Phase 4 — the long games.** Things that only pay off after months. A
-question a day for a year. An archive that prints.
+**Phase 4 — the long game.** Something with a payoff measured in months.
 
 ## Repo layout
 
-Keep prose and play in one repo. The prose pages are the rules of record —
-every playable game links back to its own page, which is also its voice
-fallback.
-
 ```
-index.html            front page: pick a game
-games/*.md            unchanged — the rules, the prose, the credit
-docs/*.md             unchanged — choosing, house rules, this
-play/<slug>/          one folder per playable game
+index.html            front page: pick a game, or resume
+play/<slug>/          one folder per game — the game itself
+games/*.md            the rules in prose, linked from every game
+docs/*.md             this, the game catalog, house rules
 engine/seed.js        room code -> deterministic RNG (Engine A)
 engine/link.js        state <-> URL fragment (Engine B)
-engine/ledger.js      localStorage, export/import (Engine C)
-engine/ui.js          shared shell: dark, big tap targets, wake lock
+engine/record.js      localStorage, export/import (Engine C)
+engine/ui.js          shared shell: dark, tap targets, wake lock
 data/*.json           word lists, spectrum pairs, question decks
 ```
 
-## Non-negotiables
+## UI rules
 
-These are the ones that get quietly violated if we don't write them down.
+Now that there's a real interface, these are the ones that quietly get
+violated if they aren't written down.
 
-- **One-handed.** The other hand is holding a phone to a face. Every control
-  in thumb reach, nothing that needs two fingers.
-- **Playable in the dark, in bed.** Dark by default. No white flash on load.
-- **Keeps the screen awake.** A game that locks the screen mid-round is
-  broken. Wake Lock where it exists, a fallback where it doesn't.
-- **Thirty seconds from tap to playing.** No tutorial, no account, no splash.
+- **One-handed.** The other hand is holding a phone to a face. Everything in
+  thumb reach; nothing needing two fingers.
+- **Glanceable.** You are mid-conversation. You must be able to look away for
+  fifteen seconds and come back without losing your place. Nothing that
+  moves, no timer that punishes attention, state always visible on screen.
+- **Audible where it matters.** Sometimes both of you are looking at a road
+  instead of a screen. Sound and haptics for turn changes, not just colour.
+- **Readable in bed, in the dark, at arm's length.** Dark by default, big
+  type, no white flash on load.
+- **Screen stays awake.** A game that locks mid-round is broken. Wake Lock
+  where it exists, a fallback where it doesn't.
+- **Thirty seconds from tap to playing.** No account, no splash, no tutorial.
   Rules on the same screen as the game, collapsed.
-- **Nothing intimate leaves the phone.** No analytics, no fonts fetched from
-  someone else's CDN on a page where you answered a real question.
-- **Ends before it runs out.** House rule 6. Build "one more round?" prompts
-  and natural stopping points, not infinite scroll.
-- **No build step.** If it can't be served straight from `main`, it's too
+- **Nothing intimate leaves the phone.** No analytics, no third-party fonts
+  on a page where somebody answered a real question.
+- **No build step.** If it can't be served straight from the branch, it's too
   clever.
+
+## What happens to the twelve prose pages
+
+They stay, and they earn their keep three ways: several are direct
+candidates to build (Twenty Questions, Ghost, Rose/Bud/Thorn, Photo Tennis);
+[`house-rules.md`](house-rules.md) is genuinely good design doctrine for
+anything we build — rules 1, 2, 3 and 6 in particular should be read as
+product requirements; and a built game's page is where its rules and credit
+live.
+
+[`adding-a-game.md`](adding-a-game.md) needs a rewrite, since its criteria
+are the ones being retired.
 
 ## Open questions
 
-- **Does the front page default to voice games or screen games?** Argument
-  for voice: it's the honest answer more often. Argument for screen: it's
-  what someone opening the site came for. Leaning: one front page, two
-  clearly labeled columns, voice on the left.
-- **Question decks.** Write our own. Don't reproduce someone's published
-  list, and don't ship 500 mediocre prompts — 40 good ones beat 500.
-- **Photos.** Any game that stores images can't use Engine B and shouldn't
-  use a server. Local-only with an export, or leave Photo Tennis in the
-  thread where it already works.
+- **Does the front page open on a game or on the record?** Leaning: the
+  record, with resume front and centre — it's the answer to "what have we
+  been doing," which is the actual reason to open the app on week nine.
+- **Do both of you need the record, or just one?** Export/import makes two
+  copies possible but they'll drift. Might be cleaner to say the record
+  belongs to whoever opens it, and each of you has your own view.
+- **Question decks:** write our own. Forty good ones beat five hundred.
 - **A name for the site**, separate from the repo name.

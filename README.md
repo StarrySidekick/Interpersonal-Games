@@ -2,27 +2,35 @@
 
 Small games for two people who aren't in the same room.
 
-Phone call, video call, or a thread of texts across time zones — these are
-games you can start in thirty seconds, with nothing but your voice, when the
-alternative is "so… how was your day?" for the fourth night in a row.
+You play them on your phone, usually while you're on the phone with the
+person you're playing against. The call carries the talking; the screen
+carries the game. Ten minutes at a time, picked back up whenever you're both
+around again — which might be Thursday, or might be three weeks from now.
 
 The point isn't the game. The point is that a game gives two people something
 to do together, and doing something together is what makes a call feel like
 time spent instead of time reported.
 
-## The rules of the collection
+## What a game in here has to do
 
-Every game in here has to pass all four:
+1. **Be built for two.** Not scaled down from a party game.
+2. **Run alongside a conversation, not instead of one.** You should be able
+   to look away from the screen for fifteen seconds and lose nothing.
+3. **Finish in a sitting, and survive a gap.** Ten to twenty minutes, ending
+   complete. Three weeks later you pick it up with no rules to relearn and
+   nothing lost for having been away.
+4. **Be different on the tenth night than the first.** Something accrues.
+5. **Leave you closer.** By laughing, by learning something, or by having
+   made a thing together. A game you can win and feel nothing afterward
+   isn't for this repo.
 
-1. **No equipment.** No board, no cards, no app, no shared screen. If you can
-   play it while walking the dog, it belongs here.
-2. **No setup.** Explainable in under a minute, to someone who is tired.
-3. **Two players.** Not "works with two in a pinch" — designed for two.
-4. **You end up closer.** Some games do this by being funny, some by being
-   hard, some by asking real questions. A game you can win and feel nothing
-   afterward isn't for this repo.
+Nothing here decays, nags, or keeps a streak you can break. See rule 2 of
+[the session shape](docs/scope.md#the-session-shape).
 
 ## The games
+
+These pages are the rules in prose — where the collection started, and the
+shelf the playable versions are being built from.
 
 | Game | Works over | Time | Feels like |
 |---|---|---|---|
@@ -57,19 +65,18 @@ More on this in [docs/choosing-a-game.md](docs/choosing-a-game.md).
 
 ## What's next
 
-There's a plan to put this on the web as something you can actually play on
-a phone, mid-call, with the person you're on the phone with — without the
-collection stopping being a set of games you can play with nothing at all.
+Building these as actual games — real interface, on your phone, hosted here.
 
-- [`docs/scope.md`](docs/scope.md) — what we're building, the rule it breaks, and how two phones share a game with no server
-- [`docs/game-ideas.md`](docs/game-ideas.md) — the candidate games, what each costs, and the first three to build
+- [`docs/scope.md`](docs/scope.md) — the session shape, the UI rules, and how two phones share a game with no server behind them
+- [`docs/game-ideas.md`](docs/game-ideas.md) — the candidates, what each costs, and which to build first
 
 Nothing there is decided yet.
 
 ## Adding a game
 
 Copy [`games/_TEMPLATE.md`](games/_TEMPLATE.md), fill it in, add a row to the
-table above. See [`docs/adding-a-game.md`](docs/adding-a-game.md).
+table above. See [`docs/adding-a-game.md`](docs/adding-a-game.md) — though
+its criteria are the old ones, and need rewriting against the list above.
 
 ## Credit
 
