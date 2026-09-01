@@ -55,6 +55,17 @@ More on this in [docs/choosing-a-game.md](docs/choosing-a-game.md).
 - [`docs/house-rules.md`](docs/house-rules.md) — the handful of rules that make any of these work
 - [`docs/adding-a-game.md`](docs/adding-a-game.md) — how to add one, and the template to use
 
+## What's next
+
+There's a plan to put this on the web as something you can actually play on
+a phone, mid-call, with the person you're on the phone with — without the
+collection stopping being a set of games you can play with nothing at all.
+
+- [`docs/scope.md`](docs/scope.md) — what we're building, the rule it breaks, and how two phones share a game with no server
+- [`docs/game-ideas.md`](docs/game-ideas.md) — the candidate games, what each costs, and the first three to build
+
+Nothing there is decided yet.
+
 ## Adding a game
 
 Copy [`games/_TEMPLATE.md`](games/_TEMPLATE.md), fill it in, add a row to the
