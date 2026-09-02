@@ -128,15 +128,18 @@ throwaway game to prove the whole path end to end.
 
 **Phase 1 — the first real game, all the way finished.** One game with
 actual UI, actual polish, and its long-arc hook working. Better to have one
-game somebody plays in month three than six that get opened once.
+game somebody plays in month three than six that get opened once. Blind
+Agreement or The Shortlist are the cheap ways in; Correspondence is the one
+that best proves the premise.
 
-**Phase 2 — one per engine.** A live game, an async game, and the shared
-record they both write to. See [game-ideas.md](game-ideas.md) for candidates
-and the recommended set.
+**Phase 2 — one per engine.** A live game and an async game, both writing
+to the record. See [game-ideas.md](game-ideas.md) for the working list.
 
-**Phase 3 — the arc.** Seasons, recaps, the things that only make sense
-after ten sittings. Some of this can only be designed once there's real play
-to look at.
+**Phase 3 — the arc.** The meta space: progress recorded and shown back.
+Deliberately unspecified for now — see the end of
+[game-ideas.md](game-ideas.md). What *is* settled is the shape of what games
+log, so they can write to it from their first commit and the presentation
+can be decided once there's real play to look at.
 
 **Phase 4 — the long game.** Something with a payoff measured in months.
 
@@ -191,9 +194,10 @@ are the ones being retired.
 
 ## Open questions
 
-- **Does the front page open on a game or on the record?** Leaning: the
-  record, with resume front and centre — it's the answer to "what have we
-  been doing," which is the actual reason to open the app on week nine.
+- **Does the front page open on a game or on the meta space?** Leaning: the
+  meta space, with resume front and centre — it's the answer to "what have
+  we been doing," which is the actual reason to open this on week nine. But
+  that depends on what the meta space turns out to be.
 - **Do both of you need the record, or just one?** Export/import makes two
   copies possible but they'll drift. Might be cleaner to say the record
   belongs to whoever opens it, and each of you has your own view.
