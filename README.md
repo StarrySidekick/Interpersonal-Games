@@ -27,6 +27,14 @@ time spent instead of time reported.
 Nothing here decays, nags, or keeps a streak you can break. See rule 2 of
 [the session shape](docs/scope.md#the-session-shape).
 
+## Playable now
+
+**[Blind Agreement](games/blind-agreement.md)** — you both have to pick the
+same thing; miss, and both your picks come off the board.
+**[Play it](play/blind-agreement/)** · 30 seconds a round, a phone each.
+
+Everything else is [in design](docs/game-ideas.md).
+
 ## The games
 
 These pages are the rules in prose — where the collection started, and the
@@ -34,6 +42,7 @@ shelf the playable versions are being built from.
 
 | Game | Works over | Time | Feels like |
 |---|---|---|---|
+| [Blind Agreement](games/blind-agreement.md) | voice, a phone each | 30 sec a round | finding the same idea from the inside |
 | [Twenty Questions](games/twenty-questions.md) | voice, text | 5–10 min | a puzzle you solve together |
 | [Ghost](games/ghost.md) | voice | 5–15 min | sharp, competitive, quick |
 | [Fortunately, Unfortunately](games/fortunately-unfortunately.md) | voice, text | 5–20 min | laughing at something you built |

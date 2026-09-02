@@ -1,0 +1,32 @@
+{
+  "boards": [
+    { "id": "cook", "prompt": "Which of these are we actually cooking this week?",
+      "options": ["Pasta, again", "Breakfast for dinner", "Something with rice", "A soup that takes hours", "Grilled cheese", "A whole roast chicken", "Tacos", "Stir fry", "Frozen pizza", "Eggs, somehow", "A big salad", "Whatever's in the freezer"] },
+    { "id": "vacation", "prompt": "Which of these is the vacation?",
+      "options": ["A cabin with no signal", "Two weeks in one city", "A road trip with no plan", "A beach and nothing else", "Somewhere genuinely cold", "A train through somewhere", "A city with good museums", "A rental with a kitchen", "Camping, properly", "A hotel with a pool", "Visiting people we miss", "Home, but off work"] },
+    { "id": "woken", "prompt": "Which of these is the worst way to be woken up?",
+      "options": ["A leaf blower", "Someone else's alarm", "A phone call at 6am", "A smoke alarm chirping", "A dog on the bed", "Construction", "A dream you didn't finish", "Sun at the wrong angle", "One text notification", "People talking downstairs", "Being far too hot", "A bird, specifically" ] },
+    { "id": "unfinished", "prompt": "Which of these would we never finish?",
+      "options": ["A 900-page novel", "A jigsaw puzzle", "A jar of olives", "A tub of protein powder", "Learning an instrument", "A show past season three", "Fancy vinegar", "A gym membership", "A language app", "A gallon of milk", "A craft project", "A very long game"] },
+    { "id": "sound", "prompt": "Which of these is the most annoying sound?",
+      "options": ["Styrofoam squeaking", "Someone chewing", "A ringtone across a room", "A car alarm", "A tap that drips", "Fluorescent buzz", "A balloon being rubbed", "Nails on anything", "A baby on a plane", "The same notification", "Loud gum", "Silverware scraping"] },
+    { "id": "twoam", "prompt": "Which of these do we put on at 2am?",
+      "options": ["A cooking show", "A nature documentary", "Something seen forty times", "A podcast we stop hearing", "A long video essay", "Music with no words", "A bad action movie", "The news, unwisely", "A sitcom rerun", "A fireplace, for eight hours", "Someone explaining a map", "Nothing. Phones down"] },
+    { "id": "worth", "prompt": "Which of these is most worth the money?",
+      "options": ["Good sheets", "A real mattress", "Nice olive oil", "A comfortable chair", "Blackout curtains", "Good headphones", "One sharp knife", "Shoes that actually fit", "A dishwasher", "Flowers, for no reason", "A big heavy pan", "Paying someone else"] },
+    { "id": "childhood", "prompt": "Which of these smells the most like being a kid?",
+      "options": ["Cut grass", "Chlorine", "Sunscreen", "A library book", "Crayons", "The back seat of a car", "Bonfire smoke", "One specific soap", "Rain on hot pavement", "Cafeteria food", "A grandparent's house", "Play-Doh"] },
+    { "id": "hill", "prompt": "Which of these is the hill to die on?",
+      "options": ["Loading a dishwasher", "When to leave for the airport", "The correct pizza", "Whether cereal is soup", "The thermostat", "Which way the roll goes", "Talking during movies", "Pineapple, on things", "Shoes in the house", "Texting punctuation", "The good parking spot", "When to leave a party"] },
+    { "id": "move", "prompt": "Which of these survives us moving house?",
+      "options": ["The uncomfortable chair", "A box of cables", "Every single mug", "The barely-alive plant", "Books we won't reread", "A broken thing we'll fix", "Photos in an envelope", "The good blanket", "Kitchen gadgets", "Old birthday cards", "An instrument nobody plays", "The spare duvet"] },
+    { "id": "snack", "prompt": "Which of these is the correct snack?",
+      "options": ["Chips, and only chips", "Popcorn", "Cheese and crackers", "A whole apple", "Toast at midnight", "Ice cream from the tub", "Cold leftover pizza", "Peanut butter and a spoon", "Olives", "Dry cereal", "Something with chocolate", "A second dinner"] },
+    { "id": "joy", "prompt": "Which of these is the best small joy?",
+      "options": ["Getting into a made bed", "Every light staying green", "Money in an old coat", "A pen that writes well", "The first cold sip", "A cancelled plan", "A nap that works", "Bare feet on grass", "The perfect parking spot", "When it finally rains", "Just-washed hair", "Someone laughing at yours"] },
+    { "id": "us", "prompt": "Which of these is the most us?",
+      "options": ["Talking until it's late", "Arguing about one word", "Sending each other links", "A plan we keep moving", "The same joke, again", "Long comfortable silences", "Snacks at strange hours", "Overthinking a small thing", "Nicknames for everything", "A shared grudge", "Naming strangers' dogs", "Getting lost on purpose"] },
+    { "id": "ruins", "prompt": "Which of these ruins a day?",
+      "options": ["Sleeping badly", "A meeting that moves", "Losing your keys", "A text you must answer", "Running out of coffee", "Rain at the wrong moment", "A dead phone", "Someone rude, first thing", "Leaving it at home", "A dentist appointment", "A website that won't load", "Being hungry too long"] }
+  ]
+}

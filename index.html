@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d0f13">
+<title>Interpersonal Games</title>
+<link rel="stylesheet" href="engine/app.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header style="margin-bottom:20px">
+    <h1>Interpersonal Games</h1>
+    <p class="dim">Games for two people on the phone with each other. Ten
+      minutes at a time, picked up whenever you're both around.</p>
+  </header>
+
+  <div class="card" id="record" hidden></div>
+
+  <div class="games">
+    <a class="game-card" href="play/blind-agreement/">
+      <h2>Blind Agreement</h2>
+      <p class="dim">You both have to pick the same thing. Miss, and both your
+        picks come off the board.</p>
+      <p class="pill" style="margin-top:8px">2 min · on a call</p>
+    </a>
+
+    <div class="game-card soon">
+      <h2>Correspondence</h2>
+      <p class="dim">You each hold half a map, and your labels for things
+        don't match.</p>
+      <p class="pill" style="margin-top:8px">in design</p>
+    </div>
+
+    <div class="game-card soon">
+      <h2>The Shortlist</h2>
+      <p class="dim">Five things, ranked. You're scored on predicting theirs,
+        not on agreeing.</p>
+      <p class="pill" style="margin-top:8px">in design</p>
+    </div>
+
+    <div class="game-card soon">
+      <h2>Dead Drop</h2>
+      <p class="dim">You build the lock, they pick it, and the message inside
+        is real.</p>
+      <p class="pill" style="margin-top:8px">in design</p>
+    </div>
+  </div>
+
+  <details style="margin-top:20px">
+    <summary>About the record</summary>
+    <p class="small dim">Everything you play is saved in this browser and
+      nowhere else — no account, no server, nothing sent anywhere. Which also
+      means clearing your browser data clears it, so there's an export below.</p>
+    <div class="row" style="margin-top:8px">
+      <button class="quiet" id="export">Copy record</button>
+      <button class="quiet" id="import">Paste record</button>
+    </div>
+    <p class="small dim" id="io-note" style="margin-top:10px"></p>
+  </details>
+
+  <p class="small dim center" style="margin-top:24px">
+    <a href="https://github.com/StarrySidekick/Interpersonal-Games">Source</a>
+    · <a href="docs/scope.md">what this is</a>
+  </p>
+
+</div>
+
+<script type="module">
+import { blindAgreementStats, exportCode, importCode } from './engine/record.js';
+import { $, el, relativeDay } from './engine/ui.js';
+
+const s = blindAgreementStats();
+if (s.rounds > 0) {
+  const card = $('#record');
+  card.hidden = false;
+  card.replaceChildren(
+    el('h2', {}, 'Where you are'),
+    row('Rounds played', String(s.rounds)),
+    row('Average passes to match', s.avgPasses ? s.avgPasses.toFixed(1) : '—'),
+    row('Best round', s.best ? `${s.best} pass${s.best === 1 ? '' : 'es'}` : '—'),
+    row('Last played', relativeDay(s.lastPlayed) || '—')
+  );
+}
+function row(label, value) {
+  return el('div', { class: 'stat' },
+    el('span', { class: 'dim' }, label), el('b', {}, value));
+}
+
+const note = $('#io-note');
+$('#export').onclick = async () => {
+  try {
+    await navigator.clipboard.writeText(exportCode());
+    note.textContent = 'Copied. Paste it somewhere you keep things.';
+  } catch {
+    note.textContent = 'Could not reach the clipboard on this browser.';
+  }
+};
+$('#import').onclick = async () => {
+  try {
+    const text = await navigator.clipboard.readText();
+    importCode(text);
+    note.textContent = 'Merged. Reload to see it.';
+  } catch {
+    note.textContent = 'Nothing usable on the clipboard.';
+  }
+};
+</script>
+</body>
+</html>
