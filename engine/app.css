@@ -80,6 +80,11 @@ button.danger { background: transparent; border-color: var(--miss); color: var(-
 .opt[aria-pressed='true'] {
   background: var(--accent); color: var(--accent-ink); border-color: transparent;
 }
+/* A .quiet button used as a choice rather than an action. Same answer .opt
+   gives, for the case where the choice is two buttons in a stack. */
+.quiet[aria-pressed='true'] {
+  background: var(--accent); color: var(--accent-ink); border-color: transparent;
+}
 .opt.gone {
   opacity: .3; text-decoration: line-through; pointer-events: none;
   background: transparent;

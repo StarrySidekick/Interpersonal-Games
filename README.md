@@ -33,6 +33,10 @@ Nothing here decays, nags, or keeps a streak you can break. See rule 2 of
 same thing; miss, and both your picks come off the board.
 **[Play it](play/blind-agreement/)** · 30 seconds a round, a phone each.
 
+**Twenty-Twenty** — you're both guessing, and each of you is allowed to lie
+once.
+**[Play it](play/twenty-twenty/)** · 10–15 minutes, a phone each.
+
 Everything else is [in design](docs/game-ideas.md).
 
 ## The games
@@ -44,6 +48,7 @@ shelf the playable versions are being built from.
 |---|---|---|---|
 | [Blind Agreement](games/blind-agreement.md) | voice, a phone each | 30 sec a round | finding the same idea from the inside |
 | [Twenty Questions](games/twenty-questions.md) | voice, text | 5–10 min | a puzzle you solve together |
+| Twenty-Twenty — [play it](play/twenty-twenty/) | voice, a phone each | 10–15 min | reading someone you know well |
 | [Ghost](games/ghost.md) | voice | 5–15 min | sharp, competitive, quick |
 | [Fortunately, Unfortunately](games/fortunately-unfortunately.md) | voice, text | 5–20 min | laughing at something you built |
 | [Category Ping-Pong](games/category-ping-pong.md) | voice | 5 min | a warm-up, fast and silly |

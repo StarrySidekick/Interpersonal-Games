@@ -164,9 +164,26 @@ scoring, and an async path. Worth it, but not first.
 
 ---
 
-## Twenty-Twenty *(working)*
+## Twenty-Twenty — **BUILT**, at [`play/twenty-twenty/`](../play/twenty-twenty/)
 *You're both guessing. And one of you is allowed to lie.*
 **Engine:** A · **Sitting:** 10–15 min · **Effort:** M
+
+Both rules below are in it, and the name stuck. What the build settled that
+the design did not:
+
+- **Each phone only ever holds facts about its own player** — your secret,
+  your lie, your count, the calls you made. Nothing has to agree with the
+  other screen, so nothing can silently disagree. The seed is there only so
+  the two of you are dealt from one deck and cannot both get the octopus.
+- **Undo is a first-class button.** A miscount is the one thing that turns
+  this sour over a phone line, and a fat thumb is the commonest cause.
+- **The lie cannot be un-spent.** Being able to take it back would make it a
+  setting rather than a nerve.
+- **The call is resolved by the other person, out loud.** Nothing on screen
+  can check whether they lied, and that is the game rather than a gap in it.
+- Left open: the lie-detection *rate* is recorded but not yet shown as a rate.
+  It needs a few sittings before a percentage means anything, and where two
+  people's numbers get compared is the meta space's question, not this game's.
 
 The two things that stop this being twenty questions:
 

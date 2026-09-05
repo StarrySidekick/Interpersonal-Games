@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d0f13">
+<title>Twenty-Twenty</title>
+<link rel="stylesheet" href="../../engine/app.css">
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <a class="back" href="../../">&larr; Games</a>
+    <span class="pill" id="status">Twenty-Twenty</span>
+  </div>
+
+  <!-- Setup -->
+  <section data-screen="setup">
+    <h1>Twenty-Twenty</h1>
+    <p class="dim">You're both guessing. And each of you is allowed to lie,
+      once.</p>
+
+    <div class="card">
+      <p class="small dim" style="margin-bottom:10px">One of you says this code
+        out loud. The other types it in. Same code, same deck.</p>
+      <input type="text" id="code" autocomplete="off" autocapitalize="none"
+             autocorrect="off" spellcheck="false" placeholder="otter-lamp-97">
+      <div class="stack" style="margin-top:10px">
+        <button class="quiet" id="suggest">Give me a code</button>
+      </div>
+
+      <p class="small dim" style="margin:16px 0 8px">And one of you takes the
+        left, the other the right. You'll be dealt different things.</p>
+      <div class="stack">
+        <button class="quiet" id="side-a" aria-pressed="false">I'm the left</button>
+        <button class="quiet" id="side-b" aria-pressed="false">I'm the right</button>
+      </div>
+      <div class="stack" style="margin-top:10px">
+        <button class="primary" id="start" disabled>Deal me a thing</button>
+      </div>
+    </div>
+
+    <details>
+      <summary>How it works</summary>
+      <p class="small dim">You each get a secret thing. You take turns, one
+        question each, and you're both trying to guess the other's. A guess
+        costs your turn — get it wrong and they get a free question.</p>
+      <p class="small dim">And you each get <b>one lie</b>. Exactly one, any
+        time, and you never have to use it. So when you answer, they aren't
+        only narrowing a category — they're wondering whether that pause was
+        thinking or lying.</p>
+      <p class="small dim">If you think they just lied, call it. Right, and you
+        take the turn back. Wrong, and you lose one.</p>
+      <p class="small dim">The phone keeps your secret, your lie and your
+        count. Everything else happens out loud.</p>
+    </details>
+
+    <div class="card" id="arc" hidden>
+      <p class="small dim" id="arc-line"></p>
+    </div>
+  </section>
+
+  <!-- The secret, shown once -->
+  <section data-screen="secret" hidden>
+    <p class="dim center" style="margin-bottom:2px">Yours is</p>
+    <p class="say" id="secret"></p>
+    <p class="center dim small" id="secret-cat"></p>
+    <p class="small dim center" style="margin-top:18px">Say the category out
+      loud. Not the thing.</p>
+    <div class="stack" style="margin-top:14px">
+      <button class="primary" id="got-it">Got it — hide it</button>
+    </div>
+  </section>
+
+  <!-- Play -->
+  <section data-screen="play" hidden>
+    <div class="card center">
+      <p class="small dim" style="margin-bottom:4px">Questions you've asked</p>
+      <p class="say" id="asked">0</p>
+      <p class="small dim" id="left"></p>
+    </div>
+
+    <div class="stack" style="margin-top:12px">
+      <button class="primary" id="ask">I asked one</button>
+      <button class="quiet" id="undo-ask">Undo</button>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <p class="small dim" style="margin-bottom:8px" id="lie-state"></p>
+      <button class="quiet" id="lie">That answer was a lie</button>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <p class="small dim" style="margin-bottom:8px">Think they just lied?</p>
+      <button class="quiet" id="call">Call it</button>
+    </div>
+
+    <div class="stack" style="margin-top:16px">
+      <button class="quiet" id="peek">Show me mine again</button>
+      <button class="quiet" id="done">We're done</button>
+    </div>
+  </section>
+
+  <!-- Calling a lie -->
+  <section data-screen="callit" hidden>
+    <p class="prompt center">Say it out loud: <b>&ldquo;That was a lie.&rdquo;</b></p>
+    <p class="small dim center">They tell you whether it was. Nothing here can
+      check — that's the game.</p>
+    <div class="stack" style="margin-top:18px">
+      <button class="primary" id="call-right">It was a lie</button>
+      <button class="quiet" id="call-wrong">It wasn't</button>
+      <button class="quiet" id="call-cancel">Never mind</button>
+    </div>
+  </section>
+
+  <!-- End of the sitting -->
+  <section data-screen="end" hidden>
+    <p class="dim center" style="margin-bottom:2px">Who got there?</p>
+    <div class="stack" style="margin-top:10px">
+      <button class="quiet" id="won-me">I guessed theirs</button>
+      <button class="quiet" id="won-them">They guessed mine</button>
+      <button class="quiet" id="won-both">Both of us</button>
+      <button class="quiet" id="won-neither">Neither</button>
+    </div>
+  </section>
+
+  <!-- After -->
+  <section data-screen="after" hidden>
+    <p class="dim center" style="margin-bottom:2px">Yours was</p>
+    <p class="say" id="reveal"></p>
+    <div class="card" style="margin-top:16px">
+      <p class="small dim" id="tally"></p>
+    </div>
+    <div class="stack" style="margin-top:14px">
+      <button class="primary" id="again">Another</button>
+      <a class="back" href="../../" style="text-align:center">Back to games</a>
+    </div>
+  </section>
+
+</div>
+<script type="module" src="game.js"></script>
+</body>
+</html>

@@ -71,6 +71,35 @@ export function blindAgreementStats() {
   };
 }
 
+/** Twenty-Twenty's numbers. The one that means something over months is how
+    often you are right when you call a lie — a rate you cannot see in a single
+    sitting and which is the whole reason the lie rule exists. Nothing here
+    decays or breaks: a gap between sittings changes none of it. */
+export function twentyTwentyStats() {
+  const sittings = sittingsFor('twenty-twenty');
+  let calls = 0, callsRight = 0, liesTold = 0, asked = 0, guessed = 0;
+  for (const s of sittings) {
+    const d = s.data || {};
+    calls += d.calls || 0;
+    callsRight += d.callsRight || 0;
+    if (d.lieSpent) liesTold++;
+    asked += d.asked || 0;
+    if (d.outcome === 'me' || d.outcome === 'both') guessed++;
+  }
+  return {
+    sittings: sittings.length,
+    calls,
+    callsRight,
+    // Null rather than zero until there is anything to average, because a
+    // rate of 0% and "you have never called one" are different facts.
+    callRate: calls ? callsRight / calls : null,
+    liesTold,
+    asked,
+    guessed,
+    lastPlayed: sittings.length ? sittings[sittings.length - 1].endedAt : null
+  };
+}
+
 export function exportCode() {
   return btoa(unescape(encodeURIComponent(JSON.stringify(load()))));
 }
