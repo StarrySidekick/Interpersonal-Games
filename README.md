@@ -1,5 +1,11 @@
 # Interpersonal Games
 
+> **Read [`INTENT.md`](INTENT.md) first.** It records what this project is for
+> and what Timothy wants next, in his own words, dated. Where it disagrees with
+> this file about *direction* it is newer and wins; where it disagrees about
+> *mechanics* — how the code works, what was decided deliberately, the
+> invariants — this file wins.
+
 Small games for two people who aren't in the same room.
 
 You play them on your phone, usually while you're on the phone with the
