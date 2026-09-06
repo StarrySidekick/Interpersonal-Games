@@ -6,34 +6,58 @@
 > *mechanics* — how the code works, what was decided deliberately, the
 > invariants — this file wins.
 
-Small games for two people who aren't in the same room.
+**You find a PET in an abandoned, forested place.**
 
-You play them on your phone, usually while you're on the phone with the
-person you're playing against. The call carries the talking; the screen
-carries the game. Ten minutes at a time, picked back up whenever you're both
-around again — which might be Thursday, or might be three weeks from now.
+You wake it up. It bonds with exactly one other person, and from then on the
+two of you can talk through it like a walkie-talkie, wherever you each are.
+It also holds games — small ones, the kind two people play against and
+alongside each other — and playing them is what feeds the place. Your gardens
+grow. The forest comes back.
 
-The point isn't the game. The point is that a game gives two people something
-to do together, and doing something together is what makes a call feel like
-time spent instead of time reported.
+That is the whole thing. **The games are not the product. The place is, and the
+games are what tends it.**
 
-## What a game in here has to do
+## What it actually is
+
+Two people, a phone each, usually already on a call. Ten or twenty minutes at a
+time, picked up again whenever you are both around, which might be Thursday or
+might be three weeks from now. In between, what you have made together sits
+there and waits.
+
+It is closer to *It Takes Two* or *Split Fiction* than to a party game: built
+for two specific people who want to be closer, not scaled down from something
+built for six. One PET, one bond, one other person.
+
+It began as something for two people in particular. It is aimed a little wider
+now, but it never becomes a game for a group.
+
+## The five rules a game in here has to keep
+
+These predate the framing above and every one of them survived it. Two of them
+stopped being merely sensible and became load-bearing.
 
 1. **Be built for two.** Not scaled down from a party game.
-2. **Run alongside a conversation, not instead of one.** You should be able
-   to look away from the screen for fifteen seconds and lose nothing.
+2. **Run alongside a conversation, not instead of one.** You should be able to
+   look away from the screen for fifteen seconds and lose nothing.
 3. **Finish in a sitting, and survive a gap.** Ten to twenty minutes, ending
    complete. Three weeks later you pick it up with no rules to relearn and
    nothing lost for having been away.
 4. **Be different on the tenth night than the first.** Something accrues.
-5. **Leave you closer.** By laughing, by learning something, or by having
-   made a thing together. A game you can win and feel nothing afterward
-   isn't for this repo.
+   **The garden is the answer to this one.** It was called the hard part before
+   there was anywhere for the growing to go.
+5. **Leave you closer.** By laughing, by learning something, or by having made
+   a thing together. A game you can win and feel nothing afterward isn't for
+   this repo.
 
-Nothing here decays, nags, or keeps a streak you can break. See rule 2 of
-[the session shape](docs/scope.md#the-session-shape).
+**Nothing here decays, nags, or keeps a streak you can break.** Which now has
+teeth: a garden that wilts because you did not call is exactly the guilt
+mechanic this repo bans. A place you left is a place that waits for you. Come
+back after a month and it greets you with what you have built, never with what
+you missed. See rule 2 of [the session shape](docs/scope.md#the-session-shape).
 
 ## Playable now
+
+Two games run. There is not yet a place for them to feed.
 
 **[Blind Agreement](games/blind-agreement.md)** — you both have to pick the
 same thing; miss, and both your picks come off the board.
@@ -43,18 +67,50 @@ same thing; miss, and both your picks come off the board.
 once.
 **[Play it](play/twenty-twenty/)** · 10–15 minutes, a phone each.
 
-Everything else is [in design](docs/game-ideas.md).
+## What is next
 
-## The games
+In order, and the order matters:
 
-These pages are the rules in prose — where the collection started, and the
-shelf the playable versions are being built from.
+1. **The environment.** Render the place the games are played in and fed by.
+   This outranks adding games, and there are no new games until it exists.
+2. **Solo play, for testing.** Right now trying anything out requires getting
+   the other person on the phone, which means the games are barely playtested.
+   The finished thing is strictly two-player; the workbench should not be.
+3. **Growth that accrues.** The garden, the forest, the record. Weight anything
+   that lasts across months over anything that entertains once.
+
+[`engine/record.js`](engine/record.js) is where the accruing already starts: it
+logs a finished sitting to this browser and nowhere else, and it is written to
+the rule above, so things pile up and nothing is ever taken away.
+
+## How two phones share a game with no server
+
+Three engines, none of which needs a backend, described in full in
+[`docs/scope.md`](docs/scope.md):
+
+- **A — the shared seed.** You both type the same short room code; it seeds a
+  deterministic generator, so both phones build the identical game and two roles
+  can be shown different things from it. Asymmetric information, zero network.
+- **B — the link.** A turn encoded in a URL fragment, which is never sent to any
+  server. For the weeks you cannot get on a call.
+- **C — the record.** What you have made, kept on the device.
+
+**This is not a limitation of GitHub Pages that goes away later.** The eventual
+home is an iPhone app, most likely peer to peer, so nothing here should be built
+that needs a server. Some of these games ask real questions, and those answers
+should never touch anyone's machine but the two of yours.
+
+## The shelf
+
+Rules in prose. This is where the collection started and where playable
+versions get built from, not a list of things that are all going to be built.
+Adding to it is not currently the work.
 
 | Game | Works over | Time | Feels like |
 |---|---|---|---|
-| [Blind Agreement](games/blind-agreement.md) | voice, a phone each | 30 sec a round | finding the same idea from the inside |
-| [Twenty Questions](games/twenty-questions.md) | voice, text | 5–10 min | a puzzle you solve together |
+| [Blind Agreement](games/blind-agreement.md) — [play it](play/blind-agreement/) | voice, a phone each | 30 sec a round | finding the same idea from the inside |
 | Twenty-Twenty — [play it](play/twenty-twenty/) | voice, a phone each | 10–15 min | reading someone you know well |
+| [Twenty Questions](games/twenty-questions.md) | voice, text | 5–10 min | a puzzle you solve together |
 | [Ghost](games/ghost.md) | voice | 5–15 min | sharp, competitive, quick |
 | [Fortunately, Unfortunately](games/fortunately-unfortunately.md) | voice, text | 5–20 min | laughing at something you built |
 | [Category Ping-Pong](games/category-ping-pong.md) | voice | 5 min | a warm-up, fast and silly |
@@ -67,39 +123,22 @@ shelf the playable versions are being built from.
 | [Show Me](games/show-me.md) | video | 10 min | a tour of each other's rooms |
 | [Photo Tennis](games/photo-tennis.md) | text, async | ongoing | a slow game across a time zone |
 
-## Pick one
-
-- **You have four minutes before bed** → [Rose, Bud, Thorn](games/rose-bud-thorn.md)
-- **One of you is driving** → [Twenty Questions](games/twenty-questions.md), [Ghost](games/ghost.md), [Category Ping-Pong](games/category-ping-pong.md)
-- **The call has gone quiet and neither of you wants to hang up** → [Fortunately, Unfortunately](games/fortunately-unfortunately.md)
-- **You're in different time zones and rarely awake together** → [Photo Tennis](games/photo-tennis.md)
-- **You want the call to matter** → [The First Time I…](games/the-first-time-i.md), [The 36 Questions](games/thirty-six-questions.md)
-
-More on this in [docs/choosing-a-game.md](docs/choosing-a-game.md).
+More on choosing between them in
+[`docs/choosing-a-game.md`](docs/choosing-a-game.md).
 
 ## Docs
 
-- [`docs/choosing-a-game.md`](docs/choosing-a-game.md) — how to pick, by time, energy, and medium
+- [`INTENT.md`](INTENT.md) — what this is for and what is next
+- [`docs/scope.md`](docs/scope.md) — the session shape, the UI rules, the three engines
+- [`docs/choosing-a-game.md`](docs/choosing-a-game.md) — how to pick, by time, energy and medium
 - [`docs/house-rules.md`](docs/house-rules.md) — the handful of rules that make any of these work
-- [`docs/adding-a-game.md`](docs/adding-a-game.md) — how to add one, and the template to use
-
-## What's next
-
-Building these as actual games — real interface, on your phone, hosted here.
-
-- [`docs/scope.md`](docs/scope.md) — the session shape, the UI rules, and how two phones share a game with no server behind them
-- [`docs/game-ideas.md`](docs/game-ideas.md) — the candidates, what each costs, and which to build first
-
-Nothing there is decided yet.
-
-## Adding a game
-
-Copy [`games/_TEMPLATE.md`](games/_TEMPLATE.md), fill it in, add a row to the
-table above. See [`docs/adding-a-game.md`](docs/adding-a-game.md) — though
-its criteria are the old ones, and need rewriting against the list above.
+- [`docs/game-ideas.md`](docs/game-ideas.md) — candidates, what each costs
+- [`docs/adding-a-game.md`](docs/adding-a-game.md) — the template, though its criteria are the old ones
 
 ## Credit
 
 Several of these are folk games — Ghost, Twenty Questions, and Fortunately/
 Unfortunately have been played for generations and belong to no one. Where a
 game has a known author or origin, it's credited on the game's own page.
+
+The PET is a nod to *Mega Man Battle Network*, and is meant as one.
