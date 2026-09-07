@@ -3,6 +3,18 @@
 What we're building, what shape a session has, and how two phones share a
 game with no server behind them.
 
+> **The framing changed on 2026-09-06 and this document predates it.** It is a
+> PET found in an abandoned forested place, bonded to one other person, and the
+> games are what feed the place back to life — see [`../INTENT.md`](../INTENT.md)
+> and the [README](../README.md).
+>
+> **Everything below survives that intact**, and two parts of it stopped being
+> merely sensible. Rule 4, "the tenth session isn't the first session again",
+> was called the hard part; the garden is the answer to it. Rule 2, "things
+> accrue, nothing decays", is now also why a garden must never wilt for a call
+> you did not make. What is out of date here is only the description of *what
+> the thing is*, not of how a session works or how two phones share one.
+
 ## What this is
 
 Real games, with a real interface, on your phone. Usually played while
