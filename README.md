@@ -67,15 +67,20 @@ same thing; miss, and both your picks come off the board.
 once.
 **[Play it](play/twenty-twenty/)** · 10–15 minutes, a phone each.
 
+No second person handy? Each game's setup screen has a **Test it solo** link
+that runs both sides at once in one page — see "How two phones share a game
+with no server" below for why that's safe to leave in.
+
 ## What is next
 
 In order, and the order matters:
 
 1. **The environment.** Render the place the games are played in and fed by.
    This outranks adding games, and there are no new games until it exists.
-2. **Solo play, for testing.** Right now trying anything out requires getting
-   the other person on the phone, which means the games are barely playtested.
-   The finished thing is strictly two-player; the workbench should not be.
+2. **Solo play, for testing — done.** Each game's setup screen links to a
+   `solo.html` that runs both roles in one page — two synced iframes sharing
+   a code, driven from one browser, writing nothing to the record. The
+   finished thing is still strictly two-player; the workbench isn't.
 3. **Growth that accrues.** The garden, the forest, the record. Weight anything
    that lasts across months over anything that entertains once.
 
@@ -99,6 +104,15 @@ Three engines, none of which needs a backend, described in full in
 home is an iPhone app, most likely peer to peer, so nothing here should be built
 that needs a server. Some of these games ask real questions, and those answers
 should never touch anyone's machine but the two of yours.
+
+**Solo testing is engine A played against itself.** Two phones sharing a code
+is already how the live game works with no network between them — a
+`solo.html` just loads `index.html` twice, in two iframes, with the same code
+baked into the URL instead of typed. `engine/ui.js`'s `practiceInfo()` reads
+`?practice=1&code=…` (and `&side=`, for a game with roles), auto-starts, and
+skips `logSitting()` and the "last code" default so a solo run never becomes a
+line in the real record. A new game gets this for free by using the same
+three query params rather than inventing its own.
 
 ## The shelf
 

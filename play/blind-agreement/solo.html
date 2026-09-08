@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d0f13">
+<title>Blind Agreement — solo test</title>
+<link rel="stylesheet" href="../../engine/app.css">
+<style>
+  .wrap { max-width: 900px; }
+  .panes {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+    align-items: start;
+  }
+  @media (max-width: 760px) { .panes { grid-template-columns: 1fr; } }
+  .pane {
+    border: 1px solid var(--line); border-radius: var(--radius);
+    overflow: hidden; background: var(--panel);
+  }
+  .pane h3 {
+    margin: 0; padding: 10px 14px; font-size: 13px; font-weight: 700;
+    color: var(--dim); background: var(--panel-2); border-bottom: 1px solid var(--line);
+  }
+  .pane iframe { display: block; width: 100%; height: 760px; border: 0; background: var(--bg); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <a class="back" href="./">&larr; Blind Agreement</a>
+    <span class="pill" id="code-pill"></span>
+  </div>
+
+  <h1>Solo test</h1>
+  <p class="dim">Two boards, one code, both driven by you. This is for trying
+    a change before Alyssa is on the phone — it is not the two-player game,
+    it's the workbench. <b>Nothing played here is saved to the record.</b></p>
+  <div class="stack" style="margin:14px 0 18px; max-width:280px">
+    <button class="quiet" id="reroll">New practice round</button>
+  </div>
+
+  <div class="panes">
+    <div class="pane"><h3>PHONE 1</h3><iframe id="f1" title="Phone 1"></iframe></div>
+    <div class="pane"><h3>PHONE 2</h3><iframe id="f2" title="Phone 2"></iframe></div>
+  </div>
+
+  <p class="small dim center" style="margin-top:16px">Say your own picks out
+    loud to yourself if it helps, or just watch whether the two boards agree
+    the way they're supposed to. That agreement is the thing worth testing —
+    the rest is voice.</p>
+
+</div>
+<script type="module">
+import { newRoomCode } from '../../engine/seed.js';
+import { $ } from '../../engine/ui.js';
+
+function load(code) {
+  $('#code-pill').textContent = code;
+  const url = `index.html?practice=1&code=${encodeURIComponent(code)}`;
+  $('#f1').src = url;
+  $('#f2').src = url;
+}
+
+$('#reroll').onclick = () => load(newRoomCode());
+load(newRoomCode());
+</script>
+</body>
+</html>

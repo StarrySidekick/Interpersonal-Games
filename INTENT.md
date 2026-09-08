@@ -55,10 +55,13 @@ some of it is now load-bearing rather than merely wise:
 **1. Render the environment the games take place in.** This outranks new games.
 There is no place yet, and the place is now the point.
 
-**2. A way to play and test solo.** Timothy has not been able to properly
-playtest, because playtesting currently requires getting Alyssa on the phone.
-This unblocks him personally and it is worth building even though the finished
-thing is strictly two-player.
+**2. A way to play and test solo — done, 2026-09-08.** Both playable games'
+setup screens now link to a `solo.html` that runs two synced panes (two roles
+for Twenty-Twenty, two phones for Blind Agreement) in one page, driven by one
+person, writing nothing to the real record. See "How two phones share a game
+with no server" in the README. Any future game gets this for free by reading
+`practiceInfo()` in `engine/ui.js` the same way rather than inventing its own
+convention.
 
 **3. Long-term growth of elements.** Very important, in his words. Weight
 anything that accrues across months over anything that entertains once.

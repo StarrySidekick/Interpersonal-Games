@@ -6,7 +6,9 @@
 
 import { rng, shuffled, newRoomCode, normalizeCode } from '../../engine/seed.js';
 import { logSitting, blindAgreementStats } from '../../engine/record.js';
-import { $, el, show, keepAwake, haptic, relativeDay } from '../../engine/ui.js';
+import {
+  $, el, show, keepAwake, haptic, relativeDay, practiceInfo, practiceBanner
+} from '../../engine/ui.js';
 
 const GAME = 'blind-agreement';
 const LAST_CODE = 'ig.lastCode';
@@ -16,7 +18,7 @@ let boards = [];
 const game = {
   code: '', order: [], roundNo: 0,
   board: null, options: [], gone: new Set(), myPick: null, passes: 0,
-  rounds: [], startedAt: 0
+  rounds: [], startedAt: 0, practice: false
 };
 
 // --- setup -----------------------------------------------------------------
@@ -26,8 +28,15 @@ async function boot() {
   const res = await fetch('../../data/blind-agreement.json');
   boards = (await res.json()).boards;
 
+  // A pane on solo.html arrives with its code in the URL rather than typed —
+  // see practiceInfo() for why a practice round must not become the phone's
+  // new default code or a line in the real record.
+  const practice = practiceInfo();
+  game.practice = practice.on;
+  if (practice.on) practiceBanner();
+
   const saved = localStorage.getItem(LAST_CODE);
-  $('#code').value = saved || '';
+  $('#code').value = practice.code || saved || '';
 
   $('#suggest').onclick = () => { $('#code').value = newRoomCode(); };
   $('#start').onclick = startSitting;
@@ -39,11 +48,12 @@ async function boot() {
   $('#again').onclick = () => show('setup');
 
   show('setup');
+  if (practice.on && practice.code) startSitting();
 }
 
 function startSitting() {
   const code = normalizeCode($('#code').value) || normalizeCode(newRoomCode());
-  localStorage.setItem(LAST_CODE, code);
+  if (!game.practice) localStorage.setItem(LAST_CODE, code);
 
   game.code = code;
   // One deterministic board order for the whole sitting, so round N is the
@@ -173,7 +183,7 @@ function updateStatus() {
 // --- end -------------------------------------------------------------------
 
 function endSitting() {
-  if (game.rounds.length) {
+  if (game.rounds.length && !game.practice) {
     logSitting({
       game: GAME,
       startedAt: game.startedAt,

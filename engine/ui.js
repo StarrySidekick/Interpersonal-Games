@@ -45,6 +45,32 @@ export function haptic(pattern = 12) {
   try { navigator.vibrate?.(pattern); } catch { /* not supported */ }
 }
 
+/**
+ * Query-string plumbing for a solo practice pane — see each game's solo.html.
+ * `?practice=1&code=...` (and `&side=a|b` for a game with roles) lets one
+ * page load two synced iframes instead of two phones. A game reads this once
+ * in boot() to prefill and auto-start, and must not let a practice run touch
+ * localStorage's "last code" default or the real record — a solo test round
+ * is not a sitting. Any new game gets solo testing for free by following the
+ * same three params rather than inventing its own.
+ */
+export function practiceInfo() {
+  const p = new URLSearchParams(location.search);
+  return {
+    on: p.get('practice') === '1',
+    code: p.get('code') || '',
+    side: p.get('side') || ''
+  };
+}
+
+/** So a practice pane never looks or scores like the real thing. */
+export function practiceBanner() {
+  const topbar = $('.topbar');
+  const note = el('p', { class: 'small dim center', style: 'margin:-6px 0 14px' },
+    'Practice pane — not saved to your record.');
+  if (topbar) topbar.after(note); else document.body.prepend(note);
+}
+
 export function relativeDay(ts) {
   if (!ts) return null;
   const days = Math.floor((Date.now() - ts) / 86400000);

@@ -14,7 +14,9 @@
 
 import { rng, shuffled, newRoomCode, normalizeCode } from '../../engine/seed.js';
 import { logSitting, twentyTwentyStats } from '../../engine/record.js';
-import { $, el, show, keepAwake, haptic, relativeDay } from '../../engine/ui.js';
+import {
+  $, el, show, keepAwake, haptic, relativeDay, practiceInfo, practiceBanner
+} from '../../engine/ui.js';
 
 const GAME = 'twenty-twenty';
 const LAST_CODE = 'ig.lastCode';
@@ -25,7 +27,7 @@ let subjects = [];
 
 const game = {
   code: '', side: '', secret: null, startedAt: 0,
-  asked: 0, lieSpent: false, calls: [], outcome: null
+  asked: 0, lieSpent: false, calls: [], outcome: null, practice: false
 };
 
 // --- setup -----------------------------------------------------------------
@@ -35,8 +37,17 @@ async function boot() {
   const res = await fetch('../../data/twenty-twenty.json');
   subjects = (await res.json()).subjects;
 
-  $('#code').value = localStorage.getItem(LAST_CODE) || '';
-  game.side = localStorage.getItem(LAST_SIDE) || '';
+  // See practiceInfo() in engine/ui.js — a pane on solo.html carries its
+  // code and side in the URL, and must not overwrite the phone's real
+  // defaults or be written into the record.
+  const practice = practiceInfo();
+  game.practice = practice.on;
+  if (practice.on) practiceBanner();
+
+  $('#code').value = practice.code || localStorage.getItem(LAST_CODE) || '';
+  game.side = (practice.side === 'a' || practice.side === 'b')
+    ? practice.side
+    : (localStorage.getItem(LAST_SIDE) || '');
 
   $('#suggest').onclick = () => { $('#code').value = newRoomCode(); };
   $('#side-a').onclick = () => pickSide('a');
@@ -61,6 +72,7 @@ async function boot() {
   pickSide(game.side);
   renderArc();
   show('setup');
+  if (practice.on && practice.code && game.side) startSitting();
 }
 
 // The pill carries the running call tally during a sitting, so it has to be
@@ -76,8 +88,10 @@ function pickSide(side) {
 
 function startSitting() {
   const code = normalizeCode($('#code').value) || normalizeCode(newRoomCode());
-  localStorage.setItem(LAST_CODE, code);
-  localStorage.setItem(LAST_SIDE, game.side);
+  if (!game.practice) {
+    localStorage.setItem(LAST_CODE, code);
+    localStorage.setItem(LAST_SIDE, game.side);
+  }
 
   // One deck order from the code, then the left takes the first and the right
   // takes the second. Both phones compute the same shuffle, so the two of you
@@ -152,20 +166,22 @@ function endSitting(outcome) {
   const made = game.calls.length;
   const right = game.calls.filter((c) => c.right).length;
 
-  logSitting({
-    game: GAME,
-    startedAt: game.startedAt,
-    data: {
-      side: game.side,
-      subject: game.secret.n,
-      category: game.secret.c,
-      asked: game.asked,
-      lieSpent: game.lieSpent,
-      calls: made,
-      callsRight: right,
-      outcome
-    }
-  });
+  if (!game.practice) {
+    logSitting({
+      game: GAME,
+      startedAt: game.startedAt,
+      data: {
+        side: game.side,
+        subject: game.secret.n,
+        category: game.secret.c,
+        asked: game.asked,
+        lieSpent: game.lieSpent,
+        calls: made,
+        callsRight: right,
+        outcome
+      }
+    });
+  }
 
   $('#reveal').textContent = game.secret.n;
   const bits = [`You asked ${game.asked}.`];

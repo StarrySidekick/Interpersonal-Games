@@ -37,6 +37,15 @@ related game's **Variations** section rather than adding as its own page.
 4. If it changes the calculus, update
    [`docs/choosing-a-game.md`](choosing-a-game.md).
 
+This is about the prose page. Building the actual playable version under
+`play/` is a separate step, and if you do, wire up solo testing the same way
+the other two games do rather than inventing a new convention: read
+`practiceInfo()` from `engine/ui.js` in `boot()`, prefill and auto-start from
+its `code` (and `side`, if the game has roles), skip `logSitting()` and any
+"last code" `localStorage` write when `practice.on`, and add a `solo.html`
+that loads `index.html` twice with `?practice=1&code=…` baked in. See
+`play/blind-agreement/solo.html` for the shortest version of it.
+
 ## Style
 
 - Second person. "You go first," not "the first player goes first."
