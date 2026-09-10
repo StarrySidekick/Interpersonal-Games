@@ -165,6 +165,8 @@ docs/*.md             this, the game catalog, house rules
 engine/seed.js        room code -> deterministic RNG (Engine A)
 engine/link.js        state <-> URL fragment (Engine B)
 engine/record.js      localStorage, export/import (Engine C)
+engine/growth.js      record -> the place's growth stage (pure, no clock)
+engine/scene.js       growth stage -> the clearing, as one inline SVG
 engine/ui.js          shared shell: dark, tap targets, wake lock
 data/*.json           word lists, spectrum pairs, question decks
 ```

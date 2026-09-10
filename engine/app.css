@@ -110,6 +110,18 @@ input[type='text'] {
 .stat + .stat { border-top: 1px solid var(--line); }
 .stat b { font-weight: 650; }
 
+/* The place — see engine/growth.js and engine/scene.js. One picture, grown
+   from the record rather than art-directed per visit, so it's worth putting
+   right at the top: this is what week nine opens on. */
+.place { margin-bottom: 18px; }
+.place-scene {
+  border-radius: var(--radius); overflow: hidden; background: #0a0c12;
+  border: 1px solid var(--line);
+}
+.place-scene svg { display: block; width: 100%; height: auto; }
+.place-line { font-size: 17px; font-weight: 650; margin: 12px 0 2px; }
+.place-meta { margin: 0 0 4px; }
+
 .games { display: grid; gap: 10px; }
 .game-card {
   display: block; text-decoration: none; color: inherit; background: var(--panel);

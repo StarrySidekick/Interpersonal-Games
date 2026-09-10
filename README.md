@@ -55,9 +55,26 @@ mechanic this repo bans. A place you left is a place that waits for you. Come
 back after a month and it greets you with what you have built, never with what
 you missed. See rule 2 of [the session shape](docs/scope.md#the-session-shape).
 
+## The place
+
+The front page opens on it now — a clearing, drawn as one SVG that changes
+with how much the two of you have finished together, never with when. Zero
+sittings is fog, a bare tree and a PET that hasn't woken up; the count climbs
+and the fog lifts, moss and grass come in, a sapling grows in beside the dead
+tree, fireflies and a stream show up, and by thirty sittings the same dead tree
+you started with is leaved out again rather than replaced by a new one. Play
+both games at least once and a footpath of two lanterns lights up between the
+board's edges — the bond, not the score, and it stays lit even if the count
+that unlocked it is old news.
+
+[`engine/growth.js`](engine/growth.js) turns the record into a stage (six of
+them, for now); [`engine/scene.js`](engine/scene.js) is the only file that
+knows what a stage looks like. Both are pure and read no clock — see rule 2.
+This is a first slice: flat SVG, six stages, one screen. It's meant to grow.
+
 ## Playable now
 
-Two games run. There is not yet a place for them to feed.
+Two games run, and now there's somewhere they're growing.
 
 **[Blind Agreement](games/blind-agreement.md)** — you both have to pick the
 same thing; miss, and both your picks come off the board.
@@ -75,8 +92,10 @@ with no server" below for why that's safe to leave in.
 
 In order, and the order matters:
 
-1. **The environment.** Render the place the games are played in and fed by.
-   This outranks adding games, and there are no new games until it exists.
+1. **The environment — first slice done, 2026-09-10.** The clearing above is
+   it: `engine/growth.js` + `engine/scene.js`, on the front page. Still to
+   come — a page of its own, more than six stages, and something for a game to
+   actually grow *in* rather than a shared backdrop it merely unlocks more of.
 2. **Solo play, for testing — done.** Each game's setup screen links to a
    `solo.html` that runs both roles in one page — two synced iframes sharing
    a code, driven from one browser, writing nothing to the record. The

@@ -52,8 +52,24 @@ some of it is now load-bearing rather than merely wise:
 
 ## What is next, in priority order
 
-**1. Render the environment the games take place in.** This outranks new games.
-There is no place yet, and the place is now the point.
+**1. Render the environment the games take place in — a first slice landed
+2026-09-10.** The front page now opens on the place itself: `engine/growth.js`
+reads the record and turns the sittings you've finished (either game, summed —
+the place doesn't belong to one game) into one of six stages, and
+`engine/scene.js` draws it as a fixed, deterministic SVG clearing — the same
+dead tree, the same ground, nothing rearranged between visits, only more of it
+revealed as the count goes up. Zero sittings is a dim PET half-lit in fog next
+to a bare tree; by thirty it's fireflies, a stream, flowers, and the same tree
+leaved out. Playing *both* games at least once lights a footpath between two
+lanterns at the board's edges — the bond, independent of stage, never undone.
+Both files are pure and stage-indexed (no clock, no "haven't played in"), which
+is what keeps this honest against rule 2.
+
+This is a first slice, not the ceiling: six stages is a start, the picture is
+flat SVG rather than anything a garden really grows *in* (individual plants
+per game, a season, weather), and there's no dedicated `/place` page yet — it
+only lives on the front door. That's the next real step here, not new stages
+tacked onto this table.
 
 **2. A way to play and test solo — done, 2026-09-08.** Both playable games'
 setup screens now link to a `solo.html` that runs two synced panes (two roles
@@ -64,7 +80,10 @@ with no server" in the README. Any future game gets this for free by reading
 convention.
 
 **3. Long-term growth of elements.** Very important, in his words. Weight
-anything that accrues across months over anything that entertains once.
+anything that accrues across months over anything that entertains once. The
+six stages above are the first cut of this, not the finished thing — the table
+in `engine/growth.js` is short on purpose, waiting for real play to say what
+should come next rather than guessing thirty stages ahead of any data.
 
 ## Deliberately not next
 

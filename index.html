@@ -10,12 +10,15 @@
 <body>
 <div class="wrap">
 
-  <header style="margin-bottom:20px">
+  <header style="margin-bottom:14px">
     <h1>Interpersonal Games</h1>
-    <p class="dim">A PET, found in an abandoned forested place. Wake it and it
-      bonds to one other person — you talk through it, you play through it, and
-      what you play is what brings the place back.</p>
   </header>
+
+  <div class="place">
+    <div class="place-scene" id="place-scene"></div>
+    <p class="place-line" id="place-line"></p>
+    <p class="small dim place-meta" id="place-meta"></p>
+  </div>
 
   <div class="card" id="record" hidden></div>
 
@@ -77,7 +80,22 @@
 
 <script type="module">
 import { blindAgreementStats, exportCode, importCode } from './engine/record.js';
+import { growthFor } from './engine/growth.js';
+import { placeSVG } from './engine/scene.js';
 import { $, el, relativeDay } from './engine/ui.js';
+
+const growth = growthFor();
+$('#place-scene').innerHTML = placeSVG(growth);
+$('#place-line').textContent = growth.line;
+$('#place-meta').textContent = placeMeta(growth);
+
+function placeMeta(g) {
+  if (g.sittings === 0) return 'Nothing has been played here yet.';
+  const played = `${g.sittings} sitting${g.sittings === 1 ? '' : 's'} so far`;
+  if (!g.next) return `${played}. This is as far as it has grown for now.`;
+  const left = g.next.remaining;
+  return `${played} · ${left} more and something changes.`;
+}
 
 const s = blindAgreementStats();
 if (s.rounds > 0) {
