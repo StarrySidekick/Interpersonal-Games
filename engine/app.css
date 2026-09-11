@@ -123,3 +123,80 @@ details summary {
   cursor: pointer; color: var(--dim); font-size: 15px; padding: 8px 0;
 }
 details[open] summary { margin-bottom: 6px; }
+
+/* The place. A clearing at the edge of a dark forest, the PET always in it,
+   a garden bed that only ever fills in. No art assets exist yet — this is
+   shapes and gradients standing in for the real thing. See
+   docs/environment.md before redrawing it. */
+.scene {
+  position: relative; overflow: hidden; border-radius: var(--radius);
+  border: 1px solid var(--line); margin-bottom: 18px;
+  background: linear-gradient(180deg, #10141c 0%, #141a24 55%, #10150f 100%);
+  padding: 22px 16px 16px;
+}
+.scene .sky {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(120% 80% at 50% -10%, rgba(134,217,168,.10), transparent 60%);
+}
+.treeline {
+  position: relative; height: 46px; display: flex; align-items: flex-end;
+  gap: 2px; opacity: .9;
+}
+.treeline i {
+  flex: 1 1 auto; min-width: 4px; max-width: 22px;
+  background: #0a0d12; border-radius: 3px 3px 0 0;
+}
+.clearing {
+  position: relative; min-height: 96px; margin-top: -2px;
+  border-top: 1px solid rgba(233,236,241,.06);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.pet { position: relative; z-index: 2; margin-bottom: 6px; }
+.pet-glow {
+  position: absolute; left: 50%; bottom: 6px; translate: -50% 0;
+  width: 70px; height: 70px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(134,217,168,.35), transparent 70%);
+  transition: width .6s ease, height .6s ease, opacity .6s ease;
+}
+.scene[data-stage='dormant'] .pet-glow { opacity: .35; width: 40px; height: 40px; }
+.scene[data-stage='grown'] .pet-glow { width: 130px; height: 130px; }
+.pet-body { width: 46px; height: 46px; display: block; position: relative; }
+.pet-body ellipse, .pet-body path { fill: var(--accent); }
+.pet-body .eye circle, .pet-body .eye rect { fill: var(--accent-ink); }
+.pet-body .eye { transition: opacity .4s ease; }
+.scene[data-stage='dormant'] .pet-eye-open { opacity: 0; }
+.scene:not([data-stage='dormant']) .pet-eye-shut { opacity: 0; }
+/* Static on purpose — see the "glanceable" UI rule in docs/scope.md. Nothing
+   in the place moves; what changes is how much of it there is, sitting to
+   sitting. */
+
+.garden {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 34px;
+  pointer-events: none;
+}
+.plant {
+  position: absolute; bottom: 0; width: 3px;
+  background: linear-gradient(180deg, var(--accent), #4c8f66);
+  border-radius: 2px 2px 0 0; transform-origin: bottom center;
+}
+
+.scene-caption {
+  margin: 14px 2px 0; font-size: 14px; color: var(--dim); line-height: 1.45;
+}
+
+/* Solo/practice: two panels of the same game, so one person can drive both
+   roles from one screen instead of needing a second phone in the room. */
+.practice-badge {
+  border-color: var(--warm); color: var(--warm);
+}
+.solo-panes { display: grid; gap: 12px; }
+.solo-pane-label {
+  font-size: 13px; font-weight: 650; color: var(--dim); margin: 0 0 6px;
+}
+.solo-pane {
+  width: 100%; height: 78vh; min-height: 520px; border: 1px solid var(--line);
+  border-radius: var(--radius); background: var(--panel);
+}
+@media (min-width: 720px) {
+  .solo-panes.two { grid-template-columns: 1fr 1fr; }
+}

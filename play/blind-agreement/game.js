@@ -16,7 +16,7 @@ let boards = [];
 const game = {
   code: '', order: [], roundNo: 0,
   board: null, options: [], gone: new Set(), myPick: null, passes: 0,
-  rounds: [], startedAt: 0
+  rounds: [], startedAt: 0, practice: false
 };
 
 // --- setup -----------------------------------------------------------------
@@ -26,8 +26,21 @@ async function boot() {
   const res = await fetch('../../data/blind-agreement.json');
   boards = (await res.json()).boards;
 
+  // A practice sitting is for trying the game alone. Blind Agreement shows
+  // both of you the same board and never hides anything role-specific, so
+  // one screen already plays both sides — practice mode only has to stop it
+  // writing to the real record. ?practice=1&code=x lets practice.html hand
+  // you a ready-to-go link.
+  const params = new URLSearchParams(location.search);
+  game.practice = params.get('practice') === '1';
+  if (game.practice) {
+    $('#practice-badge').hidden = false;
+    $('#save-note').textContent =
+      'Practice sitting — nothing was saved to the record.';
+  }
+
   const saved = localStorage.getItem(LAST_CODE);
-  $('#code').value = saved || '';
+  $('#code').value = params.get('code') || saved || '';
 
   $('#suggest').onclick = () => { $('#code').value = newRoomCode(); };
   $('#start').onclick = startSitting;
@@ -173,7 +186,7 @@ function updateStatus() {
 // --- end -------------------------------------------------------------------
 
 function endSitting() {
-  if (game.rounds.length) {
+  if (game.rounds.length && !game.practice) {
     logSitting({
       game: GAME,
       startedAt: game.startedAt,

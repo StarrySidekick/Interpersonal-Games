@@ -25,7 +25,7 @@ let subjects = [];
 
 const game = {
   code: '', side: '', secret: null, startedAt: 0,
-  asked: 0, lieSpent: false, calls: [], outcome: null
+  asked: 0, lieSpent: false, calls: [], outcome: null, practice: false
 };
 
 // --- setup -----------------------------------------------------------------
@@ -35,8 +35,18 @@ async function boot() {
   const res = await fetch('../../data/twenty-twenty.json');
   subjects = (await res.json()).subjects;
 
-  $('#code').value = localStorage.getItem(LAST_CODE) || '';
-  game.side = localStorage.getItem(LAST_SIDE) || '';
+  // Twenty-Twenty is the one that actually needs a second person, because
+  // each phone only ever knows its own secret. Practice mode doesn't fake
+  // that — it just makes it possible to run both phones yourself: see
+  // ../../practice.html, which opens two of these panels on the same code
+  // with opposite sides preset, and this game stops writing to the real
+  // record so a solo run-through can't be mistaken for a real sitting later.
+  const params = new URLSearchParams(location.search);
+  game.practice = params.get('practice') === '1';
+  if (game.practice) $('#practice-badge').hidden = false;
+
+  $('#code').value = params.get('code') || localStorage.getItem(LAST_CODE) || '';
+  game.side = params.get('side') || localStorage.getItem(LAST_SIDE) || '';
 
   $('#suggest').onclick = () => { $('#code').value = newRoomCode(); };
   $('#side-a').onclick = () => pickSide('a');
@@ -152,20 +162,22 @@ function endSitting(outcome) {
   const made = game.calls.length;
   const right = game.calls.filter((c) => c.right).length;
 
-  logSitting({
-    game: GAME,
-    startedAt: game.startedAt,
-    data: {
-      side: game.side,
-      subject: game.secret.n,
-      category: game.secret.c,
-      asked: game.asked,
-      lieSpent: game.lieSpent,
-      calls: made,
-      callsRight: right,
-      outcome
-    }
-  });
+  if (!game.practice) {
+    logSitting({
+      game: GAME,
+      startedAt: game.startedAt,
+      data: {
+        side: game.side,
+        subject: game.secret.n,
+        category: game.secret.c,
+        asked: game.asked,
+        lieSpent: game.lieSpent,
+        calls: made,
+        callsRight: right,
+        outcome
+      }
+    });
+  }
 
   $('#reveal').textContent = game.secret.n;
   const bits = [`You asked ${game.asked}.`];
@@ -175,7 +187,8 @@ function endSitting(outcome) {
   } else {
     bits.push('You never called one.');
   }
-  $('#tally').textContent = bits.join(' ');
+  bits.push(game.practice ? 'Practice sitting — nothing was saved.' : '');
+  $('#tally').textContent = bits.join(' ').trim();
   show('after');
 }
 

@@ -10,15 +10,47 @@
 <body>
 <div class="wrap">
 
-  <header style="margin-bottom:20px">
+  <header style="margin-bottom:14px">
     <h1>Interpersonal Games</h1>
     <p class="dim">A PET, found in an abandoned forested place. Wake it and it
       bonds to one other person — you talk through it, you play through it, and
       what you play is what brings the place back.</p>
   </header>
 
-  <div class="card" id="record" hidden></div>
+  <section class="scene" id="scene" data-stage="dormant">
+    <div class="sky" aria-hidden="true"></div>
+    <div class="treeline" aria-hidden="true">
+      <i style="height:30px"></i><i style="height:18px"></i>
+      <i style="height:40px"></i><i style="height:24px"></i>
+      <i style="height:34px"></i><i style="height:16px"></i>
+      <i style="height:44px"></i><i style="height:20px"></i>
+      <i style="height:38px"></i><i style="height:26px"></i>
+      <i style="height:32px"></i><i style="height:14px"></i>
+      <i style="height:42px"></i><i style="height:22px"></i>
+    </div>
+    <div class="clearing">
+      <div class="garden" id="garden" aria-hidden="true"></div>
+      <div class="pet">
+        <div class="pet-glow" aria-hidden="true"></div>
+        <svg class="pet-body" viewBox="0 0 64 64" aria-hidden="true">
+          <path d="M16 20 L22 6 L26 22 Z"></path>
+          <path d="M48 20 L42 6 L38 22 Z"></path>
+          <ellipse cx="32" cy="36" rx="22" ry="18"></ellipse>
+          <g class="eye pet-eye-open">
+            <circle cx="24" cy="34" r="3.4"></circle>
+            <circle cx="40" cy="34" r="3.4"></circle>
+          </g>
+          <g class="eye pet-eye-shut">
+            <rect x="20" y="33" width="8" height="2" rx="1"></rect>
+            <rect x="36" y="33" width="8" height="2" rx="1"></rect>
+          </g>
+        </svg>
+      </div>
+    </div>
+    <p class="scene-caption" id="scene-caption"></p>
+  </section>
 
+  <h2 class="small dim" style="text-transform:uppercase;letter-spacing:.06em;margin:4px 2px 10px">Play</h2>
   <div class="games">
     <a class="game-card" href="play/blind-agreement/">
       <h2>Blind Agreement</h2>
@@ -57,7 +89,8 @@
   </div>
 
   <details style="margin-top:20px">
-    <summary>About the record</summary>
+    <summary>The numbers, if you want them</summary>
+    <div class="card" id="record" hidden></div>
     <p class="small dim">Everything you play is saved in this browser and
       nowhere else — no account, no server, nothing sent anywhere. Which also
       means clearing your browser data clears it, so there's an export below.</p>
@@ -71,13 +104,38 @@
   <p class="small dim center" style="margin-top:24px">
     <a href="https://github.com/StarrySidekick/Interpersonal-Games">Source</a>
     · <a href="docs/scope.md">what this is</a>
+    · <a href="practice.html">practice solo</a>
   </p>
 
 </div>
 
 <script type="module">
 import { blindAgreementStats, exportCode, importCode } from './engine/record.js';
+import { placeState, gardenCount } from './engine/place.js';
 import { $, el, relativeDay } from './engine/ui.js';
+
+// The place — reads the whole record, not just one game's, so the clearing
+// reflects everything that's ever been played here.
+const p = placeState();
+const scene = $('#scene');
+scene.dataset.stage = p.stage.key;
+
+const garden = $('#garden');
+const count = gardenCount(p);
+const plants = [];
+for (let i = 0; i < count; i++) {
+  // Not random — a formula, so the bed looks planted rather than reshuffled
+  // on every visit, and doesn't jump around as more of it fills in.
+  const left = 6 + ((i * 41) % 88);
+  const h = 10 + ((i * 17) % 3) * 6 + ((i * 7) % 5);
+  plants.push(el('i', { class: 'plant', style: `left:${left}%;height:${h}px` }));
+}
+garden.replaceChildren(...plants);
+
+const bits = [p.stage.line];
+const when = relativeDay(p.last);
+if (when && p.stage.key !== 'dormant') bits.push(`Last time was ${when}.`);
+$('#scene-caption').textContent = bits.join(' ');
 
 const s = blindAgreementStats();
 if (s.rounds > 0) {

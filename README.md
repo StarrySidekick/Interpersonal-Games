@@ -57,7 +57,12 @@ you missed. See rule 2 of [the session shape](docs/scope.md#the-session-shape).
 
 ## Playable now
 
-Two games run. There is not yet a place for them to feed.
+Two games run, and there's a place for them to feed —
+[`index.html`](index.html) opens on it now: the PET, the treeline, a garden
+that fills in with every sitting. It's a first pass, built from CSS shapes
+rather than real art — see [`docs/environment.md`](docs/environment.md) for
+what it does and what's still an open design question rather than a settled
+one.
 
 **[Blind Agreement](games/blind-agreement.md)** — you both have to pick the
 same thing; miss, and both your picks come off the board.
@@ -67,17 +72,24 @@ same thing; miss, and both your picks come off the board.
 once.
 **[Play it](play/twenty-twenty/)** · 10–15 minutes, a phone each.
 
+Neither needs a real second person to try out —
+**[practice solo](practice.html)** runs a game against yourself, without
+writing anything to the record.
+
 ## What is next
 
 In order, and the order matters:
 
-1. **The environment.** Render the place the games are played in and fed by.
-   This outranks adding games, and there are no new games until it exists.
-2. **Solo play, for testing.** Right now trying anything out requires getting
-   the other person on the phone, which means the games are barely playtested.
-   The finished thing is strictly two-player; the workbench should not be.
-3. **Growth that accrues.** The garden, the forest, the record. Weight anything
-   that lasts across months over anything that entertains once.
+1. **The environment.** Landed as a first pass 2026-09-11 — see
+   [`docs/environment.md`](docs/environment.md). What's left is design, not
+   engineering: the PET's character, whether "garden" is the right shape for
+   what grows, whether different games should grow different things.
+2. **Solo play, for testing.** Landed 2026-09-11 —
+   [`practice.html`](practice.html). Trying a game out no longer requires
+   getting the other person on the phone.
+3. **Growth that accrues.** The garden is a first instance of this, and it
+   grows by one number (sittings). Weight anything that lasts across months
+   over anything that entertains once.
 
 [`engine/record.js`](engine/record.js) is where the accruing already starts: it
 logs a finished sitting to this browser and nowhere else, and it is written to
@@ -129,6 +141,8 @@ More on choosing between them in
 ## Docs
 
 - [`INTENT.md`](INTENT.md) — what this is for and what is next
+- [`docs/environment.md`](docs/environment.md) — what the place renders now, and
+  what's still an open design call
 - [`docs/scope.md`](docs/scope.md) — the session shape, the UI rules, the three engines
 - [`docs/choosing-a-game.md`](docs/choosing-a-game.md) — how to pick, by time, energy and medium
 - [`docs/house-rules.md`](docs/house-rules.md) — the handful of rules that make any of these work

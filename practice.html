@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d0f13">
+<title>Practice solo · Interpersonal Games</title>
+<link rel="stylesheet" href="engine/app.css">
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <a class="back" href="./">&larr; Games</a>
+    <span class="pill">Practice</span>
+  </div>
+
+  <header style="margin-bottom:16px">
+    <h1>Practice solo</h1>
+    <p class="dim">For trying a game out without getting the other person on
+      the phone. Nothing played here is saved to the record — it's a
+      workbench, not a way to play for real.</p>
+  </header>
+
+  <div class="card">
+    <h2>Blind Agreement</h2>
+    <p class="dim small" style="margin-bottom:10px">Both of you see the same
+      board, so one screen already has everything you need — pick for
+      yourself, then on a miss, tap whatever you like on "what did they say."
+      No second panel required.</p>
+    <a class="btn primary" href="play/blind-agreement/?practice=1">Open practice</a>
+  </div>
+
+  <div class="card">
+    <h2>Twenty-Twenty</h2>
+    <p class="dim small" style="margin-bottom:10px">This one really is
+      two-sided — each phone only knows its own secret — so here are two
+      panels on the same code, one playing the left and one the right.
+      Play a move in one, then switch to the other and answer it, back and
+      forth, the way you'd hand the phone back and forth if you were in the
+      same room.</p>
+    <div class="stack">
+      <button class="quiet" id="reroll">New code</button>
+    </div>
+  </div>
+
+  <div class="solo-panes two" id="panes">
+    <div>
+      <p class="solo-pane-label">The left</p>
+      <iframe class="solo-pane" id="pane-a" title="Twenty-Twenty, the left"></iframe>
+    </div>
+    <div>
+      <p class="solo-pane-label">The right</p>
+      <iframe class="solo-pane" id="pane-b" title="Twenty-Twenty, the right"></iframe>
+    </div>
+  </div>
+
+  <p class="small dim center" style="margin-top:20px">
+    <a href="./">Back to the place</a>
+  </p>
+
+</div>
+<script type="module">
+import { newRoomCode } from './engine/seed.js';
+import { $ } from './engine/ui.js';
+
+function load(code) {
+  $('#pane-a').src = `play/twenty-twenty/?practice=1&code=${code}&side=a`;
+  $('#pane-b').src = `play/twenty-twenty/?practice=1&code=${code}&side=b`;
+}
+
+$('#reroll').onclick = () => load(newRoomCode());
+load(newRoomCode());
+</script>
+</body>
+</html>

@@ -12,7 +12,10 @@
 
   <div class="topbar">
     <a class="back" href="../../">&larr; Games</a>
-    <span class="pill" id="status">Blind Agreement</span>
+    <span class="row" style="grid-template-columns:auto auto;gap:8px">
+      <span class="pill practice-badge" id="practice-badge" hidden>Practice</span>
+      <span class="pill" id="status">Blind Agreement</span>
+    </span>
   </div>
 
   <!-- Setup -->
@@ -94,8 +97,8 @@
       <button class="primary" id="again">Play again</button>
       <a class="btn quiet" href="../../">Back to games</a>
     </div>
-    <p class="small dim center" style="margin-top:14px">Saved to this phone
-      only. Nothing was sent anywhere.</p>
+    <p class="small dim center" id="save-note" style="margin-top:14px">Saved to
+      this phone only. Nothing was sent anywhere.</p>
   </section>
 
 </div>

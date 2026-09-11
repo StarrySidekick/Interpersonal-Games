@@ -158,15 +158,17 @@ can be decided once there's real play to look at.
 ## Repo layout
 
 ```
-index.html            front page: pick a game, or resume
-play/<slug>/          one folder per game — the game itself
-games/*.md            the rules in prose, linked from every game
-docs/*.md             this, the game catalog, house rules
-engine/seed.js        room code -> deterministic RNG (Engine A)
-engine/link.js        state <-> URL fragment (Engine B)
-engine/record.js      localStorage, export/import (Engine C)
-engine/ui.js          shared shell: dark, tap targets, wake lock
-data/*.json           word lists, spectrum pairs, question decks
+index.html          the place: the PET, the garden, then the games
+practice.html       solo test launcher — one game against yourself
+play/<slug>/        one folder per game — the game itself
+games/*.md          the rules in prose, linked from every game
+docs/*.md           this, the game catalog, house rules, the environment
+engine/seed.js      room code -> deterministic RNG (Engine A)
+engine/link.js      state <-> URL fragment (Engine B) — not built yet
+engine/record.js    localStorage, export/import (Engine C)
+engine/place.js     the record, read as what the place looks like
+engine/ui.js        shared shell: dark, tap targets, wake lock
+data/*.json         word lists, spectrum pairs, question decks
 ```
 
 ## UI rules
@@ -206,10 +208,9 @@ are the ones being retired.
 
 ## Open questions
 
-- **Does the front page open on a game or on the meta space?** Leaning: the
-  meta space, with resume front and centre — it's the answer to "what have
-  we been doing," which is the actual reason to open this on week nine. But
-  that depends on what the meta space turns out to be.
+- ~~Does the front page open on a game or on the meta space?~~ **Settled
+  2026-09-11.** The meta space — now the place — opens first; the games are
+  below it. See [`../docs/environment.md`](environment.md).
 - **Do both of you need the record, or just one?** Export/import makes two
   copies possible but they'll drift. Might be cleaner to say the record
   belongs to whoever opens it, and each of you has your own view.

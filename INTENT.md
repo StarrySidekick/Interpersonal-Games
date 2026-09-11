@@ -52,16 +52,29 @@ some of it is now load-bearing rather than merely wise:
 
 ## What is next, in priority order
 
-**1. Render the environment the games take place in.** This outranks new games.
-There is no place yet, and the place is now the point.
+**1. Render the environment the games take place in. First pass landed
+2026-09-11.** `index.html` opens on the place now — the PET, the treeline, a
+garden that fills in as sittings accrue — instead of straight into a game
+grid. See [`docs/environment.md`](docs/environment.md) for what's built and,
+importantly, what's still a real design decision rather than an engineering
+one: the PET's character, whether "garden" is the right literal read of
+"gardens grow," and whether different games should grow different things.
+Read that file before touching the look of it.
 
-**2. A way to play and test solo.** Timothy has not been able to properly
-playtest, because playtesting currently requires getting Alyssa on the phone.
-This unblocks him personally and it is worth building even though the finished
-thing is strictly two-player.
+**2. A way to play and test solo. Landed 2026-09-11.**
+[`practice.html`](practice.html) plus `?practice=1` on each game. Blind
+Agreement already showed both of you the same board, so practice mode there
+is just the existing screen with logging turned off. Twenty-Twenty actually
+needs two people — each phone only ever knows its own secret — so practice
+opens two panels of it on one screen, on the same code, opposite sides
+preset, so one person can drive both. Nothing played in practice mode writes
+to the real record.
 
 **3. Long-term growth of elements.** Very important, in his words. Weight
-anything that accrues across months over anything that entertains once.
+anything that accrues across months over anything that entertains once. The
+garden above is a first instance of this, not the whole of it — it grows by
+one number (sittings). What else should accrue, and whether it should be
+visible in the place or somewhere else, is still open.
 
 ## Deliberately not next
 
