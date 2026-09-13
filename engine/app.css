@@ -123,3 +123,28 @@ details summary {
   cursor: pointer; color: var(--dim); font-size: 15px; padding: 8px 0;
 }
 details[open] summary { margin-bottom: 6px; }
+
+/* The place. engine/scene.js draws the picture; this is the frame around it.
+   Nothing here decays or counts down — see engine/growth.js. */
+.scene {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 0; margin-bottom: 14px;
+  overflow: hidden;
+}
+.scene-art { display: block; width: 100%; height: auto; }
+.scene-body { padding: 14px 16px 16px; }
+.stage-name { font-size: 19px; font-weight: 650; margin: 0 0 2px; }
+.stage-line { margin: 0; }
+.growth-note { margin: 10px 0 0; }
+
+@keyframes igFireflyDrift {
+  0%, 100% { opacity: .15; transform: translateY(0); }
+  50% { opacity: .95; transform: translateY(-3px); }
+}
+.ig-firefly { animation: igFireflyDrift 3.4s ease-in-out infinite; }
+
+@keyframes igPetGlow {
+  0%, 100% { filter: drop-shadow(0 0 3px var(--accent)); }
+  50% { filter: drop-shadow(0 0 9px var(--accent)); }
+}
+.ig-pet-awake { animation: igPetGlow 3.2s ease-in-out infinite; transform-origin: 200px 158px; }

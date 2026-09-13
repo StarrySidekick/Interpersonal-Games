@@ -57,7 +57,9 @@ you missed. See rule 2 of [the session shape](docs/scope.md#the-session-shape).
 
 ## Playable now
 
-Two games run. There is not yet a place for them to feed.
+Two games run, and there is a first version of the place they feed: open the
+front page and you'll find the clearing itself, rendered from whatever you've
+played so far — dormant if that's nothing yet.
 
 **[Blind Agreement](games/blind-agreement.md)** — you both have to pick the
 same thing; miss, and both your picks come off the board.
@@ -73,15 +75,29 @@ In order, and the order matters:
 
 1. **The environment.** Render the place the games are played in and fed by.
    This outranks adding games, and there are no new games until it exists.
+   **A first version of this is built** — see
+   [`engine/growth.js`](engine/growth.js) and
+   [`engine/scene.js`](engine/scene.js) below — but it is one shared clearing,
+   not the gardens (plural) the framing describes, and nothing in it is
+   interactive yet. Depth here still outranks adding games.
 2. **Solo play, for testing.** Right now trying anything out requires getting
    the other person on the phone, which means the games are barely playtested.
    The finished thing is strictly two-player; the workbench should not be.
+   Still open.
 3. **Growth that accrues.** The garden, the forest, the record. Weight anything
    that lasts across months over anything that entertains once.
 
 [`engine/record.js`](engine/record.js) is where the accruing already starts: it
 logs a finished sitting to this browser and nowhere else, and it is written to
 the rule above, so things pile up and nothing is ever taken away.
+[`engine/growth.js`](engine/growth.js) turns that record into a growth score
+and a named stage — dormant, waking, first sprouts, a garden, the forest
+returning, restored — with no clock anywhere in it, so a three-week gap reads
+exactly like no gap at all. [`engine/scene.js`](engine/scene.js) draws whatever
+stage that comes out to: the PET asleep or awake, trees bare or in leaf,
+flowers and fireflies as the place fills in. Both are pure — hand either one a
+state, get the same answer back every time — so a future game only has to log
+a sitting through `engine/record.js` to be feeding the same place.
 
 ## How two phones share a game with no server
 

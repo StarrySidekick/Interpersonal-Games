@@ -17,8 +17,18 @@
       what you play is what brings the place back.</p>
   </header>
 
+  <div class="scene">
+    <div id="scene-art"></div>
+    <div class="scene-body">
+      <p class="stage-name" id="stage-name"></p>
+      <p class="dim stage-line" id="stage-line"></p>
+      <p class="small dim growth-note" id="growth-note"></p>
+    </div>
+  </div>
+
   <div class="card" id="record" hidden></div>
 
+  <h2>Play, to tend it</h2>
   <div class="games">
     <a class="game-card" href="play/blind-agreement/">
       <h2>Blind Agreement</h2>
@@ -76,20 +86,49 @@
 </div>
 
 <script type="module">
-import { blindAgreementStats, exportCode, importCode } from './engine/record.js';
+import { load, blindAgreementStats, twentyTwentyStats, exportCode, importCode } from './engine/record.js';
+import { growthState } from './engine/growth.js';
+import { renderScene } from './engine/scene.js';
 import { $, el, relativeDay } from './engine/ui.js';
 
-const s = blindAgreementStats();
-if (s.rounds > 0) {
+// The place, rendered from the record and nothing else — see engine/growth.js
+// and engine/scene.js. It has to draw something even with zero sittings: the
+// clearing, dark and unfound, is the honest first stage rather than an empty
+// state to special-case around.
+const record = load();
+const state = growthState(record);
+
+$('#scene-art').replaceChildren(renderScene(state));
+$('#stage-name').textContent = state.stage.name;
+$('#stage-line').textContent = state.stage.line;
+
+const growthBits = state.sittings
+  ? [`${state.sittings} sitting${state.sittings === 1 ? '' : 's'} so far`]
+  : ['Nobody has woken it yet'];
+if (state.sittings) {
+  const found = relativeDay(state.firstPlayedAt);
+  if (found) growthBits.push(`found ${found}`);
+}
+$('#growth-note').textContent = growthBits.join(' · ') + '.';
+
+// Both games' numbers, not just the one that happened to ship first — a card
+// that only ever reported Blind Agreement was itself a small piece of code
+// that hadn't caught up with there being two playable games.
+const bs = blindAgreementStats();
+const ts = twentyTwentyStats();
+if (bs.rounds > 0 || ts.sittings > 0) {
+  const rows = [];
+  if (bs.rounds > 0) {
+    rows.push(row('Blind Agreement, rounds', String(bs.rounds)));
+    rows.push(row('Average passes to match', bs.avgPasses ? bs.avgPasses.toFixed(1) : '—'));
+  }
+  if (ts.sittings > 0) {
+    rows.push(row('Twenty-Twenty, sittings', String(ts.sittings)));
+    rows.push(row('Lie calls, right', ts.calls ? `${ts.callsRight} of ${ts.calls}` : '—'));
+  }
   const card = $('#record');
   card.hidden = false;
-  card.replaceChildren(
-    el('h2', {}, 'Where you are'),
-    row('Rounds played', String(s.rounds)),
-    row('Average passes to match', s.avgPasses ? s.avgPasses.toFixed(1) : '—'),
-    row('Best round', s.best ? `${s.best} pass${s.best === 1 ? '' : 'es'}` : '—'),
-    row('Last played', relativeDay(s.lastPlayed) || '—')
-  );
+  card.replaceChildren(el('h2', {}, 'In numbers'), ...rows);
 }
 function row(label, value) {
   return el('div', { class: 'stat' },

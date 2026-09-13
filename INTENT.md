@@ -68,6 +68,26 @@ anything that accrues across months over anything that entertains once.
 - **New games.** He wants to think hard before each one, and there are fourteen
   on the shelf already with two playable. Depth, not breadth.
 
+## Status, from the code — 2026-09-13
+
+**Priority 1 has a first real version, not a stub.** `engine/growth.js` turns
+the record into a growth score and a named stage (dormant → waking → first
+sprouts → a garden → the forest returning → restored) with no clock in it, so
+a gap of any length reads exactly like no gap; `engine/scene.js` draws
+whichever stage that is as an SVG clearing — the PET asleep or awake, trees
+bare or in leaf, flowers and fireflies at the higher stages. The front page is
+that scene now, not a list of games with a card of stats bolted on. It reads
+only `engine/record.js`, so a future game feeds the same place just by logging
+a sitting — nothing about it names Blind Agreement or Twenty-Twenty.
+
+What it is not yet: there is **one** shared clearing, not the gardens
+(plural) the framing above describes, and nothing in the scene is
+interactive — it is a picture of where the two of you are, not a place you do
+anything inside. Priority 1 still outranks new games until that gap closes
+further. **Priority 2 (solo testing) is untouched and still fully open** —
+this session built priority 1 because the order says to, not because 2 turned
+out to be done.
+
 ## Where it is going
 
 **Eventually an iPhone app, probably peer to peer.** So the no-server rule in
