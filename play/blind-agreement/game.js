@@ -16,7 +16,8 @@ let boards = [];
 const game = {
   code: '', order: [], roundNo: 0,
   board: null, options: [], gone: new Set(), myPick: null, passes: 0,
-  rounds: [], startedAt: 0
+  rounds: [], startedAt: 0,
+  solo: false, soloTheirs: null // INTENT.md priority 2 — solo testing, below
 };
 
 // --- setup -----------------------------------------------------------------
@@ -31,9 +32,11 @@ async function boot() {
 
   $('#suggest').onclick = () => { $('#code').value = newRoomCode(); };
   $('#start').onclick = startSitting;
+  $('#practice').onclick = startSoloSitting;
   $('#lock').onclick = lockIn;
   $('#matched').onclick = () => resolveRound(true);
   $('#missed').onclick = () => { renderTheirs(); show('miss'); };
+  $('#solo-continue').onclick = soloContinue;
   $('#next').onclick = nextRound;
   $('#end').onclick = endSitting;
   $('#again').onclick = () => show('setup');
@@ -46,8 +49,28 @@ function startSitting() {
   localStorage.setItem(LAST_CODE, code);
 
   game.code = code;
+  game.solo = false;
   // One deterministic board order for the whole sitting, so round N is the
   // same board on both phones however long you play.
+  game.order = shuffled(boards, rng(`${code}|order`));
+  game.roundNo = 0;
+  game.rounds = [];
+  game.startedAt = Date.now();
+
+  nextRound();
+}
+
+/**
+ * INTENT.md priority 2 — solo testing. There's no code to type and nothing is
+ * ever saved: a practice sitting has to be unmistakably not the real thing, or
+ * it starts leaking fake progress into the record and the place it feeds.
+ * A fresh code every time, never touching LAST_CODE, so practice can never
+ * collide with — or quietly overwrite — the code you actually share.
+ */
+function startSoloSitting() {
+  const code = normalizeCode(newRoomCode());
+  game.code = code;
+  game.solo = true;
   game.order = shuffled(boards, rng(`${code}|order`));
   game.roundNo = 0;
   game.rounds = [];
@@ -96,7 +119,44 @@ function lockIn() {
   $('#mypick').textContent = game.options[game.myPick];
   updateStatus();
   haptic([14, 60, 14]);
+  if (game.solo) { soloReveal(); return; }
   show('say');
+}
+
+// --- practice: a simulated partner ------------------------------------------
+//
+// A real round needs two independent choices, and one person genuinely can't
+// make two of those — whichever you "pick for them" is never actually blind
+// to your own pick. So practice doesn't ask you to pretend; it deals a second,
+// real, independently-drawn choice from the seed, weighted toward matching
+// yours so a practice sitting doesn't run forever, and shows you both.
+
+function weightedBotPick(candidates, favor) {
+  const draw = rng(`${game.code}|bot|${game.roundNo}|${game.passes}`);
+  const weights = candidates.map((i) => (i === favor ? 3 : 1));
+  const total = weights.reduce((a, b) => a + b, 0);
+  let r = draw() * total;
+  for (let k = 0; k < candidates.length; k++) {
+    r -= weights[k];
+    if (r <= 0) return candidates[k];
+  }
+  return candidates[candidates.length - 1];
+}
+
+function soloReveal() {
+  const candidates = game.options.map((_, i) => i).filter((i) => !game.gone.has(i));
+  game.soloTheirs = weightedBotPick(candidates, game.myPick);
+
+  $('#solo-mine').textContent = game.options[game.myPick];
+  $('#solo-theirs').textContent = game.options[game.soloTheirs];
+  $('#solo-outcome').textContent = game.soloTheirs === game.myPick
+    ? 'Matched.' : 'Missed — both come off the board.';
+  show('solo');
+}
+
+function soloContinue() {
+  if (game.soloTheirs === game.myPick) resolveRound(true);
+  else strikeBoth(game.soloTheirs);
 }
 
 function renderTheirs() {
@@ -167,12 +227,33 @@ function passLine(passes) {
 
 function updateStatus() {
   const pass = game.passes ? ` · pass ${game.passes}` : '';
-  $('#status').textContent = `Round ${game.roundNo + 1}${pass}`;
+  const prefix = game.solo ? 'Practice · ' : '';
+  $('#status').textContent = `${prefix}Round ${game.roundNo + 1}${pass}`;
 }
 
 // --- end -------------------------------------------------------------------
 
 function endSitting() {
+  const matched = game.rounds.filter((r) => r.matched);
+  const avg = matched.length
+    ? (matched.reduce((n, r) => n + r.passes, 0) / matched.length).toFixed(1)
+    : null;
+
+  if (game.solo) {
+    // Never logged — a practice sitting must never accrue toward the real
+    // record or the place it feeds. See startSoloSitting().
+    $('#done-heading').textContent = 'Good practice.';
+    $('#done-note').textContent = 'Nothing here was saved — practice sittings '
+      + "don't touch the record.";
+    $('#summary').replaceChildren(
+      stat('Practice rounds', String(game.rounds.length)),
+      stat('Matched', `${matched.length} of ${game.rounds.length}`),
+      stat('Average passes', avg ?? '—')
+    );
+    show('done');
+    return;
+  }
+
   if (game.rounds.length) {
     logSitting({
       game: GAME,
@@ -181,12 +262,10 @@ function endSitting() {
     });
   }
 
-  const matched = game.rounds.filter((r) => r.matched);
-  const avg = matched.length
-    ? (matched.reduce((n, r) => n + r.passes, 0) / matched.length).toFixed(1)
-    : null;
   const all = blindAgreementStats();
 
+  $('#done-heading').textContent = 'Good sitting.';
+  $('#done-note').textContent = 'Saved to this phone only. Nothing was sent anywhere.';
   $('#summary').replaceChildren(
     stat('Rounds tonight', String(game.rounds.length)),
     stat('Matched', `${matched.length} of ${game.rounds.length}`),

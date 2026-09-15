@@ -158,13 +158,14 @@ can be decided once there's real play to look at.
 ## Repo layout
 
 ```
-index.html            front page: pick a game, or resume
+index.html            front page: the place, then pick a game, or resume
 play/<slug>/          one folder per game — the game itself
 games/*.md            the rules in prose, linked from every game
 docs/*.md             this, the game catalog, house rules
 engine/seed.js        room code -> deterministic RNG (Engine A)
-engine/link.js        state <-> URL fragment (Engine B)
+engine/link.js        state <-> URL fragment (Engine B) — not yet built
 engine/record.js      localStorage, export/import (Engine C)
+engine/place.js       the record, read back as the clearing/garden scene
 engine/ui.js          shared shell: dark, tap targets, wake lock
 data/*.json           word lists, spectrum pairs, question decks
 ```

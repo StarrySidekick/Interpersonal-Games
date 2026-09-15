@@ -42,6 +42,10 @@
       <p class="small dim">You're allowed to say anything you like beforehand.
         How much you give away is between the two of you.</p>
     </details>
+
+    <p class="small dim center" style="margin-top:16px">Testing alone?</p>
+    <button class="quiet" id="practice" style="margin-top:8px">Practice solo
+      — I'll play both sides</button>
   </section>
 
   <!-- Pick -->
@@ -50,6 +54,22 @@
     <div class="grid" id="board"></div>
     <div class="stack" style="margin-top:14px">
       <button class="primary" id="lock" disabled>Lock it in</button>
+    </div>
+  </section>
+
+  <!-- Practice reveal: the bot's pick is already known, so there's nothing
+       to self-report — this screen replaces "say" when playing solo. -->
+  <section data-screen="solo" hidden>
+    <div class="center" style="padding:20px 0 6px">
+      <p class="dim" style="margin-bottom:2px">Practice round</p>
+      <p class="dim small" style="margin-bottom:2px">You picked</p>
+      <p class="say" id="solo-mine" style="margin-bottom:14px"></p>
+      <p class="dim small" style="margin-bottom:2px">Practice partner picked</p>
+      <p class="say" id="solo-theirs"></p>
+    </div>
+    <p class="prompt center" id="solo-outcome" style="margin-top:6px"></p>
+    <div class="stack">
+      <button class="primary" id="solo-continue">Continue</button>
     </div>
   </section>
 
@@ -88,14 +108,14 @@
 
   <!-- Sitting over -->
   <section data-screen="done" hidden>
-    <h1>Good sitting.</h1>
+    <h1 id="done-heading">Good sitting.</h1>
     <div class="card" id="summary"></div>
     <div class="stack">
       <button class="primary" id="again">Play again</button>
       <a class="btn quiet" href="../../">Back to games</a>
     </div>
-    <p class="small dim center" style="margin-top:14px">Saved to this phone
-      only. Nothing was sent anywhere.</p>
+    <p class="small dim center" style="margin-top:14px" id="done-note">Saved
+      to this phone only. Nothing was sent anywhere.</p>
   </section>
 
 </div>

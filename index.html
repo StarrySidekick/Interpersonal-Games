@@ -10,12 +10,14 @@
 <body>
 <div class="wrap">
 
-  <header style="margin-bottom:20px">
+  <header style="margin-bottom:14px">
     <h1>Interpersonal Games</h1>
     <p class="dim">A PET, found in an abandoned forested place. Wake it and it
       bonds to one other person — you talk through it, you play through it, and
       what you play is what brings the place back.</p>
   </header>
+
+  <div class="place" id="place"></div>
 
   <div class="card" id="record" hidden></div>
 
@@ -76,8 +78,27 @@
 </div>
 
 <script type="module">
-import { blindAgreementStats, exportCode, importCode } from './engine/record.js';
+import { blindAgreementStats, exportCode, importCode, load } from './engine/record.js';
+import { placeState, placeSceneSVG, placeCaption } from './engine/place.js';
 import { $, el, relativeDay } from './engine/ui.js';
+
+const state = placeState(load());
+// document.createElement('svg') would make an HTMLUnknownElement, not a real
+// SVGSVGElement — el()'s trick only works in the HTML namespace, so the root
+// has to come from createElementNS and everything inside it from an
+// innerHTML set ON that properly-namespaced element, which is what makes the
+// fragment parse as SVG content rather than as a pile of unknown HTML tags.
+const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+svg.setAttribute('viewBox', '0 0 400 200');
+svg.setAttribute('aria-hidden', 'true');
+svg.setAttribute('role', 'presentation');
+svg.innerHTML = placeSceneSVG(state);
+
+$('#place').replaceChildren(
+  svg,
+  el('div', { class: 'place-caption' },
+    ...placeCaption(state).map((line, i) => el('p', { class: i === 0 ? '' : 'small' }, line)))
+);
 
 const s = blindAgreementStats();
 if (s.rounds > 0) {
