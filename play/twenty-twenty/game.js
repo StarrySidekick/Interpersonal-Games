@@ -22,10 +22,12 @@ const LAST_SIDE = 'ig.tt.side';
 const QUESTIONS = 20;
 
 let subjects = [];
+let soloWanted = false;
 
 const game = {
   code: '', side: '', secret: null, startedAt: 0,
-  asked: 0, lieSpent: false, calls: [], outcome: null
+  asked: 0, lieSpent: false, calls: [], outcome: null,
+  solo: false, soloStage: null, soloDeck: null
 };
 
 // --- setup -----------------------------------------------------------------
@@ -41,6 +43,7 @@ async function boot() {
   $('#suggest').onclick = () => { $('#code').value = newRoomCode(); };
   $('#side-a').onclick = () => pickSide('a');
   $('#side-b').onclick = () => pickSide('b');
+  $('#solo-toggle').onclick = toggleSolo;
   $('#start').onclick = startSitting;
   $('#got-it').onclick = () => show('play');
   $('#ask').onclick = () => bumpAsked(1);
@@ -56,7 +59,6 @@ async function boot() {
   $('#won-them').onclick = () => endSitting('them');
   $('#won-both').onclick = () => endSitting('both');
   $('#won-neither').onclick = () => endSitting('neither');
-  $('#again').onclick = () => { resetPill(); renderArc(); show('setup'); };
 
   pickSide(game.side);
   renderArc();
@@ -67,24 +69,69 @@ async function boot() {
 // put back or the setup screen reports the sitting you just finished.
 function resetPill() { $('#status').textContent = 'Twenty-Twenty'; }
 
+function backToSetup() { resetPill(); renderArc(); show('setup'); }
+
 function pickSide(side) {
   game.side = side === 'a' || side === 'b' ? side : '';
   $('#side-a').setAttribute('aria-pressed', String(game.side === 'a'));
   $('#side-b').setAttribute('aria-pressed', String(game.side === 'b'));
-  $('#start').disabled = !game.side;
+  $('#start').disabled = soloWanted ? false : !game.side;
+}
+
+/**
+ * Testing alone doesn't need a partner's phone, because every fact this game
+ * tracks already lives on one side only. What it needs is a way to see both
+ * secrets a room code deals and step through both, which two live people
+ * never require of it. Sequential rather than split-screen: you play the
+ * left all the way through, then the same deck deals you the right.
+ */
+function toggleSolo() {
+  soloWanted = !soloWanted;
+  $('#solo-toggle').setAttribute('aria-pressed', String(soloWanted));
+  $('#solo-note').hidden = !soloWanted;
+  $('#sides-pick').hidden = soloWanted;
+  $('#sides-note').hidden = soloWanted;
+  $('#start').disabled = soloWanted ? false : !game.side;
 }
 
 function startSitting() {
   const code = normalizeCode($('#code').value) || normalizeCode(newRoomCode());
   localStorage.setItem(LAST_CODE, code);
-  localStorage.setItem(LAST_SIDE, game.side);
 
   // One deck order from the code, then the left takes the first and the right
   // takes the second. Both phones compute the same shuffle, so the two of you
   // are dealt different things without either phone knowing the other exists.
   const deck = shuffled(subjects, rng(`${code}|tt`));
   game.code = code;
+  game.solo = soloWanted;
+
+  if (game.solo) {
+    game.soloDeck = deck;
+    game.soloStage = 'a';
+    game.side = 'a';
+  } else {
+    localStorage.setItem(LAST_SIDE, game.side);
+    game.soloStage = null;
+    game.soloDeck = null;
+  }
+
   game.secret = deck[game.side === 'a' ? 0 : 1];
+  game.startedAt = Date.now();
+  game.asked = 0;
+  game.lieSpent = false;
+  game.calls = [];
+  game.outcome = null;
+
+  renderSecret();
+  renderPlay();
+  show('secret');
+}
+
+/** The second half of a solo test: same deck, the other side, from scratch. */
+function playOtherSoloSide() {
+  game.soloStage = 'b';
+  game.side = 'b';
+  game.secret = game.soloDeck[1];
   game.startedAt = Date.now();
   game.asked = 0;
   game.lieSpent = false;
@@ -101,6 +148,14 @@ function startSitting() {
 function renderSecret() {
   $('#secret').textContent = game.secret.n;
   $('#secret-cat').textContent = game.secret.c;
+
+  const stageEl = $('#secret-stage');
+  stageEl.hidden = !game.solo;
+  if (game.solo) {
+    stageEl.textContent = game.soloStage === 'a'
+      ? 'Testing alone — the left, first.'
+      : 'Testing alone — now the right, same deck.';
+  }
 }
 
 function bumpAsked(n) {
@@ -142,9 +197,8 @@ function renderPlay() {
 
   const made = game.calls.length;
   const right = game.calls.filter((c) => c.right).length;
-  $('#status').textContent = made
-    ? `Called ${made} · right ${right}`
-    : 'Twenty-Twenty';
+  const solo = game.solo ? ` · testing (${game.soloStage === 'a' ? 'left' : 'right'})` : '';
+  $('#status').textContent = (made ? `Called ${made} · right ${right}` : 'Twenty-Twenty') + solo;
 }
 
 function endSitting(outcome) {
@@ -152,23 +206,30 @@ function endSitting(outcome) {
   const made = game.calls.length;
   const right = game.calls.filter((c) => c.right).length;
 
-  logSitting({
-    game: GAME,
-    startedAt: game.startedAt,
-    data: {
-      side: game.side,
-      subject: game.secret.n,
-      category: game.secret.c,
-      asked: game.asked,
-      lieSpent: game.lieSpent,
-      calls: made,
-      callsRight: right,
-      outcome
-    }
-  });
+  // A solo pass is one person stepping through one secret — it isn't a
+  // sitting the two of you had, so it never joins the record. Same rule as
+  // Blind Agreement's solo mode; see INTENT.md.
+  if (!game.solo) {
+    logSitting({
+      game: GAME,
+      startedAt: game.startedAt,
+      data: {
+        side: game.side,
+        subject: game.secret.n,
+        category: game.secret.c,
+        asked: game.asked,
+        lieSpent: game.lieSpent,
+        calls: made,
+        callsRight: right,
+        outcome
+      }
+    });
+  }
 
   $('#reveal').textContent = game.secret.n;
-  const bits = [`You asked ${game.asked}.`];
+  const bits = [];
+  if (game.solo) bits.push('Testing alone — not saved.');
+  bits.push(`You asked ${game.asked}.`);
   bits.push(game.lieSpent ? 'You used your lie.' : 'You never used your lie.');
   if (made) {
     bits.push(`You called ${made} ${made === 1 ? 'lie' : 'lies'} and were right about ${right}.`);
@@ -176,7 +237,23 @@ function endSitting(outcome) {
     bits.push('You never called one.');
   }
   $('#tally').textContent = bits.join(' ');
+  setupAfterButton();
   show('after');
+}
+
+/** What "again" means depends on where a solo test is in its two passes. */
+function setupAfterButton() {
+  const btn = $('#again');
+  if (game.solo && game.soloStage === 'a') {
+    btn.textContent = 'Now play the right';
+    btn.onclick = playOtherSoloSide;
+  } else if (game.solo && game.soloStage === 'b') {
+    btn.textContent = 'Done testing';
+    btn.onclick = backToSetup;
+  } else {
+    btn.textContent = 'Another';
+    btn.onclick = backToSetup;
+  }
 }
 
 // --- the arc ---------------------------------------------------------------

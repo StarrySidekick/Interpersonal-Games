@@ -30,9 +30,10 @@
         <button class="quiet" id="suggest">Give me a code</button>
       </div>
 
-      <p class="small dim" style="margin:16px 0 8px">And one of you takes the
-        left, the other the right. You'll be dealt different things.</p>
-      <div class="stack">
+      <p class="small dim" id="sides-note" style="margin:16px 0 8px">And one
+        of you takes the left, the other the right. You'll be dealt different
+        things.</p>
+      <div class="stack" id="sides-pick">
         <button class="quiet" id="side-a" aria-pressed="false">I'm the left</button>
         <button class="quiet" id="side-b" aria-pressed="false">I'm the right</button>
       </div>
@@ -40,6 +41,12 @@
         <button class="primary" id="start" disabled>Deal me a thing</button>
       </div>
     </div>
+
+    <button class="quiet" id="solo-toggle" aria-pressed="false">Testing alone — play both sides</button>
+    <p class="small dim" id="solo-note" hidden style="margin-top:6px">You'll
+      see both secrets, play the left all the way through, then play the
+      right with the same deck. Neither pass is saved to the record — it's
+      about the code, not the two of you.</p>
 
     <details>
       <summary>How it works</summary>
@@ -63,6 +70,7 @@
 
   <!-- The secret, shown once -->
   <section data-screen="secret" hidden>
+    <p class="small dim center" id="secret-stage" hidden style="margin-bottom:10px"></p>
     <p class="dim center" style="margin-bottom:2px">Yours is</p>
     <p class="say" id="secret"></p>
     <p class="center dim small" id="secret-cat"></p>

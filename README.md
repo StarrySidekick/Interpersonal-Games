@@ -73,9 +73,14 @@ In order, and the order matters:
 
 1. **The environment.** Render the place the games are played in and fed by.
    This outranks adding games, and there are no new games until it exists.
-2. **Solo play, for testing.** Right now trying anything out requires getting
-   the other person on the phone, which means the games are barely playtested.
-   The finished thing is strictly two-player; the workbench should not be.
+   Not built yet — [`docs/environment.md`](docs/environment.md) scopes what a
+   renderer already has to work with and the open questions that are
+   Timothy's to settle first.
+2. **Solo play, for testing.** ~~Right now trying anything out requires
+   getting the other person on the phone~~ — done. Both games above have a
+   "testing alone" toggle on setup: it simulates or reveals the other side so
+   a whole sitting can be played through alone, and none of it is saved to
+   the record.
 3. **Growth that accrues.** The garden, the forest, the record. Weight anything
    that lasts across months over anything that entertains once.
 
@@ -129,6 +134,8 @@ More on choosing between them in
 ## Docs
 
 - [`INTENT.md`](INTENT.md) — what this is for and what is next
+- [`docs/environment.md`](docs/environment.md) — scoping priority 1, the place
+  itself: what's already there to build on and the questions still open
 - [`docs/scope.md`](docs/scope.md) — the session shape, the UI rules, the three engines
 - [`docs/choosing-a-game.md`](docs/choosing-a-game.md) — how to pick, by time, energy and medium
 - [`docs/house-rules.md`](docs/house-rules.md) — the handful of rules that make any of these work

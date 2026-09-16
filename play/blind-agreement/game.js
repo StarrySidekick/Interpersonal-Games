@@ -12,11 +12,12 @@ const GAME = 'blind-agreement';
 const LAST_CODE = 'ig.lastCode';
 
 let boards = [];
+let soloWanted = false;
 
 const game = {
   code: '', order: [], roundNo: 0,
   board: null, options: [], gone: new Set(), myPick: null, passes: 0,
-  rounds: [], startedAt: 0
+  rounds: [], startedAt: 0, solo: false
 };
 
 // --- setup -----------------------------------------------------------------
@@ -30,10 +31,15 @@ async function boot() {
   $('#code').value = saved || '';
 
   $('#suggest').onclick = () => { $('#code').value = newRoomCode(); };
+  $('#solo-toggle').onclick = toggleSolo;
   $('#start').onclick = startSitting;
   $('#lock').onclick = lockIn;
   $('#matched').onclick = () => resolveRound(true);
   $('#missed').onclick = () => { renderTheirs(); show('miss'); };
+  $('#solo-continue').onclick = () => {
+    if (game.soloMatched) resolveRound(true);
+    else strikeBoth(game.soloTheirs);
+  };
   $('#next').onclick = nextRound;
   $('#end').onclick = endSitting;
   $('#again').onclick = () => show('setup');
@@ -41,11 +47,18 @@ async function boot() {
   show('setup');
 }
 
+function toggleSolo() {
+  soloWanted = !soloWanted;
+  $('#solo-toggle').setAttribute('aria-pressed', String(soloWanted));
+  $('#solo-note').hidden = !soloWanted;
+}
+
 function startSitting() {
   const code = normalizeCode($('#code').value) || normalizeCode(newRoomCode());
   localStorage.setItem(LAST_CODE, code);
 
   game.code = code;
+  game.solo = soloWanted;
   // One deterministic board order for the whole sitting, so round N is the
   // same board on both phones however long you play.
   game.order = shuffled(boards, rng(`${code}|order`));
@@ -93,10 +106,37 @@ function selectOption(i) {
 
 function lockIn() {
   game.passes += 1;
-  $('#mypick').textContent = game.options[game.myPick];
   updateStatus();
   haptic([14, 60, 14]);
-  show('say');
+  if (game.solo) {
+    soloReveal();
+  } else {
+    $('#mypick').textContent = game.options[game.myPick];
+    show('say');
+  }
+}
+
+/**
+ * There is no partner to say a pick out loud, so one is simulated: a
+ * uniformly random still-available option, seeded so a given round+pass
+ * always simulates the same "partner" if you ever replay it. This exists to
+ * exercise the round loop alone (docs/game-ideas.md's coordination design
+ * needs two real people to mean anything) — see INTENT.md.
+ */
+function soloReveal() {
+  const avail = game.options
+    .map((_, i) => i)
+    .filter((i) => !game.gone.has(i));
+  const pick = rng(`${game.code}|partner|${game.roundNo}|${game.passes}`);
+  const theirs = avail[Math.floor(pick() * avail.length)];
+
+  game.soloTheirs = theirs;
+  game.soloMatched = theirs === game.myPick;
+
+  $('#solo-mine').textContent = game.options[game.myPick];
+  $('#solo-theirs').textContent = game.options[theirs];
+  $('#solo-result').textContent = game.soloMatched ? 'Matched.' : 'Missed.';
+  show('solo');
 }
 
 function renderTheirs() {
@@ -167,13 +207,17 @@ function passLine(passes) {
 
 function updateStatus() {
   const pass = game.passes ? ` · pass ${game.passes}` : '';
-  $('#status').textContent = `Round ${game.roundNo + 1}${pass}`;
+  const solo = game.solo ? ' · testing' : '';
+  $('#status').textContent = `Round ${game.roundNo + 1}${pass}${solo}`;
 }
 
 // --- end -------------------------------------------------------------------
 
 function endSitting() {
-  if (game.rounds.length) {
+  // A solo sitting is you against a coin flip, not the two of you against a
+  // board — it doesn't belong in a record that's supposed to be what you
+  // built together, so it's never written.
+  if (game.rounds.length && !game.solo) {
     logSitting({
       game: GAME,
       startedAt: game.startedAt,
@@ -195,6 +239,10 @@ function endSitting() {
       ? `${all.avgPasses.toFixed(1)} average, over ${all.rounds} rounds`
       : 'this is the first one')
   );
+
+  $('#save-note').textContent = game.solo
+    ? 'Testing alone — this sitting was not saved to the record.'
+    : 'Saved to this phone only. Nothing was sent anywhere.';
 
   show('done');
 }

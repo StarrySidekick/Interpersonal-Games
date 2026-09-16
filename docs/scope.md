@@ -163,7 +163,8 @@ play/<slug>/          one folder per game — the game itself
 games/*.md            the rules in prose, linked from every game
 docs/*.md             this, the game catalog, house rules
 engine/seed.js        room code -> deterministic RNG (Engine A)
-engine/link.js        state <-> URL fragment (Engine B)
+engine/link.js        state <-> URL fragment (Engine B) — not yet built;
+                       no shipped game needs async play yet
 engine/record.js      localStorage, export/import (Engine C)
 engine/ui.js          shared shell: dark, tap targets, wake lock
 data/*.json           word lists, spectrum pairs, question decks

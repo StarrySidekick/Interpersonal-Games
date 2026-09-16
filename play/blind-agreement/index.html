@@ -32,6 +32,12 @@
       </div>
     </div>
 
+    <button class="quiet" id="solo-toggle" aria-pressed="false">Testing alone — simulate a partner</button>
+    <p class="small dim" id="solo-note" hidden style="margin-top:6px">A
+      simulated partner will pick for you, so you can run through rounds
+      without the other phone. This sitting won't be saved to the record —
+      it's about the code, not the two of you.</p>
+
     <details>
       <summary>How it works</summary>
       <p class="small dim">You're on the phone together. Twelve options, the
@@ -66,6 +72,22 @@
     </div>
   </section>
 
+  <!-- Solo test reveal: no partner to say it out loud, so the app plays their half -->
+  <section data-screen="solo" hidden>
+    <div class="center" style="padding:22px 0 8px">
+      <p class="small dim" style="margin-bottom:10px">Testing alone — here's
+        what a simulated partner picked.</p>
+      <p class="dim" style="margin-bottom:2px">You picked</p>
+      <p class="say" id="solo-mine" style="margin-bottom:14px"></p>
+      <p class="dim" style="margin-bottom:2px">They picked</p>
+      <p class="say" id="solo-theirs" style="margin-bottom:14px"></p>
+      <p class="pill" id="solo-result"></p>
+    </div>
+    <div class="stack">
+      <button class="primary" id="solo-continue">Continue</button>
+    </div>
+  </section>
+
   <!-- Miss -->
   <section data-screen="miss" hidden>
     <h2>What did they say?</h2>
@@ -94,8 +116,8 @@
       <button class="primary" id="again">Play again</button>
       <a class="btn quiet" href="../../">Back to games</a>
     </div>
-    <p class="small dim center" style="margin-top:14px">Saved to this phone
-      only. Nothing was sent anywhere.</p>
+    <p class="small dim center" id="save-note" style="margin-top:14px">Saved
+      to this phone only. Nothing was sent anywhere.</p>
   </section>
 
 </div>

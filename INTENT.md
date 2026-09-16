@@ -53,15 +53,27 @@ some of it is now load-bearing rather than merely wise:
 ## What is next, in priority order
 
 **1. Render the environment the games take place in.** This outranks new games.
-There is no place yet, and the place is now the point.
+There is no place yet, and the place is now the point. **Still open** —
+`docs/environment.md` (2026-09-16) scopes it: what the record already gives a
+renderer for free, and the open questions (one place or one per game, what
+maps to what, what it's drawn out of) that are Timothy's to answer before
+anyone builds it. Not started in code.
 
 **2. A way to play and test solo.** Timothy has not been able to properly
 playtest, because playtesting currently requires getting Alyssa on the phone.
 This unblocks him personally and it is worth building even though the finished
-thing is strictly two-player.
+thing is strictly two-player. **Done, 2026-09-16.** Both playable games have a
+"testing alone" toggle on their setup screen: Blind Agreement simulates a
+partner's pick so a full round resolves without a second phone; Twenty-Twenty
+shows both secrets a room code deals and lets you play the left all the way
+through, then the right, with the same deck. Neither writes to the record —
+see the comment above each `logSitting` call — because a solo pass isn't a
+sitting the two of you had.
 
 **3. Long-term growth of elements.** Very important, in his words. Weight
-anything that accrues across months over anything that entertains once.
+anything that accrues across months over anything that entertains once. Still
+open; `docs/environment.md` is where 1 and 3 meet, since the growth has
+nowhere to be seen until the environment exists.
 
 ## Deliberately not next
 
