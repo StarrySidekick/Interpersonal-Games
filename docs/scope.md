@@ -159,15 +159,21 @@ can be decided once there's real play to look at.
 
 ```
 index.html            front page: pick a game, or resume
+place/                the environment — see INTENT.md priority 1
 play/<slug>/          one folder per game — the game itself
 games/*.md            the rules in prose, linked from every game
 docs/*.md             this, the game catalog, house rules
 engine/seed.js        room code -> deterministic RNG (Engine A)
-engine/link.js        state <-> URL fragment (Engine B)
+engine/link.js        state <-> URL fragment (Engine B, not yet built)
 engine/record.js      localStorage, export/import (Engine C)
 engine/ui.js          shared shell: dark, tap targets, wake lock
 data/*.json           word lists, spectrum pairs, question decks
 ```
+
+`place/place.js` reads only `game`, `startedAt` and `endedAt` off a sitting —
+never `data`, which stays game-specific by design (see the comment at the top
+of `record.js`). That is what lets a future game make the clearing grow
+without `place/` changing at all.
 
 ## UI rules
 

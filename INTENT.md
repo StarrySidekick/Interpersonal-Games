@@ -53,12 +53,22 @@ some of it is now load-bearing rather than merely wise:
 ## What is next, in priority order
 
 **1. Render the environment the games take place in.** This outranks new games.
-There is no place yet, and the place is now the point.
+**2026-09-17: a first version exists**, at `place/` — a clearing that draws
+seven trees and a garden bed from the same record every game already writes
+to (bare trees and a sleeping PET with no sittings logged; trees fill in and
+flowers appear as sittings accrue), linked from the front page and from both
+games' end screens. It is a render, not the growth system in priority 3 below:
+the mapping from "a sitting happened" to "one more tree" is a placeholder
+worth revisiting once there is real play to look at, and it does not yet
+distinguish what kind of sitting it was, only that one happened. Still
+unbuilt: any art beyond flat shapes, and the "reawakening" the PET itself is
+meant to represent.
 
 **2. A way to play and test solo.** Timothy has not been able to properly
 playtest, because playtesting currently requires getting Alyssa on the phone.
 This unblocks him personally and it is worth building even though the finished
-thing is strictly two-player.
+thing is strictly two-player. **Still open** — both games require typing the
+same room code on a second phone; there is no solo/practice mode yet.
 
 **3. Long-term growth of elements.** Very important, in his words. Weight
 anything that accrues across months over anything that entertains once.

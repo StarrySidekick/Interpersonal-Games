@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d0f13">
+<title>The place</title>
+<link rel="stylesheet" href="../engine/app.css">
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <a class="back" href="../">&larr; Games</a>
+    <span class="pill">The place</span>
+  </div>
+
+  <header style="margin-bottom:16px">
+    <h1>The place</h1>
+    <p class="dim">Where the PET was found. Every finished sitting — either
+      game, on either phone — brings a little more of it back. Nothing here
+      wilts for a gap; come back after three weeks and it's exactly as you
+      left it.</p>
+  </header>
+
+  <div class="card scene-card">
+    <div id="scene" class="scene"></div>
+    <p class="small dim center" id="scene-caption" style="margin:10px 0 0"></p>
+  </div>
+
+  <div class="card" id="stats" hidden></div>
+
+  <div class="card" id="empty" hidden>
+    <p class="dim" style="margin-bottom:10px">Nothing has grown here yet —
+      the record is empty. Play a round and it starts.</p>
+    <a class="btn primary" href="../">Play something</a>
+  </div>
+
+  <p class="small dim center" style="margin-top:20px">
+    This reads the same record every game writes to. Nothing here is sent
+    anywhere.
+  </p>
+
+</div>
+<script type="module" src="place.js"></script>
+</body>
+</html>

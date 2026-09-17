@@ -57,7 +57,9 @@ you missed. See rule 2 of [the session shape](docs/scope.md#the-session-shape).
 
 ## Playable now
 
-Two games run. There is not yet a place for them to feed.
+Two games run, and there is now a first version of [the place](place/) they
+feed — a clearing that grows from the same record every sitting already
+writes to. It is a render, not the finished growth system; see INTENT.md.
 
 **[Blind Agreement](games/blind-agreement.md)** — you both have to pick the
 same thing; miss, and both your picks come off the board.
@@ -73,6 +75,8 @@ In order, and the order matters:
 
 1. **The environment.** Render the place the games are played in and fed by.
    This outranks adding games, and there are no new games until it exists.
+   A first version is up at [`place/`](place/) — see INTENT.md for what it
+   does and doesn't do yet.
 2. **Solo play, for testing.** Right now trying anything out requires getting
    the other person on the phone, which means the games are barely playtested.
    The finished thing is strictly two-player; the workbench should not be.

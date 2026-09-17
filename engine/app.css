@@ -118,8 +118,35 @@ input[type='text'] {
 .game-card h2 { margin-bottom: 3px; }
 .game-card .dim { font-size: 15px; }
 .game-card.soon { opacity: .55; }
+/* The one link on the front page that isn't a game — it gets top billing
+   now that the place outranks the games list (INTENT.md). */
+.place-card { border-color: var(--accent); margin-bottom: 16px; }
 
 details summary {
   cursor: pointer; color: var(--dim); font-size: 15px; padding: 8px 0;
 }
 details[open] summary { margin-bottom: 6px; }
+
+/* The place: place/place.js builds the <svg>, these rules dress it. Static
+   on purpose — the UI rules ban motion that asks for attention, and this is
+   a thing you glance at, not a thing that performs. */
+.scene-card { padding: 10px 10px 0; }
+.scene { width: 100%; aspect-ratio: 400 / 220; }
+.scene svg { width: 100%; height: 100%; display: block; }
+
+.p-moon-glow { fill: url(#p-moon-glow); }
+.p-moon { fill: #e7edf7; }
+.p-star { fill: #cfe0ff; opacity: .8; }
+.p-ground-far { fill: #101b15; }
+.p-ground-near { fill: #0b1410; }
+
+.p-trunk { stroke: #7a6248; stroke-width: 2.5; stroke-linecap: round; }
+.p-trunk-bare, .p-twig { stroke: var(--line); stroke-width: 2; stroke-linecap: round; }
+.p-foliage { fill: var(--accent); opacity: .82; }
+.p-flower { fill: var(--warm); }
+
+.p-pet ellipse, .p-pet circle { fill: var(--accent); }
+.p-pet-eye { fill: var(--accent-ink); }
+.p-pet-eye-shut { stroke: var(--accent-ink); stroke-width: 1.4; stroke-linecap: round; }
+.p-pet-asleep ellipse, .p-pet-asleep circle { fill: var(--dim); opacity: .5; }
+.p-pet-asleep .p-pet-eye-shut { stroke: var(--bg); }
