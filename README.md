@@ -57,31 +57,40 @@ you missed. See rule 2 of [the session shape](docs/scope.md#the-session-shape).
 
 ## Playable now
 
-Two games run. There is not yet a place for them to feed.
+Two games run, and the place they feed has a first render.
 
 **[Blind Agreement](games/blind-agreement.md)** — you both have to pick the
 same thing; miss, and both your picks come off the board.
 **[Play it](play/blind-agreement/)** · 30 seconds a round, a phone each.
+Setup screen has a **Practice solo** button for testing without a partner.
 
 **Twenty-Twenty** — you're both guessing, and each of you is allowed to lie
 once.
-**[Play it](play/twenty-twenty/)** · 10–15 minutes, a phone each.
+**[Play it](play/twenty-twenty/)** · 10–15 minutes, a phone each. Same
+**Practice solo** button on setup.
 
 ## What is next
 
-In order, and the order matters:
+In order, and the order matters — see [`INTENT.md`](INTENT.md) for the fuller
+version, including what's still coarse about 1 and 2:
 
-1. **The environment.** Render the place the games are played in and fed by.
-   This outranks adding games, and there are no new games until it exists.
-2. **Solo play, for testing.** Right now trying anything out requires getting
-   the other person on the phone, which means the games are barely playtested.
-   The finished thing is strictly two-player; the workbench should not be.
-3. **Growth that accrues.** The garden, the forest, the record. Weight anything
-   that lasts across months over anything that entertains once.
+1. **The environment.** Now renders — `engine/place.js`, shown on the front
+   page. First pass: a sleeping PET and bare branches at zero sittings,
+   growing a garden as real sittings accrue. There are still no new games
+   until this is further along.
+2. **Solo play, for testing.** Both games now have a **Practice solo** button
+   on their setup screen — see the games above. Clearly marked, and it never
+   writes to the record: a practice sitting must never fake-accrue growth in
+   the place it feeds.
+3. **Growth that accrues.** The garden, the forest, the record — now has
+   somewhere to render into. Weight anything that lasts across months over
+   anything that entertains once.
 
 [`engine/record.js`](engine/record.js) is where the accruing already starts: it
 logs a finished sitting to this browser and nowhere else, and it is written to
 the rule above, so things pile up and nothing is ever taken away.
+[`engine/place.js`](engine/place.js) is what reads it back as a scene instead
+of a stat table.
 
 ## How two phones share a game with no server
 

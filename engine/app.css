@@ -110,6 +110,31 @@ input[type='text'] {
 .stat + .stat { border-top: 1px solid var(--line); }
 .stat b { font-weight: 650; }
 
+/* The place. INTENT.md priority 1 — render the environment, not a dashboard. */
+.place {
+  border: 1px solid var(--line); border-radius: var(--radius);
+  overflow: hidden; background: var(--panel); margin-bottom: 14px;
+}
+.place svg { display: block; width: 100%; height: auto; }
+.place-caption { padding: 12px 16px 14px; }
+.place-caption p { margin: 0 0 6px; font-size: 15px; }
+.place-caption p:last-child { margin-bottom: 0; }
+.place-caption .small { color: var(--dim); }
+
+.firefly { animation: igFirefly ease-in-out infinite; transform-origin: center; }
+@keyframes igFirefly {
+  0%, 100% { opacity: .15; }
+  50% { opacity: .9; }
+}
+.pet { animation: igPetBob 4.5s ease-in-out infinite; transform-origin: center; }
+@keyframes igPetBob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .firefly, .pet { animation: none; }
+}
+
 .games { display: grid; gap: 10px; }
 .game-card {
   display: block; text-decoration: none; color: inherit; background: var(--panel);

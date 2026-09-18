@@ -25,7 +25,8 @@ let subjects = [];
 
 const game = {
   code: '', side: '', secret: null, startedAt: 0,
-  asked: 0, lieSpent: false, calls: [], outcome: null
+  asked: 0, lieSpent: false, calls: [], outcome: null,
+  solo: false, otherSecret: null // INTENT.md priority 2 — solo testing, below
 };
 
 // --- setup -----------------------------------------------------------------
@@ -42,6 +43,7 @@ async function boot() {
   $('#side-a').onclick = () => pickSide('a');
   $('#side-b').onclick = () => pickSide('b');
   $('#start').onclick = startSitting;
+  $('#practice').onclick = startSoloSitting;
   $('#got-it').onclick = () => show('play');
   $('#ask').onclick = () => bumpAsked(1);
   $('#undo-ask').onclick = () => bumpAsked(-1);
@@ -84,7 +86,38 @@ function startSitting() {
   // are dealt different things without either phone knowing the other exists.
   const deck = shuffled(subjects, rng(`${code}|tt`));
   game.code = code;
+  game.solo = false;
+  game.otherSecret = null;
   game.secret = deck[game.side === 'a' ? 0 : 1];
+  game.startedAt = Date.now();
+  game.asked = 0;
+  game.lieSpent = false;
+  game.calls = [];
+  game.outcome = null;
+
+  renderSecret();
+  renderPlay();
+  show('secret');
+}
+
+/**
+ * INTENT.md priority 2 — solo testing. Every screen here already tracks only
+ * ITS OWN player (see the header comment), so one person walking through one
+ * side alone was already most of the way to a practice mode — the actual gap
+ * was the code and side picker standing in the way, and no way to check the
+ * deck deals two different things without opening a second tab. This closes
+ * both: a fresh code, side "a" without asking, and the other side's card
+ * shown quietly alongside your own so a dealing bug can't hide. Nothing here
+ * is logged — see endSitting().
+ */
+function startSoloSitting() {
+  const code = normalizeCode(newRoomCode());
+  const deck = shuffled(subjects, rng(`${code}|tt`));
+  game.code = code;
+  game.solo = true;
+  game.side = 'a';
+  game.secret = deck[0];
+  game.otherSecret = deck[1];
   game.startedAt = Date.now();
   game.asked = 0;
   game.lieSpent = false;
@@ -101,6 +134,14 @@ function startSitting() {
 function renderSecret() {
   $('#secret').textContent = game.secret.n;
   $('#secret-cat').textContent = game.secret.c;
+
+  const other = $('#solo-other');
+  if (game.solo && game.otherSecret) {
+    other.hidden = false;
+    other.textContent = `Practice: the other side would have been dealt "${game.otherSecret.n}."`;
+  } else {
+    other.hidden = true;
+  }
 }
 
 function bumpAsked(n) {
@@ -142,9 +183,8 @@ function renderPlay() {
 
   const made = game.calls.length;
   const right = game.calls.filter((c) => c.right).length;
-  $('#status').textContent = made
-    ? `Called ${made} · right ${right}`
-    : 'Twenty-Twenty';
+  const label = game.solo ? 'Practice' : 'Twenty-Twenty';
+  $('#status').textContent = made ? `${label} · called ${made} · right ${right}` : label;
 }
 
 function endSitting(outcome) {
@@ -152,23 +192,28 @@ function endSitting(outcome) {
   const made = game.calls.length;
   const right = game.calls.filter((c) => c.right).length;
 
-  logSitting({
-    game: GAME,
-    startedAt: game.startedAt,
-    data: {
-      side: game.side,
-      subject: game.secret.n,
-      category: game.secret.c,
-      asked: game.asked,
-      lieSpent: game.lieSpent,
-      calls: made,
-      callsRight: right,
-      outcome
-    }
-  });
+  // A practice sitting never touches the record — see startSoloSitting().
+  if (!game.solo) {
+    logSitting({
+      game: GAME,
+      startedAt: game.startedAt,
+      data: {
+        side: game.side,
+        subject: game.secret.n,
+        category: game.secret.c,
+        asked: game.asked,
+        lieSpent: game.lieSpent,
+        calls: made,
+        callsRight: right,
+        outcome
+      }
+    });
+  }
 
   $('#reveal').textContent = game.secret.n;
-  const bits = [`You asked ${game.asked}.`];
+  const bits = [];
+  if (game.solo) bits.push("Practice — nothing here was saved.");
+  bits.push(`You asked ${game.asked}.`);
   bits.push(game.lieSpent ? 'You used your lie.' : 'You never used your lie.');
   if (made) {
     bits.push(`You called ${made} ${made === 1 ? 'lie' : 'lies'} and were right about ${right}.`);
