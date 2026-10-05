@@ -12,7 +12,76 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
-## The framing changed, and most of this repo predates it
+## 2026-10-05: the front door is asynchronous, and it is a group
+
+Recorded from Timothy's own description. **Where this section disagrees with
+the 2026-09-06 section below, this one wins.** The working name for the place
+is **Hikari Garden**.
+
+### What he is reacting to
+
+Daily share-a-score games (Wordle, Pinstinct, Krillian and others) are working
+in his friends' group chats. The share text is the score, and the score is also
+the link to play. What they lack: the only interaction is comparing numbers.
+Nobody's reply *does* anything, and day 40 is the same as day 1.
+
+### What changed
+
+- **A website first, not an app.** The genre lives on links in a chat, and a
+  browser handles that fine. The iPhone app is no longer the near-term target.
+- **Asynchronous first.** The live, on-a-call games (Blind Agreement,
+  Twenty-Twenty, the PET bond) are **tabled, not cut**. They stay in the repo
+  and the two-person PET framing below still describes that track.
+- **A group, not a pair.** This reverses "it never becomes a game for a group"
+  for the async track only.
+- **Replying pulls you in.** Answering someone's score should enter you into
+  their game, so the people in a chat end up tending one shared thing instead
+  of each solving the same puzzle alone.
+- **Ease people into interacting.** Start as low-commitment as a Wordle share
+  and ask for a little more interaction over time, never all at once.
+- **Long-term progression belongs to the group.** Rule 4 ("the tenth session
+  isn't the first") now applies to a chat of people, not a couple.
+
+### What survives
+
+Nothing decays, nags, or keeps a streak you can break. The forest is still the
+setting. The record still matters, and it now has a group-shaped version.
+
+### The first prototype
+
+**Grove Chess**, built 2026-10-05 at [`play/grove-chess/`](play/grove-chess/).
+Timothy's skeleton, all of it in:
+
+- a 5x5 or 6x6 board, light green and cream;
+- a pixelated 3D model of the day's board turning on the start screen, which
+  twirls when tapped and starts the game;
+- the goal is to catch one rabbit, which hops in a hidden daily pattern you
+  have to work out; you and the rabbit take turns;
+- your pieces come from the six classic pieces plus twelve fairy pieces
+  (Grasshopper, Nightrider, Camel, Zebra, Alfil, Ferz, Wazir, Cannon, Mao,
+  Squirrel, Rose, Archbishop);
+- the creeping bramble is a day variable, on some boards and not others;
+- a pieces menu with every piece of the day, rabbit included, as a turning
+  model with a short description;
+- once you finish, everyone on your link branch can be overlaid on the board,
+  or watched move by move.
+
+How it works and what is still open: [`docs/grove-chess.md`](docs/grove-chess.md).
+
+### Decisions still open, and they are his
+
+1. **Server or no server.** A group world everyone sees the same way is much
+   easier with a small backend. The no-server rule was justified by intimate
+   two-person answers, which this track does not have. The prototype is links
+   only, and it works; revisit once the loop has been played with real people.
+2. **What a reply actually does** to the original poster's game.
+3. **Puzzle or opponent.** Same daily position for everyone (Wordle-shaped) or
+   real matches between players (correspondence-chess-shaped). Leaning: daily
+   puzzle first, matches later.
+
+## 2026-09-06: the framing changed, and most of this repo predates it
+
+*Now the tabled live track. Still accurate for it.*
 
 **2026-09-06.** This is no longer a collection of games. It is a place, and the
 games are what tends it.
