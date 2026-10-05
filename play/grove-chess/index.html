@@ -56,6 +56,9 @@
   .prow canvas.diagram { width: 84px; height: 84px; margin-top: 8px; border-radius: 4px; }
   .prow h3 { margin: 0 0 2px; font-size: 18px; }
   .prow p { margin: 0 0 6px; font-size: 15px; }
+  input[type='date'] { font: inherit; width: 100%; padding: 12px 14px; min-height: 52px; background: var(--panel-2);
+    color: var(--text); border: 1px solid var(--line); border-radius: var(--radius); }
+  #pattern-pic { max-width: 100%; }
   .tag { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
 </style>
 </head>
@@ -77,6 +80,24 @@
     <div class="stack" style="margin-top:14px">
       <button class="quiet" id="pieces-title">Today's pieces</button>
     </div>
+
+    <div class="card" id="testpanel" style="margin-top:16px" hidden>
+      <p class="tag" style="margin:0 0 8px">Test mode</p>
+      <div class="row">
+        <button class="quiet" id="t-prev">Previous day</button>
+        <button class="quiet" id="t-next">Next day</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="quiet" id="t-random">Random day</button>
+        <button class="quiet" id="t-today">Today</button>
+      </div>
+      <input type="date" id="t-date" style="margin-top:10px">
+      <button class="quiet" id="t-reset" style="margin-top:10px">Clear my game on this board</button>
+      <details style="margin-top:6px">
+        <summary>Spoilers for this board</summary>
+        <p class="small dim" id="t-spoil" style="margin:0"></p>
+      </details>
+    </div>
   </section>
 
   <section data-screen="play" hidden>
@@ -97,7 +118,9 @@
     <div id="end" hidden>
       <p class="big" id="end-score" style="margin:14px 0 0"></p>
       <p class="dim" id="end-par"></p>
-      <p class="small" id="end-pattern"></p>
+      <h2 style="margin-top:14px">The rabbit's pattern</h2>
+      <canvas id="pattern-pic" class="pix" style="margin:4px 0 8px; border-radius:4px"></canvas>
+      <p class="small dim" id="end-pattern"></p>
 
       <div class="card" id="share-card">
         <p class="small dim" style="margin-bottom:8px">Your name on the vine. Anyone who plays from your link sees it next to your game.</p>
@@ -114,6 +137,7 @@
       <div class="stack">
         <button class="quiet" id="all-paths">Show every path at once</button>
         <button class="quiet" id="practice">Practice this board again</button>
+        <button class="quiet" id="t-next-end" hidden>Next day's board (test mode)</button>
       </div>
     </div>
 
@@ -122,8 +146,9 @@
       <p class="small dim">Catch the rabbit by moving one of your pieces onto its square.
         You move, then the rabbit hops. It follows a pattern that repeats, and
         its tracks are numbered on the board so you can work the pattern out.
-        It bounces off the edges, and if something is in its way it waits.</p>
-      <p class="small dim">Tap a piece to see where it can go. Tap Pieces to read
+        If it lands on one of your pieces, it eats it. It bounces off the
+        edges, and if a stump or bramble is in its way it waits.</p>
+      <p class="small dim">Tap a piece to light up where it can go. Tap Pieces to read
         what every piece does. Waiting spends a move. You have 15 moves before
         dusk.</p>
       <p class="small dim">Par is the fewest moves the solver needed, and the solver

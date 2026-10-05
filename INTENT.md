@@ -54,12 +54,18 @@ Timothy's skeleton, all of it in:
 
 - a 5x5 or 6x6 board, light green and cream;
 - a pixelated 3D model of the day's board turning on the start screen, which
-  twirls when tapped and starts the game;
+  twirls when tapped and starts the game; models are simple polygons with a
+  pixel filter, N64 style, not blocky voxels;
 - the goal is to catch one rabbit, which hops in a hidden daily pattern you
-  have to work out; you and the rabbit take turns;
-- your pieces come from the six classic pieces plus twelve fairy pieces
-  (Grasshopper, Nightrider, Camel, Zebra, Alfil, Ferz, Wazir, Cannon, Mao,
-  Squirrel, Rose, Archbishop);
+  have to work out; you and the rabbit take turns; it eats any piece it lands
+  on;
+- each hand is one fairy piece (rotating through Grasshopper, Nightrider,
+  Camel, Zebra, Alfil, Ferz, Wazir, Cannon, Mao, Squirrel, Rose, Archbishop)
+  plus classic pieces, so nobody has to learn more than one strange piece a
+  day;
+- legal moves light up as whole squares; after the game the rabbit's pattern
+  is drawn out;
+- a test mode (`?test`) for jumping between days;
 - the creeping bramble is a day variable, on some boards and not others;
 - a pieces menu with every piece of the day, rabbit included, as a turning
   model with a short description;
@@ -69,6 +75,9 @@ Timothy's skeleton, all of it in:
 How it works and what is still open: [`docs/grove-chess.md`](docs/grove-chess.md).
 
 ### Decisions still open, and they are his
+
+0. **Other enemy pieces besides the rabbit.** Timothy is toying with it
+   (2026-10-05). Not built.
 
 1. **Server or no server.** A group world everyone sees the same way is much
    easier with a small backend. The no-server rule was justified by intimate

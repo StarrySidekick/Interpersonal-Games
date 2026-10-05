@@ -1,266 +1,260 @@
-// The little voxel models. Every piece is built on an 8 x 8 footprint, facing
-// +z (toward you), standing on y = 0. See engine/voxel.js for what a Vox is.
+// The models: simple polygon shapes, N64 style. Every piece fits in a circle
+// of radius about 3.7, stands on y = 0 and faces +z (toward you). See
+// engine/lowpoly.js for the shapes and how they are drawn.
 
-import { Vox } from '../../engine/voxel.js';
+import { Model } from '../../engine/lowpoly.js';
 
 const P = {
-  wood: '#7a5133', woodLight: '#9a6a43', woodDark: '#553722',
+  wood: '#86593a', woodLight: '#a8774d', woodDark: '#563823',
   moss: '#6f9f46', leaf: '#8cc155', gold: '#e3bd57', cream: '#f4ecd6',
   eye: '#231a16', pink: '#f0a3b2'
 };
 
 /** Every one of your pieces stands on the same mossy plinth, so a strange
     animal still reads as one of yours. */
-function plinth(v, ring = P.moss) {
-  v.disc(0, 3.6, P.woodDark);
-  v.disc(1, 3.0, ring);
-  return v;
+function plinth(m, ring = P.moss, base = P.woodDark) {
+  m.lathe([[3.7, 0], [3.7, 0.8]], base, { seg: 10 });
+  m.lathe([[3.3, 0.8], [3.3, 1.5]], ring, { seg: 10 });
+  return m;
 }
 
-// --- The classic six. Turned shapes, walnut with a moss collar. -----------
+// --- The classic six: turned shapes in walnut. -----------------------------
 
 function pawn() {
-  const v = plinth(new Vox(8, 11, 8));
-  v.lathe(2, [2.2, 1.6, 1.6, 2.6], [P.wood, P.wood, P.wood, P.moss]);
-  v.ball(3.5, 7.6, 3.5, 2.3, P.wood);
-  return v;
+  const m = plinth(new Model());
+  m.lathe([[2.5, 1.5], [1.6, 3.2], [1.1, 5.6], [2.2, 6.0], [2.2, 6.5], [1.0, 6.9]], [P.wood, P.wood, P.moss, P.moss, P.wood]);
+  m.ball(0, 8.4, 0, 2.0, P.wood);
+  return m;
 }
 
 function rook() {
-  const v = plinth(new Vox(8, 11, 8));
-  v.lathe(2, [2.6, 2.2, 2.2, 2.2, 2.2, 2.6, 3.0], P.wood);
-  v.disc(4, 2.2, P.moss);
-  v.disc(8, 1.6, P.woodDark); // the hollow top
-  for (let z = 0; z < 8; z++)
-    for (let x = 0; x < 8; x++) {
-      const d = Math.hypot(x - 3.5, z - 3.5);
-      const sector = Math.floor((Math.atan2(z - 3.5, x - 3.5) + Math.PI) / (Math.PI / 4));
-      if (d <= 3.0 && d > 1.6 && sector % 2 === 0) v.set(x, 9, z, P.wood);
-    }
-  return v;
+  const m = plinth(new Model());
+  m.lathe([[2.8, 1.5], [2.2, 3.0], [2.1, 4.2], [2.1, 4.8], [2.1, 7.6], [3.0, 8.3], [3.0, 9.6]], [P.wood, P.wood, P.moss, P.wood, P.wood, P.wood]);
+  m.lathe([[2.2, 9.6], [2.2, 9.66]], P.woodDark);
+  for (let k = 0; k < 4; k++) {
+    const a = (k / 4) * Math.PI * 2 + Math.PI / 4;
+    m.box(Math.cos(a) * 2.3, 10.3, Math.sin(a) * 2.3, 1.6, 1.4, 1.6, P.wood, { ry: -a });
+  }
+  return m;
 }
 
-function horse(body, mane, { eye = P.eye, muzzle = P.woodDark } = {}) {
-  const v = plinth(new Vox(8, 13, 8));
-  v.box(2, 2, 2, 5, 6, 5, body);       // chest and neck
-  v.box(2, 6, 3, 5, 9, 7, body);       // head, snout forward
-  for (let x = 2; x <= 5; x++) { v.set(x, 9, 7, null); v.set(x, 6, 7, null); }
-  v.box(2, 7, 7, 5, 7, 7, muzzle);
-  v.box(3, 3, 1, 4, 9, 1, mane);       // mane down the back
-  v.box(3, 10, 3, 4, 10, 4, mane);
-  v.set(2, 10, 4, body); v.set(5, 10, 4, body); // ears
-  v.set(2, 8, 5, eye); v.set(5, 8, 5, eye);
-  return v;
+function horse(body, mane, { eye = P.eye, muzzle = P.woodDark, stripes = null } = {}) {
+  const m = plinth(new Model());
+  m.group({ t: [0, 4.3, -0.4], rx: -0.12 }, () => {
+    m.box(0, 0, 0, 3.0, 5.4, 3.4, body);                   // neck and chest
+    if (stripes) for (const y of [-1.8, -0.4, 1.0, 2.4]) m.box(0, y, 0, 3.1, 0.5, 3.5, stripes);
+    m.box(0, 1.8, -1.9, 0.9, 5.4, 0.8, mane);              // mane
+  });
+  m.group({ t: [0, 8.0, 1.0], rx: 0.4 }, () => {
+    m.box(0, 0, 0, 2.6, 2.4, 4.8, body);                   // head, snout down
+    if (stripes) for (const z of [-1.2, 0.2]) m.box(0, 0, z, 2.7, 2.5, 0.5, stripes);
+    m.box(0, -0.2, 2.2, 2.3, 1.9, 0.9, muzzle);            // muzzle
+    m.box(1.32, 0.5, 0.2, 0.15, 0.6, 0.6, eye);            // eyes
+    m.box(-1.32, 0.5, 0.2, 0.15, 0.6, 0.6, eye);
+  });
+  m.box(0.8, 9.9, -0.4, 0.6, 1.3, 0.6, body, { rx: -0.2 }); // ears
+  m.box(-0.8, 9.9, -0.4, 0.6, 1.3, 0.6, body, { rx: -0.2 });
+  return m;
 }
 
 function bishopShape(body, accent, extra) {
-  const v = plinth(new Vox(8, 13, 8));
-  v.lathe(2, [2.2, 1.6, 1.6, 1.6, 2.2, 2.6], [P.wood, body, body, body, body, accent]);
-  v.lathe(8, [2.2, 2.6, 2.2, 1.6], body);
-  v.each((x, y, z) => { if (y >= 9 && y <= 10 && x - z === 0) v.set(x, y, z, accent); });
-  v.disc(12, 0.8, P.woodLight);
-  if (extra) extra(v);
-  return v;
+  const m = plinth(new Model());
+  m.lathe([[2.4, 1.5], [1.5, 3.0], [1.1, 6.6], [2.2, 7.1], [2.2, 7.5], [1.3, 7.9]], [body, body, accent, accent, body]);
+  m.ellipsoid(0, 9.7, 0, 1.8, 2.4, 1.8, body);
+  m.box(0.45, 10.2, 0, 0.35, 1.9, 4.0, accent, { rz: -0.6 }); // the mitre's slit
+  m.ball(0, 12.2, 0, 0.6, P.woodLight, { seg: 6, rings: 4 });
+  if (extra) extra(m);
+  return m;
 }
 
 function queenShape(top) {
-  const v = plinth(new Vox(8, 14, 8));
-  v.lathe(2, [2.2, 1.6, 1.6, 1.6, 1.6, 2.2, 2.6], [P.wood, P.wood, P.wood, P.wood, P.wood, P.wood, P.moss]);
-  v.disc(9, 2.6, P.wood);
-  top(v);
-  return v;
+  const m = plinth(new Model());
+  m.lathe([[2.4, 1.5], [1.5, 3.2], [1.0, 7.8], [2.0, 8.3], [2.0, 8.7], [1.5, 9.1], [2.3, 10.2]], [P.wood, P.wood, P.moss, P.moss, P.wood, P.wood]);
+  top(m);
+  return m;
 }
 
 const MODELS = {
-  pawn,
-  rook,
+  pawn, rook,
   knight: () => horse(P.wood, P.moss),
   bishop: () => bishopShape(P.wood, P.moss),
-  queen: () => queenShape((v) => {
-    for (let z = 0; z < 8; z++)
-      for (let x = 0; x < 8; x++) {
-        const d = Math.hypot(x - 3.5, z - 3.5);
-        const sector = Math.floor((Math.atan2(z - 3.5, x - 3.5) + Math.PI) / (Math.PI / 4));
-        if (d <= 2.6 && d > 1.6 && sector % 2 === 0) v.set(x, 10, z, P.leaf);
-      }
-    v.disc(10, 0.8, P.gold); v.disc(11, 0.8, P.gold);
+  queen: () => queenShape((m) => {
+    for (let k = 0; k < 6; k++) {
+      const a = (k / 6) * Math.PI * 2;
+      m.cone(Math.cos(a) * 1.9, 10.1, Math.sin(a) * 1.9, 0.6, 1.4, P.leaf, { seg: 5 });
+    }
+    m.ball(0, 10.9, 0, 0.9, P.gold, { seg: 6, rings: 4 });
   }),
-  king: () => queenShape((v) => {
-    v.disc(10, 1.6, P.wood);
-    v.box(3, 11, 3, 4, 13, 4, P.gold);
-    v.box(2, 12, 3, 5, 12, 4, P.gold);
+  king: () => queenShape((m) => {
+    m.lathe([[2.3, 10.2], [1.3, 10.7]], P.wood);
+    m.box(0, 12.0, 0, 0.7, 2.6, 0.7, P.gold);
+    m.box(0, 12.3, 0, 2.2, 0.7, 0.7, P.gold);
   }),
 
   // --- The fairy pieces. Most are named for animals, so they get to be one.
 
   grasshopper() {
-    const v = plinth(new Vox(8, 10, 8)), g = '#5fae3e', dk = '#3f7d2a', lt = '#9bd36a';
-    v.box(3, 2, 1, 4, 3, 5, g);           // body
-    v.box(3, 4, 2, 4, 4, 5, dk);          // folded wings
-    v.box(2, 2, 6, 5, 4, 7, lt);          // head
-    v.set(2, 4, 7, P.eye); v.set(5, 4, 7, P.eye);
-    for (const x of [1, 6]) {             // the big hind legs
-      v.set(x, 2, 5, dk); v.set(x, 3, 4, dk); v.set(x, 4, 3, dk); v.set(x, 5, 3, dk);
-      v.set(x, 4, 2, dk); v.set(x, 3, 1, dk); v.set(x, 2, 1, dk);
+    const m = plinth(new Model()), g = '#5fae3e', dk = '#3f7d2a', lt = '#9bd36a';
+    m.ellipsoid(0, 3.2, -0.2, 1.2, 1.1, 2.8, g);             // body
+    m.box(0, 4.1, -0.6, 1.6, 0.3, 3.6, dk, { rx: 0.12 });     // folded wings
+    m.ellipsoid(0, 3.9, 2.6, 1.15, 1.25, 1.2, lt);          // head
+    m.ball(0.85, 4.3, 3.0, 0.42, P.eye, { seg: 6, rings: 4 });
+    m.ball(-0.85, 4.3, 3.0, 0.42, P.eye, { seg: 6, rings: 4 });
+    for (const s of [1, -1]) {                                // the big hind legs
+      m.box(s * 1.5, 4.4, -0.9, 0.55, 0.7, 3.6, dk, { rx: 0.75 });
+      m.box(s * 1.55, 2.7, -2.1, 0.45, 2.8, 0.45, dk, { rx: -0.25 });
+      m.box(s * 0.5, 5.6, 3.5, 0.14, 0.14, 2.6, dk, { rx: -0.9 }); // antennae
     }
-    v.set(2, 5, 7, dk); v.set(2, 6, 6, dk); v.set(2, 7, 6, dk);  // antennae
-    v.set(5, 5, 7, dk); v.set(5, 6, 6, dk); v.set(5, 7, 6, dk);
-    return v;
+    return m;
   },
 
   nightrider() {
-    const v = horse('#3d4a7a', '#232c4f', { muzzle: '#2a3358', eye: P.gold });
-    v.set(3, 11, 4, P.gold); v.set(3, 12, 4, P.gold); v.set(4, 12, 4, P.gold); // a crescent
-    v.set(2, 12, 4, P.gold); v.set(2, 11, 4, null);
-    return v;
+    const m = horse('#3d4a7a', '#232c4f', { muzzle: '#2a3358', eye: P.gold });
+    for (const [x, y] of [[-0.9, 11.0], [-0.4, 11.6], [0.3, 11.8], [0.9, 11.5]]) m.box(x, y, -0.2, 0.6, 0.6, 0.6, P.gold);
+    return m;
   },
 
   camel() {
-    const v = plinth(new Vox(8, 12, 8)), c = '#c9a26b', dk = '#9c7a4c';
-    for (const [x, z] of [[2, 1], [5, 1], [2, 4], [5, 4]]) v.box(x, 2, z, x, 3, z, dk);
-    v.box(2, 4, 1, 5, 6, 5, c);           // body
-    v.box(3, 7, 1, 4, 7, 2, c); v.box(3, 8, 1, 4, 8, 1, c);  // humps
-    v.box(3, 7, 4, 4, 7, 4, c); v.box(3, 8, 4, 4, 8, 4, c);
-    v.box(3, 5, 6, 4, 8, 6, c);           // neck
-    v.box(3, 8, 6, 4, 9, 7, c);           // head
-    v.set(3, 9, 7, P.eye);
-    return v;
+    const m = plinth(new Model()), c = '#c9a26b', dk = '#9c7a4c';
+    for (const [x, z] of [[1.2, 1.5], [-1.2, 1.5], [1.2, -1.5], [-1.2, -1.5]]) m.box(x, 3.2, z, 0.75, 3.4, 0.75, dk);
+    m.ellipsoid(0, 5.6, 0, 1.95, 1.5, 2.9, c);              // body
+    m.ellipsoid(0, 7.0, -1.1, 1.15, 1.35, 1.05, c);         // humps
+    m.ellipsoid(0, 7.0, 1.0, 1.15, 1.35, 1.05, c);
+    m.box(0, 7.4, 2.8, 1.05, 3.2, 1.05, c, { rx: 0.35 });   // neck
+    m.ellipsoid(0, 8.9, 3.3, 0.85, 0.75, 1.35, c);          // head
+    m.ball(0.65, 9.1, 3.7, 0.24, P.eye, { seg: 5, rings: 3 });
+    m.ball(-0.65, 9.1, 3.7, 0.24, P.eye, { seg: 5, rings: 3 });
+    return m;
   },
 
-  zebra() {
-    const v = horse('#f1efe6', '#1f1f1f', { muzzle: '#2b2b2b' });
-    v.each((x, y, z, col) => { if (col === '#f1efe6' && y % 2 === 0 && y >= 2) v.set(x, y, z, '#1f1f1f'); });
-    return v;
-  },
+  zebra: () => horse('#f1efe6', '#1f1f1f', { muzzle: '#2b2b2b', stripes: '#1f1f1f' }),
 
   alfil() { // al-fil, "the elephant"
-    const v = plinth(new Vox(8, 11, 8)), g = '#9aa3ad', dk = '#7c858f';
-    for (const [x, z] of [[1, 1], [5, 1], [1, 4], [5, 4]]) v.box(x, 2, z, x + 1, 3, z + 1, dk);
-    v.box(1, 4, 1, 6, 7, 5, g);           // body
-    v.box(2, 5, 6, 5, 8, 7, g);           // head
-    v.box(0, 5, 5, 0, 8, 6, '#c7a5a8');   // ears
-    v.box(7, 5, 5, 7, 8, 6, '#c7a5a8');
-    v.box(3, 2, 7, 4, 5, 7, dk);          // trunk
-    v.set(2, 5, 7, P.cream); v.set(5, 5, 7, P.cream); // tusks
-    v.set(2, 7, 7, P.eye); v.set(5, 7, 7, P.eye);
-    return v;
+    const m = plinth(new Model()), g = '#9aa3ad', dk = '#7c858f';
+    for (const [x, z] of [[1.4, 1.3], [-1.4, 1.3], [1.4, -1.5], [-1.4, -1.5]]) m.lathe([[0.8, 1.5], [0.8, 4.0]], dk, { seg: 6, at: [x, 0, z] });
+    m.ellipsoid(0, 5.5, -0.3, 2.6, 2.2, 2.9, g);            // body
+    m.ellipsoid(0, 6.8, 2.3, 1.8, 1.7, 1.5, g);             // head
+    m.ellipsoid(2.0, 6.9, 1.6, 0.3, 1.7, 1.5, '#c7a5a8');   // ears
+    m.ellipsoid(-2.0, 6.9, 1.6, 0.3, 1.7, 1.5, '#c7a5a8');
+    m.box(0, 5.3, 3.6, 0.95, 2.1, 0.95, dk, { rx: 0.2 });   // trunk
+    m.box(0, 3.9, 4.0, 0.7, 1.4, 0.7, dk, { rx: 0.5 });
+    m.cone(0.8, 5.6, 3.4, 0.28, 1.5, P.cream, { rot: { rx: 1.9 } }); // tusks
+    m.cone(-0.8, 5.6, 3.4, 0.28, 1.5, P.cream, { rot: { rx: 1.9 } });
+    m.ball(1.05, 7.4, 3.4, 0.25, P.eye, { seg: 5, rings: 3 });
+    m.ball(-1.05, 7.4, 3.4, 0.25, P.eye, { seg: 5, rings: 3 });
+    return m;
   },
 
   ferz() { // drawn as an acorn
-    const v = plinth(new Vox(8, 11, 8));
-    v.lathe(2, [1.6, 2.2, 2.6, 2.6, 2.2], '#c98b45');
-    v.lathe(7, [3.0, 2.6, 1.6], '#6b4a2c');
-    v.each((x, y, z, col) => { if (col === '#6b4a2c' && (x + y + z) % 2 === 0) v.set(x, y, z, '#5a3d24'); });
-    v.disc(10, 0.8, '#5a3d24');
-    return v;
+    const m = plinth(new Model());
+    m.lathe([[0.6, 1.5], [1.8, 2.3], [2.3, 3.9], [2.2, 5.5], [1.9, 6.2]], '#c98b45', { seg: 10 });
+    m.lathe([[2.5, 5.9], [2.7, 6.8], [2.1, 7.8], [0.7, 8.3]], ['#6b4a2c', '#5a3d24', '#6b4a2c'], { seg: 10 });
+    m.lathe([[0.35, 8.2], [0.3, 9.4]], '#5a3d24', { seg: 5 });
+    return m;
   },
 
   wazir() { // drawn as a toadstool
-    const v = plinth(new Vox(8, 10, 8));
-    v.lathe(2, [1.6, 1.6, 1.6, 1.6], P.cream);
-    v.lathe(6, [3.6, 3.0, 2.2], '#d2473b');
-    for (const [x, y, z] of [[2, 7, 1], [5, 7, 6], [1, 6, 4], [6, 6, 2], [3, 8, 4], [4, 7, 6], [6, 6, 5]])
-      if (v.get(x, y, z)) v.set(x, y, z, P.cream);
-    return v;
+    const m = plinth(new Model());
+    m.lathe([[1.3, 1.5], [1.1, 4.5], [1.25, 5.5]], P.cream, { seg: 8 });
+    m.lathe([[3.7, 5.3], [3.6, 6.0], [2.8, 7.3], [1.2, 8.2], [0, 8.4]], '#d2473b', { seg: 10 });
+    for (const [x, y, z] of [[1.8, 7.2, 1.2], [-1.5, 7.3, -1.4], [0.2, 8.15, 0.3], [-2.5, 6.4, 1.3], [2.5, 6.4, -1.4], [0.4, 6.7, 2.7]])
+      m.ellipsoid(x, y, z, 0.5, 0.25, 0.5, P.cream, { seg: 6, rings: 3 });
+    return m;
   },
 
   cannon() {
-    const v = plinth(new Vox(8, 9, 8)), iron = '#4b4f57';
-    v.box(2, 2, 1, 5, 3, 6, P.wood);      // carriage
-    for (const x of [1, 6])               // wheels
-      for (let z = 0; z < 8; z++)
-        for (let y = 2; y < 7; y++)
-          if ((z - 3.5) ** 2 + (y - 4) ** 2 <= 2.4 * 2.4) v.set(x, y, z, P.woodDark);
-    for (let z = 1; z < 8; z++)           // barrel
-      for (let y = 3; y < 8; y++)
-        for (let x = 2; x < 6; x++)
-          if ((x - 3.5) ** 2 + (y - 5.2) ** 2 <= 2.0 * 2.0) v.set(x, y, z, z === 7 ? '#6b707a' : iron);
-    v.set(3, 5, 7, '#1b1c20'); v.set(4, 5, 7, '#1b1c20');
-    return v;
+    const m = plinth(new Model()), iron = '#5f6570';
+    m.box(0, 2.9, 0, 2.6, 1.8, 4.4, P.wood);                // carriage
+    for (const s of [1, -1])                                  // wheels
+      m.lathe([[2.2, -0.4], [2.2, 0.4]], P.woodDark, { seg: 8, at: [s * 1.9, 3.4, -0.3], rot: { rz: Math.PI / 2 } });
+    const aim = { at: [0, 5.2, 0], rot: { rx: Math.PI / 2 - 0.45 } };
+    m.lathe([[1.7, -3.0], [1.55, 0], [1.25, 3.0], [1.5, 3.2], [1.5, 3.8]], iron, { seg: 8, ...aim });
+    m.lathe([[0.85, 3.81], [0.85, 3.86]], '#16171a', { seg: 8, ...aim });
+    return m;
   },
 
-  mao() { // the horse of xiangqi, in red lacquer on a cream disc
-    const v = horse('#b5372f', P.gold, { muzzle: '#7d211b', eye: P.cream });
-    v.disc(0, 3.6, P.cream); v.disc(1, 3.0, '#b5372f');
-    return v;
+  mao() { // the horse of xiangqi, red lacquer on a cream disc
+    const m = horse('#b5372f', P.gold, { muzzle: '#7d211b', eye: P.cream });
+    m.lathe([[3.75, 0], [3.75, 0.82]], P.cream, { seg: 10 });
+    return m;
   },
 
   squirrel() {
-    const v = plinth(new Vox(8, 12, 8)), o = '#c56a2c', lt = '#e08f4f';
-    v.box(2, 2, 3, 5, 5, 5, o);           // body
-    v.box(3, 2, 6, 4, 4, 6, P.cream);     // belly
-    v.box(2, 5, 5, 5, 7, 7, o);           // head
-    v.set(2, 8, 6, o); v.set(5, 8, 6, o); // ears
-    v.set(2, 6, 7, P.eye); v.set(5, 6, 7, P.eye);
-    v.box(2, 2, 1, 5, 4, 2, lt);          // the tail, curling up and over
-    v.box(2, 4, 0, 5, 9, 1, lt);
-    v.box(2, 9, 1, 5, 10, 2, lt);
-    v.box(3, 10, 3, 4, 10, 3, lt);
-    return v;
+    const m = plinth(new Model()), o = '#c56a2c', lt = '#e08f4f';
+    m.ellipsoid(0, 3.7, 0.5, 1.5, 2.0, 1.4, o);             // body
+    m.ellipsoid(0, 3.4, 1.4, 1.0, 1.4, 0.7, P.cream);       // belly
+    m.ellipsoid(0, 6.3, 1.1, 1.3, 1.2, 1.3, o);             // head
+    m.cone(0.7, 7.2, 0.8, 0.4, 1.0, o, { seg: 5 });          // ears
+    m.cone(-0.7, 7.2, 0.8, 0.4, 1.0, o, { seg: 5 });
+    m.ball(0.65, 6.6, 2.15, 0.22, P.eye, { seg: 5, rings: 3 });
+    m.ball(-0.65, 6.6, 2.15, 0.22, P.eye, { seg: 5, rings: 3 });
+    for (const [y, z, r] of [[3.0, -1.7, 1.1], [5.0, -2.4, 1.35], [7.3, -2.3, 1.35], [9.0, -1.3, 1.1]]) // the tail
+      m.ellipsoid(0, y, z, r, r * 1.1, r * 0.85, lt);
+    return m;
   },
 
   rose() {
-    const v = plinth(new Vox(8, 13, 8)), red = '#c8324a', deep = '#962238';
-    v.box(3, 2, 3, 4, 7, 4, '#4f8a35');   // stem
-    v.box(1, 4, 3, 2, 4, 4, P.leaf); v.box(5, 5, 3, 6, 5, 4, P.leaf);
-    v.ball(3.5, 9.5, 3.5, 2.6, red);
-    v.each((x, y, z, col) => { if (col === red && (x * 3 + y + z * 2) % 4 === 0) v.set(x, y, z, deep); });
-    return v;
+    const m = plinth(new Model()), red = '#c8324a', deep = '#962238';
+    m.lathe([[0.35, 1.5], [0.3, 7.4]], '#4f8a35', { seg: 5 });
+    m.ellipsoid(1.2, 4.0, 0, 1.2, 0.25, 0.6, P.leaf, { rot: { rz: 0.5 } });
+    m.ellipsoid(-1.1, 5.3, 0, 1.2, 0.25, 0.6, P.leaf, { rot: { rz: -0.5 } });
+    m.lathe([[0.6, 7.0], [1.9, 8.0], [2.4, 9.4], [2.1, 10.3]], red, { seg: 8 });
+    m.ellipsoid(0, 10.0, 0, 1.6, 1.0, 1.6, deep);
+    for (let k = 0; k < 5; k++) {
+      const a = (k / 5) * Math.PI * 2;
+      m.ellipsoid(Math.cos(a) * 1.0, 10.4, Math.sin(a) * 1.0, 1.0, 0.8, 0.45, red, { rot: { ry: -a + Math.PI / 2 }, seg: 6, rings: 4 });
+    }
+    return m;
   },
 
-  archbishop: () => bishopShape('#6a4a8c', P.gold, (v) => {
-    v.set(2, 11, 4, '#6a4a8c'); v.set(5, 11, 4, '#6a4a8c'); // horse ears
+  archbishop: () => bishopShape('#6a4a8c', P.gold, (m) => {
+    m.box(1.0, 11.6, -0.3, 0.5, 1.2, 0.5, '#6a4a8c', { rz: -0.3 }); // horse ears
+    m.box(-1.0, 11.6, -0.3, 0.5, 1.2, 0.5, '#6a4a8c', { rz: 0.3 });
   })
 };
 
 // --- Not yours. ------------------------------------------------------------
 
 MODELS.rabbit = () => {
-  const v = new Vox(8, 12, 8), w = '#f6f2ea', sh = '#ddd4c4';
-  v.ball(3.5, 2.6, 3.0, 2.7, w);          // body
-  v.ball(3.5, 5.6, 5.0, 2.1, w);          // head
-  v.box(2, 7, 4, 2, 11, 4, w); v.box(5, 7, 4, 5, 11, 4, w);       // ears
-  v.box(2, 8, 5, 2, 10, 5, P.pink); v.box(5, 8, 5, 5, 10, 5, P.pink);
-  v.ball(3.5, 2.5, 0.2, 1.1, '#ffffff');  // tail
-  v.set(2, 6, 6, P.eye); v.set(5, 6, 6, P.eye);
-  v.set(3, 5, 7, P.pink); v.set(4, 5, 7, P.pink);
-  v.box(2, 0, 5, 2, 0, 6, sh); v.box(5, 0, 5, 5, 0, 6, sh);       // front paws
-  return v;
+  const m = new Model(), w = '#f6f2ea', sh = '#ddd4c4';
+  m.ellipsoid(0, 2.5, -0.3, 2.2, 2.3, 2.6, w);             // body
+  m.ellipsoid(0, 5.4, 1.5, 1.6, 1.5, 1.6, w);             // head
+  for (const s of [1, -1]) {
+    m.ellipsoid(s * 0.7, 8.1, 1.0, 0.5, 2.0, 0.35, w, { rot: { rz: -s * 0.15 } });      // ears
+    m.ellipsoid(s * 0.7, 8.0, 1.3, 0.3, 1.5, 0.15, P.pink, { rot: { rz: -s * 0.15 } });
+    m.ball(s * 1.05, 5.8, 2.55, 0.3, P.eye, { seg: 6, rings: 4 });
+    m.ellipsoid(s * 0.8, 0.5, 1.9, 0.5, 0.45, 0.8, sh);     // front paws
+  }
+  m.ball(0, 5.0, 3.1, 0.3, P.pink, { seg: 6, rings: 4 }); // nose
+  m.ball(0, 2.4, -2.9, 0.9, '#ffffff', { seg: 6, rings: 4 }); // tail
+  return m;
 };
 
 MODELS.bramble = () => {
-  const v = new Vox(8, 7, 8);
-  // A fixed hash rather than the day's random numbers, so every bramble on
-  // every day is the same bramble.
-  const h = (x, y, z) => {
-    let n = x * 374761393 + y * 668265263 + z * 2147483647;
-    n = (n ^ (n >>> 13)) * 1274126177;
-    return ((n ^ (n >>> 16)) >>> 0) % 100;
-  };
-  for (let y = 0; y < 7; y++)
-    for (let z = 0; z < 8; z++)
-      for (let x = 0; x < 8; x++) {
-        const r = h(x, y, z), edge = Math.hypot(x - 3.5, z - 3.5);
-        if (edge > 3.8 - y * 0.3) continue;
-        if (r < 46 - y * 6) v.set(x, y, z, r < 6 ? '#3a1d3f' : r < 12 ? '#6d4a2a' : r % 3 ? '#3f6b2c' : '#557f36');
-      }
-  return v;
+  const m = new Model();
+  for (const [x, y, z, r, c] of [[-1.4, 1.3, -0.8, 1.7, '#3f6b2c'], [1.4, 1.2, 0.2, 1.6, '#4a7a33'], [0, 2.4, 0.4, 1.7, '#557f36'],
+    [-0.4, 1.1, 1.6, 1.3, '#3f6b2c'], [1.0, 2.6, -1.2, 1.2, '#3a5f28']])
+    m.ellipsoid(x * 1.15, y * 1.2, z * 1.15, r * 1.2, r * 1.05, r * 1.2, c, { seg: 6, rings: 4 });
+  for (const [x, y, z, rx, rz] of [[-2.5, 1.8, -0.6, 0, 1.2], [2.6, 1.5, 0.6, 0, -1.2], [0.4, 3.9, 0.4, 0.2, 0.1], [-0.6, 2.0, 2.7, 1.1, 0], [1.4, 3.4, -1.9, -0.9, -0.3]])
+    m.cone(x * 1.2, y * 1.2, z * 1.2, 0.35, 1.3, '#6d4a2a', { seg: 4, rot: { rx, rz } });
+  for (const [x, y, z] of [[1.6, 2.6, 1.3], [-1.2, 2.9, 0.6], [0.2, 1.4, 2.6], [-2.4, 1.6, 0.5]])
+    m.ball(x * 1.2, y * 1.2, z * 1.2, 0.5, '#5a2a63', { seg: 5, rings: 3 });
+  return m;
 };
 
 MODELS.stump = () => {
-  const v = new Vox(8, 6, 8);
-  v.lathe(0, [3.6, 3.0, 3.0, 3.0], '#6a4a30');
-  for (let z = 0; z < 8; z++)
-    for (let x = 0; x < 8; x++) {
-      const d = Math.hypot(x - 3.5, z - 3.5);
-      if (d <= 3.0) v.set(x, 3, z, Math.round(d) % 2 ? '#d8b98a' : '#bf9b68');
-    }
-  v.set(6, 4, 5, '#d2473b'); v.set(6, 5, 5, '#d2473b'); // a toadstool friend
-  return v;
+  const m = new Model();
+  m.lathe([[3.5, 0], [3.0, 0.6], [2.9, 3.0]], '#6a4a30', { seg: 9 });
+  m.lathe([[2.75, 3.0], [2.75, 3.04]], '#d8b98a', { seg: 9 });
+  m.lathe([[1.8, 3.04], [1.8, 3.08]], '#bf9b68', { seg: 9 });
+  m.lathe([[0.8, 3.08], [0.8, 3.12]], '#d8b98a', { seg: 9 });
+  m.lathe([[0.3, 2.4], [0.3, 4.0]], P.cream, { seg: 5, at: [2.4, 0, 1.6] });  // a toadstool friend
+  m.lathe([[0.9, 3.9], [0.7, 4.4], [0, 4.6]], '#d2473b', { seg: 7, at: [2.4, 0, 1.6] });
+  return m;
 };
 
 const cache = new Map();
-/** One shared Vox per kind. Treat it as read-only. */
+/** One shared Model per kind. Treat it as read-only. */
 export function model(kind) {
   if (!cache.has(kind)) cache.set(kind, MODELS[kind]());
   return cache.get(kind);

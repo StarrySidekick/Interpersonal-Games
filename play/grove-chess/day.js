@@ -12,7 +12,7 @@
 // chats, change it only behind a version (say, boards dealt before a cutover
 // date use the old code).
 
-import { rng } from '../../engine/seed.js';
+import { rng, shuffled } from '../../engine/seed.js';
 import { PIECES, initialState, allMoves, apply, stateKey, MAX_MOVES } from './rules.js';
 
 /** The rabbit's habits. Each is a list of hops that repeats. */
@@ -52,14 +52,26 @@ export function dayNumber(date) {
 
 function pick(rand, list) { return list[Math.floor(rand() * list.length)]; }
 
-/** The hand: at least one fairy piece, at most one strong piece, no repeats. */
-function dealHand(rand) {
+/**
+ * The day's fairy piece. Each block of twelve days shows all twelve once, in
+ * a shuffled order, so none of them can quietly stop appearing. (Picking at
+ * random let the strong ones vanish: they make most boards too easy, so their
+ * boards kept getting thrown away.)
+ */
+export function fairyFor(date) {
+  const n = dayNumber(date) - 1, block = Math.floor(n / 12);
+  return shuffled(FAIRY, rng('fairy-block:' + block))[((n % 12) + 12) % 12];
+}
+
+/** The hand: the day's one fairy piece, the rest classic, at most one strong
+    piece, no repeats. One strange piece a day is enough to learn. */
+function dealHand(rand, fairy) {
   const N = rand() < 0.5 ? 5 : 6;
   const count = N === 5 ? 3 : (rand() < 0.5 ? 3 : 4);
-  const hand = [pick(rand, FAIRY)];
+  const hand = [fairy];
   let guard = 0;
   while (hand.length < count && guard++ < 100) {
-    const k = pick(rand, rand() < 0.6 ? FAIRY : CLASSIC);
+    const k = pick(rand, CLASSIC);
     if (hand.includes(k)) continue;
     if (PIECES[k].tier === 2 && hand.some((h) => PIECES[h].tier === 2)) continue;
     hand.push(k);
@@ -94,7 +106,7 @@ function deal(rand, { N, hand }) {
   // The bramble: a seed square, then the order it will creep in. Fixed in
   // advance, so where it is depends only on how many moves have been made.
   const bramble = [];
-  if (rand() < 0.5) {
+  if (rand() < 0.3) { // low on purpose: bramble boards pass the par filter more often
     const seed = place(middle);
     if (seed) {
       bramble.push(seed.y * N + seed.x);
@@ -178,8 +190,9 @@ export function makeDay(date) {
   // The hand is dealt first and then given many layouts to find a good one.
   // Dealing everything at once would quietly favour weak pieces, because
   // strong ones make most layouts too easy and get thrown away.
+  const fairy = fairyFor(date);
   for (let h = 0; h < 30 && !day; h++) {
-    const hand = dealHand(rand);
+    const hand = dealHand(rand, fairy);
     for (let attempt = 0; attempt < 80 && !day; attempt++) {
       const d = deal(rand, hand);
       if (d.pieces.some((p) => p.x === undefined) || d.rabbit.x === undefined) continue;
