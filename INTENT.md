@@ -66,6 +66,11 @@ Timothy's skeleton, all of it in:
 - legal moves light up as whole squares; after the game the rabbit's pattern
   is drawn out;
 - a test mode (`?test`) for jumping between days;
+- **the lab** (`play/grove-chess/lab/`, 2026-10-05): every setting at once,
+  for finding what is fun. Board size and shape, pieces on both sides, a
+  thinking AI with adjustable skill and mood, win conditions. Rate each level
+  and it goes in a notebook. The daily game runs on the same engine, proven
+  unchanged by `play/grove-chess/check-daily.mjs`;
 - the creeping bramble is a day variable, on some boards and not others;
 - a pieces menu with every piece of the day, rabbit included, as a turning
   model with a short description;
@@ -77,7 +82,8 @@ How it works and what is still open: [`docs/grove-chess.md`](docs/grove-chess.md
 ### Decisions still open, and they are his
 
 0. **Other enemy pieces besides the rabbit.** Timothy is toying with it
-   (2026-10-05). Not built.
+   (2026-10-05). Possible in the lab now; not in the daily game. What the lab
+   notebook says is fun should decide it.
 
 1. **Server or no server.** A group world everyone sees the same way is much
    easier with a small backend. The no-server rule was justified by intimate

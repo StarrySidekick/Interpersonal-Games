@@ -13,7 +13,7 @@
 // date use the old code).
 
 import { rng, shuffled } from '../../engine/seed.js';
-import { PIECES, initialState, allMoves, apply, stateKey, MAX_MOVES } from './rules.js';
+import { PIECES, initialState, allMoves, apply, stateKey, MAX_MOVES, DAILY_RULES } from './rules.js';
 
 /** The rabbit's habits. Each is a list of hops that repeats. */
 export const PATTERNS = [
@@ -129,9 +129,13 @@ function deal(rand, { N, hand }) {
   }
 
   return {
-    N, pieces, rabbit,
+    N, W: N, H: N, holes: new Set(), pieces, rabbit,
+    // The same rabbit, in the shape the rules engine wants: one foe, marked
+    // as the one to catch, moving by its pattern.
+    foes: [{ type: 'rabbit', x: rabbit.x, y: rabbit.y, brain: 'pattern', pattern: pat.steps, mx: rabbit.mx, my: rabbit.my, target: true }],
     pattern: pat.steps, patternName: pat.name,
-    stumps, bramble, brambleAt: new Map(bramble.map((sq, i) => [sq, i])), every: 2
+    stumps, bramble, brambleAt: new Map(bramble.map((sq, i) => [sq, i])), every: 2,
+    rules: DAILY_RULES, ai: { skill: 0, style: 'balanced' }
   };
 }
 
@@ -153,7 +157,7 @@ export function solve(day) {
     for (const s of layer)
       for (const mv of allMoves(s)) {
         const n = apply(s, mv);
-        if (n.caught) return depth;
+        if (n.won) return depth;
         const k = stateKey(n);
         if (!seen.has(k)) { seen.add(k); next.push(n); }
       }
@@ -172,7 +176,7 @@ function solo(s0, i, limit) {
       for (const mv of allMoves(s)) {
         if (mv.p !== -1 && mv.p !== i) continue;
         const n = apply(s, mv);
-        if (n.caught) return depth;
+        if (n.won) return depth;
         const k = stateKey(n);
         if (!seen.has(k)) { seen.add(k); next.push(n); }
       }
@@ -208,9 +212,13 @@ export function makeDay(date) {
   return day;
 }
 
-/** "up, up, right" for a list of hops, already turned the way it starts. */
+/** "up, up, right" for the daily rabbit's hops, turned the way it starts. */
 export function describePattern(day) {
-  const { mx, my } = day.rabbit;
+  return describeSteps(day.pattern, day.rabbit.mx, day.rabbit.my);
+}
+
+/** "up, up, right" for any list of hops, turned by (mx, my). */
+export function describeSteps(steps, mx = 1, my = 1) {
   const word = (dx, dy) => {
     const parts = [];
     if (dy) parts.push((dy > 0 ? 'up' : 'down') + (Math.abs(dy) > 1 ? ' ' + Math.abs(dy) : ''));
@@ -218,5 +226,5 @@ export function describePattern(day) {
     if (Math.abs(dx) <= 1 && Math.abs(dy) <= 1 && dx && dy) return parts.join('-');
     return parts.join(' and ');
   };
-  return day.pattern.map(([dx, dy]) => word(dx * mx, dy * my)).join(', ');
+  return steps.map(([dx, dy]) => word(dx * mx, dy * my)).join(', ');
 }
