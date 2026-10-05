@@ -49,16 +49,31 @@ setting. The record still matters, and it now has a group-shaped version.
 
 ### The first prototype
 
-**Forest chess**: a small board, fantastical woodland pieces, played
-asynchronously, scores shareable, and eventually games that overlap between
-players. Design sketch in [`docs/grove-chess.md`](docs/grove-chess.md).
+**Grove Chess**, built 2026-10-05 at [`play/grove-chess/`](play/grove-chess/).
+Timothy's skeleton, all of it in:
+
+- a 5x5 or 6x6 board, light green and cream;
+- a pixelated 3D model of the day's board turning on the start screen, which
+  twirls when tapped and starts the game;
+- the goal is to catch one rabbit, which hops in a hidden daily pattern you
+  have to work out; you and the rabbit take turns;
+- your pieces come from the six classic pieces plus twelve fairy pieces
+  (Grasshopper, Nightrider, Camel, Zebra, Alfil, Ferz, Wazir, Cannon, Mao,
+  Squirrel, Rose, Archbishop);
+- the creeping bramble is a day variable, on some boards and not others;
+- a pieces menu with every piece of the day, rabbit included, as a turning
+  model with a short description;
+- once you finish, everyone on your link branch can be overlaid on the board,
+  or watched move by move.
+
+How it works and what is still open: [`docs/grove-chess.md`](docs/grove-chess.md).
 
 ### Decisions still open, and they are his
 
 1. **Server or no server.** A group world everyone sees the same way is much
    easier with a small backend. The no-server rule was justified by intimate
-   two-person answers, which this track does not have. Leaning: links only for
-   the prototype, revisit once the loop is proven.
+   two-person answers, which this track does not have. The prototype is links
+   only, and it works; revisit once the loop has been played with real people.
 2. **What a reply actually does** to the original poster's game.
 3. **Puzzle or opponent.** Same daily position for everyone (Wordle-shaped) or
    real matches between players (correspondence-chess-shaped). Leaning: daily

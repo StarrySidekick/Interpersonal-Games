@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1a13">
+<title>Grove Chess</title>
+<link rel="stylesheet" href="../../engine/app.css">
+<style>
+  /* A forest at night around a board in daylight. */
+  :root {
+    --bg: #0f1a13; --panel: #17251b; --panel-2: #1d2e22; --line: #2b4031;
+    --text: #edf2e6; --dim: #9fb3a0; --accent: #a9d98b; --accent-ink: #13260e;
+  }
+  /* The shared stylesheet gives .row a display, which beats the hidden
+     attribute unless this says otherwise. */
+  [hidden] { display: none !important; }
+  .pix { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+  .eyebrow { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin: 0 0 2px; }
+
+  #diorama { width: 100%; max-width: 440px; margin: 6px auto 4px; cursor: pointer; touch-action: manipulation; }
+  #diorama.leaving { transition: opacity .35s ease, transform .35s ease; opacity: 0; transform: scale(1.06); }
+  .tapnote { text-align: center; color: var(--accent); font-weight: 600; margin-bottom: 6px; }
+  .vinenote { text-align: center; }
+
+  .hud { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin: 0 0 6px; }
+  .hud b { font-size: 20px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  #board { width: 100%; max-width: 460px; margin: 0 auto; touch-action: manipulation; }
+  #status { min-height: 26px; margin: 10px 0 2px; font-weight: 600; }
+  #info { min-height: 44px; font-size: 15px; color: var(--dim); margin-bottom: 10px; }
+
+  #end h2 { margin-top: 18px; }
+  .vrow {
+    display: grid; grid-template-columns: 14px 1fr auto; gap: 10px; align-items: center;
+    padding: 12px 14px; min-height: 52px; margin-bottom: 8px; width: 100%;
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    font-weight: 600; text-align: left;
+  }
+  .vrow[aria-pressed='true'] { border-color: var(--accent); }
+  .swatch { width: 14px; height: 14px; border-radius: 3px; }
+
+  dialog#sheet {
+    width: min(560px, calc(100vw - 20px)); max-height: 86vh; padding: 0;
+    background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 18px;
+  }
+  dialog#sheet::backdrop { background: rgba(4, 10, 6, .7); }
+  .sheet-head { position: sticky; top: 0; display: flex; justify-content: space-between; align-items: center;
+    gap: 10px; padding: 14px 16px; background: var(--bg); border-bottom: 1px solid var(--line); z-index: 1; }
+  .sheet-head h2 { margin: 0; }
+  .sheet-head button { width: auto; min-height: 44px; padding: 8px 16px; }
+  #sheet-list { padding: 12px 16px 18px; display: grid; gap: 10px; }
+  .prow { display: grid; grid-template-columns: 96px 1fr; gap: 12px; align-items: start;
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; }
+  .prow canvas.model { width: 96px; height: 112px; background: #e9e2c8; border-radius: 10px; }
+  .prow canvas.diagram { width: 84px; height: 84px; margin-top: 8px; border-radius: 4px; }
+  .prow h3 { margin: 0 0 2px; font-size: 18px; }
+  .prow p { margin: 0 0 6px; font-size: 15px; }
+  .tag { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <a class="back" href="../../">&larr; Hikari Garden</a>
+    <span class="pill" id="daypill">Rabbit</span>
+  </div>
+
+  <section data-screen="title">
+    <p class="eyebrow center">Hikari Garden</p>
+    <h1 class="center">Grove Chess</h1>
+    <p class="dim center small" id="datenote"></p>
+    <canvas id="diorama" class="pix" aria-label="Today's board. Tap to begin."></canvas>
+    <p class="tapnote" id="tapnote">Tap the board to begin.</p>
+    <p class="vinenote dim small" id="vinenote"></p>
+    <div class="stack" style="margin-top:14px">
+      <button class="quiet" id="pieces-title">Today's pieces</button>
+    </div>
+  </section>
+
+  <section data-screen="play" hidden>
+    <div class="hud">
+      <span>Move <b id="movecount">0</b> <span class="dim">of 15</span></span>
+      <span class="dim">Par <b id="par" style="color:var(--text)">4</b></span>
+    </div>
+    <div class="chips" id="chips"></div>
+    <canvas id="board" class="pix" aria-label="The board"></canvas>
+    <p id="status"></p>
+    <p id="info"></p>
+
+    <div class="row" id="controls">
+      <button class="quiet" id="wait">Wait a turn</button>
+      <button class="quiet" id="pieces-play">Pieces</button>
+    </div>
+
+    <div id="end" hidden>
+      <p class="big" id="end-score" style="margin:14px 0 0"></p>
+      <p class="dim" id="end-par"></p>
+      <p class="small" id="end-pattern"></p>
+
+      <div class="card" id="share-card">
+        <p class="small dim" style="margin-bottom:8px">Your name on the vine. Anyone who plays from your link sees it next to your game.</p>
+        <input type="text" id="name" maxlength="14" autocomplete="nickname" placeholder="Your name">
+        <div class="stack" style="margin-top:10px">
+          <button class="primary" id="share">Share your score</button>
+        </div>
+        <p class="small dim" id="share-note" style="margin:10px 0 0"></p>
+      </div>
+
+      <h2>The vine</h2>
+      <p class="small dim">Every game on this board that has reached this phone through a link. Tap one to watch it.</p>
+      <div id="vine-list"></div>
+      <div class="stack">
+        <button class="quiet" id="all-paths">Show every path at once</button>
+        <button class="quiet" id="practice">Practice this board again</button>
+      </div>
+    </div>
+
+    <details style="margin-top:16px">
+      <summary>How to play</summary>
+      <p class="small dim">Catch the rabbit by moving one of your pieces onto its square.
+        You move, then the rabbit hops. It follows a pattern that repeats, and
+        its tracks are numbered on the board so you can work the pattern out.
+        It bounces off the edges, and if something is in its way it waits.</p>
+      <p class="small dim">Tap a piece to see where it can go. Tap Pieces to read
+        what every piece does. Waiting spends a move. You have 15 moves before
+        dusk.</p>
+      <p class="small dim">Par is the fewest moves the solver needed, and the solver
+        already knew the pattern. You have to find it, so par is hard. Moving two
+        pieces together can sometimes beat it.</p>
+      <p class="small dim">One board a day, the same for everyone. Your game is
+        saved in this browser and in the links you send, and nowhere else.</p>
+    </details>
+  </section>
+
+</div>
+
+<dialog id="sheet">
+  <div class="sheet-head">
+    <h2>Today's pieces</h2>
+    <button class="quiet" id="sheet-close">Close</button>
+  </div>
+  <div id="sheet-list"></div>
+</dialog>
+
+<script type="module" src="game.js"></script>
+</body>
+</html>

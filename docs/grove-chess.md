@@ -1,83 +1,121 @@
-# Grove chess *(working name)*
+# Grove Chess
 
-The first async prototype for Hikari Garden. See [`../INTENT.md`](../INTENT.md),
-2026-10-05. Everything here is a proposal, not a spec.
+The first asynchronous game for Hikari Garden. Playable at
+[`play/grove-chess/`](../play/grove-chess/). Direction is in
+[`../INTENT.md`](../INTENT.md), 2026-10-05.
 
-## The one-line pitch
+## The game
 
-A daily chess puzzle on a 5x5 board, played with woodland pieces against a
-creeping blight. Your score is the link. Replying with your own link grows a
-grove that belongs to your group chat.
+One board a day, the same for everyone. A 5x5 or 6x6 board in light green and
+cream, three or four of your pieces, and one rabbit. **Catch the rabbit** by
+moving a piece onto its square.
 
-## Three layers, built in this order
+- **You move, then the rabbit hops.** It follows a pattern that repeats (for
+  example *up, up, right*). The pattern is hidden; its tracks are numbered on
+  the board so you can work it out.
+- **It bounces.** A hop that would leave the board flips the pattern on that
+  axis from then on, the way a ball stays turned around after it hits a wall.
+- **It waits** if something is in the way. Blocking it is a real tactic.
+- **Waiting is allowed** and costs a move.
+- **Fifteen moves** before dusk, then it gets away.
+- **Par** is set by a solver that already knows the pattern, so par is hard on
+  purpose. Moving two pieces together can sometimes beat it.
 
-### 1. The daily grove (the Wordle slot)
+### Day variables
 
-- Everyone gets the **same position each day**, generated from the date with
-  `engine/seed.js`. Same seed, same board, no server.
-- You are the **Grove**. The opponent is the **Blight**, which is not a chess
-  player but a deterministic rule: each turn it spreads one square toward the
-  nearest grove piece, with a fixed tie-break. Its next move is always shown on
-  the board (the *Into the Breach* trick), so the puzzle is about planning, not
-  guessing.
-- **Goal:** cleanse the Blight's root in as few turns as possible without
-  losing your Heartseed. Score is turns used against par.
-- One play per day. A loss is a score, not a punishment.
+- **Board size:** 5x5 or 6x6.
+- **Bramble** (about half of days): starts as one square and creeps one more
+  every two moves, along a path fixed for the day. Nothing enters it and
+  nothing slides through it. A rabbit that ends up inside is safe until it
+  hops out. The next square it will take is drawn faintly, so it is never a
+  surprise.
+- **Stumps** (some days): block sliders; leapers jump them.
 
-Why 5x5: small enough to read on a phone at a glance, and there is precedent.
-Gardner's minichess (Martin Gardner, 1969) is 5x5 standard chess, and it was
-weakly solved as a draw in 2013. A board that small is a puzzle space, which is
-what a daily format wants.
+### The pieces
 
-### 2. The vine (the social layer)
+The six classic pieces, plus twelve **fairy chess pieces**: pieces invented
+for chess variants and problems, some of them centuries old. Every hand has at
+least one fairy piece and at most one strong piece.
 
-- Your share link carries your result and your move line in the URL fragment
-  (Engine B). The fragment never reaches a server.
-- When a friend opens your link and plays, **their** link carries both of you.
-  Each reply is a new branch off the post it answered. The thread in the chat
-  becomes a vine, which is where the theme earns its keep.
-- Your browser keeps the union of every link it has seen for that group. Union
-  never conflicts and never deletes, so it obeys "nothing decays" for free.
-  (This is a *grow-only set*, the simplest kind of CRDT: a data type two
-  copies can merge without coordination.)
-- The first link you open from someone puts you in **their grove**. Every
-  solved day plants something there. Over months the grove is the record of
-  that chat, and it looks different on day 90 than on day 1.
-
-Known limits of links-only: people only see branches whose links they opened,
-so two members' groves can differ. Two people answering the same post fork the
-vine. Both are acceptable for a prototype, and the fork is arguably a feature.
-
-### 3. Overlap (later, probably needs a server)
-
-Ideas for when games actually touch each other:
-
-- **Relay:** tomorrow's board starts where the group pushed the Blight today.
-- **Shared board:** each person places one piece on a common board per day, and
-  the group plays out the result together.
-- **Challenge:** your solution line becomes a puzzle a friend has to beat.
-
-These need everyone to agree on one state, which is the point where a small
-backend stops being optional.
-
-## Pieces (first draft)
-
-| Piece | Moves | The twist |
+| Piece | Moves | Notes |
 |---|---|---|
-| **Heartseed** | one step, any direction | the king. Lose it, lose the day |
-| **Sapling** | one step forward | left unmoved for two turns, it roots into an Oak |
-| **Oak** | cannot move | the Blight cannot enter the squares beside it |
-| **Vine** | slides orthogonally, like a rook | leaves growth on squares it passed; the Blight cannot cross growth |
-| **Hare** | jumps in an L, like a knight | the only piece that can jump the Blight |
-| **Snail** | one step, always turning 90 degrees clockwise from its last move | traces a spiral; cleanses every square it touches |
-| **Mushroom** | does not move | if the Blight takes it, spores bloom on every square around it |
+| Grasshopper | along any line, hopping the first thing in its way, landing just past it | T. R. Dawson, 1912 |
+| Nightrider | repeats a knight's jump in a straight line | T. R. Dawson, 1925 |
+| Camel | leaps (3, 1) | Tamerlane chess |
+| Zebra | leaps (3, 2) | |
+| Alfil | leaps exactly two diagonally | shatranj's elephant, ancestor of the bishop |
+| Ferz | one step diagonally | shatranj's counsellor, ancestor of the queen |
+| Wazir | one step orthogonally | |
+| Cannon | slides like a rook; catches only by jumping exactly one thing | xiangqi |
+| Mao | a knight that can be blocked on its first straight step | xiangqi's horse |
+| Squirrel | leaps to any square exactly two away | |
+| Rose | knight jumps that curve around a circle | |
+| Archbishop | bishop plus knight | Capablanca chess |
 
-Six or seven piece types is the ceiling for a game whose rules must fit on the
-same screen as the board.
+Each has a voxel model and a short description in the in-game pieces menu, with
+a small diagram of where it can move.
 
-## Open questions
+## The social layer: the vine
 
-- Par and difficulty: hand-authored positions, generated ones, or generated and
-  then filtered by a solver that checks a solution exists.
-- What the share text looks like. Wordle's grid of squares is the bar to beat.
-- What gets planted in the grove, and whether it is per person or shared.
+No server. The group chat is the database.
+
+- Your share link carries your whole game in the URL fragment (everything after
+  the `#`), which browsers never send to a server. Every phone deals the same
+  board for a date, so a list of moves replays anyone's game exactly.
+- Playing from someone's link puts you on their **branch**. Your link carries
+  their game and yours, so replies grow down the chat like a vine.
+- Each browser keeps every game it has been shown for a day and only ever adds
+  to that list (a *grow-only set*), so two links merge by putting them together.
+- **Before you play**, a link shows only names and scores: no spoilers.
+  **After you finish**, every game on your vine can be watched move by move or
+  overlaid on the board all at once, in its own colour.
+- Every game in a link is replayed and checked for legal moves before it is
+  shown, so a hand-edited link cannot fake a score.
+
+Known limits: you only see games whose links reached your phone, so two people
+in one chat can have different vines. Two people answering the same post fork
+the vine. Both are fine for a prototype.
+
+## How it is built
+
+No build step, no libraries, same as the rest of the repo.
+
+| File | What it does |
+|---|---|
+| `play/grove-chess/rules.js` | pieces, the rabbit, bramble, moves. No page code, so the solver and replays use the same rules |
+| `play/grove-chess/day.js` | deals the day's board from the date, and the solver that sets par |
+| `play/grove-chess/vine.js` | link format, replay-checking, what the browser remembers |
+| `play/grove-chess/models.js` | the voxel models |
+| `play/grove-chess/game.js` | the page: title, board, menus, the vine |
+| `engine/voxel.js` | a small software rasterizer that draws the models as pixel art |
+
+**Dealing a board.** The date seeds the shared random generator
+(`engine/seed.js`). The hand is dealt first and then given up to 80 layouts;
+each layout is solved, and anything with par outside 4 to 7 is thrown away.
+Every phone throws away the same layouts in the same order, so they all land on
+the same board.
+
+**Do not casually change the dealer.** Any change to dealing, the solver, the
+patterns or the piece list re-deals every board, past days included, and old
+links then replay on the wrong board. Once real people are sharing links,
+change it behind a version.
+
+**The solver.** It searches every combination of moves for three moves, which
+gives an exact par for short puzzles. Past that the search grows about twenty
+times per move, too much for a phone, so it searches each piece alone with the
+others standing still. That line is always playable, so par is never
+impossible; cleverer two-piece lines are birdies.
+
+## Open
+
+- **What a reply does to the poster's game**, beyond joining their vine. The
+  question from INTENT, still unanswered.
+- **Overlap**: a relay (tomorrow's board starts where the group left the
+  bramble), a shared board everyone places one piece on, or challenges (your
+  line becomes a puzzle a friend has to beat). These need everyone to agree on
+  one state, which is probably where a small server stops being optional.
+- **Long-term progression for a group.** Nothing accrues across days yet
+  beyond each phone's own record.
+- **The share text.** Plain words and a link for now. Wordle's grid is the bar.
+- **Difficulty tuning.** Par 4 to 7 with a hidden pattern has not been played
+  by anyone yet.

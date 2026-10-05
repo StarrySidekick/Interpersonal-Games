@@ -57,7 +57,14 @@ you missed. See rule 2 of [the session shape](docs/scope.md#the-session-shape).
 
 ## Playable now
 
-Two games run. There is not yet a place for them to feed.
+**[Grove Chess](play/grove-chess/)**: the first asynchronous, group game (see
+the 2026-10-05 section of [`INTENT.md`](INTENT.md)). One board a day, the same
+for everyone: catch a rabbit that hops in a hidden pattern, using classic and
+fairy chess pieces. Your score is a link, and whoever plays from it joins your
+vine. Design notes in [`docs/grove-chess.md`](docs/grove-chess.md).
+
+Two live, on-a-call games also run, and are tabled for now. There is not yet a
+place for them to feed.
 
 **[Blind Agreement](games/blind-agreement.md)** — you both have to pick the
 same thing; miss, and both your picks come off the board.
