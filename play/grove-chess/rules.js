@@ -36,7 +36,7 @@ export function isBramble(s, x, y) {
 export function look(s, x, y) {
   const N = s.day.N;
   if (x < 0 || y < 0 || x >= N || y >= N) return OFF;
-  for (const p of s.pieces) if (p.x === x && p.y === y) return PIECE;
+  for (const p of s.pieces) if (!p.taken && p.x === x && p.y === y) return PIECE;
   const bram = isBramble(s, x, y);
   if (!s.caught && s.rabbit.x === x && s.rabbit.y === y) return bram ? HIDDEN : RABBIT;
   if (s.day.stumps.has(y * N + x)) return STUMP;
@@ -196,7 +196,7 @@ export const PIECES = {
     moves: (s, p) => leap(s, p, KNIGHT, ride(s, p, DIAG)) }
 };
 
-export const RABBIT_DESC = 'Hops in a fixed pattern that repeats. Bounces off the edges, and if something is in the way it waits a turn. Watch its tracks.';
+export const RABBIT_DESC = 'Hops in a fixed pattern that repeats. If it lands on one of your pieces, it eats it. It bounces off the edges, and if a stump or bramble is in the way it waits a turn. Watch its tracks.';
 export const BRAMBLE_DESC = 'Creeps one square every two moves. Nothing can enter it and nothing slides through it. A rabbit caught inside is safe until it hops out.';
 export const STUMP_DESC = 'In the way. Sliders stop at it; leapers jump over it.';
 
@@ -213,7 +213,7 @@ export function initialState(day) {
 }
 
 export function movesFor(s, i) {
-  if (s.caught) return [];
+  if (s.caught || s.pieces[i].taken) return [];
   return PIECES[s.pieces[i].type].moves(s, s.pieces[i]);
 }
 
@@ -226,11 +226,12 @@ export function allMoves(s) {
 
 export function isLegal(s, mv) {
   if (mv.p === -1) return !s.caught;
-  if (mv.p < 0 || mv.p >= s.pieces.length) return false;
+  if (mv.p < 0 || mv.p >= s.pieces.length || s.pieces[mv.p].taken) return false;
   return movesFor(s, mv.p).some((m) => m.x === mv.x && m.y === mv.y);
 }
 
-/** The rabbit's turn. Mutates `s`. */
+/** The rabbit's turn. Mutates `s`. Landing on one of your pieces eats it;
+    a stump, bramble or the edge of the board stops it, and it waits. */
 function rabbitHop(s) {
   const r = s.rabbit, pat = s.day.pattern, N = s.day.N;
   let [dx, dy] = pat[r.i];
@@ -241,7 +242,13 @@ function rabbitHop(s) {
   if (r.y + dy < 0 || r.y + dy >= N) { r.my = -r.my; dy = -dy; }
   r.i = (r.i + 1) % pat.length;
   r.from = [r.x, r.y];
-  if (look(s, r.x + dx, r.y + dy) === EMPTY) { r.x += dx; r.y += dy; r.blocked = false; }
+  r.ate = -1;
+  const tx = r.x + dx, ty = r.y + dy, c = look(s, tx, ty);
+  if (c === PIECE && !isBramble(s, tx, ty)) {
+    r.ate = s.pieces.findIndex((p) => !p.taken && p.x === tx && p.y === ty);
+    s.pieces[r.ate].taken = true;
+  }
+  if (c === EMPTY || r.ate >= 0) { r.x = tx; r.y = ty; r.blocked = false; }
   else r.blocked = true;
 }
 
@@ -263,7 +270,12 @@ export function apply(s, mv) {
 
 export const MAX_MOVES = 15;
 
-export function isOver(s) { return s.caught || s.t >= MAX_MOVES; }
+export const allTaken = (s) => s.pieces.every((p) => p.taken);
+
+export function isOver(s) { return s.caught || s.t >= MAX_MOVES || allTaken(s); }
+
+/** How a finished game ended: 'caught', 'eaten' (it ate everything) or 'dusk'. */
+export function outcome(s) { return s.caught ? 'caught' : allTaken(s) ? 'eaten' : 'dusk'; }
 
 /** Replay a list of moves from the start. Stops at the first illegal one. */
 export function replay(day, moves) {
@@ -278,7 +290,7 @@ export function replay(day, moves) {
 
 export function stateKey(s) {
   let k = '';
-  for (const p of s.pieces) k += p.x + '' + p.y;
+  for (const p of s.pieces) k += p.taken ? '--' : p.x + '' + p.y;
   const r = s.rabbit;
   return k + '|' + r.x + r.y + ',' + r.i + (r.mx > 0 ? '+' : '-') + (r.my > 0 ? '+' : '-');
 }

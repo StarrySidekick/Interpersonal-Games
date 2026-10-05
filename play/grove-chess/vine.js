@@ -15,7 +15,7 @@
 //   each move:  piece (0-3, or w for wait), then the square as one base-36
 //               character (y * N + x)
 
-import { replay, MAX_MOVES } from './rules.js';
+import { replay, isOver, outcome } from './rules.js';
 
 const KEY = 'ig.grove.v1';
 
@@ -28,7 +28,7 @@ export function encodeMoves(moves, N) {
 }
 
 export function decodeMoves(str, N) {
-  if (!/^([0-3w][0-9a-z])*$/.test(str) || str.length / 2 > MAX_MOVES) return null;
+  if (!/^([0-3w][0-9a-z])*$/.test(str) || str.length > 60) return null;
   const out = [];
   for (let i = 0; i < str.length; i += 2) {
     if (str[i] === 'w') { out.push({ p: -1, x: 0, y: 0 }); continue; }
@@ -43,8 +43,8 @@ export function checkPlay(day, name, moves) {
   if (!moves) return null;
   const { states, ok } = replay(day, moves);
   const end = states[states.length - 1];
-  if (!ok || !(end.caught || end.t >= MAX_MOVES)) return null;
-  return { name: cleanName(name) || 'Someone', moves, caught: end.caught, score: end.t, states };
+  if (!ok || !isOver(end)) return null;
+  return { name: cleanName(name) || 'Someone', moves, caught: end.caught, score: end.t, outcome: outcome(end), states };
 }
 
 export function playKey(p, N) { return p.name + '.' + encodeMoves(p.moves, N); }

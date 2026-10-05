@@ -15,9 +15,13 @@ moving a piece onto its square.
   the board so you can work it out.
 - **It bounces.** A hop that would leave the board flips the pattern on that
   axis from then on, the way a ball stays turned around after it hits a wall.
-- **It waits** if something is in the way. Blocking it is a real tactic.
+- **It eats.** If a hop lands on one of your pieces, the piece is gone. Lose
+  them all and the rabbit wins.
+- **It waits** if a stump or bramble is in the way.
 - **Waiting is allowed** and costs a move.
 - **Fifteen moves** before dusk, then it gets away.
+- **After the game** the pattern is drawn out: one full run, numbered, then
+  the start of the next run in faint lines.
 - **Par** is set by a solver that already knows the pattern, so par is hard on
   purpose. Moving two pieces together can sometimes beat it.
 
@@ -33,9 +37,11 @@ moving a piece onto its square.
 
 ### The pieces
 
-The six classic pieces, plus twelve **fairy chess pieces**: pieces invented
-for chess variants and problems, some of them centuries old. Every hand has at
-least one fairy piece and at most one strong piece.
+Every hand is **one fairy chess piece** plus classic pieces. Fairy pieces are
+pieces invented for chess variants and problems, some of them centuries old;
+one strange piece a day is enough to learn. The fairy piece rotates: each
+block of twelve days shows all twelve once, in a shuffled order. At most one
+strong piece per hand.
 
 | Piece | Moves | Notes |
 |---|---|---|
@@ -52,8 +58,8 @@ least one fairy piece and at most one strong piece.
 | Rose | knight jumps that curve around a circle | |
 | Archbishop | bishop plus knight | Capablanca chess |
 
-Each has a voxel model and a short description in the in-game pieces menu, with
-a small diagram of where it can move.
+Each has a low-poly model and a short description in the in-game pieces menu,
+with a small diagram of where it can move.
 
 ## The social layer: the vine
 
@@ -85,9 +91,13 @@ No build step, no libraries, same as the rest of the repo.
 | `play/grove-chess/rules.js` | pieces, the rabbit, bramble, moves. No page code, so the solver and replays use the same rules |
 | `play/grove-chess/day.js` | deals the day's board from the date, and the solver that sets par |
 | `play/grove-chess/vine.js` | link format, replay-checking, what the browser remembers |
-| `play/grove-chess/models.js` | the voxel models |
+| `play/grove-chess/models.js` | the models, built from simple shapes |
 | `play/grove-chess/game.js` | the page: title, board, menus, the vine |
-| `engine/voxel.js` | a small software rasterizer that draws the models as pixel art |
+| `engine/lowpoly.js` | a small software rasterizer: low-poly models, smooth (Gouraud) shading, drawn at low resolution so they come out pixelated, N64 style |
+
+**Testing.** Add `?test` to the address for a panel on the title screen:
+previous, next, random or any date, clear your game on a board to replay it
+for real, and spoilers for the board.
 
 **Dealing a board.** The date seeds the shared random generator
 (`engine/seed.js`). The hand is dealt first and then given up to 80 layouts;
