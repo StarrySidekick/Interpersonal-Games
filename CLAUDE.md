@@ -3,6 +3,14 @@
 Read [`INTENT.md`](INTENT.md) first for what this project is for and what is
 next. This file is only about how to work here.
 
+## Designing
+
+Before designing, scoping, reviewing or changing a game, use the
+`game-design` skill (`.claude/skills/game-design/`). It is Timothy's design
+philosophy, [`docs/design-philosophy.md`](docs/design-philosophy.md), turned
+into a method: say which progression paths a change moves and how the game
+marks that progress.
+
 ## Merging
 
 Timothy has given standing permission (2026-10-06): **when a build is done,

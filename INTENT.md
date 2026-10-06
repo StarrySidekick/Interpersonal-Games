@@ -47,6 +47,13 @@ links still work (the dealer is versioned; see `docs/grove-chess.md`).
 Without obstacles the daily boards got easier; the numbers are in the same
 doc, under "Difficulty without obstacles".
 
+Also on 2026-10-06, his design philosophy: games serve playstyles, each
+playstyle is a progression path, and the paths together tell the player
+story. Recorded in [`docs/design-philosophy.md`](docs/design-philosophy.md),
+and it applies to every game here. Its first use, on Grove Chess, is
+[`docs/grove-chess-paths.md`](docs/grove-chess-paths.md): ideas, not
+decisions.
+
 ## 2026-10-05: the front door is asynchronous, and it is a group
 
 Recorded from Timothy's own description. **Where this section disagrees with
