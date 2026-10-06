@@ -7,6 +7,10 @@
 // level among many: a square board, one rabbit that hops in a pattern, catch
 // it within 15 moves. The lab can make almost anything else.
 //
+// Stumps and bramble are out of the game for now (2026-10-06). The rules
+// still know them because the first two daily boards had them, and links to
+// those boards must keep replaying. Nothing new deals them.
+//
 // Coordinates: x runs left to right, y runs bottom to top, and (0, 0) is the
 // bottom-left square, on your side of the board. A square's number is
 // y * W + x.
@@ -32,6 +36,7 @@ function sym(a, b) {
 // OWN is one of your own side; ENEMY is something you could take; HIDDEN is
 // an enemy sheltering in the bramble, which nothing can take.
 // HOLE is the moving hole of a ball level: only the ball may enter it.
+// A square that has crumbled away reads as OFF, the same as the board's edge.
 export const OFF = 0, EMPTY = 1, OWN = 2, ENEMY = 3, STUMP = 4, BRAMBLE = 5, HIDDEN = 6, HOLE = 7;
 
 export function brambleCount(day, t) {
@@ -46,9 +51,13 @@ export function isBramble(s, x, y) {
 
 export const onBoard = (day, x, y) => x >= 0 && y >= 0 && x < day.W && y < day.H && !day.holes.has(y * day.W + x);
 
+/** Has the square at (x, y) crumbled away? Only on crumbling levels, where
+    every square you move off falls away behind you. */
+export const crumbled = (s, x, y) => s.gone.length > 0 && s.gone.includes(y * s.day.W + x);
+
 /** What is on (x, y), as seen by `side` ('you' or 'foe'). */
 export function look(s, x, y, side = 'you') {
-  if (!onBoard(s.day, x, y)) return OFF;
+  if (!onBoard(s.day, x, y) || crumbled(s, x, y)) return OFF;
   const bram = isBramble(s, x, y);
   for (const p of s.pieces)
     if (!p.taken && p.x === x && p.y === y) return side === 'you' ? OWN : bram ? HIDDEN : ENEMY;
@@ -244,10 +253,11 @@ export const PIECES = {
     moves: (L, p) => leap(L, p, ALL8) }
 };
 
-export const RABBIT_DESC = 'Hops in a fixed pattern that repeats. If it lands on one of your pieces, it eats it. It bounces off the edges, and if a stump or bramble is in the way it waits a turn. Watch its tracks.';
+export const RABBIT_DESC = 'Hops in a fixed pattern that repeats. If it lands on one of your pieces, it eats it. It bounces off the edges, and if it cannot land where it is hopping, it waits a turn. Watch its tracks.';
 export const RABBIT_AI_DESC = 'Thinks for itself and steps one square in any direction, like a king. It eats what it lands on.';
 export const BRAMBLE_DESC = 'Creeps across the board. Nothing can enter it and nothing slides through it. Anything caught inside is safe until it leaves.';
 export const STUMP_DESC = 'In the way. Sliders stop at it; leapers jump over it.';
+export const CRUMBLE_DESC = 'Every square you move off crumbles away behind you. Nothing can stand on it again: sliders stop at the gap, leapers can still jump it, and a rabbit that tries to hop in waits instead.';
 export const HOLE_DESC = 'The hole. It moves by its own hidden pattern after every turn, bounces off the edges, and waits if anything is in the way. Nothing but the ball can go in it.';
 
 // --- Level rules. ----------------------------------------------------------
@@ -259,7 +269,8 @@ export const DAILY_RULES = {
   wait: true,        // may you spend a move standing still?
   foesCapture: true, // can they take your pieces?
   royal: false,      // does losing a King lose the game?
-  first: 'you'       // who moves first
+  first: 'you',      // who moves first
+  crumble: false     // does every square you move off fall away?
 };
 
 export const MAX_MOVES = DAILY_RULES.maxMoves;
@@ -273,6 +284,7 @@ export function initialState(day) {
     pieces: day.pieces.map((p) => ({ ...p, taken: false })),
     foes: day.foes.map((f) => ({ ...f, i: 0, taken: false })),
     hole: day.hole ? { ...day.hole, i: 0 } : null,
+    gone: [], // squares that have crumbled away, in the order they went
     won: false
   };
   if (day.rules.first === 'them') { foesAct(s); s.opened = true; }
@@ -281,7 +293,7 @@ export function initialState(day) {
 
 export function clone(s) {
   return { day: s.day, t: s.t, pieces: s.pieces.map((p) => ({ ...p })), foes: s.foes.map((f) => ({ ...f })),
-    hole: s.hole ? { ...s.hole } : null, won: s.won, sunk: s.sunk };
+    hole: s.hole ? { ...s.hole } : null, gone: s.gone.slice(), won: s.won, sunk: s.sunk };
 }
 
 const youLook = (s) => (x, y) => look(s, x, y, 'you');
@@ -341,8 +353,9 @@ function landFoe(s, f, x, y) {
 }
 
 /** A pattern foe's hop. Mutates `s`. Landing on one of your pieces eats it
-    (if they may capture); a stump, bramble, another of theirs or a missing
-    square stops it, and it waits. */
+    (if they may capture); another of theirs, a missing or crumbled square,
+    or (on the first two daily boards) a stump or bramble stops it, and it
+    waits. */
 function hop(s, f) {
   const pat = f.pattern, W = s.day.W, H = s.day.H;
   let [dx, dy] = pat[f.i];
@@ -398,6 +411,8 @@ export function playerMove(s, mv) {
   const n = clone(s);
   if (mv.p >= 0) {
     const p = n.pieces[mv.p];
+    // Crumbling ground: the square you leave falls away behind you.
+    if (n.day.rules.crumble) n.gone.push(p.y * n.day.W + p.x);
     p.x = mv.x; p.y = mv.y;
     const f = n.foes.find((f) => !f.taken && f.x === mv.x && f.y === mv.y);
     if (f) f.taken = true;
@@ -451,5 +466,7 @@ export function stateKey(s) {
   k += '|';
   for (const f of s.foes) k += f.taken ? '--' : f.x + ',' + f.y + ',' + f.i + (f.mx > 0 ? '+' : '-') + (f.my > 0 ? '+' : '-') + ';';
   if (s.hole) k += `|h${s.hole.x},${s.hole.y},${s.hole.i}${s.hole.mx > 0 ? '+' : '-'}${s.hole.my > 0 ? '+' : '-'}`;
+  // Which squares are gone matters; the order they went in does not.
+  if (s.gone.length) k += '|g' + s.gone.slice().sort((a, b) => a - b).join(',');
   return k;
 }

@@ -38,7 +38,16 @@ Also from him the same day: a light mode in a deep cream (dark stays as it
 is), a ball-and-hole win condition, and control over which fairy pieces Go
 crazy may use. All three are built.
 
-Also the same day, his design philosophy: games serve playstyles, each
+Later the same day: the little grass marks are off the board, and stumps and
+bramble are out "for now", replaced by a board variant where every move you
+make removes a square. Built as **crumbling ground**: the square a piece
+moves off falls away. About a third of daily boards from 2026-10-07, and a
+switch in the lab. The first two daily boards keep their bramble so their
+links still work (the dealer is versioned; see `docs/grove-chess.md`).
+Without obstacles the daily boards got easier; the numbers are in the same
+doc, under "Difficulty without obstacles".
+
+Also on 2026-10-06, his design philosophy: games serve playstyles, each
 playstyle is a progression path, and the paths together tell the player
 story. Recorded in [`docs/design-philosophy.md`](docs/design-philosophy.md),
 and it applies to every game here. Its first use, on Grove Chess, is
@@ -108,7 +117,8 @@ Timothy's skeleton, all of it in:
   within 3 to 10 moves by default, which becomes par. Win conditions to
   compare: take their King, catch the rabbit, capture them all, any one, or
   a mix (2026-10-06);
-- the creeping bramble is a day variable, on some boards and not others;
+- a day variable, on some boards and not others: the creeping bramble on the
+  first two, crumbling ground from 2026-10-07;
 - a pieces menu with every piece of the day, rabbit included, as a turning
   model with a short description;
 - once you finish, everyone on your link branch can be overlaid on the board,

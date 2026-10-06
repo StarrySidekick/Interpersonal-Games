@@ -26,10 +26,8 @@ export const SCHEMA = [
       ['rect', 'Rectangle'], ['diamond', 'Diamond'], ['round', 'Round'], ['cross', 'Cross'], ['ring', 'Ring'],
       ['hourglass', 'Hourglass'], ['L', 'L'], ['stairs', 'Stairs'], ['islands', 'Two islands'], ['cheese', 'Swiss cheese']) },
     { key: 'holes', label: 'Extra holes', type: 'int', min: 0, max: 15, def: 0 },
-    { key: 'stumps', label: 'Stumps', type: 'int', min: 0, max: 12, def: 0 },
-    { key: 'bramble', label: 'Bramble', type: 'bool', def: false },
-    { key: 'brambleEvery', label: 'Bramble grows every', type: 'int', min: 1, max: 6, def: 2, unit: 'moves' },
-    { key: 'brambleMax', label: 'Bramble stops at', type: 'int', min: 1, max: 24, def: 6, unit: 'squares' }
+    { key: 'crumble', label: 'Crumbling ground', type: 'bool', def: false,
+      help: 'Every square you move a piece off falls away behind it.' }
   ] },
   { group: 'Your side', fields: [
     { key: 'mine', label: 'Pieces', type: 'int', min: 1, max: 8, def: 4 },
@@ -114,8 +112,7 @@ export function crazy(rand = Math.random, allowed = [...FAIRY, 'rabbit']) {
     w, h,
     shape: rand() < 0.35 ? 'rect' : pick(['diamond', 'round', 'cross', 'ring', 'hourglass', 'L', 'stairs', 'islands', 'cheese']),
     holes: rand() < 0.6 ? 0 : int(1, 6),
-    stumps: int(0, 4),
-    bramble: rand() < 0.4, brambleEvery: int(1, 4), brambleMax: int(3, 12),
+    crumble: rand() < 0.3,
     mine, minePool: some(ALL, 2, 6), mineDupes: rand() < 0.3, mineRows: int(1, 2),
     royal: rand() < 0.2, wait: rand() < 0.8,
     foes: int(1, 4),
@@ -214,7 +211,9 @@ export function makeLevel(settings, seed) {
   holes = keepLargest(W, H, holes);
   if (W * H - holes.size < need) holes = new Set(); // too little board left: fall back to the rectangle
 
-  const day = { W, H, holes, stumps: new Set(), bramble: [], brambleAt: new Map(), every: S.brambleEvery };
+  // Stumps and bramble are out for now; the rules engine still expects the
+  // fields (the first two daily boards use them), so they stay, empty.
+  const day = { W, H, holes, stumps: new Set(), bramble: [], brambleAt: new Map(), every: 2 };
   const cells = [];
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (onBoard(day, x, y)) cells.push([x, y]);
   const rows = [...new Set(cells.map((c) => c[1]))].sort((a, b) => a - b);
@@ -294,31 +293,6 @@ export function makeLevel(settings, seed) {
       f.mx = rand() < 0.5 ? 1 : -1; f.my = rand() < 0.5 ? 1 : -1; f.hops = S.hops;
     }
   });
-  const middle = rows.slice(S.mineRows, rows.length - S.foeRows);
-  for (let i = 0; i < S.stumps; i++) { const c = place(middle.length ? middle : rows); if (c) day.stumps.add(c.y * W + c.x); }
-
-  if (S.bramble) {
-    const seedSq = place(middle.length ? middle : rows);
-    if (seedSq) {
-      day.bramble.push(seedSq.y * W + seedSq.x);
-      const isIn = new Set(day.bramble);
-      while (day.bramble.length < S.brambleMax) {
-        const frontier = [];
-        for (const sq of day.bramble) {
-          const x = sq % W, y = Math.floor(sq / W);
-          for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-            const nx = x + dx, ny = y + dy, k = ny * W + nx;
-            if (!onBoard(day, nx, ny) || isIn.has(k) || taken.has(k) || day.stumps.has(k)) continue;
-            if (!frontier.includes(k)) frontier.push(k);
-          }
-        }
-        if (!frontier.length) break;
-        const k = frontier[Math.floor(rand() * frontier.length)];
-        day.bramble.push(k); isIn.add(k);
-      }
-      day.brambleAt = new Map(day.bramble.map((sq, i) => [sq, i]));
-    }
-  }
 
   return Object.assign(day, {
     seed, settings: S,
@@ -326,7 +300,7 @@ export function makeLevel(settings, seed) {
     foes: foes.filter((f) => f.x !== undefined),
     goalKind: goal, hole,
     rules: { goal: ['king', 'rabbit', 'target'].includes(goal) ? 'target' : goal, maxMoves: S.maxMoves, wait: S.wait,
-      foesCapture: S.foesCapture, royal: S.royal, first: S.first, ballStops: S.ballStops },
+      foesCapture: S.foesCapture, royal: S.royal, first: S.first, ballStops: S.ballStops, crumble: S.crumble },
     ai: { skill: +S.skill, style: S.style },
     tracks: S.tracks
   });
@@ -350,7 +324,7 @@ export function summary(S) {
   const hand = S.mirror ? S.minePool : S.foePool;
   const made = S.goal === 'king' && !hand.includes('king') ? ', one of them made a King'
     : S.goal === 'rabbit' && !hand.includes('rabbit') ? ', one of them made a rabbit' : '';
-  return `${S.w} × ${S.h} ${shape}. You: ${S.mine} from ${pool(S.minePool)}. ` +
+  return `${S.w} × ${S.h} ${shape}${S.crumble ? ', crumbling' : ''}. You: ${S.mine} from ${pool(S.minePool)}. ` +
     `Them: ${S.mirror ? 'a mirror of you' : S.foes ? `${S.foes} from ${pool(S.foePool)}` : 'nobody'}${made}` +
     `${S.foePool.includes('rabbit') && !S.mirror ? `, rabbits ${S.rabbitBrain === 'pattern' ? 'on patterns' : 'thinking'}` : ''}. ` +
     `Win by ${GOAL_TEXT[S.goal]}` +

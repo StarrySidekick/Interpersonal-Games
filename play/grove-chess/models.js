@@ -270,6 +270,24 @@ MODELS.stump = () => {
   return m;
 };
 
+// Crumbling ground, for the pieces menu and the opening: a square of grass
+// breaking into chunks, the far ones still level, the near ones tipping
+// away into the dark.
+MODELS.crumble = () => {
+  const m = new Model();
+  const chunk = (x, y, z, w, d, grass, rot = {}) => m.group({ t: [x, y, z], ...rot }, () => {
+    m.box(0, 0, 0, w, 1.6, d, '#6b4a2e');          // earth
+    m.box(0, 1.1, 0, w, 0.6, d, grass);            // grass on top
+  });
+  chunk(-1.6, 4.2, -1.6, 3.0, 3.0, '#b9dc9b');
+  chunk(1.6, 3.6, -1.6, 2.9, 2.9, '#f6efd7', { rz: -0.3 });
+  chunk(-1.7, 2.6, 1.7, 2.8, 2.7, '#f6efd7', { rx: 0.45 });
+  chunk(1.8, 1.4, 2.0, 2.2, 2.2, '#b9dc9b', { rx: 0.7, rz: -0.6 });
+  for (const [x, y, z, r] of [[0.2, 0.6, 1.0, 0.45], [2.8, 0.4, 0.2, 0.35], [-0.6, 0.3, 3.0, 0.4], [0.9, 1.6, 0.0, 0.3]])
+    m.box(x, y, z, r * 2, r * 2, r * 2, '#4a3220', { rx: x, ry: z });
+  return m;
+};
+
 // Their pieces: the same shapes in dark plum wood on a berry-red plinth, so a
 // bishop of theirs never looks like a bishop of yours. The builders read the
 // palette when they run, so swapping it for the length of one build is enough.

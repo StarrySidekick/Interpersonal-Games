@@ -9,7 +9,7 @@
 import { el, haptic } from '../../engine/ui.js';
 import { Mesh, makeTarget, render } from '../../engine/lowpoly.js';
 import { model } from './models.js';
-import { PIECES, movesFor } from './rules.js';
+import { PIECES, CRUMBLE_DESC, movesFor, playerMove } from './rules.js';
 import { Board, demoBoard } from './board.js';
 
 const CSS = `
@@ -42,6 +42,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 /**
  * Play the opening on `board` (a Board already showing the level). `goal` is
  * an optional last card: { kind, side, title, text } for what you are after.
+ * A crumbling level gets a card of its own before the goal.
  * Resolves when the game should start, whether it ran or was skipped.
  */
 export async function playIntro(board, level, { goal = null, section = null } = {}) {
@@ -92,6 +93,8 @@ export async function playIntro(board, level, { goal = null, section = null } = 
     const kinds = [...new Set(level.pieces.map((p) => p.type))];
     const cards = kinds.map((k, i) => ({ kind: k, side: 'you', eyebrow: `Your pieces · ${i + 1} of ${kinds.length}`,
       title: PIECES[k].name, text: PIECES[k].desc, demo: true }));
+    if (level.rules.crumble) cards.push({ kind: 'crumble', side: 'you', eyebrow: 'The ground', title: 'Crumbling ground',
+      text: CRUMBLE_DESC, demo: 'crumble' });
     if (goal) cards.push({ ...goal, eyebrow: 'Your goal', demo: false });
     for (const c of cards) {
       if (skipped) break;
@@ -165,7 +168,8 @@ async function card(c, setAdvance, track, isSkipped) {
   track(body.animate([{ transform: 'translateX(60px)', opacity: 0 }, { transform: 'none', opacity: 1 }],
     { duration: 280, easing: 'cubic-bezier(.2,.8,.2,1)' }));
 
-  const demo = c.demo ? showMoves(demoCanvas, c.kind, () => done || isSkipped()) : Promise.resolve();
+  const stop = () => done || isSkipped();
+  const demo = c.demo === 'crumble' ? showCrumble(demoCanvas, stop) : c.demo ? showMoves(demoCanvas, c.kind, stop) : Promise.resolve();
   await Promise.race([hold, Promise.all([demo, wait(c.demo ? 0 : 2200)])]);
   done = true;
 
@@ -206,7 +210,7 @@ async function showMoves(canvas, kind, stop) {
   const picks = [moves.find((m) => m.cap), ...[...moves].sort((a, b) => far(b) - far(a))].filter(Boolean).slice(0, 2);
   for (const m of picks) {
     if (stop()) return;
-    const to = { ...s, pieces: [{ ...s.pieces[0], x: m.x, y: m.y }],
+    const to = { ...s, pieces: s.pieces.map((p, i) => (i ? p : { ...p, x: m.x, y: m.y })),
       foes: s.foes.map((f) => (f.x === m.x && f.y === m.y ? { ...f, taken: true } : f)) };
     await board.animate(state, to, { p: 0 }, 2);
     state = to;
@@ -216,4 +220,31 @@ async function showMoves(canvas, kind, stop) {
     board.redraw();
     await wait(250);
   }
+}
+
+/**
+ * Crumbling ground, acted out: a rook slides across and the square it left
+ * falls away; then its moves light up, and the slide back stops at the gap.
+ */
+async function showCrumble(canvas, stop) {
+  const { day, s } = demoBoard('rook', { at: [1, 3], rules: { crumble: true } });
+  const board = new Board(canvas, day);
+  let state = s, shown = [], sel = 0;
+  board.redraw = () => board.draw({ state, legal: shown, sel });
+  board.redraw();
+  await wait(600);
+  if (stop()) return;
+  const mv = { p: 0, x: 5, y: 3 }, after = playerMove(s, mv);
+  sel = null;
+  await board.animate(state, after, mv, 2);
+  state = after;
+  await wait(500);
+  for (const m of movesFor(state, 0)) {
+    if (stop()) return;
+    shown = [...shown, m];
+    sel = 0;
+    board.redraw();
+    await wait(110);
+  }
+  await wait(1600);
 }

@@ -64,9 +64,10 @@ The worked example to imitate is
   and what progresses between the people.
 - **No server** unless it has been decided. Flag any path that needs shared
   state everyone agrees on.
-- **Grove Chess's daily dealer is frozen.** Anything that changes dealing,
-  the solver, patterns, pieces or rules needs a versioned dealer and a green
-  `check-daily.mjs`.
+- **Grove Chess's shipped dealers never change.** Anything that changes
+  dealing, the solver, patterns, pieces or rules is a new dealer version with
+  a future cutover date (`VERSIONS` in `day.js`), and `check-daily.mjs` must
+  stay green. Count that cost in any proposal that touches the daily.
 - **The categories are Timothy's.** Do not rename, merge or add paths in
   `docs/design-philosophy.md` on your own; put proposals under its "Open"
   section and ask.

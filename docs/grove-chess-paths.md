@@ -1,7 +1,8 @@
 # Grove Chess through the paths
 
 The first audit using [`design-philosophy.md`](design-philosophy.md), run
-2026-10-06 against Grove Chess as it is on `main`. **Ideas, not decisions.**
+2026-10-06 against Grove Chess as it is on `main`, after crumbling ground
+replaced stumps and bramble. **Ideas, not decisions.**
 Each one says which paths it moves, what it costs, and what it risks. How
 the game works now is in [`grove-chess.md`](grove-chess.md); the larger
 structural options are in [`grove-structure.md`](grove-structure.md).
@@ -10,13 +11,13 @@ structural options are in [`grove-structure.md`](grove-structure.md).
 
 | Path | In? | Within one game | Across days | Notated by |
 |---|---|---|---|---|
-| Mastery | in, the core | reading the hidden pattern, learning the day's fairy piece, beating par | **flat**: par 4 to 7 at random, every mechanic can appear on any day, the twelve fairy pieces cycle and repeat | written ("Birdie") |
+| Mastery | in, the core | reading the hidden pattern, learning the day's fairy piece, beating par | **flat**: par is 3 or 4 on 96% of boards (see "Difficulty without obstacles" in `grove-chess.md`), crumbling ground can fall on any day, the twelve fairy pieces cycle and repeat | written ("Birdie") |
 | Identity | barely | your name on the vine | none | written |
 | Collection | not yet | none | none visible; `engine/record.js` logs each finished day and nothing shows it | none |
 | Power | out, correctly | none | none | none |
 | Social | in, the strongest | the vine: links, branches, overlays, watching friends' games | **resets daily**; nothing accrues for the group | visual (colored paths), written (the list) |
-| World | barely | the bramble creeps | none | visual |
-| Narrative | thin, promising | mystery (the hidden pattern, then the reveal), thriller (dusk, a rabbit that eats, the creeping bramble), humor (a rabbit that eats chess pieces), wonder and idea (fairy pieces and their history) | none | written |
+| World | in miniature | on crumbling days the board changes *because of your moves* | none | visual (cracks, falling squares) |
+| Narrative | thin, promising | mystery (the hidden pattern, then the reveal), thriller (dusk, a rabbit that eats, ground falling away), humor (a rabbit that eats chess pieces), wonder and idea (fairy pieces and their history) | none | written |
 | Competitive | light, correctly | par, and scores on the vine | none | written |
 
 **By register:** written is everywhere. Visual is strong in places (the
@@ -24,6 +25,12 @@ opening slam and cards, legal-move squares, the vine overlay, the pattern
 drawing) and weak at the moment that matters most: on a catch the rabbit
 simply vanishes and the result arrives as text. **Audial is empty.** There
 is no sound at all. Touch exists (haptics on moves and the end).
+
+**A good call already made:** swapping the bramble for crumbling ground
+moved the world path the right way. The bramble changed the board on its
+own schedule; crumbling ground changes it because of what *you* did, and
+you see the result at once. That is the world path's test (caused by you,
+before and after visible) passed at the scale of one game.
 
 **The reading:** each day is a good, complete chase, and the in-game curves
 for mastery, social and narrative are real. But the player story is one day
@@ -79,16 +86,18 @@ shared link keeps working.
 ### Medium: needs a versioned dealer
 
 8. **A weekly rhythm.** Shape difficulty across the week the way the New
-   York Times crossword gets harder from Monday to Saturday: a gentle 5x5
-   with no bramble early in the week, bramble midweek, stumps and the larger
-   board toward the weekend, something special on Sunday (two rabbits, or the
-   ball and hole). Mechanics arrive alone and are then combined. It is a
-   calendar, not a streak: miss Wednesday and Thursday is still Thursday.
-   This is the one idea that gives mastery a curve across days.
-   *Moves:* mastery, flow. *Cost:* it changes dealing, so it ships as dealer
-   v2 from a start date, with earlier dates still dealt by v1 so old links
-   replay (see "Do not casually change the dealer" in `grove-chess.md`).
-   The lab should find each weekday's settings first.
+   York Times crossword gets harder from Monday to Saturday: a gentle par 3
+   on a plain 5x5 early in the week, crumbling ground midweek, the larger
+   board and the levers `grove-chess.md` already lists (harder rabbits,
+   fewer pieces) toward the weekend, something special on Sunday (two
+   rabbits, or the ball and hole). Mechanics arrive alone and are then
+   combined. It is a calendar, not a streak: miss Wednesday and Thursday is
+   still Thursday. This is the one idea that gives mastery a curve across
+   days, and it also answers the open question of whether par 3 is too easy:
+   on a Monday it is meant to be. *Moves:* mastery, flow. *Cost:* lower than
+   it was, since the dealer is now versioned: it is a version 3 with a
+   cutover date and its own fingerprint in the guard. The lab should find
+   each weekday's settings first.
 
 ### Large: the structural options, mapped to paths
 
@@ -98,10 +107,13 @@ shared link keeps working.
 10. **The group grove** (`grove-structure.md`, 3). A concrete form for it:
     each day a vine played becomes a small turning diorama of that day's
     board, planted in the grove. The low-poly engine already renders boards,
-    and the bramble, stumps and drawn pattern make each one different. The
+    and the board size, crumbled squares and drawn pattern make each one
+    different. The
     garden *is* the record. *Moves:* world, social, collection. *Risk:* every
     phone agreeing on one grove may need a server; built from the union of
-    games each phone has seen, two friends' groves will differ.
+    games each phone has seen, two friends' groves will differ. The title
+    screen already shows the board as you left it, crumbled squares and all,
+    which is a first step toward this.
 11. **World clearings with a roster** (`grove-structure.md`, 4). This is where
     power belongs. Start with a Wazir and a Ferz; each clearing adds a piece
     to your roster, broadening it (horizontal) and climbing toward the strong
@@ -140,7 +152,8 @@ shared link keeps working.
 2. **Notebook, album and past boards** (3, 4, 5). The first thing that
    accrues across days for a single player, built on data the phone already
    keeps.
-3. **The weekly rhythm** (8), designed in the lab first, shipped as dealer v2.
+3. **The weekly rhythm** (8), designed in the lab first, shipped as dealer
+   version 3.
 4. Then **gifts and the group grove** (9, 10), the group-sized versions of
    the same idea, already recommended in `grove-structure.md`.
 
