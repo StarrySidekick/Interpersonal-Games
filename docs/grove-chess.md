@@ -61,6 +61,17 @@ strong piece per hand.
 Each has a low-poly model and a short description in the in-game pieces menu,
 with a small diagram of where it can move.
 
+### The opening
+
+`intro.js`. A fresh game opens with the board falling from above the screen,
+slamming down and shaking; then a card for each kind of piece you hold (the
+model turning, what it does, and a little board where the squares it can
+reach light up one by one before it makes a move, taking something where that
+is how the piece works); then a card for the goal; then your pieces drop onto
+their squares and play starts. Tap a card to move on; Skip ends it at any
+point. It does not play when you carry on a game, practise, or restart a lab
+level, and phones set to reduce motion skip it.
+
 ## The social layer: the vine
 
 No server. The group chat is the database.

@@ -70,6 +70,11 @@ export class Board {
     this.pen = new Pen(canvas.getContext('2d'));
     this.tw = null;
     this.loopUntil = 0;
+    // For the opening animation: hide your pieces while the board falls in,
+    // then `landing(i, now)` gives each piece's height above its square, or
+    // null while it has not appeared yet.
+    this.hidePieces = false;
+    this.landing = null;
     this.redraw = () => {};
   }
 
@@ -238,14 +243,16 @@ export class Board {
       things.push({ img: sprite('bramble'), x: sq % day.W, y: Math.floor(sq / day.W), under: true });
     }
     if (hole) things.push({ img: sprite('flag'), x: hole.x + 0.32, y: hole.y + 0.12 });
-    s.pieces.forEach((p, i) => {
+    if (!this.hidePieces) s.pieces.forEach((p, i) => {
       // An eaten piece stays on the board until whatever ate it lands.
       if (p.taken && !(tw?.eaten?.has(i) && at < tw.landAt)) return;
       // A sunk ball rolls to the hole, then it is gone.
       if (s.sunk && p.type === 'ball' && !(tw?.sinkAt && at < tw.sinkAt)) return;
       let x = p.x, y = p.y;
       if (tw?.piece?.i === i) ({ x, y } = tweenPos(tw.piece, at));
-      things.push({ img: sprite(p.type), x, y });
+      let lift = 0;
+      if (this.landing) { lift = this.landing(i, at); if (lift === null) return; }
+      things.push({ img: sprite(p.type), x, y, lift });
     });
     const marked = day.rules.goal === 'target' && day.foes.length > 1;
     s.foes.forEach((f, k) => {
@@ -322,8 +329,13 @@ export class Board {
       if (tw.eaten.size) t += 440;
     }
     this.tw = tw;
+    return this.runUntil(t);
+  }
+
+  /** Keep redrawing every frame until time t. Resolves then. */
+  runUntil(t) {
     const start = performance.now() >= this.loopUntil;
-    this.loopUntil = t;
+    this.loopUntil = Math.max(this.loopUntil, t);
     if (start) requestAnimationFrame(() => this.loop());
     return new Promise((res) => setTimeout(res, t - performance.now() + 20));
   }
@@ -365,23 +377,34 @@ export function patternPicture(cv, steps0, mx = 1, my = 1) {
 
 // --- The pieces menu's little move diagrams. -------------------------------
 
+// A few pieces only make sense with something on the board: a pawn catches
+// diagonally, a cannon needs a screen to jump, a grasshopper needs hurdles,
+// a mao can be blocked, a ball needs something to stop against.
 const DEMO = {
   pawn: { rabbit: [4, 4] },
   cannon: { stumps: [[3, 5]], rabbit: [3, 6] },
   grasshopper: { stumps: [[3, 5], [5, 5], [1, 3]] },
-  mao: { stumps: [[4, 3]] }
+  mao: { stumps: [[4, 3]] },
+  ball: { stumps: [[3, 6], [0, 3]] }
 };
+
+/** A 7 x 7 practice board with one piece in the middle, plus whatever its
+    demonstration needs. Returns a level and its starting state. */
+export function demoBoard(type) {
+  const D = 7, demo = DEMO[type] || {}, r = demo.rabbit;
+  const day = { W: D, H: D, holes: new Set(), stumps: new Set((demo.stumps || []).map(([x, y]) => y * D + x)),
+    bramble: [], brambleAt: new Map(), every: 2, rules: { goal: 'all', foesCapture: true, maxMoves: 0, wait: true },
+    pieces: [{ type, x: 3, y: 3 }], foes: r ? [{ type: 'rabbit', x: r[0], y: r[1], brain: 'pattern' }] : [] };
+  const s = { day, t: 0, won: false, hole: null, pieces: [{ type, x: 3, y: 3 }], foes: day.foes.map((f) => ({ ...f })) };
+  return { day, s };
+}
 
 /** A 7 x 7 picture of where a piece can go from the middle of an empty board. */
 export function diagram(type) {
   const D = 7, c = 8, cv = document.createElement('canvas');
   cv.className = 'diagram pix'; cv.width = D * c; cv.height = D * c;
-  const ctx = cv.getContext('2d'), demo = DEMO[type] || {};
-  const day = { W: D, H: D, holes: new Set(), stumps: new Set((demo.stumps || []).map(([x, y]) => y * D + x)),
-    bramble: [], brambleAt: new Map(), every: 2, rules: { foesCapture: true } };
-  const r = demo.rabbit;
-  const s = { day, t: 0, won: false, pieces: [{ type, x: 3, y: 3 }],
-    foes: r ? [{ type: 'rabbit', x: r[0], y: r[1], brain: 'pattern' }] : [] };
+  const ctx = cv.getContext('2d'), demo = DEMO[type] || {}, r = demo.rabbit;
+  const { s } = demoBoard(type);
   const at = (x, y, col, inset = 0) => { ctx.fillStyle = col; ctx.fillRect(x * c + inset, (D - 1 - y) * c + inset, c - inset * 2, c - inset * 2); };
   for (let y = 0; y < D; y++) for (let x = 0; x < D; x++) at(x, y, (x + y) % 2 ? '#f6efd7' : '#b9dc9b');
   for (const [x, y] of demo.stumps || []) at(x, y, '#6a4a30', 1);

@@ -14,6 +14,7 @@ import {
 } from './vine.js';
 import { Board, patternPicture, scene, sceneFrame } from './board.js';
 import { piecesSheet } from './sheet.js';
+import { playIntro } from './intro.js';
 
 // --- The day, and what this phone already knows about it. -----------------
 
@@ -299,7 +300,7 @@ dio.addEventListener('click', () => {
   twirl = { t0: performance.now(), yaw0: yaw };
 });
 
-function startPlay() {
+async function startPlay() {
   show('play');
   keepAwake();
   hud();
@@ -308,6 +309,14 @@ function startPlay() {
   if (day.bramble.length) chips.append(el('span', { class: 'pill' }, 'Bramble creeps'));
   if (day.stumps.size) chips.append(el('span', { class: 'pill' }, `${day.stumps.size} stump${day.stumps.size > 1 ? 's' : ''}`));
   if (isOver(now())) return finish();
+  // The opening plays for a fresh game only: not when carrying on, and not
+  // for practice.
+  if (!game.moves.length && !game.practice) {
+    busy = true;
+    await playIntro(board, day, { section: $('[data-screen=play]'), goal: { kind: 'rabbit', side: 'foe', title: 'The rabbit',
+      text: 'Catch it. It hops in a hidden pattern that repeats, and its tracks are numbered on the board so you can work it out.' } });
+    busy = false;
+  }
   status(game.moves.length ? 'Carrying on where you left off. Your move.' : 'Your move. Tap a piece to see where it can go.');
   select(null);
 }
