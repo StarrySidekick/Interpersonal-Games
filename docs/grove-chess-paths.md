@@ -7,6 +7,14 @@ Each one says which paths it moves, what it costs, and what it risks. How
 the game works now is in [`grove-chess.md`](grove-chess.md); the larger
 structural options are in [`grove-structure.md`](grove-structure.md).
 
+**Since this audit (2026-10-06):** ideas 1 and 2 are built. Timothy then
+said the daily is a separate thing when it comes to progression: it is
+about social engagement. So the daily's curve across days is the social
+one (ideas 6, 7, 9, 10), and long-term progression for one player gets its
+own mode, designed in [`grove-long-game.md`](grove-long-game.md). Ideas 3,
+4 and 5 (notebook, album, past boards) live there now, as the notebook and
+the roster.
+
 ## Where it stands
 
 | Path | In? | Within one game | Across days | Notated by |
@@ -45,13 +53,13 @@ reacting to. The gap is curves *across days*.
 None of these re-deal a board, so `check-daily.mjs` stays green and every
 shared link keeps working.
 
-1. **Sound.** Fill the empty register. Synthesized in the browser with the
+1. **Sound.** *Built.* Fill the empty register. Synthesized in the browser with the
    Web Audio API (no audio files, no dependencies): a hop, a capture, a
    crunch when the rabbit eats, a dusk sting, and a catch jingle that climbs
    with the result (par, birdie, eagle each a step higher). Mute beside the
    theme toggle. `docs/scope.md` already asks for sound where it matters.
    *Moves:* notation for mastery and narrative (the thriller beats).
-2. **A catch worth the chase.** A beat of stillness, the rabbit tumbles,
+2. **A catch worth the chase.** *Built.* A beat of stillness, the rabbit tumbles,
    leaves burst, then the pattern draws itself across the board stroke by
    stroke. The reveal is the mystery's answer; show it before writing it.
    *Moves:* mastery and narrative notation.
@@ -147,19 +155,17 @@ shared link keeps working.
 
 ## Suggested order
 
-1. **Sound and the catch** (1, 2). The cheapest, and they lift the notation
-   of everything the game already does well.
-2. **Notebook, album and past boards** (3, 4, 5). The first thing that
-   accrues across days for a single player, built on data the phone already
-   keeps.
-3. **The weekly rhythm** (8), designed in the lab first, shipped as dealer
-   version 3.
-4. Then **gifts and the group grove** (9, 10), the group-sized versions of
-   the same idea, already recommended in `grove-structure.md`.
+1. ~~**Sound and the catch** (1, 2).~~ Built 2026-10-06.
+2. ~~**Notebook, album and past boards** (3, 4, 5).~~ Moved to the long
+   game, where single-player progression now lives.
+3. **The daily's social curve:** your colour on the vine and the share
+   picture (6, 7), then gifts and the group grove (9, 10).
+4. **The weekly rhythm** (8), if the daily should have a difficulty shape
+   at all; designed in the lab first, shipped as dealer version 3.
 
 ## Questions for Timothy
 
 - Is a weekly rhythm right for the daily, or should every day stay
   comparable in difficulty so no day is "the easy one"?
-- Should past boards count for the album the same as the day itself?
-- Sound on by default, or off until switched on?
+- Sound is on by default (an iPhone's silent switch still mutes it), with
+  a speaker button to turn it off. Right call?

@@ -54,6 +54,14 @@ and it applies to every game here. Its first use, on Grove Chess, is
 [`docs/grove-chess-paths.md`](docs/grove-chess-paths.md): ideas, not
 decisions.
 
+Then, in his words, the daily is "sort of a separate thing when it comes to
+progression"; it is about social engagement. **Long-term progression goes in
+a single-player mode**, part 2 above. A design for it, built on the paths
+and on the history of chess, is in
+[`docs/grove-long-game.md`](docs/grove-long-game.md): a proposal, not
+decided. Sound and a proper winning catch are built in the daily and the
+lab, the first two ideas from the audit.
+
 ## 2026-10-05: the front door is asynchronous, and it is a group
 
 Recorded from Timothy's own description. **Where this section disagrees with

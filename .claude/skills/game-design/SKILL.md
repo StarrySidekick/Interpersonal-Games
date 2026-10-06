@@ -60,8 +60,10 @@ The worked example to imitate is
   never consecutive ones. No missable collectibles and no numbered holes for
   missed days.
 - **Competition stays small** (house rule 4). No ladders.
-- **Social is never optional.** Name the scale (two people or an ensemble)
-  and what progresses between the people.
+- **Social is never optional for a game as a whole.** Name the scale (two
+  people or an ensemble) and what progresses between the people. One mode
+  may leave it out when another carries it (Grove Chess: the daily is
+  social, the long game single-player).
 - **No server** unless it has been decided. Flag any path that needs shared
   state everyone agrees on.
 - **Grove Chess's shipped dealers never change.** Anything that changes

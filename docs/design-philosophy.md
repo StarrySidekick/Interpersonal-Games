@@ -245,7 +245,9 @@ bend the paths in specific ways:
 - **Competition stays small** (house rule 4). Against the puzzle, compared in
   a chat; no ladders, no championships.
 - **Social is not optional here.** Every game says which scale it is for
-  (two people or an ensemble) and what progresses *between* the people.
+  (two people or an ensemble) and what progresses *between* the people. A
+  game can leave it out of one mode when another mode carries it: Grove
+  Chess's daily is the social mode and its long game is single-player.
 - **No server** unless it has been decided one is worth it. A path that needs
   everyone to agree on one shared state (a group world, a ladder) runs into
   this, and a proposal should say so.
