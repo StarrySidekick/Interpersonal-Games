@@ -8,6 +8,7 @@
 import { Mesh, Model, snapshot } from '../../engine/lowpoly.js';
 import { model } from './models.js';
 import { brambleCount, onBoard, movesFor, PIECES } from './rules.js';
+import * as sfx from './sounds.js';
 
 const GREEN = '#b9dc9b', CREAM = '#f6efd7';
 
@@ -58,6 +59,19 @@ export class Pen {
 }
 
 const ease = (k) => (k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2);
+
+// Leaves for a winning catch: a burst thrown up and out, falling back under
+// gravity. Random is fine here: it is only how the leaves fly.
+const LEAF = ['#8fc46a', '#5f9a45', '#b9dc9b', '#f6efd7', '#f2c14e'];
+function leafBurst(x, y, t0) {
+  const bits = [];
+  for (let i = 0; i < 18; i++) {
+    const ang = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 1.3, sp = 50 + Math.random() * 80;
+    bits.push({ vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, col: LEAF[i % LEAF.length], w: i % 3 ? 2 : 3 });
+  }
+  return { x, y, t0, dur: 950, bits };
+}
+
 function tweenPos(t, at) {
   const k = Math.max(0, Math.min(1, (at - t.t0) / t.dur)), e = ease(k);
   return { x: t.from[0] + (t.to[0] - t.from[0]) * e, y: t.from[1] + (t.to[1] - t.from[1]) * e, k };
@@ -77,6 +91,9 @@ export class Board {
     // null while it has not appeared yet.
     this.hidePieces = false;
     this.landing = null;
+    // A catch that wins the game gets its own moment (a beat, a flash, a
+    // tumble, leaves). The opening's little demo boards turn it off.
+    this.celebrate = true;
     this.redraw = () => {};
   }
 
@@ -323,13 +340,51 @@ export class Board {
         P(cx + Math.cos(ang) * r - 1, cy - (pf.low ? 0 : 4) + Math.sin(ang) * r * (pf.low ? 0.6 : 1) - 1, 2, 2, a % 2 ? pf.c1 : pf.c2);
       }
     }
+
+    // A winning catch. Everything holds for a beat while the square flashes,
+    // then what you caught pops up, tumbles and shrinks away where it stood
+    // (a small arc, so a rabbit on the top row stays on the canvas).
+    const g = pen.g;
+    for (const tb of tw?.tumbles || []) {
+      const e = at - tb.t0;
+      if (e < 0 || e > tb.dur) continue;
+      const [cx, cy] = this.centre(tb.x, tb.y);
+      if (e < tb.hold + 200) P(cx - C / 2, cy - C / 2, C, C, `rgba(255,255,255,${0.65 * (1 - e / (tb.hold + 200))})`);
+      let lift = 7, rot = 0, sc = 1;
+      if (e > tb.hold) {
+        const k = (e - tb.hold) / (tb.dur - tb.hold);
+        lift = 7 + Math.sin(Math.PI * Math.min(1, k * 1.4)) * 14; // up and back down
+        rot = k * Math.PI * 2.5;
+        sc = k > 0.45 ? 1 - (k - 0.45) / 0.55 : 1;
+      }
+      // Rotate around the sprite's middle: its feet sit 31px down a 36px image.
+      g.save();
+      g.imageSmoothingEnabled = false;
+      g.globalAlpha = Math.max(0, sc);
+      g.translate(cx, cy + 6 - 13 - lift);
+      g.rotate(rot);
+      g.scale(Math.max(0.01, sc), Math.max(0.01, sc));
+      g.drawImage(tb.img, -15, -18);
+      g.restore();
+    }
+    for (const lb of tw?.leaves || []) {
+      const k = (at - lb.t0) / lb.dur, e = (at - lb.t0) / 1000;
+      if (k < 0 || k >= 1) continue;
+      const [cx, cy] = this.centre(lb.x, lb.y);
+      g.save();
+      g.globalAlpha = k > 0.65 ? (1 - k) / 0.35 : 1;
+      for (const b of lb.bits) P(cx + b.vx * e, cy - 4 + b.vy * e + 110 * e * e, b.w, 2, b.col);
+      g.restore();
+    }
   }
 
   /** Animate the step from state `a` to state `b` made by your move `mv`.
       Resolves when it is done. */
   animate(a, b, mv, slow = 1) {
     let t = performance.now();
-    const tw = { poofs: [], foes: {} };
+    // Sounds are scheduled now, for the moment their frame will be drawn.
+    const start = t, at = (ms) => (ms - start) / 1000;
+    const tw = { poofs: [], foes: {}, tumbles: [], leaves: [] };
     if (mv.p >= 0) {
       const p0 = a.pieces[mv.p], p1 = b.pieces[mv.p];
       tw.piece = { i: mv.p, from: [p0.x, p0.y], to: [p1.x, p1.y], t0: t, dur: 190 * slow };
@@ -337,19 +392,34 @@ export class Board {
       if (b.gone?.length > (a.gone?.length || 0)) {
         tw.crumble = { sq: b.gone[b.gone.length - 1], t0: t + 60 * slow, dur: 420 * slow };
         tw.poofs.push({ x: p0.x, y: p0.y, t0: t + 120 * slow, dur: 420, c1: '#7a5133', c2: '#b39a6e', low: true });
+        sfx.crumble(at(tw.crumble.t0));
       }
       t += 190 * slow;
+      sfx.move(at(t));
     }
-    // Anything you caught vanishes as your piece lands.
+    // Anything you caught vanishes as your piece lands. A catch that wins
+    // the game is a moment of its own: a held beat, then the tumble.
     tw.caught = new Set(b.foes.map((f, k) => (f.taken && !a.foes[k].taken ? k : -1)).filter((k) => k >= 0));
     tw.caughtAt = t;
-    for (const k of tw.caught) {
-      tw.poofs.push({ x: a.foes[k].x, y: a.foes[k].y, t0: t, dur: 480, c1: '#ffffff', c2: '#f2c14e' });
+    if (tw.caught.size && b.won && this.celebrate) {
+      const hold = 150 * slow, dur = 720 * slow;
+      for (const k of tw.caught) {
+        const f = a.foes[k];
+        tw.tumbles.push({ img: sprite(f.type, 'foe'), x: f.x, y: f.y, t0: t, hold, dur: hold + dur });
+        tw.leaves.push(leafBurst(f.x, f.y, t + hold));
+      }
+      sfx.caught(at(t));
+      t += hold + dur;
+    } else if (tw.caught.size) {
+      for (const k of tw.caught) tw.poofs.push({ x: a.foes[k].x, y: a.foes[k].y, t0: t, dur: 480, c1: '#ffffff', c2: '#f2c14e' });
+      sfx.capture(at(t));
+      t += b.won ? 480 : 200;
     }
-    if (tw.caught.size) t += b.won ? 480 : 200;
     if (b.sunk && !a.sunk) {
       tw.sinkAt = t;
       tw.poofs.push({ x: b.hole.x, y: b.hole.y, t0: t, dur: 520, c1: '#2a1f13', c2: '#f4ecd6' });
+      sfx.sink(at(t));
+      if (b.won && this.celebrate) { tw.leaves.push(leafBurst(b.hole.x, b.hole.y, t + 260)); t += 400; }
       t += 520;
     }
 
@@ -357,13 +427,18 @@ export class Board {
       // Then their turn, if there was one: every foe that moved (or tried
       // to) goes at once.
       const t0 = t + 70 * slow, dur = 300 * slow;
-      let any = false;
+      let any = false, hops = 0;
       b.foes.forEach((f, k) => {
         const f0 = a.foes[k];
         if (f0.taken || tw.caught.has(k)) return;
         if (f.x !== f0.x || f.y !== f0.y || f.blocked) {
           tw.foes[k] = { from: [f0.x, f0.y], to: [f.x, f.y], t0, dur, hop: f.brain === 'pattern', blocked: f.blocked };
           any = true;
+          // Each hop is a note for its direction (sounds.js). A crowd of
+          // rabbits plays its first three, so a big level is not a din.
+          if (f.x === f0.x && f.y === f0.y) sfx.bump(at(t0 + dur / 2));
+          else if (f.brain !== 'pattern') sfx.slide(at(t0 + dur));
+          else if (hops++ < 3) sfx.hop(f.x - f0.x, f.y - f0.y, at(t0 + (hops - 1) * 20), at(t0 + dur));
         }
       });
       if (a.hole && b.hole && (a.hole.x !== b.hole.x || a.hole.y !== b.hole.y)) {
@@ -374,7 +449,7 @@ export class Board {
       tw.eaten = new Set(b.pieces.map((p, i) => (p.taken && !a.pieces[i].taken ? i : -1)).filter((i) => i >= 0));
       tw.landAt = t - 40;
       for (const i of tw.eaten) tw.poofs.push({ x: a.pieces[i].x, y: a.pieces[i].y, t0: t - 40, dur: 480, c1: '#7a5133', c2: '#c8462e' });
-      if (tw.eaten.size) t += 440;
+      if (tw.eaten.size) { sfx.eat(at(tw.landAt)); t += 440; }
     }
     this.tw = tw;
     return this.runUntil(Math.max(t, tw.crumble ? tw.crumble.t0 + tw.crumble.dur : 0));
@@ -397,9 +472,11 @@ export class Board {
 
 /**
  * A pattern drawn out: one full run of hops, numbered, then the start of the
- * next run in faint lines so it visibly repeats.
+ * next run in faint lines so it visibly repeats. `upto` draws only the first
+ * that many hops, for revealing it. Returns how many hops there are in all
+ * (`segs`) and in one run (`L`).
  */
-export function patternPicture(cv, steps0, mx = 1, my = 1) {
+export function patternPicture(cv, steps0, mx = 1, my = 1, upto = Infinity) {
   const steps = steps0.map(([dx, dy]) => [dx * mx, dy * my]);
   const L = steps.length, pts = [[0, 0]];
   for (let r = 0; r < (L === 1 ? 3 : 2); r++)
@@ -415,12 +492,25 @@ export function patternPicture(cv, steps0, mx = 1, my = 1) {
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) pen.px(x * c, y * c, c, c, (x + y) % 2 ? CREAM : GREEN);
   const [sx, sy] = ctr(pts[0]);
   pen.px(sx - 5, sy - 5, 10, 10, '#f0a3b2'); pen.px(sx - 4, sy - 4, 8, 8, '#ffffff');
-  for (let i = pts.length - 1; i >= 1; i--) {
+  for (let i = Math.min(pts.length - 1, upto); i >= 1; i--) {
     const faint = i > L, [ax, ay] = ctr(pts[i - 1]), [bx, by] = ctr(pts[i]);
     pen.line(ax, ay, bx, by, faint ? 'rgba(107,74,44,.3)' : '#6b4a2c', faint ? 1 : 2);
     if (!faint) pen.px(bx - 2, by - 2, 4, 4, '#6b4a2c');
   }
-  for (let i = 1; i <= L; i++) { const [bx, by] = ctr(pts[i]); pen.num(i, bx + 2, by - 6, '#3a2616'); }
+  for (let i = 1; i <= Math.min(L, upto); i++) { const [bx, by] = ctr(pts[i]); pen.num(i, bx + 2, by - 6, '#3a2616'); }
+  return { segs: pts.length - 1, L };
+}
+
+/** Draw a pattern out hop by hop, playing each hop's note as it lands: the
+    rabbit's tune, then its first notes again, softer, as it repeats. */
+export async function revealPattern(cv, steps, mx = 1, my = 1, gap = 300) {
+  const { segs, L } = patternPicture(cv, steps, mx, my, 0);
+  for (let i = 1; i <= segs; i++) {
+    await new Promise((r) => setTimeout(r, i === 1 ? 250 : gap));
+    patternPicture(cv, steps, mx, my, i);
+    const [dx, dy] = steps[(i - 1) % L];
+    sfx.note(dx * mx, dy * my, 0, i > L ? 0.45 : 1);
+  }
 }
 
 // --- The pieces menu's little move diagrams. -------------------------------

@@ -21,7 +21,9 @@ moving a piece onto its square.
 - **Waiting is allowed** and costs a move.
 - **Fifteen moves** before dusk, then it gets away.
 - **After the game** the pattern is drawn out: one full run, numbered, then
-  the start of the next run in faint lines.
+  the start of the next run in faint lines. Just after a game ends it draws
+  itself hop by hop, playing the rabbit's tune (below), once it is on
+  screen.
 - **Par** is set by a solver that already knows the pattern, so par is hard on
   purpose. Moving two pieces together can sometimes beat it.
 
@@ -78,6 +80,35 @@ point. A crumbling board adds a card of its own before the goal: a rook slides
 across, the square it left falls away, and its slide back stops at the gap.
 It does not play when you carry on a game, practise, or restart a lab level,
 and phones set to reduce motion skip it.
+
+### The catch
+
+A catch that wins is a moment of its own (`board.js`, `celebrate`): the
+board holds for a beat while the square flashes, the rabbit pops up,
+tumbles and shrinks away, and leaves burst. Then the result pops in with the
+golf word as a badge coloured for how good it was, your chase draws itself
+back onto the board a move at a time, and the pattern plays. A catch that
+does not end the game (lab levels with several foes) keeps the small poof.
+The opening's demo boards turn the celebration off.
+
+### Sound
+
+Made in the browser as it plays (`engine/sound.js`: oscillators and filtered
+noise from the Web Audio API, no audio files). The game's sounds are in
+`sounds.js`: a wooden knock when a piece sets down, a crumble, a munch when
+the rabbit eats, a pop and a sparkle for a catch, a slam and rising knocks
+in the opening, an owl at dusk.
+
+- **The rabbit's hops are notes.** Each direction has its own pitch on a
+  pentatonic scale (five notes, no two a semitone apart, so nothing clashes),
+  so a pattern that repeats is a tune that repeats, and you can hear it as
+  well as see the tracks. A bounce flips the pattern and turns the tune
+  upside down.
+- **A win plays a fanfare** one note longer, ending one step higher, for
+  each step better than bogey, with a trill on top for an eagle. You hear how
+  well you did before you read it.
+- **On by default**, with a speaker button beside the theme button. The
+  choice is kept in the browser. An iPhone's silent switch mutes it.
 
 ## The social layer: the vine
 
@@ -232,9 +263,9 @@ a level link rebuilds exactly the same level anywhere.
 
 ## Open
 
-Read against the design philosophy, the biggest gaps are curves across days
-and the missing sound. Ideas for both, with costs, in
-[`grove-chess-paths.md`](grove-chess-paths.md).
+Read against the design philosophy ([`grove-chess-paths.md`](grove-chess-paths.md)),
+the daily's curve across days should be social; long-term progression for
+one player belongs to the long game ([`grove-long-game.md`](grove-long-game.md)).
 
 - **What a reply does to the poster's game**, beyond joining their vine. The
   question from INTENT, still unanswered.

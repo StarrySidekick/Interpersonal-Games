@@ -70,6 +70,10 @@ screen first. It costs little and it is the answer to "why come back".
 
 ## 4. The world: open-ended exploration
 
+*Worked out further in [`grove-long-game.md`](grove-long-game.md): a
+single-player mode that holds the long-term progression, with the history
+of chess as its spine.*
+
 A map of clearings, each a level built on the lab engine and checked by the
 solver, each teaching or stretching one idea: a rabbit warren, a King's
 court, a putting green where the ball and hole live, a bramble maze.

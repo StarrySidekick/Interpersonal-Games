@@ -11,6 +11,7 @@ import { Mesh, makeTarget, render } from '../../engine/lowpoly.js';
 import { model } from './models.js';
 import { PIECES, CRUMBLE_DESC, movesFor, playerMove } from './rules.js';
 import { Board, demoBoard } from './board.js';
+import * as sfx from './sounds.js';
 
 const CSS = `
 .intro-on #status, .intro-on #info, .intro-on #controls, .intro-on .hud, .intro-on .chips, .intro-on .chipline { opacity: 0; }
@@ -77,6 +78,7 @@ export async function playIntro(board, level, { goal = null, section = null } = 
     )).finished.catch(() => {});
     if (!skipped) {
       haptic(35);
+      sfx.slam();
       dust(board.el);
       await track(board.el.animate([
         { transform: 'scale(1.06, .9)' },
@@ -112,7 +114,7 @@ export async function playIntro(board, level, { goal = null, section = null } = 
         if (k < 1.35) return Math.sin(((k - 1) / 0.35) * Math.PI) * 7; // a small bounce
         return 0;
       };
-      level.pieces.forEach((_, i) => setTimeout(() => !skipped && haptic(8), i * gap + fall));
+      level.pieces.forEach((_, i) => setTimeout(() => { if (!skipped) { haptic(8); sfx.drop(i); } }, i * gap + fall));
       await board.runUntil(t0 + (level.pieces.length - 1) * gap + fall * 1.4);
     }
   } finally {
@@ -189,6 +191,7 @@ async function card(c, setAdvance, track, isSkipped) {
 async function showMoves(canvas, kind, stop) {
   const { day, s } = demoBoard(kind);
   const board = new Board(canvas, day);
+  board.celebrate = false; // a demo catch is a demonstration, not a win
   const moves = movesFor(s, 0);
   let shown = [], state = s;
   board.redraw = () => board.draw({ state, legal: shown, sel: 0 });
@@ -229,6 +232,7 @@ async function showMoves(canvas, kind, stop) {
 async function showCrumble(canvas, stop) {
   const { day, s } = demoBoard('rook', { at: [1, 3], rules: { crumble: true } });
   const board = new Board(canvas, day);
+  board.celebrate = false; // a demo catch is a demonstration, not a win
   let state = s, shown = [], sel = 0;
   board.redraw = () => board.draw({ state, legal: shown, sel });
   board.redraw();
