@@ -38,6 +38,13 @@ Also from him the same day: a light mode in a deep cream (dark stays as it
 is), a ball-and-hole win condition, and control over which fairy pieces Go
 crazy may use. All three are built.
 
+Also the same day, his design philosophy: games serve playstyles, each
+playstyle is a progression path, and the paths together tell the player
+story. Recorded in [`docs/design-philosophy.md`](docs/design-philosophy.md),
+and it applies to every game here. Its first use, on Grove Chess, is
+[`docs/grove-chess-paths.md`](docs/grove-chess-paths.md): ideas, not
+decisions.
+
 ## 2026-10-05: the front door is asynchronous, and it is a group
 
 Recorded from Timothy's own description. **Where this section disagrees with

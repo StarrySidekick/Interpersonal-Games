@@ -136,6 +136,7 @@ More on choosing between them in
 ## Docs
 
 - [`INTENT.md`](INTENT.md) — what this is for and what is next
+- [`docs/design-philosophy.md`](docs/design-philosophy.md): how games are designed here, progression paths and the player story
 - [`docs/scope.md`](docs/scope.md) — the session shape, the UI rules, the three engines
 - [`docs/choosing-a-game.md`](docs/choosing-a-game.md) — how to pick, by time, energy and medium
 - [`docs/house-rules.md`](docs/house-rules.md) — the handful of rules that make any of these work

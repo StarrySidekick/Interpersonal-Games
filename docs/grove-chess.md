@@ -200,6 +200,10 @@ a level link rebuilds exactly the same level anywhere.
 
 ## Open
 
+Read against the design philosophy, the biggest gaps are curves across days
+and the missing sound. Ideas for both, with costs, in
+[`grove-chess-paths.md`](grove-chess-paths.md).
+
 - **What a reply does to the poster's game**, beyond joining their vine. The
   question from INTENT, still unanswered.
 - **Overlap**: a relay (tomorrow's board starts where the group left the
