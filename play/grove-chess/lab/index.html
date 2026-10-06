@@ -21,6 +21,10 @@
 
   #preview { width: 100%; max-width: 440px; margin: 4px auto; }
   #summary { text-align: center; }
+  /* The three ways to play Grove Chess, on every page of it. */
+  .modes { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; margin: 14px 0 0; }
+  .modes a { padding: 8px 14px; border: 1px solid var(--line); border-radius: 999px; color: var(--dim); text-decoration: none; font-size: 15px; }
+  .modes a[aria-current] { color: var(--accent-ink); background: var(--accent); border-color: transparent; }
 
   /* Settings. */
   .group { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 4px 14px 10px; margin: 12px 0; }
@@ -91,6 +95,9 @@
     <h1 class="center">Grove Lab</h1>
     <p class="dim small center">Build a level from the settings below, play it, and rate it.
       A level is its settings plus a dice roll, so its link always rebuilds it exactly.</p>
+    <nav class="modes" aria-label="Ways to play">
+      <a href="../">The daily</a><a href="../descent/">The descent</a><a href="./" aria-current="page">The lab</a>
+    </nav>
     <canvas id="preview" class="pix" aria-label="The level, turning"></canvas>
     <p class="small dim" id="summary"></p>
     <div class="stack"><button class="primary" id="play">Play this level</button></div>
@@ -103,6 +110,7 @@
       <button class="quiet" id="reset">Back to defaults</button>
     </div>
     <p class="small dim" id="labnote" style="margin-top:8px"></p>
+    <details id="balancebox" hidden><summary class="small">How this level plays</summary><ul class="small dim" id="balance"></ul></details>
 
     <div id="settings"></div>
 

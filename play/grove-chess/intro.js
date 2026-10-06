@@ -9,7 +9,7 @@
 import { el, haptic } from '../../engine/ui.js';
 import { Mesh, makeTarget, render } from '../../engine/lowpoly.js';
 import { model } from './models.js';
-import { PIECES, CRUMBLE_DESC, movesFor, playerMove } from './rules.js';
+import { PIECES, CRUMBLE_DESC, SHRINK_DESC, movesFor, playerMove } from './rules.js';
 import { Board, demoBoard } from './board.js';
 import * as sfx from './sounds.js';
 
@@ -46,7 +46,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
  * A crumbling level gets a card of its own before the goal.
  * Resolves when the game should start, whether it ran or was skipped.
  */
-export async function playIntro(board, level, { goal = null, section = null } = {}) {
+export async function playIntro(board, level, { goal = null, section = null, seen = null } = {}) {
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   style();
   let skipped = false;
@@ -92,11 +92,18 @@ export async function playIntro(board, level, { goal = null, section = null } = 
     }
 
     // 2. A card for each kind of piece you have, then one for the goal.
-    const kinds = [...new Set(level.pieces.map((p) => p.type))];
+    // With `seen` (a Set, kept by the caller across levels) a card plays
+    // only the first time its piece or ground turns up.
+    const fresh = (key) => { if (!seen) return true; if (seen.has(key)) return false; seen.add(key); return true; };
+    const kinds = [...new Set(level.pieces.map((p) => p.type))].filter(fresh);
     const cards = kinds.map((k, i) => ({ kind: k, side: 'you', eyebrow: `Your pieces · ${i + 1} of ${kinds.length}`,
       title: PIECES[k].name, text: PIECES[k].desc, demo: true }));
-    if (level.rules.crumble) cards.push({ kind: 'crumble', side: 'you', eyebrow: 'The ground', title: 'Crumbling ground',
+    if (level.rules.crumble && fresh('ground:crumble')) cards.push({ kind: 'crumble', side: 'you', eyebrow: 'The ground', title: 'Crumbling ground',
       text: CRUMBLE_DESC, demo: 'crumble' });
+    if (level.rules.shrink && fresh('ground:' + level.rules.shrink)) cards.push({ kind: 'shrink', side: 'you', eyebrow: 'The ground',
+      title: level.rules.shrink === 'spiral' ? 'Shrinking, in a spiral' : 'Shrinking ground',
+      text: SHRINK_DESC.replace('Every few moves', `Every ${level.rules.shrinkEvery > 1 ? `${level.rules.shrinkEvery} moves` : 'move'}`) +
+        (level.rules.shrink === 'spiral' ? ' This one goes round the edge and inward, like a spiral.' : ' The square that goes next is shadowed.'), demo: false });
     if (goal) cards.push({ ...goal, eyebrow: 'Your goal', demo: false });
     for (const c of cards) {
       if (skipped) break;

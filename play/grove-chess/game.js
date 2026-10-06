@@ -7,13 +7,14 @@ import { logSitting } from '../../engine/record.js';
 import { soundToggle } from '../../engine/sound.js';
 import { makeTarget, render } from '../../engine/lowpoly.js';
 import {
-  PIECES, RABBIT_DESC, CRUMBLE_DESC, movesFor, apply, isOver, outcome, isBramble, brambleCount, replay, crumbled
+  PIECES, rabbitDesc, CRUMBLE_DESC, SHRINK_DESC, movesFor, apply, isOver, outcome, isBramble, brambleCount, replay, crumbled, shrunk
 } from './rules.js';
 import { makeDay, todayStr, describePattern, fairyFor } from './day.js';
 import {
   load, save, dayEntry, readLink, parseVine, makeLink, encodeMoves, decodeMoves, cleanName
 } from './vine.js';
-import { Board, patternPicture, revealPattern, scene, sceneFrame } from './board.js';
+import { Board, patternPicture, revealPattern, scene, sceneFrame, sprite } from './board.js';
+import { FUR, FUR_WORD, caughtRabbits, recordCatch } from './rabbits.js';
 import * as sfx from './sounds.js';
 import { piecesSheet } from './sheet.js';
 import { playIntro } from './intro.js';
@@ -54,6 +55,10 @@ const COLORS = ['#d0473d', '#2f6fc0', '#8a4bb0', '#de7a1f', '#118a74', '#c2378a'
 // --- What the board is showing. --------------------------------------------
 
 const board = new Board($('#board'), day);
+// The rabbit wears its pattern's colour once you have caught that pattern
+// before (rabbits.js); until then it is white.
+let knownFur = caughtRabbits()[day.patternName] ? FUR[day.patternName] : null;
+board.fur = (f) => (f.type === 'rabbit' ? knownFur : null);
 let view = { mode: 'play' };
 let sel = null, legal = [];
 // While your finished chase is being drawn out, how many moves of it show.
@@ -119,6 +124,7 @@ async function play(mv) {
   if (isBramble(b, r.x, r.y)) msg = 'The rabbit is hiding in the bramble. Nothing can reach it there.';
   if (brambleCount(day, b.t) > brambleCount(day, a.t)) msg += ' The bramble crept.';
   if (b.gone.length === 1 && !a.gone.length) msg = 'The square you left crumbled away. ' + msg;
+  if (b.shrunk.length > a.shrunk.length) msg += ' A square fell off the edge.';
   status(msg);
   select(null);
 }
@@ -135,8 +141,9 @@ board.el.addEventListener('click', (e) => {
   const i = s.pieces.findIndex((p) => !p.taken && p.x === x && p.y === y);
   if (i >= 0) return select(sel === i ? null : i);
   select(null);
-  if (rabbitOf(s).x === x && rabbitOf(s).y === y) info(`The rabbit. ${RABBIT_DESC}`);
+  if (rabbitOf(s).x === x && rabbitOf(s).y === y) info(`The rabbit. ${rabbitDesc(day.rules)}`);
   else if (crumbled(s, x, y)) info(CRUMBLE_DESC);
+  else if (shrunk(s, x, y)) info(SHRINK_DESC);
 });
 
 $('#wait').onclick = () => play({ p: -1, x: 0, y: 0 });
@@ -191,9 +198,11 @@ async function drawChase() {
     out. */
 function finish(fresh = false) {
   const end = now(), how = outcome(end), over = end.t - day.par, mine = ++finishes;
+  let firstOfKind = false;
   if (!game.practice && !entry.done) {
     entry.done = true; save(store);
     logSitting({ game: 'grove-chess', data: { date, number: day.number, outcome: how, moves: end.t, par: day.par } });
+    if (how === 'caught') { firstOfKind = recordCatch(day.patternName); knownFur = FUR[day.patternName] || null; }
   }
   $('#controls').hidden = true;
   $('#end').hidden = false;
@@ -201,7 +210,11 @@ function finish(fresh = false) {
   $('#end-par').replaceChildren(`Par ${day.par} · `, how === 'caught'
     ? el('span', { class: `golf g${sfx.levelFor(over)}` }, golf(over))
     : { eaten: 'the rabbit won', dusk: 'dusk fell first' }[how]);
-  $('#end-pattern').textContent = `Its pattern: ${describePattern(day)}, then the same again. Shown the way it started; hitting an edge flips it on that axis. Each hop direction has its own note, so the tune repeats when the pattern does.`;
+  const word = FUR_WORD[day.patternName];
+  $('#end-pattern').textContent = `It was a ${day.patternName}${word ? `, a ${word} rabbit` : ''}. Its pattern: ${describePattern(day)}, then the same again. Shown the way it started; hitting an edge flips it on that axis. Each hop direction has its own note, so the tune repeats when the pattern does.`;
+  $('#end-rabbit').textContent = firstOfKind
+    ? `Your first ${day.patternName}. From now on a ${day.patternName} wears ${word} fur, so you will know it on sight.` : '';
+  showRabbits();
   const pic = $('#pattern-pic'), { mx, my } = day.rabbit;
   patternWatch?.disconnect();
   if (fresh) {
@@ -231,6 +244,23 @@ function finish(fresh = false) {
   info('');
   renderVine();
   redraw();
+}
+
+/** Every rabbit you have caught in the daily, one of each colour, with how
+    many. Only what you have; never blanks for the ones you have not. */
+function showRabbits() {
+  const caught = caughtRabbits(), names = Object.keys(FUR).filter((n) => caught[n]);
+  const box = $('#end-rabbits');
+  box.replaceChildren();
+  if (!names.length) return;
+  box.append(el('p', { class: 'small dim', style: 'margin:10px 0 4px' }, 'The rabbits you have caught'));
+  const row = el('div', { class: 'rabbitrow' });
+  for (const n of names) {
+    const cv = el('canvas', { class: 'pix', width: 30, height: 36, title: `${n}: ${FUR_WORD[n]}` });
+    cv.getContext('2d').drawImage(sprite('rabbit', 'foe', FUR[n]), 0, 0);
+    row.append(el('div', { class: 'rabbitcell' }, cv, el('span', { class: 'small' }, caught[n] > 1 ? `${n} ×${caught[n]}` : n)));
+  }
+  box.append(row);
 }
 
 let watchToken = 0, vineRows = [];
@@ -330,7 +360,7 @@ const pitch = 0.62, dscale = 2, frame = sceneFrame(day, pitch, dscale);
 dio.width = frame.w; dio.height = frame.h;
 // The board as you left it: the start for a fresh game, your position (and
 // any crumbled squares) for one in progress.
-const dctx = dio.getContext('2d'), dt = makeTarget(dio.width, dio.height), dmesh = scene(day, now());
+const dctx = dio.getContext('2d'), dt = makeTarget(dio.width, dio.height), dmesh = scene(day, now(), board.fur);
 let yaw = 0.6, last = 0, twirl = null;
 const ease = (k) => (k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2);
 
@@ -364,6 +394,7 @@ async function startPlay() {
   const chips = $('#chips');
   chips.replaceChildren(el('span', { class: 'pill' }, `${N} × ${N}`));
   if (day.rules.crumble) chips.append(el('span', { class: 'pill' }, 'Crumbling ground'));
+  if (day.rules.shrink) chips.append(el('span', { class: 'pill' }, day.rules.shrink === 'spiral' ? 'Shrinking in a spiral' : 'Shrinking ground'));
   if (day.bramble.length) chips.append(el('span', { class: 'pill' }, 'Bramble creeps'));
   if (day.stumps.size) chips.append(el('span', { class: 'pill' }, `${day.stumps.size} stump${day.stumps.size > 1 ? 's' : ''}`));
   if (isOver(now())) return finish();
@@ -380,6 +411,8 @@ async function startPlay() {
 }
 
 // --- Words on the title. ---------------------------------------------------
+
+$('#how-rabbit').textContent = `The rabbit: ${rabbitDesc(day.rules)}`;
 
 {
   const [y, m, d] = date.split('-').map(Number);
@@ -417,7 +450,7 @@ if (new URLSearchParams(location.search).has('test')) {
   $('#t-next-end').onclick = () => go(shift(1));
   $('#t-spoil').textContent = `Fairy piece: ${PIECES[fairyFor(date)].name}. Hand: ${day.pieces.map((p) => PIECES[p.type].name).join(', ')}. ` +
     `Pattern: ${day.patternName} (${describePattern(day)}), ${day.pattern.length} hop${day.pattern.length > 1 ? 's' : ''}. ` +
-    `Par ${day.par}. Board ${N} × ${N}. Crumbling: ${day.rules.crumble ? 'yes' : 'no'}.` +
+    `Par ${day.par}. Board ${N} × ${N}. Ground: ${day.ground || (day.rules.crumble ? 'crumble' : 'solid')}. Rabbit eats: ${day.rules.rabbitsEat ?? day.rules.foesCapture ? 'yes' : 'no'}.` +
     (day.version === 1 ? ` Bramble: ${day.bramble.length ? 'yes' : 'no'}. Stumps: ${day.stumps.size}.` : '') +
     ` Dealer v${day.version}.`;
 }

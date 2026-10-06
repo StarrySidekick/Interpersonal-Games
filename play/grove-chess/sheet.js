@@ -5,7 +5,7 @@
 import { el } from '../../engine/ui.js';
 import { Mesh, makeTarget, render } from '../../engine/lowpoly.js';
 import { model } from './models.js';
-import { PIECES, RABBIT_DESC, RABBIT_AI_DESC, BRAMBLE_DESC, STUMP_DESC, HOLE_DESC, CRUMBLE_DESC } from './rules.js';
+import { PIECES, rabbitDesc, RABBIT_AI_DESC, BRAMBLE_DESC, STUMP_DESC, HOLE_DESC, CRUMBLE_DESC, SHRINK_DESC, LOCKED_DESC } from './rules.js';
 import { diagram } from './board.js';
 
 /**
@@ -37,7 +37,7 @@ export function piecesSheet(dialog, list, day, notes = {}) {
     }
     if (day.hole) {
       head('The goal');
-      row('flag', 'you', 'The hole', 'Sink the ball here', [HOLE_DESC,
+      row('flag', 'you', 'The hole', 'Sink the ball here', [HOLE_DESC, day.rules.goal === 'descent' ? LOCKED_DESC : null,
         day.rules.ballStops ? 'On this level the ball has to come to rest on the hole; rolling over it is not enough.' : 'The ball drops in if it rolls over it.'],
       false);
     }
@@ -49,13 +49,15 @@ export function piecesSheet(dialog, list, day, notes = {}) {
       seen.add(key);
       if (f.type === 'rabbit') {
         row('rabbit', 'foe', 'The rabbit', f.brain === 'ai' ? 'Thinks' : 'Follows a pattern',
-          [f.brain === 'ai' ? RABBIT_AI_DESC : RABBIT_DESC, f.brain === 'ai' ? null : notes.rabbit], f.brain === 'ai');
+          [f.brain === 'ai' ? RABBIT_AI_DESC : rabbitDesc(day.rules), f.brain === 'ai' ? null : notes.rabbit], f.brain === 'ai');
       } else {
         const P = PIECES[f.type];
         row(f.type, 'foe', P.name, 'Theirs, and it thinks', [P.desc, P.origin], true);
       }
     }
-    if (day.rules.crumble || day.bramble.length || day.stumps.size) head('On the board');
+    if (day.rules.crumble || day.rules.shrink || day.bramble.length || day.stumps.size) head('On the board');
+    if (day.rules.shrink) row('shrink', 'you', day.rules.shrink === 'spiral' ? 'Shrinking, in a spiral' : 'Shrinking ground', notes.when || 'Today',
+      [SHRINK_DESC, `Here the edge falls every ${day.rules.shrinkEvery > 1 ? `${day.rules.shrinkEvery} moves` : 'move'}. The square that goes next is shadowed.`]);
     if (day.rules.crumble) row('crumble', 'you', 'Crumbling ground', notes.when || 'Today',
       [CRUMBLE_DESC, 'Select a piece and cracks show on the square it will leave.']);
     // Only the first two daily boards have these.
