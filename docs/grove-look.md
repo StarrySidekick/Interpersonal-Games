@@ -57,8 +57,11 @@ little blurry where 16-bit games look sharp and pixelly.
    pixel, or to the square under it; a lit square behind a tall piece still
    takes the tap. Seen from above, anything falling away shrinks into the
    dark. Add `?flat` to any page for the old board.
-2. **Soft, not crisp.** *Built.* The board is drawn about 210 pixels across
-   and smoothed up by the browser.
+2. **Soft, not crisp.** *Built.* The board is drawn about 260 pixels across
+   and smoothed up by the browser. On a phone it runs the full width of the
+   screen, past the page's margins, with only a thin band of forest round
+   it (Timothy, 2026-10-06: it read too small); its height is capped so the
+   status line under it stays on screen.
 3. **Fog.** *Built.* The board sits in a pool of light in a dark clearing,
    ringed by the tops of low-poly pines, with fog toward the back and
    darkness all round, in both modes. It sits over a pit in the forest
