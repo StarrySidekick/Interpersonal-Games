@@ -8,7 +8,18 @@
 // rabbit shows its colour once you have caught that pattern before, so
 // colours are something you earn rather than a spoiler on day one.
 
+/** Patterns beyond the daily's twelve, for the lab and the descent. These
+    have pauses in them, (0, 0): a rabbit that stops for a moment, which
+    reads clearly when the rabbit is inside a piece. (They live here, not in
+    day.js, because adding to the daily's list would re-deal every board.) */
+export const EXTRA_PATTERNS = [
+  { name: 'Doze', steps: [[0, 0], [1, 0], [0, 0], [-1, 0]] },
+  { name: 'Lurk', steps: [[0, 0], [0, 0], [0, -1]] },
+  { name: 'Pace', steps: [[-1, 0], [-1, 0], [0, 0], [1, 0], [1, 0], [0, 0]] }
+];
+
 export const FUR = {
+  'Doze': '#78c3dc', 'Lurk': '#5c6b7c', 'Pace': '#c8435f',
   'Hopscotch': '#e8a33d', 'Zigzag': '#3fae9f', 'Wobble': '#e07a9a', 'Sidestep': '#8f7fd1',
   'Knight’s jig': '#4f86d6', 'Long leap': '#c45a3c', 'Corner run': '#e3cc3c', 'Box step': '#6f9a48',
   'Spiral': '#a855c4', 'Two up, one back': '#8b6a4f', 'Skip': '#e2865a', 'Drift': '#93aec4'
@@ -16,6 +27,7 @@ export const FUR = {
 
 /** A word for each fur, for sentences. */
 export const FUR_WORD = {
+  'Doze': 'sky blue', 'Lurk': 'slate', 'Pace': 'crimson',
   'Hopscotch': 'amber', 'Zigzag': 'teal', 'Wobble': 'pink', 'Sidestep': 'lavender',
   'Knight’s jig': 'blue', 'Long leap': 'rust', 'Corner run': 'yellow', 'Box step': 'moss green',
   'Spiral': 'violet', 'Two up, one back': 'brown', 'Skip': 'orange', 'Drift': 'mist blue'

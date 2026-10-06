@@ -4,37 +4,48 @@
 // (Timothy, 2026-10-06: "once you get the ball into the hole it falls down
 // into another level that's harder ... see how far you can go.")
 //
-// Every level is a standard board (lab.js): a ground, a shape and a size,
-// rabbits, a hole, and dark pieces. Depth decides the settings, and each
-// depth adds at most one new thing, so something new is introduced alone
-// before it is combined with the rest. The solver checks every level is
-// winnable and balanced before you see it.
+// Every level is a standard board (lab.js): a ground, a shape and a size, a
+// hole, and pieces of theirs possessed by rabbits. Early on every piece has
+// the same kind of rabbit inside, so you can see the pattern; deeper down
+// there are more kinds. Depth adds at most one new thing at a time.
+//
+// Your pieces go down with you (Timothy, 2026-10-06). The run starts with
+// the ball and three pieces; whatever is left when you sink the ball falls
+// with it to the next board, and a piece taken stays gone. Each level is
+// found by the solver for exactly the pieces you still have.
 
-import { clean, FAIRY } from './lab.js';
+import { clean } from './lab.js';
 
-/** Settings for depth d (1 is the top), with `rand` for the dice. */
-export function depthSettings(d, rand) {
+/** What every descent starts with: the ball, then three pieces. */
+export const START_HAND = ['ball', 'rook', 'knight', 'bishop'];
+
+/** Settings for depth d (1 is the top), with `rand` for the dice and
+    `hand` for the pieces you are carrying (the ball first). */
+export function depthSettings(d, rand, hand = START_HAND) {
   const pick = (a) => a[Math.floor(rand() * a.length)];
   const size = Math.min(8, 5 + Math.floor((d - 1) / 3));          // 5, 5, 5, 6, 6, 6, 7 ...
-  const hand = ['rook', 'knight', 'bishop'];
-  if (d >= 5) hand.push(pick(FAIRY));                              // one strange piece a level, from depth 5
   const grounds = d < 3 ? ['solid'] : d < 4 ? ['solid', 'crumble'] : d < 6 ? ['solid', 'crumble', 'shrink'] : ['solid', 'crumble', 'shrink', 'spiral'];
-  const parMin = Math.min(6, 3 + Math.floor((d - 1) / 3));
+  // What the rabbits possess: short steppers first, so the pattern is easy
+  // to see, then jumpers, then sliders and stranger pieces.
+  const pool = d < 3 ? ['king', 'wazir', 'ferz'] : d < 5 ? ['king', 'wazir', 'ferz', 'knight']
+    : d < 7 ? ['king', 'knight', 'bishop', 'rook', 'ferz'] : ['king', 'knight', 'bishop', 'rook', 'camel', 'alfil', 'mao'];
+  // About three to face, never more than you have pieces to catch them with.
+  const count = Math.min(d < 7 ? 3 : 4, Math.max(1, hand.length - 1));
+  const parMin = Math.min(7, 4 + Math.floor((d - 1) / 3));
   return clean({
-    v: 2,
+    v: 3,
     w: size, h: size,
     shape: d < 4 ? 'rect' : pick(['rect', 'rect', 'diamond', 'round', 'cross', 'hourglass', 'cheese']),
     holes: 0,
     ground: pick(grounds), shrinkEvery: d < 7 ? 2 : 1,
-    mine: hand.length + 1, minePool: hand, mineDupes: false, mineRows: 2, royal: false, wait: true,
-    rabbits: d < 5 ? 1 : 2, rabbitBrain: 'pattern', patterns: d < 8 ? 'daily' : pick(['daily', 'mid']), hops: 1, tracks: true, rabbitsEat: false,
-    foes: d === 1 ? 0 : d < 4 ? 1 : 2,
-    foePool: d < 4 ? ['pawn', 'king'] : d < 7 ? ['pawn', 'king', 'knight', 'bishop'] : ['pawn', 'king', 'knight', 'bishop', 'rook'],
-    foeDupes: true, mirror: false, foeRows: d < 4 ? 2 : 3,
-    skill: d < 3 ? '1' : '2', style: d < 5 ? 'balanced' : 'hunt', foesCapture: true,
+    hand, mineRows: 2, royal: false, wait: true,
+    rabbits: 0, rabbitBrain: 'pattern', patterns: 'all', hops: 1, tracks: true, rabbitsEat: false,
+    foes: count, darkBrain: 'possessed', kinds: d < 4 ? 1 : d < 7 ? 2 : 3,
+    foePool: pool, foeDupes: true, mirror: false, foeRows: d < 4 ? 2 : 3,
+    skill: '2', style: 'balanced', foesCapture: d >= 3,              // from depth 3 they can take your pieces
     goal: 'descent', holeMoves: d < 2 ? 'still' : 'daily', ballStops: false,
-    maxMoves: Math.min(24, 14 + 2 * Math.floor(d / 2)), first: 'you',
-    solve: true, parMin, parMax: parMin + 6, balance: 'on'
+    maxMoves: Math.min(28, 16 + 2 * Math.floor(d / 2)), first: 'you',
+    solve: true, parMin, parMax: parMin + 7, balance: 'on'
   });
 }
 

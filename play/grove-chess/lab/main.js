@@ -10,6 +10,7 @@ import { FUR } from '../rabbits.js';
 import { Board, scene, sceneFrame, sprite, patternPicture } from '../board.js';
 import { piecesSheet } from '../sheet.js';
 import { describeBalance } from '../solve.js';
+import { makeBoard } from '../board3d.js';
 import { playIntro } from '../intro.js';
 import { describeSteps } from '../day.js';
 import {
@@ -19,7 +20,7 @@ import {
 
 const lab = loadLab();
 // In the lab every rabbit on a named pattern wears its colour (rabbits.js).
-const furOf = (f) => (f.type === 'rabbit' && f.brain === 'pattern' ? FUR[f.patternName] ?? null : null);
+const furOf = (f) => (f.brain === 'pattern' || f.brain === 'possessed' ? FUR[f.patternName] ?? null : null);
 const newSeed = () => 1 + Math.floor(Math.random() * 1e9);
 
 // A link wins; then whatever you were last working on; then the defaults.
@@ -285,7 +286,7 @@ function goalCard() {
 
 async function startGame({ intro = true } = {}) {
   game = { states: [initialState(level)], moves: [] };
-  board = new Board($('#board'), level);
+  board = makeBoard($('#board'), level);
   board.redraw = draw;
   board.fur = furOf;
   sel = null; legal = []; busy = false; rating = 0; shown = null; watching = null;

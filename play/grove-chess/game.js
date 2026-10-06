@@ -15,6 +15,7 @@ import {
 } from './vine.js';
 import { Board, patternPicture, revealPattern, scene, sceneFrame, sprite } from './board.js';
 import { FUR, FUR_WORD, caughtRabbits, recordCatch } from './rabbits.js';
+import { makeBoard } from './board3d.js';
 import * as sfx from './sounds.js';
 import { piecesSheet } from './sheet.js';
 import { playIntro } from './intro.js';
@@ -54,7 +55,7 @@ const COLORS = ['#d0473d', '#2f6fc0', '#8a4bb0', '#de7a1f', '#118a74', '#c2378a'
 
 // --- What the board is showing. --------------------------------------------
 
-const board = new Board($('#board'), day);
+const board = makeBoard($('#board'), day);
 // The rabbit wears its pattern's colour once you have caught that pattern
 // before (rabbits.js); until then it is white.
 let knownFur = caughtRabbits()[day.patternName] ? FUR[day.patternName] : null;
