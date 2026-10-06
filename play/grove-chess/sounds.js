@@ -134,3 +134,27 @@ export function lost(at = 0.15) {
 /** Map a result to a fanfare level: 4 eagle or better, 3 birdie, 2 par,
     1 bogey, 0 anything worse. */
 export const levelFor = (overPar) => (overPar <= -2 ? 4 : overPar === -1 ? 3 : overPar === 0 ? 2 : overPar === 1 ? 1 : 0);
+
+/** A square falling off a shrinking edge: a soft, deep sinking, like
+    something dropping a long way into fog. */
+export function shrink(at = 0) {
+  tone({ f: 220, f2: 55, at, dur: 0.6, vol: 0.2, attack: 0.03 });
+  noise({ at, dur: 0.5, vol: 0.12, from: 700, to: 60, type: 'lowpass' });
+}
+
+/** The hole's cover opening once the last rabbit is caught: a wooden clunk,
+    then two notes rising. */
+export function opens(at = 0) {
+  tone({ f: 180, f2: 120, type: 'triangle', at, dur: 0.1, vol: 0.25 });
+  noise({ at, dur: 0.05, vol: 0.1, from: 1200, type: 'bandpass', q: 3 });
+  tone({ f: hz(9), type: 'triangle', at: at + 0.12, dur: 0.2, vol: 0.16 });
+  tone({ f: hz(12), type: 'triangle', at: at + 0.24, dur: 0.4, vol: 0.16 });
+}
+
+/** Falling through the hole to the next level down: a long whistle
+    dropping away, then a landing thump. */
+export function fall(at = 0) {
+  tone({ f: 1100, f2: 160, at, dur: 1.1, vol: 0.14, attack: 0.05 });
+  noise({ at, dur: 1.0, vol: 0.06, from: 3000, to: 400, type: 'bandpass', q: 1 });
+  tone({ f: 110, f2: 40, at: at + 1.15, dur: 0.4, vol: 0.4 });
+}

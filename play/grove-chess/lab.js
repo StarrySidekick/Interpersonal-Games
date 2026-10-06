@@ -5,11 +5,17 @@
 // the seed is the dice roll that places everything. Same settings and same
 // seed give the same level on any phone, which is what makes a level
 // shareable as a link. New layout = same settings, new seed.
+//
+// The standard board (2026-10-06, Timothy's framing): a kind of ground, a
+// shape and a size, then the three kinds of thing against you: rabbits,
+// a hole, and dark versions of your own pieces. Catch the rabbits, then
+// sink the ball. Settings are version 2 from that day; anything saved
+// before it (links, the notebook) still loads exactly as it was made.
 
 import { rng, shuffled } from '../../engine/seed.js';
 import { PIECES, onBoard } from './rules.js';
 import { PATTERNS } from './day.js';
-import { solveLevel } from './solve.js';
+import { solveLevel, assess, unbalanced } from './solve.js';
 
 export const CLASSIC = Object.keys(PIECES).filter((k) => PIECES[k].kind === 'classic');
 export const FAIRY = Object.keys(PIECES).filter((k) => PIECES[k].kind === 'fairy');
@@ -26,8 +32,10 @@ export const SCHEMA = [
       ['rect', 'Rectangle'], ['diamond', 'Diamond'], ['round', 'Round'], ['cross', 'Cross'], ['ring', 'Ring'],
       ['hourglass', 'Hourglass'], ['L', 'L'], ['stairs', 'Stairs'], ['islands', 'Two islands'], ['cheese', 'Swiss cheese']) },
     { key: 'holes', label: 'Extra holes', type: 'int', min: 0, max: 15, def: 0 },
-    { key: 'crumble', label: 'Crumbling ground', type: 'bool', def: false,
-      help: 'Every square you move a piece off falls away behind it.' }
+    { key: 'ground', label: 'Ground', type: 'choice', def: 'solid', options: opts(
+      ['solid', 'Solid'], ['crumble', 'Crumbling'], ['shrink', 'Shrinking'], ['spiral', 'Shrinking in a spiral']),
+      help: 'Crumbling: every square you move a piece off falls away. Shrinking: every few moves a square on the edge drops into the dark and the board closes in, at random or round in a spiral.' },
+    { key: 'shrinkEvery', label: 'The edge falls every', type: 'int', min: 1, max: 5, def: 2, unit: 'moves', help: 'Only for shrinking ground.' }
   ] },
   { group: 'Your side', fields: [
     { key: 'mine', label: 'Pieces', type: 'int', min: 1, max: 8, def: 4 },
@@ -37,30 +45,36 @@ export const SCHEMA = [
     { key: 'royal', label: 'Your King is royal', type: 'bool', def: false, help: 'Lose the King, lose the game.' },
     { key: 'wait', label: 'Waiting allowed', type: 'bool', def: true }
   ] },
-  { group: 'Their side', fields: [
-    { key: 'foes', label: 'Pieces', type: 'int', min: 0, max: 8, def: 3, help: 'None is allowed when the goal is to sink the ball.' },
+  { group: 'Rabbits', fields: [
+    { key: 'rabbits', label: 'Rabbits', type: 'int', min: 0, max: 4, def: 1 },
+    { key: 'rabbitBrain', label: 'Rabbits move by', type: 'choice', def: 'pattern', options: opts(['pattern', 'Hidden pattern'], ['ai', 'Thinking']) },
+    { key: 'patterns', label: 'Rabbit patterns', type: 'choice', def: 'daily', options: opts(
+      ['daily', 'The daily set'], ['short', 'Random, 2 hops'], ['mid', 'Random, 3 to 4'], ['long', 'Random, 5 to 8'], ['wild', 'Random, big jumps']),
+      help: 'Each pattern in the daily set has its own colour of rabbit.' },
+    { key: 'hops', label: 'Rabbit hops per turn', type: 'int', min: 1, max: 3, def: 1 },
+    { key: 'tracks', label: 'Show rabbit tracks', type: 'bool', def: true },
+    { key: 'rabbitsEat', label: 'Rabbits eat your pieces', type: 'bool', def: false,
+      help: 'Off: a rabbit that would land on one of your pieces waits instead.' }
+  ] },
+  { group: 'Dark pieces', fields: [
+    { key: 'foes', label: 'Dark pieces', type: 'int', min: 0, max: 8, def: 2, help: 'Dark versions of chess and fairy pieces. They think for themselves.' },
     { key: 'foePool', label: 'Dealt from', type: 'pieces', rabbit: true, def: ['king', 'knight', 'bishop', 'pawn'] },
     { key: 'foeDupes', label: 'Repeats allowed', type: 'bool', def: true },
     { key: 'mirror', label: 'Mirror your pieces instead', type: 'bool', def: false, help: 'They get a copy of your hand, facing you, like chess.' },
-    { key: 'foeRows', label: 'Start within the top', type: 'int', min: 1, max: 5, def: 3, unit: 'rows' },
-    { key: 'rabbitBrain', label: 'Rabbits move by', type: 'choice', def: 'pattern', options: opts(['pattern', 'Hidden pattern'], ['ai', 'Thinking']) },
-    { key: 'patterns', label: 'Rabbit patterns', type: 'choice', def: 'daily', options: opts(
-      ['daily', 'The daily set'], ['short', 'Random, 2 hops'], ['mid', 'Random, 3 to 4'], ['long', 'Random, 5 to 8'], ['wild', 'Random, big jumps']) },
-    { key: 'hops', label: 'Rabbit hops per turn', type: 'int', min: 1, max: 3, def: 1 },
-    { key: 'tracks', label: 'Show rabbit tracks', type: 'bool', def: true },
+    { key: 'foeRows', label: 'Start within the top', type: 'int', min: 1, max: 5, def: 3, unit: 'rows', help: 'Rabbits and the hole start up there too.' },
     { key: 'skill', label: 'Thinking skill', type: 'choice', def: '2', options: opts(
       ['0', 'Random'], ['1', 'Greedy'], ['2', 'Two ahead'], ['3', 'Three ahead']), help: 'For everything of theirs that thinks.' },
     { key: 'style', label: 'Mood', type: 'choice', def: 'balanced', options: opts(['flee', 'Flee'], ['balanced', 'Balanced'], ['hunt', 'Hunt']) },
     { key: 'foesCapture', label: 'They can take your pieces', type: 'bool', def: true }
   ] },
   { group: 'Winning', fields: [
-    { key: 'goal', label: 'How you win', type: 'choice', def: 'king', options: opts(
-      ['all', 'Capture them all'], ['king', 'Take their King'], ['rabbit', 'Catch the rabbit'],
+    { key: 'goal', label: 'How you win', type: 'choice', def: 'descent', options: opts(
+      ['descent', 'Rabbits, then the ball'], ['all', 'Capture them all'], ['king', 'Take their King'], ['rabbit', 'Catch the rabbit'],
       ['any', 'Catch any one'], ['target', 'A marked one'], ['hole', 'Sink the ball'], ['mix', 'Mix it up']),
-      help: 'King and rabbit make sure they have one. Sink the ball gives you a ball and a moving hole. Mix picks capture, King or rabbit per layout.' },
+      help: 'Rabbits, then the ball: the hole stays shut until every rabbit is caught, then sink the ball in it. King and rabbit make sure they have one. Sink the ball gives you a ball and a moving hole. Mix picks capture, King or rabbit per layout.' },
     { key: 'holeMoves', label: 'The hole moves by', type: 'choice', def: 'daily', options: opts(
       ['still', 'Staying put'], ['daily', 'The daily set'], ['short', 'Random, 2 hops'], ['mid', 'Random, 3 to 4'], ['long', 'Random, 5 to 8']),
-      help: 'Only for Sink the ball. A hidden pattern, like a rabbit\u2019s.' },
+      help: 'Only when there is a hole. A hidden pattern, like a rabbit\u2019s.' },
     { key: 'ballStops', label: 'Ball must stop on the hole', type: 'bool', def: false,
       help: 'Off: it drops in when it rolls over the hole. On: it has to come to rest there.' },
     { key: 'maxMoves', label: 'Move limit', type: 'int', min: 0, max: 60, def: 20, help: '0 means no limit.' },
@@ -68,16 +82,29 @@ export const SCHEMA = [
     { key: 'solve', label: 'Only deal winnable levels', type: 'bool', def: true,
       help: 'The solver plays each layout first and throws out any it cannot win in time. It also sets par.' },
     { key: 'parMax', label: 'Winnable within', type: 'int', min: 2, max: 15, def: 10, unit: 'moves' },
-    { key: 'parMin', label: 'But not in fewer than', type: 'int', min: 1, max: 12, def: 3, unit: 'moves' }
+    { key: 'parMin', label: 'But not in fewer than', type: 'int', min: 1, max: 12, def: 3, unit: 'moves' },
+    { key: 'balance', label: 'Balance rules', type: 'choice', def: 'on', options: opts(['off', 'Off'], ['on', 'On'], ['strict', 'Strict']),
+      help: 'On: every piece of yours can move at the start, and every strange piece (fairy pieces, and the grasshopper-like ones that need the right circumstances) has a job: it makes a catch in the winning line, or the level is worse without it. Strict: every piece has a job. Needs the solver.' }
   ] }
 ];
 
 const FIELDS = SCHEMA.flatMap((g) => g.fields);
-export const defaults = () => Object.fromEntries(FIELDS.map((f) => [f.key, Array.isArray(f.def) ? [...f.def] : f.def]));
+export const defaults = () => ({ ...Object.fromEntries(FIELDS.map((f) => [f.key, Array.isArray(f.def) ? [...f.def] : f.def])), v: 2 });
 
-/** Keep settings inside their ranges, whatever a link or a bug hands us. */
+/** What the defaults were before version 2. Settings saved then (links and
+    notebook entries) only stored what differed from these, so they are
+    read against them. */
+const legacyDefaults = () => ({
+  ...defaults(), ground: 'solid', foes: 3, rabbits: 0, goal: 'king', balance: 'off'
+});
+
+/** Keep settings inside their ranges, whatever a link or a bug hands us.
+    Anything without `v: 2` was made before version 2 and keeps its old
+    meaning: crumbling was a switch, there was no separate rabbit count, and
+    rabbits ate whenever their side could take your pieces. */
 export function clean(raw) {
-  const s = defaults();
+  const legacy = raw?.v !== 2;
+  const s = legacy ? legacyDefaults() : defaults();
   for (const f of FIELDS) {
     const v = raw?.[f.key];
     if (v === undefined) continue;
@@ -89,8 +116,16 @@ export function clean(raw) {
       if (ok.length) s[f.key] = [...new Set(ok)];
     }
   }
+  if (legacy) {
+    if (raw?.crumble && raw.ground === undefined) s.ground = 'crumble';
+    if (raw?.rabbitsEat === undefined) s.rabbitsEat = s.foesCapture;
+  }
   if (s.parMin > s.parMax) s.parMin = s.parMax;
-  if (s.foes < 1 && s.goal !== 'hole') s.foes = 1; // nothing to catch otherwise
+  const ballGoal = s.goal === 'hole' || s.goal === 'descent';
+  if (s.foes + s.rabbits < 1 && !ballGoal) s.foes = 1; // nothing to catch otherwise
+  if (s.goal === 'king' && s.foes < 1) s.foes = 1;    // something has to be the King
+  if (ballGoal && !legacy && s.mine < 2) s.mine = 2;  // the ball, and something to stop it
+  s.v = 2;
   return s;
 }
 
@@ -109,10 +144,11 @@ export function crazy(rand = Math.random, allowed = [...FAIRY, 'rabbit']) {
   const mine = int(2, 5);
   const brain = rand() < 0.5 ? 'pattern' : 'ai';
   const out = clean({
-    w, h,
+    v: 2, w, h,
     shape: rand() < 0.35 ? 'rect' : pick(['diamond', 'round', 'cross', 'ring', 'hourglass', 'L', 'stairs', 'islands', 'cheese']),
     holes: rand() < 0.6 ? 0 : int(1, 6),
-    crumble: rand() < 0.3,
+    ground: pick(['solid', 'solid', 'solid', 'crumble', 'shrink', 'spiral']), shrinkEvery: int(1, 3),
+    rabbits: rabbitOk ? int(0, 2) : 0, rabbitsEat: rand() < 0.2,
     mine, minePool: some(ALL, 2, 6), mineDupes: rand() < 0.3, mineRows: int(1, 2),
     royal: rand() < 0.2, wait: rand() < 0.8,
     foes: int(1, 4),
@@ -122,13 +158,14 @@ export function crazy(rand = Math.random, allowed = [...FAIRY, 'rabbit']) {
     hops: rand() < 0.8 ? 1 : int(2, 3), tracks: rand() < 0.85,
     skill: pick(['0', '1', '2', '2', '3']), style: pick(['flee', 'balanced', 'hunt']),
     foesCapture: rand() < 0.85,
-    goal: pick(['all', 'king', 'king', 'any', 'mix', 'hole', 'hole', ...(rabbitOk ? ['rabbit', 'rabbit'] : [])]),
+    goal: pick(['all', 'king', 'king', 'any', 'mix', 'hole', 'hole', ...(rabbitOk ? ['rabbit', 'rabbit', 'descent', 'descent', 'descent'] : [])]),
     maxMoves: pick([0, 15, 20, 25, 30]), first: rand() < 0.8 ? 'you' : 'them',
     holeMoves: pick(['still', 'daily', 'daily', 'short', 'mid']), ballStops: rand() < 0.3,
     solve: true, parMax: int(6, 12), parMin: int(2, 3)
   });
   // Ball levels are often best with few or no pieces against you.
   if (out.goal === 'hole') out.foes = int(0, 2);
+  if (out.goal === 'descent') { out.foes = int(0, 2); out.rabbits = Math.max(1, out.rabbits); }
   return out;
 }
 
@@ -204,7 +241,7 @@ function randomPattern(kind, rand) {
 export function makeLevel(settings, seed) {
   const S = clean(settings), rand = rng(`lab:${seed}`);
   const W = S.w, H = S.h;
-  const need = S.mine + (S.mirror ? S.mine : S.foes) + 2;
+  const need = S.mine + (S.mirror ? S.mine : S.foes) + S.rabbits + 2;
 
   let holes = shapeHoles(S.shape, W, H, rand);
   for (let i = 0; i < S.holes; i++) holes.add(Math.floor(rand() * W * H));
@@ -252,6 +289,9 @@ export function makeLevel(settings, seed) {
       return { type: p.type, ...spot };
     });
   } else foes = deal(S.foePool, S.foes, S.foeDupes).map((type) => ({ type, ...place(top) }));
+  // Rabbits of their own, on top of the dark pieces. (Only drawn when there
+  // are some, so levels from before version 2 come out exactly as they did.)
+  for (let i = 0; i < S.rabbits; i++) foes.push({ type: 'rabbit', ...place(top) });
 
   // The goal. King and rabbit goals make sure the thing to catch exists, and
   // mark it; the rules engine only knows "catch every marked one".
@@ -267,12 +307,15 @@ export function makeLevel(settings, seed) {
     foes.forEach((f) => { if (f.type === 'rabbit') f.target = true; });
   }
   if (goal === 'target' && foes.length) (foes.find((f) => f.type === 'rabbit') || foes[0]).target = true;
+  // Rabbits, then the ball: every rabbit is marked, and the hole stays shut
+  // until they are all caught.
+  if (goal === 'descent') foes.forEach((f) => { if (f.type === 'rabbit') f.target = true; });
 
   // Sink the ball: your first piece becomes the ball, and the hole starts on
   // their side of the board. (This draws its random numbers only on ball
   // levels, so every other level stays exactly as it was.)
   let hole = null;
-  if (goal === 'hole') {
+  if (goal === 'hole' || goal === 'descent') {
     if (pieces.length) pieces[0].type = 'ball';
     const spot = place(top);
     if (spot.x !== undefined) {
@@ -295,24 +338,26 @@ export function makeLevel(settings, seed) {
   });
 
   return Object.assign(day, {
-    seed, settings: S,
+    seed, settings: S, shrinkKey: seed,
     pieces: pieces.filter((p) => p.x !== undefined),
     foes: foes.filter((f) => f.x !== undefined),
     goalKind: goal, hole,
     rules: { goal: ['king', 'rabbit', 'target'].includes(goal) ? 'target' : goal, maxMoves: S.maxMoves, wait: S.wait,
-      foesCapture: S.foesCapture, royal: S.royal, first: S.first, ballStops: S.ballStops, crumble: S.crumble },
+      foesCapture: S.foesCapture, rabbitsEat: S.rabbitsEat, royal: S.royal, first: S.first, ballStops: S.ballStops,
+      crumble: S.ground === 'crumble', shrink: S.ground === 'shrink' ? 'random' : S.ground === 'spiral' ? 'spiral' : null,
+      shrinkEvery: S.shrinkEvery },
     ai: { skill: +S.skill, style: S.style },
     tracks: S.tracks
   });
 }
 
 export const GOAL_TEXT = {
-  all: 'capturing them all', king: 'taking their King', rabbit: 'catching the rabbit',
+  descent: 'catching every rabbit, then sinking the ball', all: 'capturing them all', king: 'taking their King', rabbit: 'catching the rabbit',
   any: 'catching any one', target: 'catching the marked one', mix: 'a goal that changes with each layout',
   hole: 'sinking the ball in the hole'
 };
 export const GOAL_PILL = {
-  all: 'Capture them all', king: 'Take their King', rabbit: 'Catch the rabbit', any: 'Catch any one', target: 'Catch the marked one',
+  descent: 'Rabbits, then the ball', all: 'Capture them all', king: 'Take their King', rabbit: 'Catch the rabbit', any: 'Catch any one', target: 'Catch the marked one',
   hole: 'Sink the ball'
 };
 
@@ -324,9 +369,12 @@ export function summary(S) {
   const hand = S.mirror ? S.minePool : S.foePool;
   const made = S.goal === 'king' && !hand.includes('king') ? ', one of them made a King'
     : S.goal === 'rabbit' && !hand.includes('rabbit') ? ', one of them made a rabbit' : '';
-  return `${S.w} × ${S.h} ${shape}${S.crumble ? ', crumbling' : ''}. You: ${S.mine} from ${pool(S.minePool)}. ` +
-    `Them: ${S.mirror ? 'a mirror of you' : S.foes ? `${S.foes} from ${pool(S.foePool)}` : 'nobody'}${made}` +
-    `${S.foePool.includes('rabbit') && !S.mirror ? `, rabbits ${S.rabbitBrain === 'pattern' ? 'on patterns' : 'thinking'}` : ''}. ` +
+  const ground = { solid: '', crumble: ', crumbling', shrink: `, shrinking every ${S.shrinkEvery}`, spiral: `, shrinking in a spiral every ${S.shrinkEvery}` }[S.ground];
+  const rabbitsHere = S.rabbits > 0 || (S.foePool.includes('rabbit') && !S.mirror);
+  return `${S.w} × ${S.h} ${shape}${ground}. You: ${S.mine} from ${pool(S.minePool)}. ` +
+    `Them: ${S.rabbits ? `${S.rabbits} rabbit${S.rabbits > 1 ? 's' : ''}, ` : ''}` +
+    `${S.mirror ? 'a mirror of you' : S.foes ? `${S.foes} dark from ${pool(S.foePool)}` : 'no dark pieces'}${made}` +
+    `${rabbitsHere ? `, rabbits ${S.rabbitBrain === 'pattern' ? 'on patterns' : 'thinking'}${S.rabbitsEat ? ' that eat' : ''}` : ''}. ` +
     `Win by ${GOAL_TEXT[S.goal]}` +
     `${S.maxMoves ? ` in ${S.maxMoves} moves` : ''}.` +
     `${S.solve ? ` Checked winnable in ${S.parMin} to ${S.parMax}.` : ''}`;
@@ -339,7 +387,7 @@ export function encodeLevel(settings, seed) {
   const S = clean(settings), d = defaults(), diff = {};
   for (const k of Object.keys(S)) if (JSON.stringify(S[k]) !== JSON.stringify(d[k])) diff[k] = S[k];
   const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(diff)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  return `lab=${b64}&seed=${seed}`;
+  return `lab=${b64}&v=2&seed=${seed}`;
 }
 
 /** A level link with its par attached, so opening it needs no solving. */
@@ -353,7 +401,10 @@ export function decodeLevel(hash) {
   try {
     const json = decodeURIComponent(escape(atob(p.get('lab').replace(/-/g, '+').replace(/_/g, '/'))));
     const par = parseInt(p.get('par'), 10);
-    return { settings: clean(JSON.parse(json || '{}')), seed: Math.abs(parseInt(p.get('seed'), 10)) || 1, par: par > 0 ? par : null };
+    const diff = JSON.parse(json || '{}');
+    // A link without v=2 was made before version 2: read it against the old defaults.
+    if (p.get('v') === '2') diff.v = 2; else delete diff.v;
+    return { settings: clean(diff), seed: Math.abs(parseInt(p.get('seed'), 10)) || 1, par: par > 0 ? par : null };
   } catch { return null; }
 }
 
@@ -382,17 +433,27 @@ export function saveLab(lab) {
  * thread, and directly by the page when workers are not available.
  */
 export function searchLayouts({ settings, seed, parMin, parMax, maxTries = 400, maxMs = 15000, fixed = false }, post) {
-  const t0 = Date.now();
+  const t0 = Date.now(), rules = clean(settings).balance;
   let best = null, tried = 0;
+  const thrown = {}; // why layouts were thrown out by the balance rules, with counts
   for (let i = 0; i < (fixed ? 1 : maxTries); i++) {
-    const sd = seed + i;
-    const r = solveLevel(makeLevel(settings, sd), { maxDepth: parMax, deadline: t0 + maxMs });
+    const sd = seed + i, level = makeLevel(settings, sd);
+    const r = solveLevel(level, { maxDepth: parMax, deadline: t0 + maxMs });
     tried = i + 1;
-    if (r.par && (fixed || r.par >= parMin)) return post({ type: 'done', seed: sd, par: r.par, exact: r.exact, line: r.line, tried });
-    // Winnable but too easy: keep the hardest of those, in case nothing passes.
-    if (r.par && (!best || r.par > best.par)) best = { seed: sd, par: r.par, exact: r.exact, line: r.line };
+    if (r.par && (fixed || r.par >= parMin)) {
+      // Winnable at the right length. Now: is it balanced?
+      const balance = assess(level, r, { deadline: t0 + maxMs });
+      const why = unbalanced(balance, rules);
+      if (fixed || !why.length) return post({ type: 'done', seed: sd, par: r.par, exact: r.exact, line: r.line, tried, balance, why, thrown });
+      for (const w of why) thrown[w] = (thrown[w] || 0) + 1;
+      if (!best || !best.unbalanced) best = { seed: sd, par: r.par, exact: r.exact, line: r.line, balance, why, unbalanced: true };
+    } else if (r.par && (!best || (!best.unbalanced && r.par > best.par))) {
+      // Winnable but too easy: keep the hardest of those, in case nothing passes.
+      best = { seed: sd, par: r.par, exact: r.exact, line: r.line };
+    }
     post({ type: 'progress', tried });
     if (Date.now() - t0 > maxMs) break;
   }
-  post({ type: 'failed', tried, best });
+  if (best && !best.balance) best.balance = assess(makeLevel(settings, best.seed), best, { deadline: Date.now() + 3000 });
+  post({ type: 'failed', tried, best, thrown });
 }

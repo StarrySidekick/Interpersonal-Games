@@ -15,13 +15,18 @@
 //
 //   Version 1, 2026-10-05 and 06: stumps and bramble on some days.
 //   Version 2, from 2026-10-07: neither. Some days the ground crumbles
-//   instead: every square you move off falls away.
+//   instead: every square you move off falls away. (Superseded by version 3
+//   before it dealt a single day; kept, and guarded, all the same.)
+//   Version 3, from 2026-10-07: what the lab learned. Rabbits do not eat.
+//   The ground is solid, crumbling, shrinking or shrinking in a spiral. And
+//   a board must pass the lab's balance rules (solve.js).
 
 import { rng, shuffled } from '../../engine/seed.js';
 import { PIECES, initialState, allMoves, apply, stateKey, MAX_MOVES, DAILY_RULES } from './rules.js';
+import { solveLevel, assess, unbalanced } from './solve.js';
 
 /** The first date each dealer version deals. */
-export const VERSIONS = [{ v: 1, from: '2026-10-05' }, { v: 2, from: '2026-10-07' }];
+export const VERSIONS = [{ v: 1, from: '2026-10-05' }, { v: 2, from: '2026-10-07' }, { v: 3, from: '2026-10-07' }];
 export const dealerFor = (date) => VERSIONS.filter((x) => date >= x.from).pop()?.v ?? 1;
 
 /** Version 2: the share of days whose ground crumbles. */
@@ -250,7 +255,7 @@ const days = new Map();
 export function makeDay(date, version = dealerFor(date)) {
   const key = version + ':' + date;
   if (days.has(key)) return days.get(key);
-  const day = version === 1 ? dayV1(date) : dayV2(date);
+  const day = version === 1 ? dayV1(date) : version === 2 ? dayV2(date) : dayV3(date);
   day.date = date;
   day.number = dayNumber(date);
   day.version = version;
@@ -278,6 +283,56 @@ function dayV2(date) {
       const par = solveV2(d);
       if (par !== null && par >= 4 && par <= 7) day = { ...d, par };
       else if (par !== null && (!fallback || par > fallback.par)) fallback = { ...d, par };
+    }
+  }
+  return day || fallback;
+}
+
+/** Version 3: the ground for the day (solid, crumbling, shrinking at
+    random, or shrinking in a spiral), decided before anything is dealt. */
+const GROUNDS = [['solid', 0.45], ['crumble', 0.2], ['shrink', 0.2], ['spiral', 0.15]];
+function groundFor(date) {
+  const r = rng('ground:' + date)();
+  let acc = 0;
+  for (const [g, p] of GROUNDS) { acc += p; if (r < acc) return g; }
+  return 'solid';
+}
+
+/** Version 3: like version 2, plus the lab's developments. Rabbits do not
+    eat: one that would land on your piece waits instead. The day's ground.
+    And a board with par 4 to 7 must also pass the balance rules: every piece
+    can move at the start, and the fairy piece has a job (it makes the catch
+    in the solver's win, or the board is worse without it). The fast par
+    search filters first; only boards that pass it get the slower check, and
+    at most BALANCE_CHECKS of them: after that the first board with the right
+    par stands, balanced or not. (Counted, not timed, so every phone stops at
+    the same board. The cannon, which can only catch by jumping a screen, is
+    the piece that most often runs out the count.) */
+const BALANCE_CHECKS = 12;
+// Note: this runs the lab's solver (solve.js), so changing that solver can
+// change these boards. check-daily.mjs will say so; freeze a copy for
+// version 3 at that point rather than let past days re-deal.
+function dayV3(date) {
+  const rand = rng('grove:' + date), fairy = fairyFor(date), ground = groundFor(date);
+  const rules = { ...DAILY_RULES, rabbitsEat: false, crumble: ground === 'crumble',
+    shrink: ground === 'shrink' ? 'random' : ground === 'spiral' ? 'spiral' : null, shrinkEvery: 2 };
+  let day = null, fallback = null, checks = 0;
+  for (let h = 0; !day && (h < 20 || !fallback); h++) {
+    const hand = dealHand(rand, fairy);
+    for (let attempt = 0; attempt < 60 && !day; attempt++) {
+      const { level: d } = dealSides(rand, hand.N, hand.hand);
+      if (d.pieces.some((p) => p.x === undefined) || d.rabbit.x === undefined) continue;
+      Object.assign(d, { rules, shrinkKey: date, ground });
+      const par = solveV2(d);
+      if (par === null) continue;
+      if (par >= 4 && par <= 7) {
+        if (checks >= BALANCE_CHECKS) { day = { ...d, par }; break; }
+        checks++;
+        const res = solveLevel(d, { maxDepth: par + 1, budget: 8000 });
+        const balanced = res.par && !unbalanced(assess(d, res, { budget: 4000 }), 'on').length;
+        if (balanced) day = { ...d, par };
+        else if (!fallback || fallback.par < 4) fallback = { ...d, par };
+      } else if (!fallback || (fallback.par < 4 && par > fallback.par)) fallback = { ...d, par };
     }
   }
   return day || fallback;

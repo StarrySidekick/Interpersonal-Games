@@ -5,9 +5,11 @@ import { $, el, show, haptic, keepAwake, themeToggle } from '../../../engine/ui.
 import { soundToggle } from '../../../engine/sound.js';
 import * as sfx from '../sounds.js';
 import { makeTarget, render } from '../../../engine/lowpoly.js';
-import { PIECES, HOLE_DESC, CRUMBLE_DESC, movesFor, playerMove, respond, isOver, outcome, initialState, allMoves, replay, crumbled } from '../rules.js';
+import { PIECES, HOLE_DESC, CRUMBLE_DESC, SHRINK_DESC, movesFor, playerMove, respond, isOver, outcome, initialState, allMoves, replay, crumbled, shrunk, holeOpen } from '../rules.js';
+import { FUR } from '../rabbits.js';
 import { Board, scene, sceneFrame, sprite, patternPicture } from '../board.js';
 import { piecesSheet } from '../sheet.js';
+import { describeBalance } from '../solve.js';
 import { playIntro } from '../intro.js';
 import { describeSteps } from '../day.js';
 import {
@@ -16,10 +18,12 @@ import {
 } from '../lab.js';
 
 const lab = loadLab();
+// In the lab every rabbit on a named pattern wears its colour (rabbits.js).
+const furOf = (f) => (f.type === 'rabbit' && f.brain === 'pattern' ? FUR[f.patternName] ?? null : null);
 const newSeed = () => 1 + Math.floor(Math.random() * 1e9);
 
 // A link wins; then whatever you were last working on; then the defaults.
-let settings, seed, par = null, exactPar = false, line = null;
+let settings, seed, par = null, exactPar = false, line = null, balance = null;
 const linked = decodeLevel(location.hash);
 if (linked) ({ settings, seed, par } = linked);
 else if (lab.current) { settings = clean(lab.current.settings); seed = lab.current.seed; par = lab.current.par ?? null; }
@@ -110,7 +114,7 @@ function deal({ reseed = false, fixed = false } = {}) {
   stopJob();
   watching = null;
   if (reseed) seed = newSeed();
-  par = null; exactPar = false; line = null;
+  par = null; exactPar = false; line = null; showBalance(null);
   level = makeLevel(settings, seed);
   updaters.forEach((u) => u());
   $('#summary').textContent = summary(settings);
@@ -135,19 +139,34 @@ function inline(msg) {
   job = { terminate: () => clearTimeout(t) };
 }
 
+/** The balance report (solve.js assess) under the lab's note. */
+function showBalance(b) {
+  balance = b;
+  $('#balancebox').hidden = !b;
+  $('#balance').replaceChildren(...describeBalance(b).map((l) => el('li', {}, l)));
+}
+
+/** "the Grasshopper had no job ×3; ..." from the balance rules' throw-outs. */
+const thrownText = (thrown) => Object.entries(thrown || {}).map(([w, n]) => (n > 1 ? `${w} ×${n}` : w)).join('; ');
+
 function result(data) {
   if (data.type === 'progress') return note(`Testing layouts… ${data.tried} tried so far.`);
   stopJob();
-  const tries = data.tried > 1 ? ` It tried ${data.tried} layouts to find it.` : '';
+  const thrown = thrownText(data.thrown);
+  const tries = (data.tried > 1 ? ` It tried ${data.tried} layouts to find it.` : '') + (thrown ? ` The balance rules threw some out: ${thrown}.` : '');
   if (data.type === 'done') {
     ({ seed, par, line } = data);
     exactPar = data.exact;
+    showBalance(data.balance);
     note(`Winnable in ${par}. ${exactPar ? 'The solver checked every line, so that is the shortest win there is.' : 'That is the shortest win the solver found; you might beat it.'}${tries}`);
   } else if (data.best) {
     ({ seed, par, line } = data.best);
     exactPar = data.best.exact;
-    note(`Every layout it tried could be won in under ${settings.parMin}. This is the hardest it found: par ${par}. ` +
-      'For harder ones: fewer pieces of yours, more of theirs, a bigger board, or a smarter brain.');
+    showBalance(data.best.balance);
+    note(data.best.unbalanced
+      ? `Every layout that could be won in ${settings.parMin} to ${settings.parMax} broke a balance rule (${thrown}). This one ${data.best.why.join(' and ')}; play it anyway, or turn the rules down.`
+      : `Every layout it tried could be won in under ${settings.parMin}. This is the hardest it found: par ${par}. ` +
+        'For harder ones: fewer pieces of yours, more of theirs, a bigger board, or a smarter brain.');
   } else {
     note(`It found no win within ${settings.parMax} moves in ${data.tried} layout${data.tried === 1 ? '' : 's'}. ` +
       'For easier ones: more pieces of yours, fewer of theirs, a looser move limit, or a simpler brain. You can still play this one.');
@@ -172,7 +191,7 @@ function buildPreview() {
   pframe = sceneFrame(level, pitch, pscale);
   pv.width = pframe.w; pv.height = pframe.h;
   ptarget = makeTarget(pv.width, pv.height);
-  pmesh = scene(level, initialState(level));
+  pmesh = scene(level, initialState(level), furOf);
 }
 
 function previewFrame(ts) {
@@ -207,7 +226,7 @@ function renderNotebook() {
 
 function load(n) {
   stopJob();
-  settings = clean(n.settings); seed = n.seed; par = n.par ?? null; line = null; exactPar = false;
+  settings = clean(n.settings); seed = n.seed; par = n.par ?? null; line = null; exactPar = false; showBalance(n.balance || null);
   level = makeLevel(settings, seed);
   updaters.forEach((u) => u());
   $('#summary').textContent = summary(settings);
@@ -224,6 +243,7 @@ $('#copynotes').onclick = async () => {
     `${n.rating}/5, ${RESULT[n.outcome] || n.outcome} in ${n.moves}${n.par ? ` (par ${n.par})` : ''}`,
     n.note ? `Note: ${n.note}` : null,
     summary(clean(n.settings)),
+    ...describeBalance(n.balance),
     `${base}#${encodeLevelWithPar(n.settings, n.seed, n.par)}`
   ].filter(Boolean).join('\n')).join('\n\n');
   try { await navigator.clipboard.writeText(text || 'The notebook is empty.'); $('#copynote').textContent = 'Copied.'; }
@@ -250,6 +270,8 @@ function draw() {
 /** What the goal card at the end of the opening shows. */
 function goalCard() {
   const kind = level.goalKind, foes = level.foes;
+  if (kind === 'descent') return { kind: 'flag', side: 'you', title: 'Rabbits, then the ball',
+    text: `Catch ${foes.filter((f) => f.target).length > 1 ? 'every rabbit' : 'the rabbit'}. That opens the hole; then sink the ball in it. Until then the hole is shut: only ground, and the ball rolls straight over it.` };
   if (kind === 'hole') return { kind: 'flag', side: 'you', title: 'The hole', text: 'Sink the ball in it. It moves by its own hidden pattern after every turn.' };
   if (!foes.length) return null;
   const marked = foes.find((f) => f.target);
@@ -265,6 +287,7 @@ async function startGame({ intro = true } = {}) {
   game = { states: [initialState(level)], moves: [] };
   board = new Board($('#board'), level);
   board.redraw = draw;
+  board.fur = furOf;
   sel = null; legal = []; busy = false; rating = 0; shown = null; watching = null;
   $('#sheet-list').replaceChildren();
   openSheet = piecesSheet($('#sheet'), $('#sheet-list'), level, {
@@ -280,6 +303,8 @@ async function startGame({ intro = true } = {}) {
   const chips = $('#chips');
   chips.replaceChildren(el('span', { class: 'pill' }, `${level.W} × ${level.H}`));
   if (level.rules.crumble) chips.append(el('span', { class: 'pill' }, 'Crumbling'));
+  if (level.rules.shrink) chips.append(el('span', { class: 'pill' }, level.rules.shrink === 'spiral' ? 'Shrinking in a spiral' : 'Shrinking'));
+  if (level.foes.some((f) => f.type === 'rabbit') && level.rules.rabbitsEat) chips.append(el('span', { class: 'pill' }, 'Rabbits eat'));
   if (level.rules.royal) chips.append(el('span', { class: 'pill' }, 'Royal King'));
   if (thinks(now())) chips.append(el('span', { class: 'pill' }, `They think: ${['random', 'greedy', 'two ahead', 'three ahead'][level.ai.skill]}, ${level.ai.style}`));
   hud();
@@ -324,6 +349,8 @@ function whatHappened(a, b, mv) {
   });
   if (!bits.length) bits.push(mv.p === -1 ? 'You waited.' : 'Your move.');
   if (b.gone.length === 1 && !a.gone.length) bits.unshift('The square you left crumbled away.');
+  if (b.hole && !holeOpen(a) && holeOpen(b)) bits.push('That was the last rabbit: the hole is open.');
+  if (b.shrunk.length > a.shrunk.length) bits.push('A square fell off the edge.');
   return bits.join(' ');
 }
 
@@ -363,6 +390,7 @@ $('#board').addEventListener('click', (e) => {
   select(null);
   if (s.hole && s.hole.x === x && s.hole.y === y) return info(HOLE_DESC);
   if (crumbled(s, x, y)) return info(CRUMBLE_DESC);
+  if (shrunk(s, x, y)) return info(SHRINK_DESC);
   const f = s.foes.find((f) => !f.taken && f.x === x && f.y === y);
   if (f) info(f.brain === 'pattern' ? 'A rabbit on a hidden pattern. Watch its tracks.' : `Their ${nameOf(f)}, thinking for itself. ${PIECES[f.type].desc}`);
 });
@@ -387,7 +415,7 @@ function finish(fresh = false) {
   $('#controls').hidden = true;
   $('#end').hidden = false;
   const kingFell = level.rules.royal && end.pieces.some((p) => p.taken && p.type === 'king');
-  const ballLost = level.rules.goal === 'hole' && end.pieces.some((p) => p.taken && p.type === 'ball');
+  const ballLost = (level.rules.goal === 'hole' || level.rules.goal === 'descent') && end.pieces.some((p) => p.taken && p.type === 'ball');
   $('#end-score').textContent = {
     caught: end.sunk ? `Sunk in ${end.t}` : `You won in ${end.t}`,
     eaten: kingFell ? 'Your King fell' : ballLost ? 'They took the ball' : 'They took everything',
@@ -395,7 +423,9 @@ function finish(fresh = false) {
   }[how];
   const caught = end.foes.filter((f) => f.taken).length, lostN = end.pieces.filter((p) => p.taken).length;
   $('#end-detail').textContent = (par ? `Par ${par}${how === 'caught' ? ` · ${golf(end.t - par)}` : ''}. ` : '') +
-    (end.foes.length ? `You caught ${caught} of ${end.foes.length}. ` : '') + `You lost ${lostN} of ${end.pieces.length}.`;
+    (level.rules.goal === 'descent'
+      ? `You caught ${end.foes.filter((f) => f.target && f.taken).length} of ${end.foes.filter((f) => f.target).length} rabbit${end.foes.filter((f) => f.target).length === 1 ? '' : 's'}. `
+      : end.foes.length ? `You caught ${caught} of ${end.foes.length}. ` : '') + `You lost ${lostN} of ${end.pieces.length}.`;
   $('#solver').hidden = !settings.solve && !par;
   status(''); info('');
   const pats = $('#end-patterns');
@@ -454,7 +484,7 @@ $('#solver').onclick = () => { if (!watching) watchSolver(); else { watching = n
 $('#save').onclick = () => {
   if (!rating) { $('#savenote').textContent = 'Pick a number first: 1 is a slog, 5 is great.'; return; }
   const end = now();
-  lab.notes.push({ at: Date.now(), settings, seed, par, outcome: outcome(end), moves: end.t, rating, note: $('#note').value.trim() });
+  lab.notes.push({ at: Date.now(), settings, seed, par, outcome: outcome(end), moves: end.t, rating, note: $('#note').value.trim(), balance });
   saveLab(lab);
   renderNotebook();
   $('#savenote').textContent = 'Saved to the notebook.';

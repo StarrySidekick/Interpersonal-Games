@@ -4,6 +4,14 @@ The first asynchronous game for Hikari Garden. Playable at
 [`play/grove-chess/`](../play/grove-chess/). Direction is in
 [`../INTENT.md`](../INTENT.md), 2026-10-05.
 
+Three ways to play, linked from each other's pages and sharing one engine:
+**the daily** (below), **the descent** (a roguelike run of levels, see "The
+descent") and **the lab** (build any level, see "The lab"). The daily keeps
+its own design goals (one board a day, the same for everyone) but takes the
+lab's developments through new dealer versions. Balancing is in
+[`grove-balance.md`](grove-balance.md); the look and tone in
+[`grove-look.md`](grove-look.md).
+
 ## The game
 
 One board a day, the same for everyone. A 5x5 or 6x6 board in light green and
@@ -15,9 +23,17 @@ moving a piece onto its square.
   the board so you can work it out.
 - **It bounces.** A hop that would leave the board flips the pattern on that
   axis from then on, the way a ball stays turned around after it hits a wall.
-- **It eats.** If a hop lands on one of your pieces, the piece is gone. Lose
-  them all and the rabbit wins.
-- **It waits** if it cannot land where it is hopping: a crumbled square, say.
+- **It does not eat** (from 2026-10-07, version 3). If a hop would land on
+  one of your pieces, it waits instead, so your pieces can block it. On the
+  first two boards it ate whatever it landed on; lose them all and the
+  rabbit won.
+- **It waits** if it cannot land where it is hopping: a crumbled or fallen
+  square, say.
+- **Its colour is its pattern.** Each of the twelve patterns has its own fur
+  (`rabbits.js`). A rabbit is white until you have caught one of its kind;
+  from then on that kind wears its colour, so you can know it on sight.
+  Catches are kept in the browser, only ever added to, for the garden to
+  come, and the end screen shows the rabbits you have caught.
 - **Waiting is allowed** and costs a move.
 - **Fifteen moves** before dusk, then it gets away.
 - **After the game** the pattern is drawn out: one full run, numbered, then
@@ -30,12 +46,22 @@ moving a piece onto its square.
 ### Day variables
 
 - **Board size:** 5x5 or 6x6.
-- **Crumbling ground** (about a third of days, from 2026-10-07): every square
+- **The ground** (version 3): solid on about 45% of days, crumbling 20%,
+  shrinking 20%, shrinking in a spiral 15%. Each looks different: green and
+  cream, dry cracked earth, or pale mist.
+- **Shrinking ground**: every two moves a square on the board's edge drops
+  into the dark for good, and the rim closes in around what is left. It
+  never takes a square anything stands on, never cuts the board in two, and
+  stops at half the board. Which square goes follows an order fixed for the
+  board (shuffled, or a spiral clockwise from the top-left corner inward),
+  and the next one is shadowed. This is the "decaying board" Timothy meant.
+- **Crumbling ground** (about a third of days in version 2): every square
   you move a piece off falls away behind it, and nothing can stand there
   again. Sliders stop at a gap, leapers can still jump it, the rabbit waits
   rather than hop into one. Selecting a piece puts cracks on the square it
-  would leave. Waiting crumbles nothing. Chosen over "decaying", which reads
-  like the house rule that nothing in the game decays over time.
+  would leave. Waiting crumbles nothing. What is left is nothing but
+  darkness. Chosen over "decaying", which reads like the house rule that
+  nothing in the game decays over time.
 - **Stumps and bramble** are out for now (2026-10-06). Only the first two
   boards, 2026-10-05 and 06, have them, kept so links to those days still
   replay. The bramble started as one square and crept one more every two
@@ -141,6 +167,9 @@ No build step, no libraries, same as the rest of the repo.
 | `play/grove-chess/ai.js` | the brain for their pieces in the lab (below) |
 | `play/grove-chess/day.js` | deals the day's board from the date, and the solver that sets par |
 | `play/grove-chess/vine.js` | link format, replay-checking, what the browser remembers |
+| `play/grove-chess/rabbits.js` | the fur colour for each pattern, and the rabbits you have caught |
+| `play/grove-chess/sounds.js` | the game's sounds, built on `engine/sound.js` |
+| `play/grove-chess/descent.js`, `descent/` | the descent: what each depth is made of, the record, and its page |
 | `play/grove-chess/board.js` | drawing the board, animating moves, turning taps into squares; shared by both pages |
 | `play/grove-chess/sheet.js` | the pieces menu; shared by both pages |
 | `play/grove-chess/models.js` | the models, built from simple shapes, with a plum-and-berry version for their side |
@@ -168,10 +197,18 @@ from a cutover date onward and never changes once shipped (`VERSIONS` in
 | Version | Deals | What it does |
 |---|---|---|
 | 1 | 2026-10-05 and 06 | stumps and bramble on some days; up to 30 hands of 80 layouts |
-| 2 | from 2026-10-07 | no stumps or bramble; a third of days crumble; up to 20 hands of 60 layouts, with a bounded par search |
+| 2 | (none) | no stumps or bramble; a third of days crumble; up to 20 hands of 60 layouts, with a bounded par search. Superseded by version 3 before it dealt a day |
+| 3 | from 2026-10-07 | rabbits do not eat; the day's ground (solid, crumbling, shrinking, spiral); boards with par 4 to 7 must pass the balance rules (`grove-balance.md`), checking at most 12 per day, counted, not timed, so every phone lands on the same board |
 
 To change the daily game: add a version with a cutover date after today,
-leave the old ones alone, and add its fingerprint to the guard.
+leave the old ones alone, and add its fingerprint to the guard. Version 3
+runs the lab's solver (`solve.js`) for its balance check, so a change to
+that solver can re-deal version 3 too; the guard will say so, and the fix is
+to freeze a copy of the old solver for version 3.
+
+Dealing time for version 3, on a laptop: median 0.14 s, 9 days in 10 under
+0.4 s, worst 0.8 s over 40 days. Shrinking boards were the slow ones until
+the falling edge was made cheap to compute (`shrinkStep` in `rules.js`).
 
 **The guard.** `node play/grove-chess/check-daily.mjs` deals 150 boards with
 each version, plays 600 seeded random games on them, and compares each
@@ -206,24 +243,41 @@ is too easy is for playing to decide.
 engine supports, on one page; tap Play to try it, rate it 1 to 5 with a note,
 and it goes in a notebook you can copy out.
 
+Since 2026-10-06 the default is **the standard board**, Timothy's framing:
+a ground, a shape and a size, then the three kinds of thing against you
+(rabbits, a hole, and dark pieces), and the goal "rabbits, then the ball".
+Settings are version 2 from that day; links carry `v=2`, and anything saved
+before (links, notebook entries) is read against the old defaults, so it
+still builds exactly the level it was. A test proved that for 400 old
+levels.
+
 - **Board:** width and height (3 to 10), shape (rectangle, diamond, round,
   cross, ring, hourglass, L, stairs, two islands, Swiss cheese), extra holes,
-  crumbling ground. (Stumps and bramble were here until 2026-10-06; a saved
-  level that had them loads without them, everything else in place.)
+  and the ground: solid, crumbling, shrinking, or shrinking in a spiral, with
+  how often the edge falls. (Stumps and bramble were here until 2026-10-06; a
+  saved level that had them loads without them, everything else in place.)
 - **Your side:** how many pieces, which kinds they are dealt from, repeats,
   how far up they start, a royal King (lose it, lose), waiting on or off.
-- **Their side:** how many, which kinds (rabbit or any chess or fairy piece),
-  or a mirror of your hand like chess. Rabbits move by a hidden pattern (the
-  daily set, or random ones up to big jumps, 1 to 3 hops a turn) or think.
-  Everything else of theirs thinks.
+- **Rabbits:** how many (0 to 4), whether they move by a hidden pattern (the
+  daily set, or random ones up to big jumps, 1 to 3 hops a turn) or think,
+  tracks on or off, and whether they eat your pieces (off by default).
+- **Dark pieces:** how many, which kinds (any chess or fairy piece, in dark
+  plum wood), or a mirror of your hand like chess. They think, and they can
+  take your pieces (a switch).
 - **The AI:** skill (random, greedy, two or three moves ahead) and mood
   (flee, balanced, hunt). See the comment at the top of `ai.js` for how it
   works: minimax search with alpha-beta pruning, to a fixed budget of
   positions so the same position gets the same move on every phone.
-- **Winning:** capture them all, take their King (it makes sure they have
-  exactly one), catch the rabbit (it makes sure there is one), catch any one,
-  a marked one, or mix it up (a different goal per layout); a move limit or
-  none; who moves first.
+- **Winning:** rabbits, then the ball (the hole stays shut, covered in
+  twigs, until every rabbit is caught; then sink the ball), capture them all,
+  take their King (it makes sure they have exactly one), catch the rabbit (it
+  makes sure there is one), catch any one, a marked one, sink the ball, or
+  mix it up (a different goal per layout); a move limit or none; who moves
+  first.
+- **Balance rules:** off, on (the default) or strict. Each level the solver
+  finds is also measured, and the report shows under "How this level
+  plays" and is saved with your rating. See
+  [`grove-balance.md`](grove-balance.md).
 - **Only deal winnable levels** (on by default): the solver plays each new
   layout before you see it and keeps the first one it can win in between a
   minimum and a maximum number of moves (3 and 10 by default). That number is
@@ -260,6 +314,31 @@ win on exactly par.
 
 A level is its settings plus a seed (the dice roll that places everything), so
 a level link rebuilds exactly the same level anywhere.
+
+## The descent
+
+`play/grove-chess/descent/`, with the depths in `descent.js`. Timothy,
+2026-10-06: "once you get the ball into the hole it falls down into another
+level that's harder ... see how far you can go."
+
+- Every level is a standard board. Catch every rabbit to open the hole, sink
+  the ball, and the board drops away and you fall to the next one. Lose the
+  ball, or run out of moves, and the run ends. How deep you got is the
+  score; the deepest you have ever been is kept, and only goes up.
+- **Depth adds one thing at a time:** a still hole, then a moving one, then
+  a dark piece, crumbling ground, a bigger board and shrinking ground, a
+  second rabbit and one fairy piece, a spiral, and so on (see
+  `depthSettings`). The opening only shows a card the first time a piece or
+  ground turns up in a run.
+- **Every level is found by the solver**, winnable and balanced, on a
+  background thread. The next depth is found while you play the current
+  one, so the fall usually does not wait.
+- Rabbits caught on the way down join your collection, the same one the
+  daily keeps.
+
+Next for it: a choice between two pieces after each depth (the roguelike
+reward, and the power path), and the Shepard-tone fall from
+[`grove-look.md`](grove-look.md).
 
 ## Open
 

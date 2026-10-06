@@ -32,6 +32,13 @@
   #info { min-height: 44px; font-size: 15px; color: var(--dim); margin-bottom: 10px; }
 
   #end h2 { margin-top: 18px; }
+  /* The three ways to play Grove Chess, on every page of it. */
+  .modes { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; margin: 14px 0 0; }
+  .modes a { padding: 8px 14px; border: 1px solid var(--line); border-radius: 999px; color: var(--dim); text-decoration: none; font-size: 15px; }
+  .modes a[aria-current] { color: var(--accent-ink); background: var(--accent); border-color: transparent; }
+  .rabbitrow { display: flex; flex-wrap: wrap; gap: 8px; }
+  .rabbitcell { display: grid; justify-items: center; gap: 2px; padding: 6px 8px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
+  .rabbitcell canvas { width: 45px; height: 54px; }
   /* The result: the golf word in a colour for how good it was, popping in. */
   .golf { display: inline-block; padding: 1px 9px; border-radius: 999px; font-weight: 700; color: var(--text); background: var(--panel-2); }
   .golf.g4 { background: #e3b54a; color: #2a1d05; }
@@ -90,7 +97,9 @@
     <div class="stack" style="margin-top:14px">
       <button class="quiet" id="pieces-title">Today's pieces</button>
     </div>
-    <p class="small center" style="margin-top:12px"><a href="lab/">Grove Lab: build your own levels</a></p>
+    <nav class="modes" aria-label="Ways to play">
+      <a href="./" aria-current="page">The daily</a><a href="descent/">The descent</a><a href="lab/">The lab</a>
+    </nav>
 
     <div class="card" id="testpanel" style="margin-top:16px" hidden>
       <p class="tag" style="margin:0 0 8px">Test mode</p>
@@ -132,6 +141,8 @@
       <h2 style="margin-top:14px">The rabbit's pattern</h2>
       <canvas id="pattern-pic" class="pix" style="margin:4px 0 8px; border-radius:4px"></canvas>
       <p class="small dim" id="end-pattern"></p>
+      <p class="small" id="end-rabbit"></p>
+      <div id="end-rabbits"></div>
 
       <div class="card" id="share-card">
         <p class="small dim" style="margin-bottom:8px">Your name on the vine. Anyone who plays from your link sees it next to your game.</p>
@@ -156,11 +167,15 @@
       <summary>How to play</summary>
       <p class="small dim">Catch the rabbit by moving one of your pieces onto its square.
         You move, then the rabbit hops. It follows a pattern that repeats, and
-        its tracks are numbered on the board so you can work the pattern out.
-        If it lands on one of your pieces, it eats it. It bounces off the
-        edges, and if it cannot land where it is hopping, it waits.</p>
+        its tracks are numbered on the board so you can work the pattern out.</p>
+      <p class="small dim" id="how-rabbit"></p>
       <p class="small dim">Some days the ground crumbles: every square you move a
-        piece off falls away behind it, and nothing can stand there again.</p>
+        piece off falls away behind it, and nothing can stand there again. Some
+        days the board shrinks: every two moves a square on its edge drops into
+        the dark, at random or round in a spiral, and the square that goes next
+        is shadowed.</p>
+      <p class="small dim">Each kind of rabbit has its own colour. Catch one and
+        from then on its kind wears that colour, so you will know it on sight.</p>
       <p class="small dim">Tap a piece to light up where it can go. Tap Pieces to read
         what every piece does. Waiting spends a move. You have 15 moves before
         dusk.</p>

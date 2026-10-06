@@ -16,6 +16,7 @@
 // y * W + x.
 
 import { think } from './ai.js';
+import { rng } from '../../engine/seed.js';
 
 const ORTH = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const DIAG = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
@@ -55,15 +56,31 @@ export const onBoard = (day, x, y) => x >= 0 && y >= 0 && x < day.W && y < day.H
     every square you move off falls away behind you. */
 export const crumbled = (s, x, y) => s.gone.length > 0 && s.gone.includes(y * s.day.W + x);
 
+/** Has the square at (x, y) fallen off the edge? Only on shrinking levels.
+    Unlike a crumbled square it is no longer part of the board at all. */
+export const shrunk = (s, x, y) => s.shrunk?.length > 0 && s.shrunk.includes(y * s.day.W + x);
+
+/** Is the hole open? On a descent level it stays shut until every rabbit
+    has been caught; anywhere else it is always open. A shut hole is just
+    ground: anything can stand on it and the ball rolls straight over. */
+export const holeOpen = (s) => s.day.rules.goal !== 'descent' || s.foes.every((f) => !f.target || f.taken);
+
+/** Can this foe take your pieces? Rabbits have their own rule (and by
+    default they do not eat); the first daily boards, which predate it, fall
+    back to the rule for everything. */
+export function canTake(rules, f) {
+  return f.type === 'rabbit' ? (rules.rabbitsEat ?? rules.foesCapture) : rules.foesCapture;
+}
+
 /** What is on (x, y), as seen by `side` ('you' or 'foe'). */
 export function look(s, x, y, side = 'you') {
-  if (!onBoard(s.day, x, y) || crumbled(s, x, y)) return OFF;
+  if (!onBoard(s.day, x, y) || crumbled(s, x, y) || shrunk(s, x, y)) return OFF;
   const bram = isBramble(s, x, y);
   for (const p of s.pieces)
     if (!p.taken && p.x === x && p.y === y) return side === 'you' ? OWN : bram ? HIDDEN : ENEMY;
   for (const f of s.foes)
     if (!f.taken && f.x === x && f.y === y) return side === 'foe' ? OWN : bram ? HIDDEN : ENEMY;
-  if (s.hole && s.hole.x === x && s.hole.y === y) return HOLE;
+  if (s.hole && s.hole.x === x && s.hole.y === y && holeOpen(s)) return HOLE;
   if (s.day.stumps.has(y * s.day.W + x)) return STUMP;
   return bram ? BRAMBLE : EMPTY;
 }
@@ -254,10 +271,15 @@ export const PIECES = {
 };
 
 export const RABBIT_DESC = 'Hops in a fixed pattern that repeats. If it lands on one of your pieces, it eats it. It bounces off the edges, and if it cannot land where it is hopping, it waits a turn. Watch its tracks.';
+export const RABBIT_GENTLE_DESC = 'Hops in a fixed pattern that repeats. It bounces off the edges, and if it cannot land where it is hopping (one of your pieces is in the way, say), it waits a turn. It does not eat. Watch its tracks.';
+/** The rabbit's description for a level's rules: does it eat or not? */
+export const rabbitDesc = (rules) => ((rules.rabbitsEat ?? rules.foesCapture) ? RABBIT_DESC : RABBIT_GENTLE_DESC);
 export const RABBIT_AI_DESC = 'Thinks for itself and steps one square in any direction, like a king. It eats what it lands on.';
 export const BRAMBLE_DESC = 'Creeps across the board. Nothing can enter it and nothing slides through it. Anything caught inside is safe until it leaves.';
 export const STUMP_DESC = 'In the way. Sliders stop at it; leapers jump over it.';
 export const CRUMBLE_DESC = 'Every square you move off crumbles away behind you. Nothing can stand on it again: sliders stop at the gap, leapers can still jump it, and a rabbit that tries to hop in waits instead.';
+export const SHRINK_DESC = 'The edge of the board falls away. Every few moves one square on the rim drops into the dark for good, and the rim closes in. It never takes a square anything is standing on, never cuts the board in two, and stops when half the board is gone.';
+export const LOCKED_DESC = 'The hole stays shut until every rabbit is caught. Shut, it is only ground: anything can stand on it and the ball rolls over it. Once it opens, sink the ball to fall through to the next level.';
 export const HOLE_DESC = 'The hole. It moves by its own hidden pattern after every turn, bounces off the edges, and waits if anything is in the way. Nothing but the ball can go in it.';
 
 // --- Level rules. ----------------------------------------------------------
@@ -271,6 +293,11 @@ export const DAILY_RULES = {
   royal: false,      // does losing a King lose the game?
   first: 'you',      // who moves first
   crumble: false     // does every square you move off fall away?
+  // Lab levels can also set: rabbitsEat (rabbits take your pieces; without
+  // it rabbits follow foesCapture, which is how the first daily boards
+  // work), shrink ('random' or 'spiral': the edge falls away every
+  // shrinkEvery moves), and goal 'descent' (catch every rabbit to open the
+  // hole, then sink the ball).
 };
 
 export const MAX_MOVES = DAILY_RULES.maxMoves;
@@ -285,6 +312,7 @@ export function initialState(day) {
     foes: day.foes.map((f) => ({ ...f, i: 0, taken: false })),
     hole: day.hole ? { ...day.hole, i: 0 } : null,
     gone: [], // squares that have crumbled away, in the order they went
+    shrunk: [], // squares that have fallen off the edge, in the order they went
     won: false
   };
   if (day.rules.first === 'them') { foesAct(s); s.opened = true; }
@@ -293,7 +321,7 @@ export function initialState(day) {
 
 export function clone(s) {
   return { day: s.day, t: s.t, pieces: s.pieces.map((p) => ({ ...p })), foes: s.foes.map((f) => ({ ...f })),
-    hole: s.hole ? { ...s.hole } : null, gone: s.gone.slice(), won: s.won, sunk: s.sunk };
+    hole: s.hole ? { ...s.hole } : null, gone: s.gone.slice(), shrunk: s.shrunk ? s.shrunk.slice() : [], won: s.won, sunk: s.sunk };
 }
 
 const youLook = (s) => (x, y) => look(s, x, y, 'you');
@@ -310,7 +338,7 @@ export function foeMovesFor(s, k) {
   const f = s.foes[k];
   if (f.taken || f.brain !== 'ai') return [];
   const ms = PIECES[f.type].moves(foeLook(s), f, -1, s.day);
-  return s.day.rules.foesCapture ? ms : ms.filter((m) => !m.cap);
+  return canTake(s.day.rules, f) ? ms : ms.filter((m) => !m.cap);
 }
 
 /** Every move available to you, waiting first if waiting is allowed. With
@@ -331,7 +359,7 @@ export function isLegal(s, mv) {
 
 function goalMet(s) {
   const g = s.day.rules.goal, F = s.foes;
-  if (g === 'hole') return false; // only the ball in the hole wins
+  if (g === 'hole' || g === 'descent') return false; // only the ball in the hole wins
   if (g === 'any') return F.some((f) => f.taken);
   if (g === 'target' && F.some((f) => f.target)) return F.every((f) => !f.target || f.taken);
   return F.every((f) => f.taken);
@@ -340,7 +368,7 @@ function goalMet(s) {
 export const allTaken = (s) => s.pieces.every((p) => p.taken);
 export function lost(s) {
   return allTaken(s) || (s.day.rules.royal && s.pieces.some((p) => p.taken && p.type === 'king')) ||
-    (s.day.rules.goal === 'hole' && s.pieces.some((p) => p.taken && p.type === 'ball'));
+    ((s.day.rules.goal === 'hole' || s.day.rules.goal === 'descent') && s.pieces.some((p) => p.taken && p.type === 'ball'));
 }
 
 // --- Their turn. -----------------------------------------------------------
@@ -366,7 +394,7 @@ function hop(s, f) {
   if (f.y + dy < 0 || f.y + dy >= H) { f.my = -f.my; dy = -dy; }
   f.i = (f.i + 1) % pat.length;
   const tx = f.x + dx, ty = f.y + dy, c = look(s, tx, ty, 'foe');
-  if (c === EMPTY || (c === ENEMY && s.day.rules.foesCapture)) landFoe(s, f, tx, ty);
+  if (c === EMPTY || (c === ENEMY && canTake(s.day.rules, f))) landFoe(s, f, tx, ty);
   else { f.from = [f.x, f.y]; f.ate = -1; f.blocked = true; }
 }
 
@@ -417,9 +445,120 @@ export function playerMove(s, mv) {
     const f = n.foes.find((f) => !f.taken && f.x === mv.x && f.y === mv.y);
     if (f) f.taken = true;
     if (f && goalMet(n)) n.won = true;
-    if (p.type === 'ball' && n.hole && p.x === n.hole.x && p.y === n.hole.y) n.won = n.sunk = true;
+    if (p.type === 'ball' && n.hole && p.x === n.hole.x && p.y === n.hole.y && holeOpen(n)) n.won = n.sunk = true;
+    // Catching the last rabbit opens the hole; a ball already resting on
+    // the shut hole drops straight in.
+    const b = f && n.day.rules.goal === 'descent' && holeOpen(n) && n.pieces.find((q) => q.type === 'ball' && !q.taken);
+    if (b && n.hole && b.x === n.hole.x && b.y === n.hole.y) n.won = n.sunk = true;
   }
   return n;
+}
+
+// --- Shrinking ground. -----------------------------------------------------
+
+/** Per level, worked out once: how many squares it starts with, and the
+    order squares go in. Of the squares free to fall, the one earliest in the
+    order goes. On a spiral board the order runs clockwise round the edge and
+    inward; otherwise it is a shuffle fixed when the level is made, so the
+    square drawn as falling next is the one that does, unless something
+    moves onto it. */
+function shrinkInfo(day) {
+  if (day._shrink) return day._shrink;
+  const W = day.W, H = day.H, order = new Map();
+  if (day.rules.shrink !== 'spiral') {
+    const rand = rng(`shrink:${day.shrinkKey ?? ''}`), all = [];
+    for (let k = 0; k < W * H; k++) all.push(k);
+    for (let i = all.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [all[i], all[j]] = [all[j], all[i]]; }
+    all.forEach((k, i) => order.set(k, i));
+  } else {
+    let n = 0, x0 = 0, y0 = 0, x1 = W - 1, y1 = H - 1;
+    while (x0 <= x1 && y0 <= y1) {
+      for (let x = x0; x <= x1; x++) order.set(y1 * W + x, n++);                   // along the top, left to right
+      for (let y = y1 - 1; y >= y0; y--) order.set(y * W + x1, n++);               // down the right side
+      if (y0 < y1) for (let x = x1 - 1; x >= x0; x--) order.set(y0 * W + x, n++); // back along the bottom
+      if (x0 < x1) for (let y = y0 + 1; y < y1; y++) order.set(y * W + x0, n++);  // up the left side
+      x0++; y0++; x1--; y1--;
+    }
+  }
+  // The board's squares, and the same squares in the order they go.
+  const base = new Uint8Array(W * H), ranked = [];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (onBoard(day, x, y)) { base[y * W + x] = 1; ranked.push(y * W + x); }
+  ranked.sort((a, b) => order.get(a) - order.get(b));
+  return (day._shrink = { base, ranked, total: ranked.length });
+}
+
+// The eight squares around one, in order round the circle, starting above.
+const RING = [[0, 1], [1, 1], [1, 0], [1, -1], [0, -1], [-1, -1], [-1, 0], [-1, 1]];
+
+/** One square falls off the edge. Never one with anything on it, never one
+    that would cut the board in two, and never past half the board. Of the
+    squares free to go, the earliest in the level's order goes. Mutates.
+    (The solver runs this a great deal, so it works on plain arrays.) */
+function shrinkStep(s) {
+  const day = s.day, W = day.W, H = day.H, info = shrinkInfo(day);
+  const present = info.base.slice();
+  for (const q of s.shrunk) present[q] = 0;
+  const used = new Uint8Array(W * H);
+  let nUsed = 0;
+  const use = (q) => { if (!used[q]) { used[q] = 1; nUsed++; } };
+  for (const p of s.pieces) if (!p.taken) use(p.y * W + p.x);
+  for (const f of s.foes) if (!f.taken) use(f.y * W + f.x);
+  if (s.hole) use(s.hole.y * W + s.hole.x);
+  const left = info.total - s.shrunk.length;
+  if (left <= Math.max(Math.ceil(info.total / 2), nUsed + 2)) return;
+  const here = (x, y) => x >= 0 && y >= 0 && x < W && y < H && present[y * W + x] === 1;
+
+  /** Would the board still be one piece without square `sq`? First a quick
+      local look: walk the eight squares around it, and if every neighbour
+      it touches lies on one unbroken run of them, they stay joined without
+      it. Only when that fails, search the whole board. */
+  const staysWhole = (sq) => {
+    const x0 = sq % W, y0 = (sq / W) | 0;
+    const on = RING.map(([dx, dy]) => here(x0 + dx, y0 + dy));
+    let runs = 0;
+    for (let i = 0; i < 8; i++) {
+      if (!on[i] || on[(i + 7) % 8]) continue; // not the start of a run
+      let touches = false;
+      for (let j = i; on[j % 8] && j < i + 8; j++) if (j % 2 === 0) touches = true; // even = straight neighbours
+      if (touches) runs++;
+    }
+    if (runs <= 1) return true;
+    const start = info.ranked.find((k) => k !== sq && present[k]);
+    const seen = new Uint8Array(W * H), stack = [start];
+    seen[start] = seen[sq] = 1;
+    let count = 1;
+    while (stack.length) {
+      const q = stack.pop(), x = q % W, y = (q / W) | 0;
+      for (const [dx, dy] of RING) {
+        if (dx && dy) continue; // straight neighbours only
+        const k = (y + dy) * W + x + dx;
+        if (here(x + dx, y + dy) && !seen[k]) { seen[k] = 1; stack.push(k); count++; }
+      }
+    }
+    return count === left - 1;
+  };
+  for (const sq of info.ranked) {
+    if (!present[sq] || used[sq]) continue;
+    const x = sq % W, y = (sq / W) | 0;
+    if (here(x + 1, y) && here(x - 1, y) && here(x, y + 1) && here(x, y - 1)) continue; // not on the edge
+    if (staysWhole(sq)) { s.shrunk.push(sq); return; }
+  }
+}
+
+/** What happens once a whole move is over: on shrinking ground, every few
+    moves the edge falls away. Mutates. */
+function afterMove(n) {
+  const r = n.day.rules;
+  if (r.shrink && !n.won && !lost(n) && n.t % (r.shrinkEvery || 2) === 0) shrinkStep(n);
+}
+
+/** The square that will fall next if the edge fell now, for drawing it
+    faintly ahead of time. Null when nothing would. */
+export function nextShrink(s) {
+  if (!s.day.rules.shrink) return null;
+  const c = clone(s);
+  shrinkStep(c);
+  return c.shrunk.length > s.shrunk.length ? c.shrunk[c.shrunk.length - 1] : null;
 }
 
 /** Your move, then theirs. Returns a new state. */
@@ -427,6 +566,7 @@ export function apply(s, mv) {
   const n = playerMove(s, mv);
   if (!n.won) foesAct(n);
   n.t++;
+  afterMove(n);
   return n;
 }
 
@@ -437,6 +577,7 @@ export function respond(n) {
   const c = clone(n);
   if (!c.won) foesAct(c);
   c.t++;
+  afterMove(c);
   return c;
 }
 
@@ -468,5 +609,6 @@ export function stateKey(s) {
   if (s.hole) k += `|h${s.hole.x},${s.hole.y},${s.hole.i}${s.hole.mx > 0 ? '+' : '-'}${s.hole.my > 0 ? '+' : '-'}`;
   // Which squares are gone matters; the order they went in does not.
   if (s.gone.length) k += '|g' + s.gone.slice().sort((a, b) => a - b).join(',');
+  if (s.shrunk?.length) k += '|s' + s.shrunk.slice().sort((a, b) => a - b).join(',');
   return k;
 }

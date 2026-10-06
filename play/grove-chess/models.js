@@ -215,8 +215,10 @@ const MODELS = {
 
 // --- Not yours. ------------------------------------------------------------
 
-MODELS.rabbit = () => {
-  const m = new Model(), w = '#f6f2ea', sh = '#ddd4c4';
+/** A rabbit, white by default or in the fur of its pattern (rabbits.js).
+    The tail and the insides of the ears stay pale either way. */
+MODELS.rabbit = (fur = null) => {
+  const m = new Model(), w = fur || '#f6f2ea', sh = fur ? shade(fur, 0.82) : '#ddd4c4';
   m.ellipsoid(0, 2.5, -0.3, 2.2, 2.3, 2.6, w);             // body
   m.ellipsoid(0, 5.4, 1.5, 1.6, 1.5, 1.6, w);             // head
   for (const s of [1, -1]) {
@@ -288,6 +290,24 @@ MODELS.crumble = () => {
   return m;
 };
 
+// Shrinking ground, for the pieces menu and the opening: a slab of misty
+// squares whose corners have already gone, and one more on its way down.
+MODELS.shrink = () => {
+  const m = new Model(), light = '#a9c4b8', dark = '#e4ece4', s = 2.6;
+  for (let gy = -1; gy <= 1; gy++)
+    for (let gx = -1; gx <= 1; gx++) {
+      if (Math.abs(gx) === 1 && Math.abs(gy) === 1 && !(gx === 1 && gy === 1)) continue; // three corners gone
+      const col = (gx + gy) % 2 === 0 ? light : dark;
+      if (gx === 1 && gy === 1) {
+        m.group({ t: [gx * s, 1.2, gy * s], rx: 0.5, rz: -0.4 }, () => { m.box(0, 0, 0, 2.3, 0.8, 2.3, '#3a4a44'); m.box(0, 0.5, 0, 2.3, 0.3, 2.3, col); });
+        continue;
+      }
+      m.box(gx * s, 3.0, gy * s, 2.5, 0.8, 2.5, '#4a3220');
+      m.box(gx * s, 3.55, gy * s, 2.5, 0.3, 2.5, col);
+    }
+  return m;
+};
+
 // Their pieces: the same shapes in dark plum wood on a berry-red plinth, so a
 // bishop of theirs never looks like a bishop of yours. The builders read the
 // palette when they run, so swapping it for the length of one build is enough.
@@ -299,10 +319,22 @@ function withPalette(over, build) {
   try { return build(); } finally { Object.assign(P, saved); }
 }
 
+/** A colour scaled toward black by k (1 leaves it as it is). */
+function shade(hex, k) {
+  const n = parseInt(hex.slice(1), 16), f = (v) => Math.round(v * k).toString(16).padStart(2, '0');
+  return `#${f(n >> 16)}${f((n >> 8) & 255)}${f(n & 255)}`;
+}
+
 const cache = new Map();
-/** One shared Model per kind and side ('you' or 'foe'). Treat it as read-only. */
-export function model(kind, side = 'you') {
-  const key = side === 'foe' && kind !== 'rabbit' ? kind + ':foe' : kind;
+/** One shared Model per kind and side ('you' or 'foe'), and for rabbits per
+    fur colour. Treat it as read-only. */
+export function model(kind, side = 'you', fur = null) {
+  if (kind === 'rabbit') {
+    const key = 'rabbit' + (fur || '');
+    if (!cache.has(key)) cache.set(key, MODELS.rabbit(fur));
+    return cache.get(key);
+  }
+  const key = side === 'foe' ? kind + ':foe' : kind;
   if (!cache.has(key)) cache.set(key, key.endsWith(':foe') ? withPalette(FOE, MODELS[kind]) : MODELS[kind]());
   return cache.get(key);
 }

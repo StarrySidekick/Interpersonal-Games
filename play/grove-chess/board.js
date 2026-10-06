@@ -7,10 +7,22 @@
 
 import { Mesh, Model, snapshot } from '../../engine/lowpoly.js';
 import { model } from './models.js';
-import { brambleCount, onBoard, movesFor, PIECES } from './rules.js';
+import { brambleCount, onBoard, movesFor, holeOpen, nextShrink, PIECES } from './rules.js';
 import * as sfx from './sounds.js';
 
 const GREEN = '#b9dc9b', CREAM = '#f6efd7';
+
+// Each kind of ground has its own look, so you can tell at a glance what the
+// board will do: solid is green and cream; crumbling is dry, cracked earth;
+// shrinking is pale and misty, as if the edges were already half gone.
+const GROUND = {
+  solid: { light: GREEN, dark: CREAM },
+  crumble: { light: '#cdb98a', dark: '#ecdcb6', crack: 'rgba(92,64,34,.35)' },
+  shrink: { light: '#a9c4b8', dark: '#e4ece4' }
+};
+export const groundOf = (day) => (day.rules?.shrink ? 'shrink' : day.rules?.crumble ? 'crumble' : 'solid');
+const tileColour = (day, x, y) => { const g = GROUND[groundOf(day)]; return (x + y) % 2 === 0 ? g.light : g.dark; };
+const PIT = '#050302'; // what is left where a square fell away: darkness, nothing else
 
 export const C = 28, RIM = 5, TOP = 16;
 
@@ -21,8 +33,8 @@ const DIGITS = ['111101101101111', '010110010010111', '111001111100111', '111001
 const TRACK = ['#6b4a2c', '#2f6fc0', '#8a4bb0', '#118a74', '#c2378a', '#de7a1f', '#5f7a20', '#9a6a0c'];
 
 const sprites = {};
-export const sprite = (kind, side = 'you') =>
-  sprites[kind + side] || (sprites[kind + side] = snapshot(model(kind, side)));
+export const sprite = (kind, side = 'you', fur = null) =>
+  sprites[kind + side + (fur || '')] || (sprites[kind + side + (fur || '')] = snapshot(model(kind, side, fur)));
 
 /** Crisp pixel drawing on one canvas. */
 export class Pen {
@@ -60,6 +72,12 @@ export class Pen {
 
 const ease = (k) => (k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2);
 
+/** A colour mixed toward black by k (0 to 1), for things falling into the dark. */
+function darker(hex, k) {
+  const n = parseInt(hex.slice(1), 16), f = (v) => Math.round(v * (1 - k));
+  return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`;
+}
+
 // Leaves for a winning catch: a burst thrown up and out, falling back under
 // gravity. Random is fine here: it is only how the leaves fly.
 const LEAF = ['#8fc46a', '#5f9a45', '#b9dc9b', '#f6efd7', '#f2c14e'];
@@ -94,6 +112,10 @@ export class Board {
     // A catch that wins the game gets its own moment (a beat, a flash, a
     // tumble, leaves). The opening's little demo boards turn it off.
     this.celebrate = true;
+    // The fur colour to draw a foe in (rabbits.js), or null for white. Each
+    // page decides: the lab shows every colour, the daily only ones you
+    // have earned.
+    this.fur = () => null;
     this.redraw = () => {};
   }
 
@@ -111,42 +133,56 @@ export class Board {
   }
 
   /** The squares, and the rim around them. `s` is the state on show, for
-      the squares that have crumbled away; `at` is the time, for one that is
-      crumbling right now. */
+      the squares that have crumbled away or fallen off the edge; `at` is the
+      time, for one that is going right now. */
   tiles(s = null, at = 0) {
     const { pen, day } = this, P = pen.px.bind(pen), W = day.W;
     pen.g.clearRect(0, 0, this.el.width, this.el.height);
+    // A square that fell off a shrinking edge is not part of the board any
+    // more, so it loses its rim too (once it has finished going).
+    const off = new Set(s?.shrunk || []), vanish = this.tw?.vanish;
+    const here = (x, y) => onBoard(day, x, y) && (!off.has(y * W + x) || (vanish?.sq === y * W + x && at < vanish.t0 + vanish.dur));
     // The rim follows the board's shape: drawn per square, so a board with
     // holes gets a rim around every edge, inside and out. A square that
     // crumbled keeps its rim: the frame stays, the ground inside fell.
     for (const pass of [0, 1])
       for (let y = 0; y < day.H; y++)
         for (let x = 0; x < W; x++) {
-          if (!onBoard(day, x, y)) continue;
+          if (!here(x, y)) continue;
           const i = pass ? RIM - 2 : RIM;
           P(this.cellX(x) - i, this.cellY(y) - i, C + i * 2, C + i * 2, pass ? '#6b4a2e' : '#4a3220');
         }
     const gone = new Set(s?.gone || []), fall = this.tw?.crumble;
     for (let y = 0; y < day.H; y++)
       for (let x = 0; x < W; x++) {
-        if (!onBoard(day, x, y)) continue;
-        const sq = y * W + x, col = (x + y) % 2 === 0 ? GREEN : CREAM;
-        if (fall?.sq === sq && at < fall.t0 + fall.dur) {
-          if (at < fall.t0) P(this.cellX(x), this.cellY(y), C, C, col);
+        if (!here(x, y)) continue;
+        const sq = y * W + x, col = tileColour(day, x, y);
+        if (vanish?.sq === sq && at >= vanish.t0) this.vanishing(x, y, col, (at - vanish.t0) / vanish.dur);
+        else if (fall?.sq === sq && at < fall.t0 + fall.dur) {
+          if (at < fall.t0) this.tile(x, y, col);
           else this.crumbling(x, y, col, (at - fall.t0) / fall.dur);
         } else if (gone.has(sq)) this.gap(x, y);
-        else P(this.cellX(x), this.cellY(y), C, C, col);
+        else this.tile(x, y, col);
       }
   }
 
-  /** A square that has crumbled away: a dark pit with its far wall showing. */
+  /** One square. On crumbling ground every square shows hairline cracks,
+      the same ones every time, so the whole board reads as fragile. */
+  tile(x, y, col) {
+    const X = this.cellX(x), Y = this.cellY(y);
+    this.pen.px(X, Y, C, C, col);
+    const crack = GROUND[groundOf(this.day)].crack;
+    if (!crack) return;
+    const v = (x * 7 + y * 13) % 4, L = (pts) => { for (let i = 1; i < pts.length; i++) this.pen.line(X + pts[i - 1][0], Y + pts[i - 1][1], X + pts[i][0], Y + pts[i][1], crack, 1); };
+    if (v === 0) { L([[4, 9], [9, 12], [12, 11]]); L([[18, 20], [22, 23]]); }
+    if (v === 1) { L([[17, 4], [15, 9], [19, 12]]); L([[5, 21], [9, 19]]); }
+    if (v === 2) { L([[6, 6], [10, 5]]); L([[14, 17], [18, 15], [23, 18]]); }
+    if (v === 3) { L([[20, 7], [23, 11]]); L([[7, 15], [6, 19], [10, 22]]); }
+  }
+
+  /** A square that has crumbled away: nothing but darkness. */
   gap(x, y) {
-    const X = this.cellX(x), Y = this.cellY(y), P = this.pen.px.bind(this.pen);
-    P(X, Y, C, C, '#24180e');
-    P(X, Y, C, 3, '#6b4a2e');     // the grass edge, cut
-    P(X, Y + 3, C, 4, '#4a3220'); // the earth wall below it
-    P(X, Y + 7, C, 2, '#36251a');
-    for (const [a, b] of [[5, 14], [18, 11], [11, 21], [22, 22], [7, 24]]) P(X + a, Y + b, 2, 1, '#3a2817');
+    this.pen.px(this.cellX(x), this.cellY(y), C, C, PIT);
   }
 
   /** A square partway through crumbling: k runs from 0 (whole) to 1 (gone).
@@ -159,8 +195,16 @@ export class Board {
       const size = Math.round(h * (1 - q));
       if (size <= 0) continue;
       const cx = X + qx * h + h / 2 + (qx ? -1 : 1) * q * 3, cy = Y + qy * h + h / 2 + q * 5;
-      this.pen.px(cx - size / 2, cy - size / 2, size, size, q > 0.5 ? (col === GREEN ? '#8fae76' : '#c9c0a6') : col);
+      this.pen.px(cx - size / 2, cy - size / 2, size, size, q > 0.5 ? darker(col, 0.3 + q * 0.4) : col);
     }
+  }
+
+  /** A square falling off a shrinking edge: it sinks away into the dark,
+      shrinking and fading, and its rim goes with it. k runs from 0 to 1. */
+  vanishing(x, y, col, k) {
+    const X = this.cellX(x), Y = this.cellY(y), e = k * k, size = Math.round(C * (1 - e));
+    this.pen.px(X - 2, Y - 2, C + 4, C + 4, `rgba(5,3,2,${0.85 * Math.min(1, k * 2)})`);
+    if (size > 0) this.pen.px(X + (C - size) / 2, Y + (C - size) / 2 + e * 6, size, size, darker(col, e * 0.8));
   }
 
   /** Cracks running in from the corners of a square, on crumbling levels:
@@ -213,8 +257,10 @@ export class Board {
     }
   }
 
-  /** The hole: a dark pit in the grass, drawn flat on the board. */
-  pit(x, y) {
+  /** The hole: a dark pit in the grass, drawn flat on the board. `lid` is
+      how shut it is, from 1 (covered over with woven twigs, until every
+      rabbit is caught) to 0 (open). */
+  pit(x, y, lid = 0) {
     const cx = Math.round(this.cellX(0) + x * C + C / 2), cy = Math.round(this.cellY(0) - y * C + C / 2 + 2);
     const disc = (rx, ry, col, dy = 0) => {
       for (let j = -ry; j <= ry; j++) {
@@ -225,6 +271,13 @@ export class Board {
     disc(10, 7, '#7a6440');
     disc(9, 6, '#2a1f13');
     disc(6, 4, '#140e08', 1);
+    if (lid <= 0) return;
+    // The cover shrinks away from the middle as it opens.
+    const rx = Math.round(9 * lid), ry = Math.round(6 * lid);
+    if (rx < 1) return;
+    disc(rx, ry, '#8a6a3c');
+    for (let j = -ry + 1; j < ry; j += 2) this.pen.px(cx - rx + 1, cy + j, rx * 2 - 2, 1, '#6b4f2a');
+    this.pen.px(cx - 1, cy - ry, 2, ry * 2, '#5a4022');
   }
 
   /** Lines showing where each player's pieces went, one colour per player. */
@@ -286,11 +339,23 @@ export class Board {
         P(x + a, y + b, 3, 1, 'rgba(63,107,44,.55)'); P(x + a + 1, y + b - 1, 1, 3, 'rgba(63,107,44,.55)');
       }
     }
+    // On shrinking ground, the square that falls after this move (if the
+    // edge falls then) is drawn shadowed, so it is never a surprise.
+    if (v.track && day.rules.shrink && (s.t + 1) % (day.rules.shrinkEvery || 2) === 0 && !tw) {
+      const sq = nextShrink(s);
+      if (sq !== null) {
+        const x = this.cellX(sq % day.W), y = this.cellY(Math.floor(sq / day.W));
+        P(x, y, C, C, 'rgba(5,3,2,.22)');
+        for (let i = 0; i < C; i += 4) { P(x + i, y, 2, 1, 'rgba(5,3,2,.5)'); P(x + i, y + C - 1, 2, 1, 'rgba(5,3,2,.5)'); P(x, y + i, 1, 2, 'rgba(5,3,2,.5)'); P(x + C - 1, y + i, 1, 2, 'rgba(5,3,2,.5)'); }
+      }
+    }
     let hole = null;
     if (s.hole) {
       hole = { x: s.hole.x, y: s.hole.y };
       if (tw?.hole) ({ x: hole.x, y: hole.y } = tweenPos(tw.hole, at));
-      this.pit(hole.x, hole.y);
+      let lid = holeOpen(s) ? 0 : 1;
+      if (tw?.open && at < tw.open.t0 + tw.open.dur) lid = 1 - Math.max(0, (at - tw.open.t0) / tw.open.dur);
+      this.pit(hole.x, hole.y, lid);
     }
     if (v.track) this.tracks(v.track);
     if (v.paths) this.paths(v.paths);
@@ -325,7 +390,7 @@ export class Board {
         x = q.x; y = q.y;
         lift = t.hop ? Math.sin(Math.PI * q.k) * (t.blocked ? 3 : 9) : 0;
       }
-      things.push({ img: sprite(f.type, 'foe'), x, y, lift, ring: marked && f.target ? 'rgba(227,189,87,.9)' : null });
+      things.push({ img: sprite(f.type, 'foe', this.fur(f)), x, y, lift, ring: marked && f.target ? 'rgba(227,189,87,.9)' : null });
     });
     things.sort((a, b) => b.y - a.y || (b.under ? 1 : 0) - (a.under ? 1 : 0));
     for (const t of things) this.spriteAt(t.img, t.x, t.y, t.lift || 0, t.ring);
@@ -405,7 +470,7 @@ export class Board {
       const hold = 150 * slow, dur = 720 * slow;
       for (const k of tw.caught) {
         const f = a.foes[k];
-        tw.tumbles.push({ img: sprite(f.type, 'foe'), x: f.x, y: f.y, t0: t, hold, dur: hold + dur });
+        tw.tumbles.push({ img: sprite(f.type, 'foe', this.fur(f)), x: f.x, y: f.y, t0: t, hold, dur: hold + dur });
         tw.leaves.push(leafBurst(f.x, f.y, t + hold));
       }
       sfx.caught(at(t));
@@ -414,6 +479,12 @@ export class Board {
       for (const k of tw.caught) tw.poofs.push({ x: a.foes[k].x, y: a.foes[k].y, t0: t, dur: 480, c1: '#ffffff', c2: '#f2c14e' });
       sfx.capture(at(t));
       t += b.won ? 480 : 200;
+    }
+    // The last rabbit caught: the hole's cover opens.
+    if (a.hole && !holeOpen(a) && holeOpen(b)) {
+      tw.open = { t0: t, dur: 520 * slow };
+      sfx.opens(at(t));
+      t += 360 * slow;
     }
     if (b.sunk && !a.sunk) {
       tw.sinkAt = t;
@@ -450,6 +521,12 @@ export class Board {
       tw.landAt = t - 40;
       for (const i of tw.eaten) tw.poofs.push({ x: a.pieces[i].x, y: a.pieces[i].y, t0: t - 40, dur: 480, c1: '#7a5133', c2: '#c8462e' });
       if (tw.eaten.size) { sfx.eat(at(tw.landAt)); t += 440; }
+    }
+    // Then, on shrinking ground, a square on the edge may fall away.
+    if ((b.shrunk?.length || 0) > (a.shrunk?.length || 0)) {
+      tw.vanish = { sq: b.shrunk[b.shrunk.length - 1], t0: t + 60 * slow, dur: 560 * slow };
+      sfx.shrink(at(tw.vanish.t0));
+      t = tw.vanish.t0 + tw.vanish.dur;
     }
     this.tw = tw;
     return this.runUntil(Math.max(t, tw.crumble ? tw.crumble.t0 + tw.crumble.dur : 0));
@@ -561,34 +638,39 @@ export function diagram(type) {
 
 const T = 10;
 /** The whole board as a 3D scene: tiles, rim, and everything on it. */
-export function scene(day, s = null) {
+export function scene(day, s = null, fur = () => null) {
   const m = new Mesh(), W = day.W, H = day.H, hw = (W * T) / 2, hh = (H * T) / 2;
   const x0 = (x) => (x - W / 2) * T, z0 = (y) => (H / 2 - 1 - y) * T;
-  // A crumbled square has no tile, so the dark base shows through: a pit.
-  const gone = new Set(s?.gone || []), tile = (x, y) => onBoard(day, x, y) && !gone.has(y * W + x);
-  if (!day.holes.size) m.addBox(-hw - 3, -4, -hh - 3, hw + 3, -1, hh + 3, '#5a3d26', 0, 1 << 3);
+  // A crumbled square has no tile, only darkness where it was. A square that
+  // fell off a shrinking edge is not there at all.
+  const gone = new Set(s?.gone || []), off = new Set(s?.shrunk || []);
+  const here = (x, y) => onBoard(day, x, y) && !off.has(y * W + x), tile = (x, y) => here(x, y) && !gone.has(y * W + x);
+  const slab = !day.holes.size && !off.size;
+  if (slab) m.addBox(-hw - 3, -4, -hh - 3, hw + 3, -1, hh + 3, '#5a3d26', 0, 1 << 3);
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
-      if (!onBoard(day, x, y)) continue;
+      if (!here(x, y)) continue;
       // An odd-shaped board gets a base under each square instead of one slab.
-      if (day.holes.size) m.addBox(x0(x) - 2, -4, z0(y) - 2, x0(x) + T + 2, -1, z0(y) + T + 2, '#5a3d26', 0, 1 << 3);
-      if (!tile(x, y)) continue;
+      if (!slab) m.addBox(x0(x) - 2, -4, z0(y) - 2, x0(x) + T + 2, -1, z0(y) + T + 2, '#5a3d26', 0, 1 << 3);
+      if (!tile(x, y)) { m.addBox(x0(x), -1, z0(y), x0(x) + T, -0.9, z0(y) + T, PIT, 0, 1 << 3); continue; }
       // Hide the sides between neighbouring tiles; only the outer ones show.
       const skip = (1 << 3) | (tile(x + 1, y) ? 1 : 0) | (tile(x - 1, y) ? 2 : 0) |
         (tile(x, y - 1) ? 16 : 0) | (tile(x, y + 1) ? 32 : 0);
-      m.addBox(x0(x), -1, z0(y), x0(x) + T, 0, z0(y) + T, (x + y) % 2 === 0 ? GREEN : CREAM, 0, skip);
+      m.addBox(x0(x), -1, z0(y), x0(x) + T, 0, z0(y) + T, tileColour(day, x, y), 0, skip);
     }
   const at = (kind, side, x, y, id) => m.add(model(kind, side), x0(x) + T / 2, 0, z0(y) + T / 2, id);
   let id = 1;
   for (const sq of day.stumps) at('stump', 'you', sq % W, Math.floor(sq / W), id++);
   const h = (s || day).hole || day.hole;
   if (h) {
-    m.add(new Model().lathe([[3.3, 0.02], [3.3, 0.08]], '#1a130b', { seg: 12 }), x0(h.x) + T / 2, 0, z0(h.y) + T / 2, id++);
+    // A shut hole (rabbits still loose) has its twig cover on.
+    const shut = !holeOpen(s || { day, foes: day.foes });
+    m.add(new Model().lathe([[3.3, 0.02], [3.3, 0.08]], shut ? '#8a6a3c' : '#1a130b', { seg: 12 }), x0(h.x) + T / 2, 0, z0(h.y) + T / 2, id++);
     m.add(model('flag'), x0(h.x) + T / 2 + 2, 0, z0(h.y) + T / 2 - 1, id++);
   }
   if (day.bramble.length) at('bramble', 'you', day.bramble[0] % W, Math.floor(day.bramble[0] / W), id++);
   for (const p of (s || day).pieces) if (!p.taken) at(p.type, 'you', p.x, p.y, id++);
-  for (const f of (s || day).foes) if (!f.taken) at(f.type, 'foe', f.x, f.y, id++);
+  for (const f of (s || day).foes) if (!f.taken) m.add(model(f.type, 'foe', fur(f)), x0(f.x) + T / 2, 0, z0(f.y) + T / 2, id++);
   return m;
 }
 

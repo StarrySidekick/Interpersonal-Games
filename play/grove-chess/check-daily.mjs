@@ -19,7 +19,11 @@ import { rng } from '../../engine/seed.js';
 
 const EXPECTED = {
   1: '25ec172f74449ded42a98067cea75419bdd897573a22fbb562e8c90dbf75acbb',
-  2: '752fb1b70e079d56145481dd89c03c9ce81b50466abac74ef85c4300f9a5e50d'
+  2: '752fb1b70e079d56145481dd89c03c9ce81b50466abac74ef85c4300f9a5e50d',
+  // Version 3 also runs the lab's solver (solve.js) for its balance check,
+  // so a change there can re-deal its boards too. If this fails after one,
+  // freeze a copy of the old solver for version 3 rather than accept it.
+  3: '00d92f91196244d72b5019f68def2fee3c2af06d035e43f2673f17523d68a8fd'
 };
 
 function fingerprint(version, from) {
@@ -30,6 +34,7 @@ function fingerprint(version, from) {
     const d = makeDay(date, version);
     const fields = { N: d.N, pieces: d.pieces, rabbit: [d.rabbit.x, d.rabbit.y, d.rabbit.mx, d.rabbit.my], pattern: d.pattern, stumps: [...d.stumps], bramble: d.bramble, par: d.par };
     if (version >= 2) fields.crumble = !!d.rules.crumble;
+    if (version >= 3) Object.assign(fields, { ground: d.ground, shrink: d.rules.shrink, eats: d.rules.rabbitsEat });
     const board = JSON.stringify(fields);
     const games = [];
     for (let g = 0; g < 4; g++) {
@@ -43,6 +48,7 @@ function fingerprint(version, from) {
         const f = s.foes[0];
         const step = [mv.p, mv.x, mv.y, s.pieces.map((p) => (p.taken ? '-' : p.x + ',' + p.y)).join(' '), f.x, f.y, f.i, f.mx, f.my, !!s.won, s.t, R.isOver(s) ? R.outcome(s) : ''];
         if (version >= 2) step.push(s.gone.join(','));
+        if (version >= 3) step.push(s.shrunk.join(','));
         trace.push(step.join('|'));
       }
       games.push(trace);
