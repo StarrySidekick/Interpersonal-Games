@@ -71,6 +71,10 @@ Timothy's skeleton, all of it in:
   thinking AI with adjustable skill and mood, win conditions. Rate each level
   and it goes in a notebook. The daily game runs on the same engine, proven
   unchanged by `play/grove-chess/check-daily.mjs`;
+- lab levels are checked by a solver before you see them: winnable, and
+  within 3 to 10 moves by default, which becomes par. Win conditions to
+  compare: take their King, catch the rabbit, capture them all, any one, or
+  a mix (2026-10-06);
 - the creeping bramble is a day variable, on some boards and not others;
 - a pieces menu with every piece of the day, rabbit included, as a turning
   model with a short description;

@@ -146,9 +146,35 @@ and it goes in a notebook you can copy out.
   (flee, balanced, hunt). See the comment at the top of `ai.js` for how it
   works: minimax search with alpha-beta pruning, to a fixed budget of
   positions so the same position gets the same move on every phone.
-- **Winning:** catch all of them, any one, or the marked one; a move limit or
+- **Winning:** capture them all, take their King (it makes sure they have
+  exactly one), catch the rabbit (it makes sure there is one), catch any one,
+  a marked one, or mix it up (a different goal per layout); a move limit or
   none; who moves first.
-- **Go crazy** rolls every setting at once.
+- **Only deal winnable levels** (on by default): the solver plays each new
+  layout before you see it and keeps the first one it can win in between a
+  minimum and a maximum number of moves (3 and 10 by default). That number is
+  the level's par. After a game, "Watch the solver's win" replays its line.
+- **Go crazy** rolls every setting at once, goal included.
+
+### The solver
+
+`solve.js`. Their side is deterministic (a pattern always hops the same way;
+the AI always answers the same position the same way), so from your side a
+level is a puzzle where each move leads to exactly one next position. The
+solver searches your moves alone:
+
+1. **Exhaustive while it is small.** Every move, every reply, positions
+   already seen merged. A win found here is the shortest possible, and the lab
+   says so.
+2. **Beam search after that.** At each move it keeps only the most promising
+   positions (closest to catching what has to be caught), which finishes fast
+   but can miss the very best line. Par then means "the solver found a win
+   this short", and beating it is a birdie.
+
+It works to a budget and a deadline, and `lab-worker.js` runs it on a
+background thread so the page stays smooth. Every line it reports is a real
+win: a fuzz test replays each one through the rules and checks it ends in a
+win on exactly par.
 
 A level is its settings plus a seed (the dice roll that places everything), so
 a level link rebuilds exactly the same level anywhere.

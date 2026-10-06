@@ -1,30 +1,34 @@
-// The lab page: edit settings, see the level turn, play it, rate it.
+// The lab page: edit settings, have the solver check the level, see it turn,
+// play it, rate it.
 
 import { $, el, show, haptic, keepAwake } from '../../../engine/ui.js';
 import { makeTarget, render } from '../../../engine/lowpoly.js';
-import { PIECES, movesFor, playerMove, respond, isOver, outcome, initialState, allMoves, isBramble } from '../rules.js';
+import { PIECES, movesFor, playerMove, respond, isOver, outcome, initialState, allMoves, isBramble, replay } from '../rules.js';
 import { Board, scene, sceneFrame, sprite, patternPicture } from '../board.js';
 import { piecesSheet } from '../sheet.js';
 import { describeSteps } from '../day.js';
-import { SCHEMA, defaults, clean, crazy, makeLevel, summary, encodeLevel, decodeLevel, loadLab, saveLab } from '../lab.js';
+import {
+  SCHEMA, defaults, clean, crazy, makeLevel, summary, encodeLevelWithPar, decodeLevel,
+  loadLab, saveLab, searchLayouts, GOAL_PILL
+} from '../lab.js';
 
 const lab = loadLab();
 const newSeed = () => 1 + Math.floor(Math.random() * 1e9);
 
 // A link wins; then whatever you were last working on; then the defaults.
-let settings, seed;
+let settings, seed, par = null, exactPar = false, line = null;
 const linked = decodeLevel(location.hash);
-if (linked) ({ settings, seed } = linked);
-else if (lab.current) { settings = clean(lab.current.settings); seed = lab.current.seed; }
+if (linked) ({ settings, seed, par } = linked);
+else if (lab.current) { settings = clean(lab.current.settings); seed = lab.current.seed; par = lab.current.par ?? null; }
 else { settings = defaults(); seed = newSeed(); }
 let level = makeLevel(settings, seed);
 
-const levelLink = () => `${location.origin}${location.pathname}#${encodeLevel(settings, seed)}`;
+const levelLink = () => `${location.origin}${location.pathname}#${encodeLevelWithPar(settings, seed, par)}`;
 
 function remember() {
-  lab.current = { settings, seed };
+  lab.current = { settings, seed, par };
   saveLab(lab);
-  history.replaceState(null, '', `#${encodeLevel(settings, seed)}`);
+  history.replaceState(null, '', `#${encodeLevelWithPar(settings, seed, par)}`);
 }
 
 // --- The settings form, built from the schema. ----------------------------
@@ -75,16 +79,85 @@ function buildForm() {
 
 function set(key, value) {
   settings = clean({ ...settings, [key]: value });
-  refresh();
+  deal();
 }
 
-function refresh() {
+// --- Dealing a level: settings + seed, checked by the solver if asked. ----
+
+let job = null, autoplay = false;
+// What the board shows can run ahead of the game for a moment (your move is
+// drawn while they are still thinking), or show the solver's line instead.
+let shown = null, watching = null;
+const note = (t) => { $('#labnote').textContent = t; };
+
+function stopJob() { if (job) { job.terminate(); job = null; } }
+
+function searching(on) {
+  $('#play').disabled = on;
+  $('#play').textContent = on ? 'Testing layouts…' : 'Play this level';
+}
+
+/**
+ * Make the level for the current settings. With the solver on, layouts are
+ * tested from the current seed onward until one is winnable inside the
+ * range; `fixed` tests only the current seed (for a level opened from a link
+ * that does not carry its par).
+ */
+function deal({ reseed = false, fixed = false } = {}) {
+  stopJob();
+  watching = null;
+  if (reseed) seed = newSeed();
+  par = null; exactPar = false; line = null;
   level = makeLevel(settings, seed);
-  remember();
   updaters.forEach((u) => u());
   $('#summary').textContent = summary(settings);
-  $('#labnote').textContent = '';
   buildPreview();
+  if (!settings.solve) { note('The solver is off, so this layout is untested.'); return ready(); }
+
+  searching(true);
+  note('Testing layouts…');
+  const msg = { settings, seed, parMin: settings.parMin, parMax: settings.parMax, fixed };
+  try {
+    const w = new Worker(new URL('../lab-worker.js', import.meta.url), { type: 'module' });
+    job = w;
+    w.onmessage = ({ data }) => { if (job === w) result(data); };
+    w.onerror = () => { if (job === w) { stopJob(); inline(msg); } };
+    w.postMessage(msg);
+  } catch { inline(msg); }
+}
+
+/** No workers in this browser: search on the page itself, briefly. */
+function inline(msg) {
+  const t = setTimeout(() => searchLayouts({ ...msg, maxMs: 4000 }, result), 30);
+  job = { terminate: () => clearTimeout(t) };
+}
+
+function result(data) {
+  if (data.type === 'progress') return note(`Testing layouts… ${data.tried} tried so far.`);
+  stopJob();
+  const tries = data.tried > 1 ? ` It tried ${data.tried} layouts to find it.` : '';
+  if (data.type === 'done') {
+    ({ seed, par, line } = data);
+    exactPar = data.exact;
+    note(`Winnable in ${par}. ${exactPar ? 'The solver checked every line, so that is the shortest win there is.' : 'That is the shortest win the solver found; you might beat it.'}${tries}`);
+  } else if (data.best) {
+    ({ seed, par, line } = data.best);
+    exactPar = data.best.exact;
+    note(`Every layout it tried could be won in under ${settings.parMin}. This is the hardest it found: par ${par}. ` +
+      'For harder ones: fewer pieces of yours, more of theirs, a bigger board, or a smarter brain.');
+  } else {
+    note(`It found no win within ${settings.parMax} moves in ${data.tried} layout${data.tried === 1 ? '' : 's'}. ` +
+      'For easier ones: more pieces of yours, fewer of theirs, a looser move limit, or a simpler brain. You can still play this one.');
+  }
+  level = makeLevel(settings, seed);
+  buildPreview();
+  searching(false);
+  ready();
+}
+
+function ready() {
+  remember();
+  if (autoplay) { autoplay = false; startGame(); }
 }
 
 // --- The preview: the level as a turning model. ----------------------------
@@ -111,7 +184,7 @@ function previewFrame(ts) {
 
 // --- The notebook. ---------------------------------------------------------
 
-const RESULT = { caught: 'won', eaten: 'lost', dusk: 'ran out of moves', quit: 'gave up' };
+const RESULT = { caught: 'won', eaten: 'lost', dusk: 'ran out of moves' };
 
 function renderNotebook() {
   const box = $('#notebook');
@@ -119,22 +192,36 @@ function renderNotebook() {
   if (!lab.notes.length) box.append(el('p', { class: 'small dim' }, 'Nothing yet. Play a level and rate it, and it lands here.'));
   for (const n of [...lab.notes].reverse()) {
     box.append(el('div', { class: 'note' },
-      el('p', {}, el('b', {}, `${n.rating}/5`), ` · ${RESULT[n.outcome] || n.outcome} after ${n.moves} move${n.moves === 1 ? '' : 's'} · ${new Date(n.at).toLocaleDateString()}`),
+      el('p', {}, el('b', {}, `${n.rating}/5`),
+        ` · ${RESULT[n.outcome] || n.outcome} in ${n.moves}${n.par ? `, par ${n.par}` : ''} · ${new Date(n.at).toLocaleDateString()}`),
       n.note ? el('p', {}, n.note) : null,
       el('p', { class: 'small dim' }, summary(clean(n.settings))),
       el('div', { class: 'row' },
-        el('button', { class: 'quiet', onclick: () => { settings = clean(n.settings); seed = n.seed; refresh(); window.scrollTo(0, 0); } }, 'Load'),
+        el('button', { class: 'quiet', onclick: () => load(n) }, 'Load'),
         el('button', { class: 'quiet', onclick: () => { lab.notes = lab.notes.filter((x) => x !== n); saveLab(lab); renderNotebook(); } }, 'Remove'))));
   }
+}
+
+function load(n) {
+  stopJob();
+  settings = clean(n.settings); seed = n.seed; par = n.par ?? null; line = null; exactPar = false;
+  level = makeLevel(settings, seed);
+  updaters.forEach((u) => u());
+  $('#summary').textContent = summary(settings);
+  buildPreview();
+  searching(false);
+  note(par ? `Loaded. Par ${par}.` : 'Loaded.');
+  remember();
+  window.scrollTo(0, 0);
 }
 
 $('#copynotes').onclick = async () => {
   const base = `${location.origin}${location.pathname}`;
   const text = lab.notes.map((n) => [
-    `${n.rating}/5, ${RESULT[n.outcome] || n.outcome} after ${n.moves} moves`,
+    `${n.rating}/5, ${RESULT[n.outcome] || n.outcome} in ${n.moves}${n.par ? ` (par ${n.par})` : ''}`,
     n.note ? `Note: ${n.note}` : null,
     summary(clean(n.settings)),
-    `${base}#${encodeLevel(n.settings, n.seed)}`
+    `${base}#${encodeLevelWithPar(n.settings, n.seed, n.par)}`
   ].filter(Boolean).join('\n')).join('\n\n');
   try { await navigator.clipboard.writeText(text || 'The notebook is empty.'); $('#copynote').textContent = 'Copied.'; }
   catch { $('#copynote').textContent = 'Could not reach the clipboard on this browser.'; }
@@ -143,15 +230,17 @@ $('#copynotes').onclick = async () => {
 // --- Playing. --------------------------------------------------------------
 
 let board = null, game = null, sel = null, legal = [], busy = false, openSheet = null, rating = 0;
-// What the board shows can run ahead of the game for a moment: your move is
-// drawn while they are still thinking about theirs.
-let shown = null;
 const now = () => game.states[game.states.length - 1];
 const status = (t) => { $('#status').textContent = t; };
 const info = (t) => { $('#info').textContent = t; };
 const thinks = (s) => s.foes.some((f) => !f.taken && f.brain === 'ai');
 
 function draw() {
+  if (watching) {
+    const { states, k, moves } = watching;
+    return board.draw({ state: states[k], track: level.tracks ? states.slice(0, k + 1) : null,
+      paths: [{ play: { moves, states }, color: '#2f6fc0', upto: k }] });
+  }
   board.draw({ state: shown || now(), track: level.tracks ? game.states : null, sel, legal });
 }
 
@@ -159,7 +248,7 @@ function startGame() {
   game = { states: [initialState(level)], moves: [] };
   board = new Board($('#board'), level);
   board.redraw = draw;
-  sel = null; legal = []; busy = false; rating = 0; shown = null;
+  sel = null; legal = []; busy = false; rating = 0; shown = null; watching = null;
   $('#sheet-list').replaceChildren();
   openSheet = piecesSheet($('#sheet'), $('#sheet-list'), level, {
     rabbit: level.foes.some((f) => f.brain === 'pattern') ? 'Each rabbit has its own pattern. Its tracks are numbered in its own colour.' : null
@@ -168,8 +257,8 @@ function startGame() {
   keepAwake();
   $('#end').hidden = true;
   $('#controls').hidden = false;
-  $('#movemax').textContent = level.rules.maxMoves ? `of ${level.rules.maxMoves}` : '';
-  $('#goalpill').textContent = { all: 'Catch them all', any: 'Catch any one', target: 'Catch the marked one' }[level.rules.goal];
+  $('#movemax').textContent = [level.rules.maxMoves ? `of ${level.rules.maxMoves}` : '', par ? `· par ${par}` : ''].join(' ');
+  $('#goalpill').textContent = GOAL_PILL[level.goalKind];
   const chips = $('#chips');
   chips.replaceChildren(el('span', { class: 'pill' }, `${level.W} × ${level.H}`));
   if (level.bramble.length) chips.append(el('span', { class: 'pill' }, 'Bramble'));
@@ -192,7 +281,7 @@ function select(i) {
   $('#wait').textContent = level.rules.wait ? 'Wait a turn' : 'Pass';
   if (i == null) info(stuck && !level.rules.wait
     ? 'None of your pieces can move, so you have to pass.'
-    : 'Tap a piece to light up where it can go.');
+    : 'Tap a piece to light up where it can go. Gold rings mark what you have to catch.');
   else {
     const P = PIECES[now().pieces[i].type];
     info(`${P.name}: ${P.desc}${legal.length ? '' : ' It has nowhere to go right now.'}`);
@@ -238,7 +327,7 @@ async function play(mv) {
 }
 
 $('#board').addEventListener('click', (e) => {
-  if (!board || busy || isOver(now())) return;
+  if (!board || busy || watching || isOver(now())) return;
   const c = board.cellAt(e);
   if (!c) return;
   const { x, y } = c, s = now();
@@ -261,6 +350,11 @@ $('#tolab').onclick = () => { show('lab'); };
 
 // --- The end: what happened, and was it fun? -------------------------------
 
+function golf(d) {
+  if (d <= -3) return 'Albatross';
+  return { '-2': 'Eagle', '-1': 'Birdie', 0: 'Par', 1: 'Bogey', 2: 'Double bogey' }[d] ?? `${d} over par`;
+}
+
 function finish() {
   const end = now(), how = outcome(end);
   $('#controls').hidden = true;
@@ -268,7 +362,9 @@ function finish() {
   const kingFell = level.rules.royal && end.pieces.some((p) => p.taken && p.type === 'king');
   $('#end-score').textContent = { caught: `You won in ${end.t}`, eaten: kingFell ? 'Your King fell' : 'They took everything', dusk: 'Out of moves' }[how];
   const caught = end.foes.filter((f) => f.taken).length, lostN = end.pieces.filter((p) => p.taken).length;
-  $('#end-detail').textContent = `You caught ${caught} of ${end.foes.length}. You lost ${lostN} of ${end.pieces.length}.`;
+  $('#end-detail').textContent = (par ? `Par ${par}${how === 'caught' ? ` · ${golf(end.t - par)}` : ''}. ` : '') +
+    `You caught ${caught} of ${end.foes.length}. You lost ${lostN} of ${end.pieces.length}.`;
+  $('#solver').hidden = !settings.solve && !par;
   status(''); info('');
   const pats = $('#end-patterns');
   pats.replaceChildren();
@@ -290,37 +386,72 @@ function finish() {
   draw();
 }
 
+/** Replay the solver's winning line on the board, move by move. */
+async function watchSolver() {
+  if (!line) {
+    // Opened from a link, so the line was never worked out here. Work it out.
+    $('#solver').textContent = 'Working it out…';
+    await new Promise((res) => setTimeout(res, 30)); // let the label paint first
+    searchLayouts({ settings, seed, parMin: 1, parMax: 15, fixed: true }, (d) => { if (d.type === 'done') line = d.line; });
+    $('#solver').textContent = "Watch the solver's win";
+    if (!line) { $('#savenote').textContent = 'The solver could not find a win on this one.'; return; }
+  }
+  // The replay keeps its own copy of the line: dealing a new level clears
+  // `line`, and an animation still running must not lose what it is drawing.
+  const moves = line, { states } = replay(level, moves);
+  const mine = { states, k: 0, moves };
+  watching = mine;
+  board.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  draw();
+  await new Promise((r) => setTimeout(r, 350));
+  for (let k = 1; k < states.length && watching === mine; k++) {
+    mine.k = k;
+    await board.animate(states[k - 1], states[k], moves[k - 1], 1.3);
+    await new Promise((r) => setTimeout(r, 160));
+  }
+}
+
+$('#solver').onclick = () => { if (!watching) watchSolver(); else { watching = null; draw(); } };
+
 $('#save').onclick = () => {
   if (!rating) { $('#savenote').textContent = 'Pick a number first: 1 is a slog, 5 is great.'; return; }
   const end = now();
-  lab.notes.push({ at: Date.now(), settings, seed, outcome: outcome(end), moves: end.t, rating, note: $('#note').value.trim() });
+  lab.notes.push({ at: Date.now(), settings, seed, par, outcome: outcome(end), moves: end.t, rating, note: $('#note').value.trim() });
   saveLab(lab);
   renderNotebook();
   $('#savenote').textContent = 'Saved to the notebook.';
   $('#save').disabled = true;
 };
 
+// New layouts from the end screen go back to the lab while the solver tests
+// them, then start the game by themselves.
 $('#again').onclick = () => startGame();
-$('#next').onclick = () => { seed = newSeed(); refresh(); startGame(); };
-$('#crazy2').onclick = () => { settings = crazy(); seed = newSeed(); refresh(); startGame(); };
+$('#next').onclick = () => { show('lab'); autoplay = true; deal({ reseed: true }); };
+$('#crazy2').onclick = () => { show('lab'); autoplay = true; settings = crazy(); deal({ reseed: true }); };
 $('#back').onclick = () => show('lab');
 
 // --- The lab's own buttons. ------------------------------------------------
 
 $('#play').onclick = () => startGame();
-$('#reroll').onclick = () => { seed = newSeed(); refresh(); };
-$('#crazy').onclick = () => { settings = crazy(); seed = newSeed(); refresh(); };
-$('#reset').onclick = () => { settings = defaults(); refresh(); };
+$('#reroll').onclick = () => deal({ reseed: true });
+$('#crazy').onclick = () => { settings = crazy(); deal({ reseed: true }); };
+$('#reset').onclick = () => { settings = defaults(); deal(); };
 $('#link').onclick = async () => {
-  try { await navigator.clipboard.writeText(levelLink()); $('#labnote').textContent = 'Copied. Anyone who opens it gets exactly this level.'; }
-  catch { $('#labnote').textContent = levelLink(); }
+  try { await navigator.clipboard.writeText(levelLink()); note('Copied. Anyone who opens it gets exactly this level.'); }
+  catch { note(levelLink()); }
 };
 
 buildForm();
-refresh();
+updaters.forEach((u) => u());
+$('#summary').textContent = summary(settings);
+buildPreview();
+// A level that arrives with its par needs no solving. One without, with the
+// solver on, gets this exact layout checked (not replaced).
+if (settings.solve && !par) deal({ fixed: !!linked });
+else { note(par ? `Par ${par}.` : ''); remember(); }
 renderNotebook();
 show('lab');
 requestAnimationFrame(previewFrame);
 
 // For automated tests: read-only access to what is on the board.
-window.__lab = { now: () => (game ? now() : null), level: () => level };
+window.__lab = { now: () => (game ? now() : null), level: () => level, par: () => par, line: () => line };

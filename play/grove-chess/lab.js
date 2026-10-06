@@ -9,6 +9,7 @@
 import { rng, shuffled } from '../../engine/seed.js';
 import { PIECES, onBoard } from './rules.js';
 import { PATTERNS } from './day.js';
+import { solveLevel } from './solve.js';
 
 export const CLASSIC = Object.keys(PIECES).filter((k) => PIECES[k].kind === 'classic');
 export const FAIRY = Object.keys(PIECES).filter((k) => PIECES[k].kind === 'fairy');
@@ -31,16 +32,16 @@ export const SCHEMA = [
     { key: 'brambleMax', label: 'Bramble stops at', type: 'int', min: 1, max: 24, def: 6, unit: 'squares' }
   ] },
   { group: 'Your side', fields: [
-    { key: 'mine', label: 'Pieces', type: 'int', min: 1, max: 8, def: 3 },
-    { key: 'minePool', label: 'Dealt from', type: 'pieces', def: ['knight', 'bishop', 'rook', 'grasshopper'] },
+    { key: 'mine', label: 'Pieces', type: 'int', min: 1, max: 8, def: 4 },
+    { key: 'minePool', label: 'Dealt from', type: 'pieces', def: ['queen', 'knight', 'bishop', 'rook', 'grasshopper'] },
     { key: 'mineDupes', label: 'Repeats allowed', type: 'bool', def: false },
     { key: 'mineRows', label: 'Start within the bottom', type: 'int', min: 1, max: 5, def: 2, unit: 'rows' },
     { key: 'royal', label: 'Your King is royal', type: 'bool', def: false, help: 'Lose the King, lose the game.' },
     { key: 'wait', label: 'Waiting allowed', type: 'bool', def: true }
   ] },
   { group: 'Their side', fields: [
-    { key: 'foes', label: 'Pieces', type: 'int', min: 1, max: 8, def: 1 },
-    { key: 'foePool', label: 'Dealt from', type: 'pieces', rabbit: true, def: ['rabbit'] },
+    { key: 'foes', label: 'Pieces', type: 'int', min: 1, max: 8, def: 3 },
+    { key: 'foePool', label: 'Dealt from', type: 'pieces', rabbit: true, def: ['king', 'knight', 'bishop', 'pawn'] },
     { key: 'foeDupes', label: 'Repeats allowed', type: 'bool', def: true },
     { key: 'mirror', label: 'Mirror your pieces instead', type: 'bool', def: false, help: 'They get a copy of your hand, facing you, like chess.' },
     { key: 'foeRows', label: 'Start within the top', type: 'int', min: 1, max: 5, def: 3, unit: 'rows' },
@@ -55,9 +56,16 @@ export const SCHEMA = [
     { key: 'foesCapture', label: 'They can take your pieces', type: 'bool', def: true }
   ] },
   { group: 'Winning', fields: [
-    { key: 'goal', label: 'You win by catching', type: 'choice', def: 'all', options: opts(['all', 'All of them'], ['any', 'Any one'], ['target', 'The marked one']) },
+    { key: 'goal', label: 'How you win', type: 'choice', def: 'king', options: opts(
+      ['all', 'Capture them all'], ['king', 'Take their King'], ['rabbit', 'Catch the rabbit'],
+      ['any', 'Catch any one'], ['target', 'A marked one'], ['mix', 'Mix it up']),
+      help: 'King and rabbit make sure they have one. Mix picks a goal per layout.' },
     { key: 'maxMoves', label: 'Move limit', type: 'int', min: 0, max: 60, def: 20, help: '0 means no limit.' },
-    { key: 'first', label: 'First move', type: 'choice', def: 'you', options: opts(['you', 'You'], ['them', 'Them']) }
+    { key: 'first', label: 'First move', type: 'choice', def: 'you', options: opts(['you', 'You'], ['them', 'Them']) },
+    { key: 'solve', label: 'Only deal winnable levels', type: 'bool', def: true,
+      help: 'The solver plays each layout first and throws out any it cannot win in time. It also sets par.' },
+    { key: 'parMax', label: 'Winnable within', type: 'int', min: 2, max: 15, def: 10, unit: 'moves' },
+    { key: 'parMin', label: 'But not in fewer than', type: 'int', min: 1, max: 12, def: 3, unit: 'moves' }
   ] }
 ];
 
@@ -78,6 +86,7 @@ export function clean(raw) {
       if (ok.length) s[f.key] = [...new Set(ok)];
     }
   }
+  if (s.parMin > s.parMax) s.parMin = s.parMax;
   return s;
 }
 
@@ -107,7 +116,8 @@ export function crazy(rand = Math.random) {
     hops: rand() < 0.8 ? 1 : int(2, 3), tracks: rand() < 0.85,
     skill: pick(['0', '1', '2', '2', '3']), style: pick(['flee', 'balanced', 'hunt']),
     foesCapture: rand() < 0.85,
-    goal: pick(['all', 'all', 'any', 'target']), maxMoves: pick([0, 12, 15, 20, 25, 30]), first: rand() < 0.8 ? 'you' : 'them'
+    goal: pick(['all', 'king', 'king', 'rabbit', 'rabbit', 'any', 'mix']), maxMoves: pick([0, 15, 20, 25, 30]), first: rand() < 0.8 ? 'you' : 'them',
+    solve: true, parMax: int(6, 12), parMin: int(2, 3)
   });
 }
 
@@ -230,7 +240,22 @@ export function makeLevel(settings, seed) {
     });
   } else foes = deal(S.foePool, S.foes, S.foeDupes).map((type) => ({ type, ...place(top) }));
 
-  // Brains, patterns, and which one is marked.
+  // The goal. King and rabbit goals make sure the thing to catch exists, and
+  // mark it; the rules engine only knows "catch every marked one".
+  const goal = S.goal === 'mix' ? ['all', 'king', 'rabbit'][Math.floor(rand() * 3)] : S.goal;
+  if (goal === 'king' && foes.length) {
+    const kings = foes.filter((f) => f.type === 'king');
+    if (!kings.length) foes[0].type = 'king';
+    else kings.slice(1).forEach((f) => { f.type = 'pawn'; });
+    foes.find((f) => f.type === 'king').target = true;
+  }
+  if (goal === 'rabbit' && foes.length) {
+    if (!foes.some((f) => f.type === 'rabbit')) foes[0].type = 'rabbit';
+    foes.forEach((f) => { if (f.type === 'rabbit') f.target = true; });
+  }
+  if (goal === 'target' && foes.length) (foes.find((f) => f.type === 'rabbit') || foes[0]).target = true;
+
+  // Brains and patterns.
   foes.forEach((f) => {
     f.brain = f.type === 'rabbit' && S.rabbitBrain === 'pattern' ? 'pattern' : 'ai';
     if (f.brain === 'pattern') {
@@ -239,9 +264,6 @@ export function makeLevel(settings, seed) {
       f.mx = rand() < 0.5 ? 1 : -1; f.my = rand() < 0.5 ? 1 : -1; f.hops = S.hops;
     }
   });
-  const mark = foes.find((f) => f.type === 'rabbit') || foes[0];
-  if (mark && S.goal === 'target') mark.target = true;
-
   const middle = rows.slice(S.mineRows, rows.length - S.foeRows);
   for (let i = 0; i < S.stumps; i++) { const c = place(middle.length ? middle : rows); if (c) day.stumps.add(c.y * W + c.x); }
 
@@ -272,22 +294,35 @@ export function makeLevel(settings, seed) {
     seed, settings: S,
     pieces: pieces.filter((p) => p.x !== undefined),
     foes: foes.filter((f) => f.x !== undefined),
-    rules: { goal: S.goal, maxMoves: S.maxMoves, wait: S.wait, foesCapture: S.foesCapture, royal: S.royal, first: S.first },
+    goalKind: goal,
+    rules: { goal: ['king', 'rabbit', 'target'].includes(goal) ? 'target' : goal, maxMoves: S.maxMoves, wait: S.wait, foesCapture: S.foesCapture, royal: S.royal, first: S.first },
     ai: { skill: +S.skill, style: S.style },
     tracks: S.tracks
   });
 }
 
+export const GOAL_TEXT = {
+  all: 'capturing them all', king: 'taking their King', rabbit: 'catching the rabbit',
+  any: 'catching any one', target: 'catching the marked one', mix: 'a goal that changes with each layout'
+};
+export const GOAL_PILL = {
+  all: 'Capture them all', king: 'Take their King', rabbit: 'Catch the rabbit', any: 'Catch any one', target: 'Catch the marked one'
+};
+
 /** One line saying what a level is. */
 export function summary(S) {
   const name = (k) => PIECES[k].name;
   const pool = (a) => (a.length > 4 ? `${a.slice(0, 4).map(name).join(', ')} and ${a.length - 4} more` : a.map(name).join(', '));
-  const shape = SCHEMA[0].fields.find((f) => f.key === 'shape').options.find((o) => o.v === S.shape).label;
-  return `${S.w} × ${S.h} ${shape.toLowerCase()}. You: ${S.mine} from ${pool(S.minePool)}. ` +
-    `Them: ${S.mirror ? 'a mirror of you' : `${S.foes} from ${pool(S.foePool)}`}` +
+  const shape = S.shape === 'L' ? 'L-shaped board' : SCHEMA[0].fields.find((f) => f.key === 'shape').options.find((o) => o.v === S.shape).label.toLowerCase();
+  const hand = S.mirror ? S.minePool : S.foePool;
+  const made = S.goal === 'king' && !hand.includes('king') ? ', one of them made a King'
+    : S.goal === 'rabbit' && !hand.includes('rabbit') ? ', one of them made a rabbit' : '';
+  return `${S.w} × ${S.h} ${shape}. You: ${S.mine} from ${pool(S.minePool)}. ` +
+    `Them: ${S.mirror ? 'a mirror of you' : `${S.foes} from ${pool(S.foePool)}`}${made}` +
     `${S.foePool.includes('rabbit') && !S.mirror ? `, rabbits ${S.rabbitBrain === 'pattern' ? 'on patterns' : 'thinking'}` : ''}. ` +
-    `Win by catching ${{ all: 'all', any: 'any one', target: 'the marked one' }[S.goal]}` +
-    `${S.maxMoves ? ` in ${S.maxMoves} moves` : ''}.`;
+    `Win by ${GOAL_TEXT[S.goal]}` +
+    `${S.maxMoves ? ` in ${S.maxMoves} moves` : ''}.` +
+    `${S.solve ? ` Checked winnable in ${S.parMin} to ${S.parMax}.` : ''}`;
 }
 
 // --- Links. ----------------------------------------------------------------
@@ -300,12 +335,18 @@ export function encodeLevel(settings, seed) {
   return `lab=${b64}&seed=${seed}`;
 }
 
+/** A level link with its par attached, so opening it needs no solving. */
+export function encodeLevelWithPar(settings, seed, par) {
+  return encodeLevel(settings, seed) + (par ? `&par=${par}` : '');
+}
+
 export function decodeLevel(hash) {
   const p = new URLSearchParams(hash.replace(/^#/, ''));
   if (!p.has('lab')) return null;
   try {
     const json = decodeURIComponent(escape(atob(p.get('lab').replace(/-/g, '+').replace(/_/g, '/'))));
-    return { settings: clean(JSON.parse(json || '{}')), seed: Math.abs(parseInt(p.get('seed'), 10)) || 1 };
+    const par = parseInt(p.get('par'), 10);
+    return { settings: clean(JSON.parse(json || '{}')), seed: Math.abs(parseInt(p.get('seed'), 10)) || 1, par: par > 0 ? par : null };
   } catch { return null; }
 }
 
@@ -323,4 +364,28 @@ export function loadLab() {
 
 export function saveLab(lab) {
   try { localStorage.setItem(NOTE_KEY, JSON.stringify(lab)); } catch { /* never lose a game over storage */ }
+}
+
+// --- Testing layouts. ------------------------------------------------------
+
+/**
+ * Try seed, seed + 1, seed + 2... until the solver wins one with par inside
+ * [parMin, parMax], reporting through `post` as it goes. With `fixed` it
+ * solves exactly the seed given. Used by lab-worker.js on a background
+ * thread, and directly by the page when workers are not available.
+ */
+export function searchLayouts({ settings, seed, parMin, parMax, maxTries = 400, maxMs = 15000, fixed = false }, post) {
+  const t0 = Date.now();
+  let best = null, tried = 0;
+  for (let i = 0; i < (fixed ? 1 : maxTries); i++) {
+    const sd = seed + i;
+    const r = solveLevel(makeLevel(settings, sd), { maxDepth: parMax, deadline: t0 + maxMs });
+    tried = i + 1;
+    if (r.par && (fixed || r.par >= parMin)) return post({ type: 'done', seed: sd, par: r.par, exact: r.exact, line: r.line, tried });
+    // Winnable but too easy: keep the hardest of those, in case nothing passes.
+    if (r.par && (!best || r.par > best.par)) best = { seed: sd, par: r.par, exact: r.exact, line: r.line };
+    post({ type: 'progress', tried });
+    if (Date.now() - t0 > maxMs) break;
+  }
+  post({ type: 'failed', tried, best });
 }
