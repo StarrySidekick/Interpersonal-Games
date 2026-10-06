@@ -222,7 +222,7 @@ export class Board3D extends Board {
   // --- A frame. ------------------------------------------------------------
 
   draw(v) {
-    const s = v.state, at = performance.now(), w = this.el.width, h = this.el.height, g = this.g;
+    const s = v.state, at = performance.now(), w = this.el.width, g = this.g;
     this.shown = s;
     this.lit = v.legal || [];
     const board = { pitch: Math.PI / 2, yaw: 0, scale: this.scale, cx: this.cx, cy: this.cy }; // straight down
@@ -232,18 +232,26 @@ export class Board3D extends Board {
     const m1 = new Mesh();
     m1.tris = this.forest.tris.slice();
     if (!fallen) this.squares(m1, s, v, at);
-    render(this.t3, m1, { ...board, outline: '#0a0f0b' });
-    this.lctx.putImageData(this.t3.img, 0, 0);
-    g.fillStyle = FOG;
-    g.fillRect(0, 0, w, h);
-    g.drawImage(this.layer, 0, 0);
+    // These cover the whole picture, fog and all, so they go straight onto
+    // the canvas.
+    render(this.t3, m1, { ...board, outline: '#0a0f0b', bg: FOG });
+    g.putImageData(this.t3.img, 0, 0);
     if (!fallen) {
       // 2. Marks on the surface (not once the floor starts to go).
       if (!this.tw?.collapse) this.marks(g, v, s);
-      // 3. Everything standing up.
+      // 3. Everything standing up. This picture has gaps, so it goes onto a
+      // canvas of its own first, which is then laid over the top.
+      //
+      // Setting the width gives that canvas fresh pixel memory first. Some
+      // Safari versions (WebKit bug 256151, iOS 16 and older) let a canvas
+      // that had been drawn somewhere keep sharing its pixels with that
+      // place, so new pixels written into it showed up there too. When one
+      // canvas carried both pictures, the pieces' picture landed on top of
+      // the board's and wiped it out: the board went invisible.
       const m2 = new Mesh();
       this.things(m2, s, at);
       render(this.t3, m2, { ...pieces, outline: '#1d150e' });
+      this.layer.width = w;
       this.lctx.putImageData(this.t3.img, 0, 0);
       g.drawImage(this.layer, 0, 0);
       // 4. Puffs and leaves.

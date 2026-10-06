@@ -222,12 +222,19 @@ const L = norm([-0.45, 0.85, 0.5]);
  * empty again (so the new layer can be laid on top of anything drawn in
  * between) but the depths stay, so the new things still hide behind, or in
  * front of, the old. With `outlineFrom`, only edges against objects whose id
- * is at least that number are outlined.
+ * is at least that number are outlined. With `bg`, the image starts filled
+ * with that colour instead of empty, so it can go straight onto a canvas.
  */
 export function render(t, mesh, o = {}) {
-  const { yaw = 0, pitch = 0.5, scale = 2, cx = t.w / 2, cy = t.h / 2, outline = '#2a2118', keep = false, outlineFrom = -1 } = o;
+  const { yaw = 0, pitch = 0.5, scale = 2, cx = t.w / 2, cy = t.h / 2, outline = '#2a2118', keep = false, outlineFrom = -1, bg = null } = o;
   const W = t.w, H = t.h, data = t.img.data, zb = t.z, ids = t.id;
-  data.fill(0);
+  if (bg) {
+    // One pixel's four bytes read as a single 32-bit number, so the whole
+    // image fills in one call; reading them through the same kind of view
+    // keeps the bytes in the right order on any machine.
+    const c = rgb(bg), px = new Uint32Array(new Uint8Array([c[0], c[1], c[2], 255]).buffer)[0];
+    new Uint32Array(data.buffer, data.byteOffset, data.length / 4).fill(px);
+  } else data.fill(0);
   if (!keep) { zb.fill(-1e9); ids.fill(-1); }
   const cyw = Math.cos(yaw), syw = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
   const view = (v) => {

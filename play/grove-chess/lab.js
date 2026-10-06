@@ -112,7 +112,7 @@ const BEFORE = {
   1: { rabbits: 0, foes: 3, patterns: 'daily', darkBrain: 'think', kinds: 1, foePool: ['king', 'knight', 'bishop', 'pawn'],
     ground: 'solid', goal: 'king', balance: 'off' }
 };
-const defaultsFor = (v) => ({ ...defaults(), ...structuredClone(BEFORE[v] || {}) });
+const defaultsFor = (v) => ({ ...defaults(), ...JSON.parse(JSON.stringify(BEFORE[v] || {})) });
 
 /** Keep settings inside their ranges, whatever a link or a bug hands us.
     Anything without `v: 2` was made before version 2 and keeps its old
