@@ -5,7 +5,7 @@
 import { el } from '../../engine/ui.js';
 import { Mesh, makeTarget, render } from '../../engine/lowpoly.js';
 import { model } from './models.js';
-import { PIECES, rabbitDesc, RABBIT_AI_DESC, BRAMBLE_DESC, STUMP_DESC, HOLE_DESC, CRUMBLE_DESC, SHRINK_DESC, LOCKED_DESC } from './rules.js';
+import { PIECES, descOf, rabbitDesc, RABBIT_AI_DESC, BRAMBLE_DESC, STUMP_DESC, HOLE_DESC, CRUMBLE_DESC, SHRINK_DESC, LOCKED_DESC } from './rules.js';
 import { diagram } from './board.js';
 
 /**
@@ -22,7 +22,7 @@ export function piecesSheet(dialog, list, day, notes = {}) {
     const cv = el('canvas', { class: 'model pix', width: 48, height: 56 });
     spinners.push({ ctx: cv.getContext('2d'), t: makeTarget(48, 56), mesh: new Mesh().add(model(kind, side), 0, 0, 0, 1), phase: spinners.length * 0.7 });
     list.append(el('div', { class: 'prow' },
-      el('div', {}, cv, withDiagram ? diagram(kind) : null),
+      el('div', {}, cv, withDiagram ? diagram(kind, { ballMove: day.rules?.ballMove }) : null),
       el('div', {}, el('span', { class: 'tag' }, tag), el('h3', {}, title),
         ...lines.filter(Boolean).map((l, i) => el('p', { class: i ? 'small dim' : '' }, l)))));
   };
@@ -33,7 +33,7 @@ export function piecesSheet(dialog, list, day, notes = {}) {
     head('Yours');
     for (const type of new Set(day.pieces.map((p) => p.type))) {
       const P = PIECES[type];
-      row(type, 'you', P.name, P.kind === 'fairy' ? 'Fairy piece' : P.kind === 'special' ? 'Special' : 'Classic', [P.desc, P.origin], true);
+      row(type, 'you', P.name, P.kind === 'fairy' ? 'Fairy piece' : P.kind === 'special' ? 'Special' : 'Classic', [descOf(type, day.rules), P.origin], true);
     }
     if (day.hole) {
       head('The goal');

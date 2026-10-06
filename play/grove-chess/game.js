@@ -7,7 +7,7 @@ import { logSitting } from '../../engine/record.js';
 import { soundToggle } from '../../engine/sound.js';
 import { makeTarget, render } from '../../engine/lowpoly.js';
 import {
-  PIECES, rabbitDesc, CRUMBLE_DESC, SHRINK_DESC, movesFor, apply, isOver, outcome, isBramble, brambleCount, replay, crumbled, shrunk
+  PIECES, descOf, rabbitDesc, CRUMBLE_DESC, SHRINK_DESC, movesFor, apply, isOver, outcome, isBramble, brambleCount, replay, crumbled, shrunk
 } from './rules.js';
 import { makeDay, todayStr, describePattern, fairyFor } from './day.js';
 import {
@@ -95,8 +95,8 @@ function select(i) {
   legal = i == null ? [] : movesFor(now(), i);
   if (i == null) info('Numbers mark where the rabbit has been, in order. Tap a piece to light up where it can go.');
   else {
-    const P = PIECES[now().pieces[i].type];
-    info(`${P.name}: ${P.desc}${legal.length ? '' : ' It has nowhere to go right now.'}`);
+    const type = now().pieces[i].type;
+    info(`${PIECES[type].name}: ${descOf(type, now().day.rules)}${legal.length ? '' : ' It has nowhere to go right now.'}`);
   }
   redraw();
 }

@@ -150,11 +150,20 @@ function mao(L, p) {
   return out;
 }
 
-/** The ball rolls up, down, left or right and keeps rolling until something
-    stops it, like a puzzle on ice. It never takes anything. It drops into the
-    hole if it rolls over it, or, when the level says so, only if it comes to
-    rest on it. */
+/** The ball never takes anything. It drops into the hole if it rolls over
+    it, or, when the level says so, only if it comes to rest on it. How it
+    moves is the level's `ballMove`:
+    - 'ice' (the first ball, and the daily's): up, down, left or right, and
+      it keeps rolling until something stops it, like a puzzle on ice.
+    - 'putt': up, down, left or right, as far as you like, like a rook.
+    - 'bounce': diagonally, as far as you like, bouncing off the edge of the
+      board like a billiard ball. This is a real fairy chess piece, the
+      reflecting bishop, from Billiards Chess (Jacques Berthoumeau, 1950s),
+      except that the ball never takes anything. */
 function ball(L, p, fwd, day) {
+  const how = day?.rules?.ballMove || 'ice';
+  if (how === 'bounce') return billiard(L, p, day);
+  if (how === 'putt') return putt(L, p, day);
   const out = [], dropsIn = !day?.rules?.ballStops;
   for (const [dx, dy] of ORTH) {
     let x = p.x, y = p.y, onHole = false;
@@ -167,6 +176,52 @@ function ball(L, p, fwd, day) {
     if (x !== p.x || y !== p.y) out.push({ x, y, cap: false, sink: onHole });
   }
   return out;
+}
+
+/** The putting ball: a rook that never takes. Past an open hole it cannot
+    go (it would drop in), unless the level says it must stop on it. */
+function putt(L, p, day) {
+  const out = [], dropsIn = !day?.rules?.ballStops;
+  for (const [dx, dy] of ORTH)
+    for (let x = p.x + dx, y = p.y + dy; ; x += dx, y += dy) {
+      const c = L(x, y);
+      if (c !== EMPTY && c !== HOLE) break;
+      out.push({ x, y, cap: false, sink: c === HOLE });
+      if (c === HOLE && dropsIn) break;
+    }
+  return out;
+}
+
+/** The billiard ball: diagonally, as far as you like, and off the edge of
+    the board it bounces at a right angle. The cushion runs through the
+    middle of the edge squares, so from b1 it goes a2 and back out to b3.
+    Gaps in the board (a crumbled square, a shrunk edge) are edges too.
+    Each move remembers the squares it bounced on (`via`), so it can be
+    drawn going the way it went. Like any bishop it keeps to its colour. */
+function billiard(L, p, day) {
+  const dropsIn = !day?.rules?.ballStops, found = new Map();
+  const off = (x, y) => L(x, y) === OFF;
+  for (let [dx, dy] of DIAG) {
+    let x = p.x, y = p.y;
+    const via = [];
+    for (let step = 0; step < 64; step++) {
+      if (off(x + dx, y + dy)) {
+        const fx = off(x + dx, y), fy = off(x, y + dy);
+        if (fx) dx = -dx;
+        if (fy) dy = -dy;
+        if (!fx && !fy) { dx = -dx; dy = -dy; } // the point of a corner: straight back
+        if (off(x + dx, y + dy)) break;
+        if (x !== p.x || y !== p.y) via.push([x, y]);
+      }
+      x += dx; y += dy;
+      const c = L(x, y);
+      if (c !== EMPTY && c !== HOLE) break; // anything in the way, itself included
+      const k = y * 64 + x;
+      if (!found.has(k)) found.set(k, { x, y, cap: false, sink: c === HOLE, ...(via.length ? { via: via.slice() } : {}) });
+      if (c === HOLE && dropsIn) break;
+    }
+  }
+  return [...found.values()];
 }
 
 function pawn(L, p, fwd) {
@@ -284,6 +339,17 @@ export const BRAMBLE_DESC = 'Creeps across the board. Nothing can enter it and n
 export const STUMP_DESC = 'In the way. Sliders stop at it; leapers jump over it.';
 export const CRUMBLE_DESC = 'Every square you move off crumbles away behind you. Nothing can stand on it again: sliders stop at the gap, leapers can still jump it, and a rabbit that tries to hop in waits instead.';
 export const SHRINK_DESC = 'The edge of the board falls away. Every few moves one square on the rim drops into the dark for good, and the rim closes in. It never takes a square anything is standing on, never cuts the board in two, and stops when half the board is gone.';
+/** The ball, in words, for how it moves on this level (`ballMove`). */
+export function ballDesc(rules) {
+  const how = rules?.ballMove || 'ice';
+  if (how === 'putt') return 'Rolls up, down, left or right, as far as you like, and stops where you choose. It never takes anything. Get it into the hole to win.';
+  if (how === 'bounce') return 'Rolls diagonally, as far as you like, and bounces off the edge of the board, like a billiard ball: the reflecting bishop of Billiards Chess. Like a bishop it keeps to its colour. It never takes anything. Get it into the hole to win.';
+  return PIECES.ball.desc;
+}
+
+/** A piece's description on a level: the ball's depends on the level. */
+export const descOf = (type, rules) => (type === 'ball' ? ballDesc(rules) : PIECES[type].desc);
+
 export const LOCKED_DESC = 'The hole stays shut until every rabbit is caught. Shut, it is only ground: anything can stand on it and the ball rolls over it. Once it opens, sink the ball to fall through to the next level.';
 export const HOLE_DESC = 'The hole. It moves by its own hidden pattern after every turn, bounces off the edges, and waits if anything is in the way. Nothing but the ball can go in it.';
 

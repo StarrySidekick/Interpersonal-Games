@@ -87,6 +87,9 @@ export const SCHEMA = [
     { key: 'holeMoves', label: 'The hole moves by', type: 'choice', def: 'daily', options: opts(
       ['still', 'Staying put'], ['daily', 'The daily set'], ['short', 'Random, 2 hops'], ['mid', 'Random, 3 to 4'], ['long', 'Random, 5 to 8']),
       help: 'Only when there is a hole. A hidden pattern, like a rabbit\u2019s.' },
+    { key: 'ballMove', label: 'The ball moves', type: 'choice', def: 'putt', options: opts(
+      ['ice', 'On ice'], ['putt', 'Like a putt'], ['bounce', 'Like a billiard ball']),
+      help: 'On ice: up, down, left or right, and it rolls until something stops it. Like a putt: up, down, left or right, as far as you like. Like a billiard ball: diagonally, as far as you like, bouncing off the edges (the reflecting bishop from Billiards Chess). It never takes anything.' },
     { key: 'ballStops', label: 'Ball must stop on the hole', type: 'bool', def: false,
       help: 'Off: it drops in when it rolls over the hole. On: it has to come to rest there.' },
     { key: 'maxMoves', label: 'Move limit', type: 'int', min: 0, max: 60, def: 20, help: '0 means no limit.' },
@@ -101,16 +104,17 @@ export const SCHEMA = [
 ];
 
 const FIELDS = SCHEMA.flatMap((g) => g.fields);
-export const SETTINGS_VERSION = 3;
+export const SETTINGS_VERSION = 4;
 export const defaults = () => ({ ...Object.fromEntries(FIELDS.map((f) => [f.key, Array.isArray(f.def) ? [...f.def] : f.def])), v: SETTINGS_VERSION });
 
 /** How each earlier version's defaults differ from today's. Settings saved
     then (links and notebook entries) only stored what differed from their
     own defaults, so they are read against them. */
 const BEFORE = {
-  2: { rabbits: 1, foes: 2, patterns: 'daily', darkBrain: 'think', kinds: 1, foePool: ['king', 'knight', 'bishop', 'pawn'] },
+  3: { ballMove: 'ice' },
+  2: { rabbits: 1, foes: 2, patterns: 'daily', darkBrain: 'think', kinds: 1, foePool: ['king', 'knight', 'bishop', 'pawn'], ballMove: 'ice' },
   1: { rabbits: 0, foes: 3, patterns: 'daily', darkBrain: 'think', kinds: 1, foePool: ['king', 'knight', 'bishop', 'pawn'],
-    ground: 'solid', goal: 'king', balance: 'off' }
+    ground: 'solid', goal: 'king', balance: 'off', ballMove: 'ice' }
 };
 const defaultsFor = (v) => ({ ...defaults(), ...JSON.parse(JSON.stringify(BEFORE[v] || {})) });
 
@@ -119,7 +123,7 @@ const defaultsFor = (v) => ({ ...defaults(), ...JSON.parse(JSON.stringify(BEFORE
     meaning: crumbling was a switch, there was no separate rabbit count, and
     rabbits ate whenever their side could take your pieces. */
 export function clean(raw) {
-  const v = raw?.v === 3 ? 3 : raw?.v === 2 ? 2 : 1, legacy = v === 1;
+  const v = [2, 3, 4].includes(raw?.v) ? raw.v : 1, legacy = v === 1;
   const s = defaultsFor(v);
   for (const f of FIELDS) {
     const v = raw?.[f.key];
@@ -184,7 +188,7 @@ export function crazy(rand = Math.random, allowed = [...FAIRY, 'rabbit']) {
     foesCapture: rand() < 0.85,
     goal: pick(['all', 'king', 'king', 'any', 'mix', 'hole', 'hole', ...(rabbitOk ? ['rabbit', 'rabbit', 'descent', 'descent', 'descent'] : [])]),
     maxMoves: pick([0, 15, 20, 25, 30]), first: rand() < 0.8 ? 'you' : 'them',
-    holeMoves: pick(['still', 'daily', 'daily', 'short', 'mid']), ballStops: rand() < 0.3,
+    holeMoves: pick(['still', 'daily', 'daily', 'short', 'mid']), ballStops: rand() < 0.3, ballMove: pick(['putt', 'putt', 'ice', 'bounce']),
     solve: true, parMax: int(6, 12), parMin: int(2, 3)
   });
   // Ball levels are often best with few or no pieces against you.
@@ -380,7 +384,7 @@ export function makeLevel(settings, seed) {
     foes: foes.filter((f) => f.x !== undefined),
     goalKind: goal, hole,
     rules: { goal: ['king', 'rabbit', 'target'].includes(goal) ? 'target' : goal, maxMoves: S.maxMoves, wait: S.wait,
-      foesCapture: S.foesCapture, rabbitsEat: S.rabbitsEat, royal: S.royal, first: S.first, ballStops: S.ballStops,
+      foesCapture: S.foesCapture, rabbitsEat: S.rabbitsEat, royal: S.royal, first: S.first, ballStops: S.ballStops, ballMove: S.ballMove,
       crumble: S.ground === 'crumble', shrink: S.ground === 'shrink' ? 'random' : S.ground === 'spiral' ? 'spiral' : null,
       shrinkEvery: S.shrinkEvery },
     ai: { skill: +S.skill, style: S.style },
@@ -443,7 +447,7 @@ export function decodeLevel(hash) {
     // A link is read against the defaults of the version it was made in
     // (no v at all: before version 2).
     const v = +p.get('v');
-    if (v === 2 || v === 3) diff.v = v; else delete diff.v;
+    if ([2, 3, 4].includes(v)) diff.v = v; else delete diff.v;
     return { settings: clean(diff), seed: Math.abs(parseInt(p.get('seed'), 10)) || 1, par: par > 0 ? par : null };
   } catch { return null; }
 }

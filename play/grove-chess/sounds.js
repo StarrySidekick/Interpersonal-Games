@@ -173,3 +173,10 @@ export function collapse(at = 0) {
   tone({ f: 90, f2: 30, at, dur: 1.3, vol: 0.32, attack: 0.05 });
   for (const d of [0.15, 0.35, 0.5, 0.8, 1.0]) noise({ at: at + d, dur: 0.06, vol: 0.08, from: 2200, type: 'bandpass', q: 5 });
 }
+
+/** Taking a new piece on the way down: a knock as it joins your hand, then
+    three notes climbing. */
+export function gain(at = 0) {
+  tone({ f: 230, f2: 150, type: 'triangle', at, dur: 0.08, vol: 0.26 });
+  [7, 9, 12].forEach((d, i) => tone({ f: hz(d), type: 'triangle', at: at + 0.1 + i * 0.09, dur: i === 2 ? 0.45 : 0.14, vol: 0.16, attack: 0.008 }));
+}

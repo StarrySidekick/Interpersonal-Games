@@ -92,7 +92,15 @@ function leafBurst(x, y, t0) {
 
 export function tweenPos(t, at) {
   const k = Math.max(0, Math.min(1, (at - t.t0) / t.dur)), e = ease(k);
-  return { x: t.from[0] + (t.to[0] - t.from[0]) * e, y: t.from[1] + (t.to[1] - t.from[1]) * e, k };
+  if (!t.via?.length) return { x: t.from[0] + (t.to[0] - t.from[0]) * e, y: t.from[1] + (t.to[1] - t.from[1]) * e, k };
+  // A move that bounced: along each leg in turn, at an even speed.
+  const pts = [t.from, ...t.via, t.to], len = [];
+  let total = 0;
+  for (let i = 1; i < pts.length; i++) total += len[i] = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+  let d = e * total, i = 1;
+  while (i < pts.length - 1 && d > len[i]) d -= len[i++];
+  const f = len[i] ? d / len[i] : 1, [x0, y0] = pts[i - 1], [x1, y1] = pts[i];
+  return { x: x0 + (x1 - x0) * f, y: y0 + (y1 - y0) * f, k };
 }
 
 export class Board {
@@ -462,14 +470,16 @@ export class Board {
     const tw = { poofs: [], foes: {}, tumbles: [], leaves: [] };
     if (mv.p >= 0) {
       const p0 = a.pieces[mv.p], p1 = b.pieces[mv.p];
-      tw.piece = { i: mv.p, from: [p0.x, p0.y], to: [p1.x, p1.y], t0: t, dur: 190 * slow };
+      // A billiard ball's move bounces on the way; the rules know where.
+      const via = mv.via || movesFor(a, mv.p).find((m) => m.x === p1.x && m.y === p1.y)?.via;
+      tw.piece = { i: mv.p, from: [p0.x, p0.y], to: [p1.x, p1.y], via, t0: t, dur: 190 * slow * (1 + 0.5 * (via?.length || 0)) };
       // On crumbling ground the square it left falls away as it goes.
       if (b.gone?.length > (a.gone?.length || 0)) {
         tw.crumble = { sq: b.gone[b.gone.length - 1], t0: t + 60 * slow, dur: 420 * slow };
         tw.poofs.push({ x: p0.x, y: p0.y, t0: t + 120 * slow, dur: 420, c1: '#7a5133', c2: '#b39a6e', low: true });
         sfx.crumble(at(tw.crumble.t0));
       }
-      t += 190 * slow;
+      t += tw.piece.dur;
       sfx.move(at(t));
     }
     // Anything you caught vanishes as your piece lands. A catch that wins
@@ -629,11 +639,11 @@ export function demoBoard(type, { at = [3, 3], rules = {} } = {}) {
 }
 
 /** A 7 x 7 picture of where a piece can go from the middle of an empty board. */
-export function diagram(type) {
+export function diagram(type, rules = {}) {
   const D = 7, c = 8, cv = document.createElement('canvas');
   cv.className = 'diagram pix'; cv.width = D * c; cv.height = D * c;
   const ctx = cv.getContext('2d'), demo = DEMO[type] || {}, r = demo.rabbit;
-  const { s } = demoBoard(type);
+  const { s } = demoBoard(type, { rules });
   const at = (x, y, col, inset = 0) => { ctx.fillStyle = col; ctx.fillRect(x * c + inset, (D - 1 - y) * c + inset, c - inset * 2, c - inset * 2); };
   for (let y = 0; y < D; y++) for (let x = 0; x < D; x++) at(x, y, (x + y) % 2 ? CREAM : GREEN);
   for (const [x, y] of demo.walls || []) at(x, y, '#6a4a30', 1);

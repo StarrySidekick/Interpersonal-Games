@@ -11,8 +11,9 @@
 //
 // Your pieces go down with you (Timothy, 2026-10-06). The run starts with
 // the ball and three pieces; whatever is left when you sink the ball falls
-// with it to the next board, and a piece taken stays gone. Each level is
-// found by the solver for exactly the pieces you still have.
+// with it to the next board, and a piece taken stays gone. On the way down
+// you find one more piece (offersFor, below). Each level is found by the
+// solver for exactly the pieces you are carrying.
 
 import { clean } from './lab.js';
 
@@ -43,10 +44,30 @@ export function depthSettings(d, rand, hand = START_HAND) {
     foes: count, darkBrain: 'possessed', kinds: d < 4 ? 1 : d < 7 ? 2 : 3,
     foePool: pool, foeDupes: true, mirror: false, foeRows: d < 4 ? 2 : 3,
     skill: '2', style: 'balanced', foesCapture: d >= 3,              // from depth 3 they can take your pieces
-    goal: 'descent', holeMoves: d < 2 ? 'still' : 'daily', ballStops: false,
+    goal: 'descent', holeMoves: d < 2 ? 'still' : 'daily', ballStops: false, ballMove: 'putt',
     maxMoves: Math.min(28, 16 + 2 * Math.floor(d / 2)), first: 'you',
     solve: true, parMin, parMax: parMin + 7, balance: 'on'
   });
+}
+
+// --- A new piece on the way down. -------------------------------------------
+// (Timothy, 2026-10-06.) Falling to each new depth, you are offered two
+// pieces and take one: always one classic piece and one fairy piece, the
+// known thing or the strange one, and the fairy pieces get stranger the
+// deeper you go. The solver finds each level for the hand you carry, and
+// only takes one as long as that depth asks for, so more pieces do not make
+// it easy.
+
+/** How many pieces you can carry, the ball included. */
+export const HAND_MAX = 6;
+
+/** The two pieces offered on the way down to depth d (2 and deeper). */
+export function offersFor(d, rand) {
+  const classic = ['king', 'knight', 'bishop', 'rook', ...(d >= 6 ? ['queen'] : [])];
+  const fairy = ['wazir', 'ferz', 'alfil', 'mao', 'zebra', 'camel', 'grasshopper', 'cannon',
+    ...(d >= 5 ? ['squirrel', 'rose'] : []), ...(d >= 8 ? ['nightrider', 'archbishop'] : [])];
+  const pick = (a) => a[Math.floor(rand() * a.length)];
+  return [pick(classic), pick(fairy)];
 }
 
 // --- The record: how deep you have been. Only ever goes up. ----------------
