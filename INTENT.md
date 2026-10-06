@@ -62,6 +62,37 @@ and on the history of chess, is in
 decided. Sound and a proper winning catch are built in the daily and the
 lab, the first two ideas from the audit.
 
+Then a batch of notes from him the same evening. Each with what became of it:
+
+- **The lab and the daily are one group**: separate design goals, shared
+  developments. Built: the daily, the lab and the descent link to each
+  other, and the daily's dealer version 3 (from 2026-10-07) takes the lab's
+  developments below.
+- **Crumbling boards look different, and a fallen square is only
+  darkness.** Built.
+- **What he meant by decaying**: a random part of the board's perimeter
+  disappears, so the board slowly gets smaller, and the rim adapts. Built as
+  shrinking ground, at random or in a spiral.
+- **Rabbits do not eat by default.** Built: the lab's default, and the daily
+  from 2026-10-07.
+- **Balancing rules beyond moves to win**, including pieces like the
+  grasshopper and cannon that only work in the right circumstances. Started:
+  measurements, rules and the plan in
+  [`docs/grove-balance.md`](docs/grove-balance.md).
+- **An air of mystery**: a strange chessboard found in the middle of the
+  forest. **Spirals** as a motif. **Nintendo 64, not 16-bit.** Direction in
+  [`docs/grove-look.md`](docs/grove-look.md). Its big step, playing on a 3D
+  board, is not built yet.
+- **Rabbit colours by pattern**, collected over time, filling the garden.
+  Colours and the collection are built; the garden is not.
+- **Three kinds of thing against you**: holes, rabbits, and dark versions of
+  your pieces. Boards framed as a ground, a shape and a size, a rabbit, a
+  hole, and two dark pieces. Built as the lab's standard board, now its
+  default.
+- **A roguelike**: rabbits and a hole, sink the ball and fall to a harder
+  level, see how far you can go. Built as the descent,
+  `play/grove-chess/descent/`.
+
 ## 2026-10-05: the front door is asynchronous, and it is a group
 
 Recorded from Timothy's own description. **Where this section disagrees with

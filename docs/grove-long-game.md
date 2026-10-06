@@ -106,6 +106,10 @@ The core, as in the daily. What the long game adds is a curve.
 - **The notebook:** every rabbit you catch gets a page with its pattern drawn
   out, and the pattern plays its tune. The daily already makes each pattern
   a tune, so a notebook is a songbook.
+- **The rabbits themselves** (built 2026-10-06, Timothy's idea): each
+  pattern has its own fur colour, and every catch in the daily or the
+  descent is kept (`rabbits.js`). That record is the garden's population,
+  waiting for a garden.
 - **The marks:** cleared, par and birdie on every clearing.
 - **Nothing is missable.** Every clearing stays open forever; there is no
   numbered gap for anything skipped.

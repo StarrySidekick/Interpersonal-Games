@@ -53,6 +53,10 @@ The worked example to imitate is
 - Do not let power outrun challenge; scale the challenge to the power.
 - Log what the player did from the first commit, so collection, narrative
   and the record can use it later (`docs/scope.md`, rule 5).
+- For Grove Chess levels, read the balance report, not just par
+  (`assess()` in `solve.js`, explained in `docs/grove-balance.md`). A new
+  piece or rule should come with a thought about its circumstances: when is
+  it strong, and does the level set that up?
 
 ## Guardrails specific to this repo
 
