@@ -17,7 +17,7 @@ moving a piece onto its square.
   axis from then on, the way a ball stays turned around after it hits a wall.
 - **It eats.** If a hop lands on one of your pieces, the piece is gone. Lose
   them all and the rabbit wins.
-- **It waits** if a stump or bramble is in the way.
+- **It waits** if it cannot land where it is hopping: a crumbled square, say.
 - **Waiting is allowed** and costs a move.
 - **Fifteen moves** before dusk, then it gets away.
 - **After the game** the pattern is drawn out: one full run, numbered, then
@@ -28,12 +28,17 @@ moving a piece onto its square.
 ### Day variables
 
 - **Board size:** 5x5 or 6x6.
-- **Bramble** (about half of days): starts as one square and creeps one more
-  every two moves, along a path fixed for the day. Nothing enters it and
-  nothing slides through it. A rabbit that ends up inside is safe until it
-  hops out. The next square it will take is drawn faintly, so it is never a
-  surprise.
-- **Stumps** (some days): block sliders; leapers jump them.
+- **Crumbling ground** (about a third of days, from 2026-10-07): every square
+  you move a piece off falls away behind it, and nothing can stand there
+  again. Sliders stop at a gap, leapers can still jump it, the rabbit waits
+  rather than hop into one. Selecting a piece puts cracks on the square it
+  would leave. Waiting crumbles nothing. Chosen over "decaying", which reads
+  like the house rule that nothing in the game decays over time.
+- **Stumps and bramble** are out for now (2026-10-06). Only the first two
+  boards, 2026-10-05 and 06, have them, kept so links to those days still
+  replay. The bramble started as one square and crept one more every two
+  moves; stumps blocked sliders. The rules and drawing for both are still in
+  the code.
 
 ### The pieces
 
@@ -69,8 +74,10 @@ model turning, what it does, and a little board where the squares it can
 reach light up one by one before it makes a move, taking something where that
 is how the piece works); then a card for the goal; then your pieces drop onto
 their squares and play starts. Tap a card to move on; Skip ends it at any
-point. It does not play when you carry on a game, practise, or restart a lab
-level, and phones set to reduce motion skip it.
+point. A crumbling board adds a card of its own before the goal: a rook slides
+across, the square it left falls away, and its slide back stops at the gap.
+It does not play when you carry on a game, practise, or restart a lab level,
+and phones set to reduce motion skip it.
 
 ## The social layer: the vine
 
@@ -116,27 +123,51 @@ previous, next, random or any date, clear your game on a board to replay it
 for real, and spoilers for the board.
 
 **Dealing a board.** The date seeds the shared random generator
-(`engine/seed.js`). The hand is dealt first and then given up to 80 layouts;
+(`engine/seed.js`). The hand is dealt first and then given a run of layouts;
 each layout is solved, and anything with par outside 4 to 7 is thrown away.
 Every phone throws away the same layouts in the same order, so they all land on
 the same board.
 
-**Do not casually change the dealer.** Any change to dealing, the solver, the
-patterns, the piece list or the rules re-deals every board, past days
-included, and old links then replay on the wrong board. Once real people are
-sharing links, change it behind a version.
+**The dealer is versioned.** Any change to dealing, the solver, the patterns,
+the piece list or the rules would re-deal every board, past days included,
+and old links would then replay on the wrong board. So each version deals
+from a cutover date onward and never changes once shipped (`VERSIONS` in
+`day.js`):
 
-**The guard.** `node play/grove-chess/check-daily.mjs` deals 150 boards, plays
-600 seeded random games on them and compares a fingerprint (a SHA-256 hash)
-against the one recorded before the lab refactor. Run it after touching
-anything under `play/grove-chess/`. It passing is how we know the lab's
-rewrite of the rules engine left the daily game exactly as it was.
+| Version | Deals | What it does |
+|---|---|---|
+| 1 | 2026-10-05 and 06 | stumps and bramble on some days; up to 30 hands of 80 layouts |
+| 2 | from 2026-10-07 | no stumps or bramble; a third of days crumble; up to 20 hands of 60 layouts, with a bounded par search |
+
+To change the daily game: add a version with a cutover date after today,
+leave the old ones alone, and add its fingerprint to the guard.
+
+**The guard.** `node play/grove-chess/check-daily.mjs` deals 150 boards with
+each version, plays 600 seeded random games on them, and compares each
+version's fingerprint (a SHA-256 hash) with the one recorded when it shipped.
+Run it after touching anything under `play/grove-chess/`. Version 1's
+fingerprint is the one recorded before the lab refactor, so it passing proves
+the first two boards, and every link to them, are exactly as they were.
 
 **The solver.** It searches every combination of moves for three moves, which
 gives an exact par for short puzzles. Past that the search grows about twenty
 times per move, too much for a phone, so it searches each piece alone with the
 others standing still. That line is always playable, so par is never
-impossible; cleverer two-piece lines are birdies.
+impossible; cleverer two-piece lines are birdies. Version 2 adds two limits.
+On crumbling ground no two lines leave the same squares behind, so positions
+never repeat, the search cannot merge them, and it grows without end (one
+board took 22 seconds). So it stops at 7 moves and keeps at most 3,000
+positions per move. A cut search can miss the best line but never invents
+one, so par stays a real win. Version 2 deals a board in about 70 ms on a
+laptop, 340 ms at worst.
+
+**Difficulty without obstacles.** With nothing in the way, a random layout
+almost never needs more than three moves for a solver that knows the
+pattern: for most hands 0 to 5% of layouts pass the par 4 to 7 filter, and
+for the strongest fairy pieces (squirrel, archbishop, nightrider, rose) none
+do. Measured over 150 version 2 boards: par 3 on 35%, par 4 on 61%, par 5 or
+6 on 4%. Version 1, with stumps and bramble, was par 3 on 12%. Whether par 3
+is too easy is for playing to decide.
 
 ## The lab
 
@@ -146,7 +177,8 @@ and it goes in a notebook you can copy out.
 
 - **Board:** width and height (3 to 10), shape (rectangle, diamond, round,
   cross, ring, hourglass, L, stairs, two islands, Swiss cheese), extra holes,
-  stumps, bramble with its growth rate and size.
+  crumbling ground. (Stumps and bramble were here until 2026-10-06; a saved
+  level that had them loads without them, everything else in place.)
 - **Your side:** how many pieces, which kinds they are dealt from, repeats,
   how far up they start, a royal King (lose it, lose), waiting on or off.
 - **Their side:** how many, which kinds (rabbit or any chess or fairy piece),
@@ -203,11 +235,13 @@ a level link rebuilds exactly the same level anywhere.
 - **What a reply does to the poster's game**, beyond joining their vine. The
   question from INTENT, still unanswered.
 - **Overlap**: a relay (tomorrow's board starts where the group left the
-  bramble), a shared board everyone places one piece on, or challenges (your
+  board), a shared board everyone places one piece on, or challenges (your
   line becomes a puzzle a friend has to beat). These need everyone to agree on
   one state, which is probably where a small server stops being optional.
 - **Long-term progression for a group.** Nothing accrues across days yet
   beyond each phone's own record.
 - **The share text.** Plain words and a link for now. Wordle's grid is the bar.
 - **Difficulty tuning.** Par 4 to 7 with a hidden pattern has not been played
-  by anyone yet.
+  by anyone yet, and without obstacles a third of boards fall back to par 3
+  (above). Levers if that is too easy: harder rabbits on strong-fairy days,
+  fewer pieces, or something back in the way.

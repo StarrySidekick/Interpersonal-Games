@@ -5,12 +5,13 @@
 import { el } from '../../engine/ui.js';
 import { Mesh, makeTarget, render } from '../../engine/lowpoly.js';
 import { model } from './models.js';
-import { PIECES, RABBIT_DESC, RABBIT_AI_DESC, BRAMBLE_DESC, STUMP_DESC, HOLE_DESC } from './rules.js';
+import { PIECES, RABBIT_DESC, RABBIT_AI_DESC, BRAMBLE_DESC, STUMP_DESC, HOLE_DESC, CRUMBLE_DESC } from './rules.js';
 import { diagram } from './board.js';
 
 /**
  * Wire a <dialog> up as the pieces menu for `day`. `notes.rabbit` adds a line
- * under the rabbit (the daily uses it for the pattern length). Returns the
+ * under the rabbit (the daily uses it for the pattern length); `notes.when`
+ * tags what is on the board ('Today' unless it says otherwise). Returns the
  * function that opens it.
  */
 export function piecesSheet(dialog, list, day, notes = {}) {
@@ -54,10 +55,13 @@ export function piecesSheet(dialog, list, day, notes = {}) {
         row(f.type, 'foe', P.name, 'Theirs, and it thinks', [P.desc, P.origin], true);
       }
     }
-    if (day.bramble.length || day.stumps.size) head('On the board');
-    if (day.bramble.length) row('bramble', 'you', 'Bramble', 'Today',
+    if (day.rules.crumble || day.bramble.length || day.stumps.size) head('On the board');
+    if (day.rules.crumble) row('crumble', 'you', 'Crumbling ground', notes.when || 'Today',
+      [CRUMBLE_DESC, 'Select a piece and cracks show on the square it will leave.']);
+    // Only the first two daily boards have these.
+    if (day.bramble.length) row('bramble', 'you', 'Bramble', notes.when || 'Today',
       [BRAMBLE_DESC, `It grows one square every ${day.every} move${day.every > 1 ? 's' : ''}. The faint thorns show where it goes next.`]);
-    if (day.stumps.size) row('stump', 'you', 'Stump', 'Today', [STUMP_DESC]);
+    if (day.stumps.size) row('stump', 'you', 'Stump', notes.when || 'Today', [STUMP_DESC]);
     list.append(el('p', { class: 'small dim' },
       'Fairy pieces are invented chess pieces, some centuries old. In the diagrams: gold squares are moves, coral is a catch, brown is something in the way.'));
   }

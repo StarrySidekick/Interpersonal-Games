@@ -3,7 +3,7 @@
 
 import { $, el, show, haptic, keepAwake, themeToggle } from '../../../engine/ui.js';
 import { makeTarget, render } from '../../../engine/lowpoly.js';
-import { PIECES, HOLE_DESC, movesFor, playerMove, respond, isOver, outcome, initialState, allMoves, isBramble, replay } from '../rules.js';
+import { PIECES, HOLE_DESC, CRUMBLE_DESC, movesFor, playerMove, respond, isOver, outcome, initialState, allMoves, replay, crumbled } from '../rules.js';
 import { Board, scene, sceneFrame, sprite, patternPicture } from '../board.js';
 import { piecesSheet } from '../sheet.js';
 import { playIntro } from '../intro.js';
@@ -266,7 +266,8 @@ async function startGame({ intro = true } = {}) {
   sel = null; legal = []; busy = false; rating = 0; shown = null; watching = null;
   $('#sheet-list').replaceChildren();
   openSheet = piecesSheet($('#sheet'), $('#sheet-list'), level, {
-    rabbit: level.foes.some((f) => f.brain === 'pattern') ? 'Each rabbit has its own pattern. Its tracks are numbered in its own colour.' : null
+    rabbit: level.foes.some((f) => f.brain === 'pattern') ? 'Each rabbit has its own pattern. Its tracks are numbered in its own colour.' : null,
+    when: 'This level'
   });
   show('play');
   keepAwake();
@@ -276,7 +277,7 @@ async function startGame({ intro = true } = {}) {
   $('#goalpill').textContent = GOAL_PILL[level.goalKind];
   const chips = $('#chips');
   chips.replaceChildren(el('span', { class: 'pill' }, `${level.W} × ${level.H}`));
-  if (level.bramble.length) chips.append(el('span', { class: 'pill' }, 'Bramble'));
+  if (level.rules.crumble) chips.append(el('span', { class: 'pill' }, 'Crumbling'));
   if (level.rules.royal) chips.append(el('span', { class: 'pill' }, 'Royal King'));
   if (thinks(now())) chips.append(el('span', { class: 'pill' }, `They think: ${['random', 'greedy', 'two ahead', 'three ahead'][level.ai.skill]}, ${level.ai.style}`));
   hud();
@@ -319,8 +320,8 @@ function whatHappened(a, b, mv) {
     if (f.ate >= 0 && b.pieces[f.ate].taken && !a.pieces[f.ate].taken)
       bits.push(f.type === 'rabbit' ? `A rabbit ate your ${nameOf(b.pieces[f.ate])}.` : `Their ${nameOf(f)} took your ${nameOf(b.pieces[f.ate])}.`);
   });
-  if (b.foes.some((f) => !f.taken && isBramble(b, f.x, f.y))) bits.push('Something of theirs is hiding in the bramble.');
   if (!bits.length) bits.push(mv.p === -1 ? 'You waited.' : 'Your move.');
+  if (b.gone.length === 1 && !a.gone.length) bits.unshift('The square you left crumbled away.');
   return bits.join(' ');
 }
 
@@ -359,6 +360,7 @@ $('#board').addEventListener('click', (e) => {
   if (i >= 0) return select(sel === i ? null : i);
   select(null);
   if (s.hole && s.hole.x === x && s.hole.y === y) return info(HOLE_DESC);
+  if (crumbled(s, x, y)) return info(CRUMBLE_DESC);
   const f = s.foes.find((f) => !f.taken && f.x === x && f.y === y);
   if (f) info(f.brain === 'pattern' ? 'A rabbit on a hidden pattern. Watch its tracks.' : `Their ${nameOf(f)}, thinking for itself. ${PIECES[f.type].desc}`);
 });

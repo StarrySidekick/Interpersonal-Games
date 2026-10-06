@@ -8,12 +8,25 @@
 //
 // WARNING: that also means any change to dealing, solving, the patterns or
 // the piece list re-deals every board, past days included, and every old
-// link then replays its moves on the wrong board. Once this is in people's
-// chats, change it only behind a version (say, boards dealt before a cutover
-// date use the old code).
+// link then replays its moves on the wrong board. So the dealer is
+// versioned: each date is dealt by the version that was live when it came
+// round, and a shipped version never changes. check-daily.mjs holds a
+// fingerprint per version to prove it.
+//
+//   Version 1, 2026-10-05 and 06: stumps and bramble on some days.
+//   Version 2, from 2026-10-07: neither. Some days the ground crumbles
+//   instead: every square you move off falls away.
 
 import { rng, shuffled } from '../../engine/seed.js';
 import { PIECES, initialState, allMoves, apply, stateKey, MAX_MOVES, DAILY_RULES } from './rules.js';
+
+/** The first date each dealer version deals. */
+export const VERSIONS = [{ v: 1, from: '2026-10-05' }, { v: 2, from: '2026-10-07' }];
+export const dealerFor = (date) => VERSIONS.filter((x) => date >= x.from).pop()?.v ?? 1;
+
+/** Version 2: the share of days whose ground crumbles. */
+const CRUMBLE_ODDS = 1 / 3;
+const CRUMBLE_RULES = { ...DAILY_RULES, crumble: true };
 
 /** The rabbit's habits. Each is a list of hops that repeats. */
 export const PATTERNS = [
@@ -79,8 +92,9 @@ function dealHand(rand, fairy) {
   return { N, hand };
 }
 
-/** Where everything starts, for a given hand. */
-function deal(rand, { N, hand }) {
+/** Where your pieces and the rabbit start, and the rabbit's pattern. Both
+    versions deal these the same way, drawing the same random numbers. */
+function dealSides(rand, N, hand) {
   const taken = new Set();
   const free = (x, y) => !taken.has(y * N + x);
   const place = (rows) => {
@@ -95,7 +109,21 @@ function deal(rand, { N, hand }) {
   const top = []; for (let y = Math.ceil(N / 2); y < N; y++) top.push(y);
   const pat = pick(rand, PATTERNS);
   const rabbit = { ...place(top), mx: rand() < 0.5 ? 1 : -1, my: rand() < 0.75 ? 1 : -1 };
+  const level = {
+    N, W: N, H: N, holes: new Set(), pieces, rabbit,
+    // The same rabbit, in the shape the rules engine wants: one foe, marked
+    // as the one to catch, moving by its pattern.
+    foes: [{ type: 'rabbit', x: rabbit.x, y: rabbit.y, brain: 'pattern', pattern: pat.steps, mx: rabbit.mx, my: rabbit.my, target: true }],
+    pattern: pat.steps, patternName: pat.name,
+    stumps: new Set(), bramble: [], brambleAt: new Map(), every: 2,
+    rules: DAILY_RULES, ai: { skill: 0, style: 'balanced' }
+  };
+  return { level, taken, place };
+}
 
+/** Version 1: sometimes stumps, sometimes a creeping bramble. */
+function dealV1(rand, { N, hand }) {
+  const { level, taken, place } = dealSides(rand, N, hand);
   const middle = []; for (let y = 1; y < N - 1; y++) middle.push(y);
   const stumps = new Set();
   if (rand() < 0.4) {
@@ -128,15 +156,14 @@ function deal(rand, { N, hand }) {
     }
   }
 
-  return {
-    N, W: N, H: N, holes: new Set(), pieces, rabbit,
-    // The same rabbit, in the shape the rules engine wants: one foe, marked
-    // as the one to catch, moving by its pattern.
-    foes: [{ type: 'rabbit', x: rabbit.x, y: rabbit.y, brain: 'pattern', pattern: pat.steps, mx: rabbit.mx, my: rabbit.my, target: true }],
-    pattern: pat.steps, patternName: pat.name,
-    stumps, bramble, brambleAt: new Map(bramble.map((sq, i) => [sq, i])), every: 2,
-    rules: DAILY_RULES, ai: { skill: 0, style: 'balanced' }
-  };
+  return Object.assign(level, { stumps, bramble, brambleAt: new Map(bramble.map((sq, i) => [sq, i])) });
+}
+
+/** Version 2: a clear board, crumbling or not as the day says. */
+function dealV2(rand, { N, hand }, crumble) {
+  const { level } = dealSides(rand, N, hand);
+  if (crumble) level.rules = CRUMBLE_RULES;
+  return level;
 }
 
 /**
@@ -168,13 +195,42 @@ export function solve(day) {
   return best === Infinity ? null : best;
 }
 
-function solo(s0, i, limit) {
+function solo(s0, i, limit, cap = Infinity) {
   let layer = [s0];
   for (let depth = 1; depth <= limit; depth++) {
     const next = [], seen = new Set();
-    for (const s of layer)
+    fill: for (const s of layer)
       for (const mv of allMoves(s)) {
         if (mv.p !== -1 && mv.p !== i) continue;
+        const n = apply(s, mv);
+        if (n.won) return depth;
+        const k = stateKey(n);
+        if (!seen.has(k)) { seen.add(k); next.push(n); }
+        if (next.length >= cap) break fill;
+      }
+    layer = next;
+  }
+  return Infinity;
+}
+
+/**
+ * Par for version 2. The same search as solve(), with two limits so it
+ * always finishes quickly on a phone. On crumbling ground no two lines of
+ * play leave the same squares behind, so positions stop repeating and the
+ * search can no longer merge them; left alone it grows without end (one
+ * board took 22 seconds). So each move's layer is cut off at SOLO_CAP
+ * positions, always the same ones, and the search stops at 7 moves, the
+ * most par is allowed to be. A cut-off search can miss the best line, never
+ * invent one, so par stays a real, playable win.
+ */
+const SOLO_CAP = 3000;
+function solveV2(day) {
+  const s0 = initialState(day);
+  let layer = [s0];
+  for (let depth = 1; depth <= 3; depth++) {
+    const next = [], seen = new Set();
+    for (const s of layer)
+      for (const mv of allMoves(s)) {
         const n = apply(s, mv);
         if (n.won) return depth;
         const k = stateKey(n);
@@ -182,13 +238,53 @@ function solo(s0, i, limit) {
       }
     layer = next;
   }
-  return Infinity;
+  let best = Infinity;
+  for (let i = 0; i < s0.pieces.length; i++) best = Math.min(best, solo(s0, i, Math.min(7, best - 1), SOLO_CAP));
+  return best === Infinity ? null : best;
 }
 
 const days = new Map();
 
-export function makeDay(date) {
-  if (days.has(date)) return days.get(date);
+/** The board for a date. `version` is for the guard, which deals every date
+    with every version; the game always uses the one live on that date. */
+export function makeDay(date, version = dealerFor(date)) {
+  const key = version + ':' + date;
+  if (days.has(key)) return days.get(key);
+  const day = version === 1 ? dayV1(date) : dayV2(date);
+  day.date = date;
+  day.number = dayNumber(date);
+  day.version = version;
+  days.set(key, day);
+  return day;
+}
+
+/** Version 2: up to 20 hands of 60 layouts each, keeping the first with par
+    4 to 7. Without stumps or bramble in the way most layouts can be won in
+    3 or fewer, and with the strongest fairy pieces (squirrel, archbishop,
+    nightrider, rose) nearly all of them can; on those days none passes and
+    the hardest one found stands. It keeps dealing past 20 hands only if it
+    has found nothing winnable at all. */
+function dayV2(date) {
+  const rand = rng('grove:' + date), fairy = fairyFor(date);
+  // Whether the ground crumbles is decided for the day before anything is
+  // dealt, so throwing layouts away cannot make it more or less common.
+  const crumble = rng('crumble:' + date)() < CRUMBLE_ODDS;
+  let day = null, fallback = null;
+  for (let h = 0; !day && (h < 20 || !fallback); h++) {
+    const hand = dealHand(rand, fairy);
+    for (let attempt = 0; attempt < 60 && !day; attempt++) {
+      const d = dealV2(rand, hand, crumble);
+      if (d.pieces.some((p) => p.x === undefined) || d.rabbit.x === undefined) continue;
+      const par = solveV2(d);
+      if (par !== null && par >= 4 && par <= 7) day = { ...d, par };
+      else if (par !== null && (!fallback || par > fallback.par)) fallback = { ...d, par };
+    }
+  }
+  return day || fallback;
+}
+
+/** Version 1, exactly as it shipped. */
+function dayV1(date) {
   const rand = rng('grove:' + date);
   let day = null, fallback = null;
   // The hand is dealt first and then given many layouts to find a good one.
@@ -198,18 +294,14 @@ export function makeDay(date) {
   for (let h = 0; h < 30 && !day; h++) {
     const hand = dealHand(rand, fairy);
     for (let attempt = 0; attempt < 80 && !day; attempt++) {
-      const d = deal(rand, hand);
+      const d = dealV1(rand, hand);
       if (d.pieces.some((p) => p.x === undefined) || d.rabbit.x === undefined) continue;
       const par = solve(d);
       if (par !== null && par >= 4 && par <= 7) day = { ...d, par };
       else if (par !== null && (!fallback || par > fallback.par)) fallback = { ...d, par };
     }
   }
-  day = day || fallback;
-  day.date = date;
-  day.number = dayNumber(date);
-  days.set(date, day);
-  return day;
+  return day || fallback;
 }
 
 /** "up, up, right" for the daily rabbit's hops, turned the way it starts. */

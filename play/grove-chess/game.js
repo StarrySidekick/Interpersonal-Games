@@ -6,7 +6,7 @@ import { $, el, show, haptic, keepAwake, themeToggle } from '../../engine/ui.js'
 import { logSitting } from '../../engine/record.js';
 import { makeTarget, render } from '../../engine/lowpoly.js';
 import {
-  PIECES, RABBIT_DESC, movesFor, apply, isOver, outcome, isBramble, brambleCount, replay
+  PIECES, RABBIT_DESC, CRUMBLE_DESC, movesFor, apply, isOver, outcome, isBramble, brambleCount, replay, crumbled
 } from './rules.js';
 import { makeDay, todayStr, describePattern, fairyFor } from './day.js';
 import {
@@ -112,6 +112,7 @@ async function play(mv) {
       : 'The rabbit hopped. Your move.';
   if (isBramble(b, r.x, r.y)) msg = 'The rabbit is hiding in the bramble. Nothing can reach it there.';
   if (brambleCount(day, b.t) > brambleCount(day, a.t)) msg += ' The bramble crept.';
+  if (b.gone.length === 1 && !a.gone.length) msg = 'The square you left crumbled away. ' + msg;
   status(msg);
   select(null);
 }
@@ -129,6 +130,7 @@ board.el.addEventListener('click', (e) => {
   if (i >= 0) return select(sel === i ? null : i);
   select(null);
   if (rabbitOf(s).x === x && rabbitOf(s).y === y) info(`The rabbit. ${RABBIT_DESC}`);
+  else if (crumbled(s, x, y)) info(CRUMBLE_DESC);
 });
 
 $('#wait').onclick = () => play({ p: -1, x: 0, y: 0 });
@@ -273,7 +275,9 @@ $('#sheet-close').onclick = () => $('#sheet').close();
 const dio = $('#diorama');
 const pitch = 0.62, dscale = 2, frame = sceneFrame(day, pitch, dscale);
 dio.width = frame.w; dio.height = frame.h;
-const dctx = dio.getContext('2d'), dt = makeTarget(dio.width, dio.height), dmesh = scene(day);
+// The board as you left it: the start for a fresh game, your position (and
+// any crumbled squares) for one in progress.
+const dctx = dio.getContext('2d'), dt = makeTarget(dio.width, dio.height), dmesh = scene(day, now());
 let yaw = 0.6, last = 0, twirl = null;
 const ease = (k) => (k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2);
 
@@ -306,6 +310,7 @@ async function startPlay() {
   hud();
   const chips = $('#chips');
   chips.replaceChildren(el('span', { class: 'pill' }, `${N} × ${N}`));
+  if (day.rules.crumble) chips.append(el('span', { class: 'pill' }, 'Crumbling ground'));
   if (day.bramble.length) chips.append(el('span', { class: 'pill' }, 'Bramble creeps'));
   if (day.stumps.size) chips.append(el('span', { class: 'pill' }, `${day.stumps.size} stump${day.stumps.size > 1 ? 's' : ''}`));
   if (isOver(now())) return finish();
@@ -359,7 +364,9 @@ if (new URLSearchParams(location.search).has('test')) {
   $('#t-next-end').onclick = () => go(shift(1));
   $('#t-spoil').textContent = `Fairy piece: ${PIECES[fairyFor(date)].name}. Hand: ${day.pieces.map((p) => PIECES[p.type].name).join(', ')}. ` +
     `Pattern: ${day.patternName} (${describePattern(day)}), ${day.pattern.length} hop${day.pattern.length > 1 ? 's' : ''}. ` +
-    `Par ${day.par}. Board ${N} × ${N}. Bramble: ${day.bramble.length ? 'yes' : 'no'}. Stumps: ${day.stumps.size}.`;
+    `Par ${day.par}. Board ${N} × ${N}. Crumbling: ${day.rules.crumble ? 'yes' : 'no'}.` +
+    (day.version === 1 ? ` Bramble: ${day.bramble.length ? 'yes' : 'no'}. Stumps: ${day.stumps.size}.` : '') +
+    ` Dealer v${day.version}.`;
 }
 
 $('.topbar .pill').before(themeToggle());
