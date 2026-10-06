@@ -30,6 +30,17 @@
   #status { min-height: 26px; margin: 10px 0 2px; font-weight: 600; }
   #info { min-height: 44px; font-size: 15px; color: var(--dim); margin-bottom: 10px; }
   .fallnote { text-align: center; font-size: 22px; font-weight: 700; margin: 30vh 0 0; }
+  .offering .fallnote { margin-top: 8vh; }
+  /* The two pieces offered on the way down. */
+  #offer { display: grid; gap: 10px; margin: 14px 0 0; }
+  .offercard { display: grid; grid-template-columns: 76px 1fr; gap: 12px; align-items: start; width: 100%; min-height: 0;
+    text-align: left; font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 12px; cursor: pointer; }
+  .offercard:active { border-color: var(--accent); }
+  .offercard canvas.model { width: 60px; height: 72px; display: block; margin: 0 auto; image-rendering: pixelated; }
+  .offercard canvas.diagram { width: 72px; height: 72px; margin-top: 6px; border-radius: 4px; }
+  .offercard h3 { margin: 0 0 2px; font-size: 18px; }
+  .offercard p { margin: 0 0 6px; font-size: 15px; }
   .rabbitrow { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 12px; }
   .rabbitcell { display: grid; justify-items: center; gap: 2px; padding: 6px 8px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
   .rabbitcell canvas { width: 45px; height: 54px; }
@@ -90,6 +101,7 @@
   <section data-screen="fall" hidden>
     <p class="fallnote" id="fallnote"></p>
     <p class="center dim small" id="fallsub"></p>
+    <div id="offer" hidden></div>
   </section>
 
   <section data-screen="over" hidden>

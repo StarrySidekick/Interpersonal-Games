@@ -247,17 +247,36 @@ and it goes in a notebook you can copy out.
 Since 2026-10-06 the default is **the standard board**, Timothy's framing:
 a ground, a shape and a size, a hole, and three pieces possessed by one
 kind of rabbit; catch them, then sink the ball. Settings carry a version
-(now 3, with possession; 2 brought the standard board; links without one are
-older). Each is read against its own version's defaults, so every old link
-and notebook entry still builds exactly the level it was; a test checks 400
-levels from each older version.
+(now 4, with the putting ball; 3 brought possession; 2 the standard board;
+links without one are older). Each is read against its own version's
+defaults, so every old link and notebook entry still builds exactly the
+level it was, ice ball and all; a test checks 400 levels from versions 1
+and 2 and 300 from version 3.
 
 **Is there a fairy piece that moves like the ball?** Timothy asked, to try
 it in the ball's place. Not exactly: the ball must roll as far as it can
 and never captures. The nearest real thing is a rook under the
 "maximummer" condition from chess problems (a side must always make its
-geometrically longest move), but that rook still captures. So the ball
-stays a ball for now.
+geometrically longest move), but that rook still captures. Real riders
+(rook, bishop, nightrider) can all stop anywhere along their line.
+
+**The ball got stuck** (Timothy, 2026-10-06). On ice the only places to
+stop are against something, so walls and corners trap it. The ball now has
+three ways to move (`ballMove`), measured on 40 descent levels (depths 1 to
+5) over about 6,400 positions each, in random games:
+
+| The ball moves | Cannot move | Cannot reach the hole by itself | Squares it can reach |
+|---|---|---|---|
+| On ice (the first ball; still the daily's) | 8% | 36% | 4.7 |
+| Like a putt: a rook that never takes | 6% | 14% | 9.9 |
+| Like a billiard ball: the reflecting bishop of Billiards Chess (Jacques Berthoumeau, 1950s), bouncing off the edges | 13% | 50% | 5.7 |
+
+The billiard ball is the real fairy piece, and the most thematic, but like
+any bishop it keeps to its colour, so half the time the hole is on squares
+it can never reach. The putt cuts being stranded by more than half, so it
+is the ball in the descent and the lab's default. The other two stay in
+the lab to try. "Cannot reach the hole by itself" means with everything
+else frozen; other pieces moving, and the hole moving, free it again.
 
 - **Board:** width and height (3 to 10), shape (rectangle, diamond, round,
   cross, ring, hourglass, L, stairs, two islands, Swiss cheese), extra holes,
@@ -360,11 +379,21 @@ level that's harder ... see how far you can go."
   your pieces tumble after the ball. Lose
   the ball, or run out of moves, and the run ends. How deep you got is the
   score; the deepest you have ever been is kept, and only goes up.
-- **Your pieces go down with you** (Timothy's call, instead of picking a new
-  piece each depth). A run starts with the ball, a rook, a knight and a
-  bishop; whatever is left when you sink the ball comes down too, and a
-  piece taken stays gone. Each level is found for exactly the pieces you
-  still have.
+- **Your pieces go down with you** (Timothy's call). A run starts with the
+  ball, a rook, a knight and a bishop; whatever is left when you sink the
+  ball comes down too, and a piece taken stays gone.
+- **And you find one more on the way** (Timothy, later the same day: "is
+  the picking a new piece thing in the descent yet, if not let's do it").
+  Falling to each new depth you are offered two pieces and take one:
+  always one classic piece (king, knight, bishop, rook; the queen from
+  depth 6) and one fairy piece (wazir, ferz, alfil, mao, zebra, camel,
+  grasshopper, cannon; the squirrel and the rose from depth 5; the
+  nightrider and the archbishop from depth 8). Up to six pieces, the ball
+  included. The two are fixed for the run, so both possible next levels are
+  found while you play the one above. Each level is found for exactly the
+  hand you carry, and only kept if it takes as many moves as that depth
+  asks for, so more pieces do not make it easy. The new piece's card plays
+  in the next opening, the first time it turns up in a run.
 - **Depth adds one thing at a time** (`depthSettings`): one kind of rabbit
   in short-stepping pieces first (king, wazir, ferz), then a moving hole,
   then pieces that can take yours (depth 3), knights, a second kind of

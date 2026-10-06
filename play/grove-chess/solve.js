@@ -33,10 +33,13 @@ function score(s) {
   const loose = r.goal === 'descent' ? s.foes.filter((f) => f.target && !f.taken) : [];
   if (r.goal === 'hole' || (r.goal === 'descent' && !loose.length)) {
     // Closer is better, and sharing a row or column with the hole is a
-    // big step: from there one roll can do it.
+    // big step: from there one roll can do it. A billiard ball goes
+    // diagonally instead, and can only ever reach the hole while the hole
+    // is on its colour.
     const b = alive.find((p) => p.type === 'ball');
     if (!b || !s.hole) return Infinity;
     const dx = Math.abs(b.x - s.hole.x), dy = Math.abs(b.y - s.hole.y);
+    if (r.ballMove === 'bounce') return Math.max(dx, dy) * 10 - (dx === dy ? 15 : 0) + ((dx + dy) % 2 ? 30 : 0) + lostPieces * 40;
     return (dx + dy) * 10 - (dx === 0 || dy === 0 ? 15 : 0) + lostPieces * 40;
   }
   let need = r.goal === 'descent' ? loose : s.foes.filter((f) => !f.taken && (r.goal !== 'target' || f.target));

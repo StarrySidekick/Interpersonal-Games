@@ -5,7 +5,7 @@ import { $, el, show, haptic, keepAwake, themeToggle } from '../../../engine/ui.
 import { soundToggle } from '../../../engine/sound.js';
 import * as sfx from '../sounds.js';
 import { makeTarget, render } from '../../../engine/lowpoly.js';
-import { PIECES, HOLE_DESC, CRUMBLE_DESC, SHRINK_DESC, movesFor, playerMove, respond, isOver, outcome, initialState, allMoves, replay, crumbled, shrunk, holeOpen } from '../rules.js';
+import { PIECES, descOf, HOLE_DESC, CRUMBLE_DESC, SHRINK_DESC, movesFor, playerMove, respond, isOver, outcome, initialState, allMoves, replay, crumbled, shrunk, holeOpen } from '../rules.js';
 import { FUR } from '../rabbits.js';
 import { Board, scene, sceneFrame, sprite, patternPicture } from '../board.js';
 import { piecesSheet } from '../sheet.js';
@@ -332,8 +332,8 @@ function select(i) {
     ? 'None of your pieces can move, so you have to pass.'
     : 'Tap a piece to light up where it can go. Gold rings mark what you have to catch.');
   else {
-    const P = PIECES[now().pieces[i].type];
-    info(`${P.name}: ${P.desc}${legal.length ? '' : ' It has nowhere to go right now.'}`);
+    const type = now().pieces[i].type;
+    info(`${PIECES[type].name}: ${descOf(type, now().day.rules)}${legal.length ? '' : ' It has nowhere to go right now.'}`);
   }
   draw();
 }

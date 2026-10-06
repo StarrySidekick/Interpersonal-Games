@@ -9,7 +9,7 @@
 import { el, haptic } from '../../engine/ui.js';
 import { Mesh, makeTarget, render } from '../../engine/lowpoly.js';
 import { model } from './models.js';
-import { PIECES, CRUMBLE_DESC, SHRINK_DESC, movesFor, playerMove } from './rules.js';
+import { PIECES, descOf, CRUMBLE_DESC, SHRINK_DESC, movesFor, playerMove } from './rules.js';
 import { Board, demoBoard } from './board.js';
 import * as sfx from './sounds.js';
 
@@ -101,7 +101,7 @@ export async function playIntro(board, level, { goal = null, section = null, see
     const fresh = (key) => { if (!seen) return true; if (seen.has(key)) return false; seen.add(key); return true; };
     const kinds = [...new Set(level.pieces.map((p) => p.type))].filter(fresh);
     const cards = kinds.map((k, i) => ({ kind: k, side: 'you', eyebrow: `Your pieces · ${i + 1} of ${kinds.length}`,
-      title: PIECES[k].name, text: PIECES[k].desc, demo: true }));
+      title: PIECES[k].name, text: descOf(k, level.rules), demo: true, rules: level.rules }));
     if (level.rules.crumble && fresh('ground:crumble')) cards.push({ kind: 'crumble', side: 'you', eyebrow: 'The ground', title: 'Crumbling ground',
       text: CRUMBLE_DESC, demo: 'crumble' });
     if (level.rules.shrink && fresh('ground:' + level.rules.shrink)) cards.push({ kind: 'shrink', side: 'you', eyebrow: 'The ground',
@@ -182,7 +182,7 @@ async function card(c, setAdvance, track, isSkipped) {
     { duration: 280, easing: 'cubic-bezier(.2,.8,.2,1)' }));
 
   const stop = () => done || isSkipped();
-  const demo = c.demo === 'crumble' ? showCrumble(demoCanvas, stop) : c.demo ? showMoves(demoCanvas, c.kind, stop) : Promise.resolve();
+  const demo = c.demo === 'crumble' ? showCrumble(demoCanvas, stop) : c.demo ? showMoves(demoCanvas, c.kind, stop, c.rules) : Promise.resolve();
   await Promise.race([hold, Promise.all([demo, wait(c.demo ? 0 : 2200)])]);
   done = true;
 
@@ -199,8 +199,8 @@ async function card(c, setAdvance, track, isSkipped) {
  * light up one by one, then it makes a move for real (taking something, if
  * that is how the piece works) and steps back, twice.
  */
-async function showMoves(canvas, kind, stop) {
-  const { day, s } = demoBoard(kind);
+async function showMoves(canvas, kind, stop, rules = {}) {
+  const { day, s } = demoBoard(kind, { rules: { ballMove: rules.ballMove } });
   const board = new Board(canvas, day);
   board.celebrate = false; // a demo catch is a demonstration, not a win
   const moves = movesFor(s, 0);

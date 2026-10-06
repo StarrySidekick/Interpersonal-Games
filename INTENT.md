@@ -112,6 +112,23 @@ Later still: yes to the 3D board, fog in both modes. And new notes:
 - The daily keeps its single loose rabbit for now. Possession could come to
   it in a later dealer version.
 
+Later again, after playing it on his phone:
+
+- **The board was invisible.** Safari on older iPhones (WebKit bug 256151)
+  wiped the board while drawing the pieces. Fixed; the board now draws
+  straight onto the screen.
+- **The board read too small on a phone.** It now runs the full width of
+  the screen with only a thin band of forest round it.
+- **Pick a new piece in the descent as well.** Built: on the way down to
+  each depth, take one of two pieces, one classic and one fairy, up to six.
+- **The ball gets stuck a lot**, and the fairy-piece question again. Measured
+  (`docs/grove-chess.md`, the lab): on ice it cannot reach the hole by
+  itself in 36% of positions. The real fairy piece nearest a ball, the
+  reflecting bishop of Billiards Chess, is worse (50%: it keeps to its
+  colour). A ball that putts, rolling as far as you like and stopping where
+  you choose, is 14%, so the descent and the lab use it; ice and billiard
+  stay in the lab. The daily keeps the ice ball.
+
 ## 2026-10-05: the front door is asynchronous, and it is a group
 
 Recorded from Timothy's own description. **Where this section disagrees with

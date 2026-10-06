@@ -8,14 +8,14 @@ import { makeTarget, render } from '../../../engine/lowpoly.js';
 import { rng } from '../../../engine/seed.js';
 import * as sfx from '../sounds.js';
 import {
-  PIECES, CRUMBLE_DESC, SHRINK_DESC, movesFor, playerMove, respond, isOver, outcome, initialState, allMoves,
+  PIECES, descOf, CRUMBLE_DESC, SHRINK_DESC, movesFor, playerMove, respond, isOver, outcome, initialState, allMoves,
   holeOpen, crumbled, shrunk
 } from '../rules.js';
-import { Board, scene, sceneFrame, sprite } from '../board.js';
+import { Board, scene, sceneFrame, sprite, diagram } from '../board.js';
 import { piecesSheet } from '../sheet.js';
 import { playIntro } from '../intro.js';
 import { makeLevel, searchLayouts } from '../lab.js';
-import { depthSettings, loadDescent, saveDescent, START_HAND } from '../descent.js';
+import { depthSettings, loadDescent, saveDescent, START_HAND, HAND_MAX, offersFor } from '../descent.js';
 import { FUR, FUR_WORD, caughtRabbits, recordCatch } from '../rabbits.js';
 import { makeBoard } from '../board3d.js';
 
@@ -34,9 +34,10 @@ function newRun() {
 }
 
 /** The level for `depth` of this run, for the pieces you are carrying, found
-    on a background thread. Asked for early (assuming you keep every piece),
-    so it is usually ready by the time you fall into it; lose a piece and
-    the next level is found again for what is left. */
+    on a background thread. Asked for early (assuming you keep every piece,
+    once for each piece you might pick on the way down), so it is usually
+    ready by the time you fall into it; lose a piece and the next level is
+    found again for what is left. */
 function find(depth, hand = run.hand) {
   const key = `${depth}|${hand.join(',')}`;
   if (run.found.has(key)) return run.found.get(key);
@@ -59,6 +60,10 @@ function find(depth, hand = run.hand) {
   run.found.set(key, p);
   return p;
 }
+
+/** The two pieces offered on the way down to `depth`, or null when your
+    hand is already full. Fixed for the run, whatever you lose. */
+const offersAt = (depth, hand = run.hand) => (depth > 1 && hand.length < HAND_MAX ? offersFor(depth, rng(`offer:${run.seed}:${depth}`)) : null);
 
 // --- Rabbits: every kind wears its colour down here, so you can see which
 // pieces move alike. (The daily keeps its colours until you have earned them.)
@@ -105,7 +110,10 @@ function goalCard() {
 
 async function startLevel() {
   const found = await find(run.depth);
-  find(run.depth + 1); // the next one down, found while you play this one
+  // The next one down, found while you play this one: one for each piece
+  // you might pick on the way.
+  const next = offersAt(run.depth + 1);
+  if (next) next.forEach((k) => find(run.depth + 1, [...run.hand, k])); else find(run.depth + 1);
   level = makeLevel(found.settings, found.seed);
   par = found.par;
   known = caughtRabbits();
@@ -143,8 +151,8 @@ function select(i) {
   legal = i == null ? [] : movesFor(now(), i);
   if (i == null) info(holeOpen(now()) ? 'The hole is open. Roll the ball in.' : 'Tap a piece to light up where it can go. The hole opens once every rabbit is caught.');
   else {
-    const P = PIECES[now().pieces[i].type];
-    info(`${P.name}: ${P.desc}${legal.length ? '' : ' It has nowhere to go right now.'}`);
+    const type = now().pieces[i].type;
+    info(`${PIECES[type].name}: ${descOf(type, now().day.rules)}${legal.length ? '' : ' It has nowhere to go right now.'}`);
   }
   draw();
 }
@@ -249,7 +257,14 @@ async function descend() {
   }
   show('fall');
   $('#fallnote').textContent = `Depth ${run.depth}`;
+  $('#depthpill').textContent = `Depth ${run.depth}`;
   $('#fallsub').textContent = '';
+  // Something down here: take one of two pieces with you.
+  const offers = offersAt(run.depth);
+  if (offers) {
+    offers.forEach((k) => find(run.depth, [...run.hand, k])); // both found while you choose
+    run.hand.push(await choose(offers));
+  }
   const t0 = performance.now();
   const slow = setTimeout(() => { $('#fallsub').textContent = 'Still falling. The next board is being found.'; }, 1500);
   await find(run.depth);
@@ -258,6 +273,31 @@ async function descend() {
   board.el.style.transform = '';
   board.el.style.opacity = '';
   startLevel();
+}
+
+/** Offer two pieces on the fall screen; resolves with the one you take. */
+function choose(offers) {
+  const section = $('[data-screen=fall]'), box = $('#offer');
+  section.classList.add('offering');
+  return new Promise((resolve) => {
+    const card = (k) => {
+      const P = PIECES[k], cv = el('canvas', { class: 'model', width: 30, height: 36 });
+      cv.getContext('2d').drawImage(sprite(k, 'you'), 0, 0);
+      return el('button', { class: 'offercard', onclick: () => {
+        haptic(14);
+        sfx.gain();
+        box.hidden = true;
+        section.classList.remove('offering');
+        $('#fallsub').textContent = `The ${P.name.toLowerCase()} comes down with you.`;
+        resolve(k);
+      } },
+      el('div', {}, cv, diagram(k)),
+      el('div', {}, el('span', { class: 'tag' }, P.kind === 'fairy' ? 'Fairy piece' : 'Classic'), el('h3', {}, P.name),
+        el('p', {}, P.desc), P.origin ? el('p', { class: 'small dim' }, P.origin) : null));
+    };
+    box.replaceChildren(el('p', { class: 'center' }, 'Something is down here with you. Take one of them.'), ...offers.map(card));
+    box.hidden = false;
+  });
 }
 
 /** Every rabbit caught on this run, one tile per colour, with counts. */
@@ -310,7 +350,7 @@ function previewFrame(ts) {
 async function prepareTitle() {
   newRun();
   $('#deepest').textContent = (rec.best ? `The deepest you have been: depth ${rec.best}. ` : 'Nobody has been down yet. ') +
-    `You go down with the ball, a ${START_HAND.slice(1).map((k) => PIECES[k].name.toLowerCase()).join(', a ').replace(/, a ([^,]*)$/, ' and a $1')}; whatever is left when you sink the ball falls with you.`;
+    `You go down with the ball, a ${START_HAND.slice(1).map((k) => PIECES[k].name.toLowerCase()).join(', a ').replace(/, a ([^,]*)$/, ' and a $1')}; whatever is left when you sink the ball falls with you, and at each new depth you find one more piece.`;
   const f = await find(1);
   const first = makeLevel(f.settings, f.seed);
   pframe = sceneFrame(first, pitch, pscale);
@@ -337,4 +377,4 @@ prepareTitle();
 requestAnimationFrame(previewFrame);
 
 // For automated tests: read-only access to what is on the board.
-window.__descent = { now: () => (game ? now() : null), level: () => level, depth: () => run.depth, find: (d) => find(d) };
+window.__descent = { now: () => (game ? now() : null), level: () => level, depth: () => run.depth, find: (d) => find(d), hand: () => run.hand.slice() };
