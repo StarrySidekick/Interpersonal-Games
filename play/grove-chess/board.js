@@ -438,7 +438,7 @@ export class Board {
           // rabbits plays its first three, so a big level is not a din.
           if (f.x === f0.x && f.y === f0.y) sfx.bump(at(t0 + dur / 2));
           else if (f.brain !== 'pattern') sfx.slide(at(t0 + dur));
-          else if (hops++ < 3) sfx.hop(f.x - f0.x, f.y - f0.y, at(t0 + hops * 0.02), at(t0 + dur));
+          else if (hops++ < 3) sfx.hop(f.x - f0.x, f.y - f0.y, at(t0 + (hops - 1) * 20), at(t0 + dur));
         }
       });
       if (a.hole && b.hole && (a.hole.x !== b.hole.x || a.hole.y !== b.hole.y)) {

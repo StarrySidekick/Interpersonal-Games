@@ -168,7 +168,7 @@ function others() {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-let revealToken = 0, patternWatch = null;
+let revealToken = 0, patternWatch = null, finishes = 0;
 
 /** Your chase drawn back onto the board a move at a time, just after you
     finish. Anything else you do with the board stops it. Resolves true if
@@ -190,7 +190,7 @@ async function drawChase() {
     again on a later visit: only then does it play its tune and draw itself
     out. */
 function finish(fresh = false) {
-  const end = now(), how = outcome(end), over = end.t - day.par;
+  const end = now(), how = outcome(end), over = end.t - day.par, mine = ++finishes;
   if (!game.practice && !entry.done) {
     entry.done = true; save(store);
     logSitting({ game: 'grove-chess', data: { date, number: day.number, outcome: how, moves: end.t, par: day.par } });
@@ -214,7 +214,8 @@ function finish(fresh = false) {
       patternPicture(pic, day.pattern, mx, my, 0);
       // One thing at a time: the tune waits for the chase to finish drawing.
       drawChase().then((done) => {
-        if (!done) return;
+        // Cut short (you tapped someone's game): just show the pattern.
+        if (!done) { if (mine === finishes) patternPicture(pic, day.pattern, mx, my); return; }
         const watch = patternWatch = new IntersectionObserver((seen) => {
           if (!seen.some((e) => e.isIntersecting)) return;
           watch.disconnect();
