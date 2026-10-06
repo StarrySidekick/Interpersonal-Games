@@ -31,7 +31,8 @@ function sym(a, b) {
 // What a square holds, from the point of view of the side moving into it.
 // OWN is one of your own side; ENEMY is something you could take; HIDDEN is
 // an enemy sheltering in the bramble, which nothing can take.
-export const OFF = 0, EMPTY = 1, OWN = 2, ENEMY = 3, STUMP = 4, BRAMBLE = 5, HIDDEN = 6;
+// HOLE is the moving hole of a ball level: only the ball may enter it.
+export const OFF = 0, EMPTY = 1, OWN = 2, ENEMY = 3, STUMP = 4, BRAMBLE = 5, HIDDEN = 6, HOLE = 7;
 
 export function brambleCount(day, t) {
   if (!day.bramble.length) return 0;
@@ -53,6 +54,7 @@ export function look(s, x, y, side = 'you') {
     if (!p.taken && p.x === x && p.y === y) return side === 'you' ? OWN : bram ? HIDDEN : ENEMY;
   for (const f of s.foes)
     if (!f.taken && f.x === x && f.y === y) return side === 'foe' ? OWN : bram ? HIDDEN : ENEMY;
+  if (s.hole && s.hole.x === x && s.hole.y === y) return HOLE;
   if (s.day.stumps.has(y * s.day.W + x)) return STUMP;
   return bram ? BRAMBLE : EMPTY;
 }
@@ -113,6 +115,25 @@ function mao(L, p) {
     if (L(p.x + dx, p.y + dy) !== EMPTY) continue; // the leg is blocked
     const side = dx ? [[2 * dx, 1], [2 * dx, -1]] : [[1, 2 * dy], [-1, 2 * dy]];
     leap(L, p, side, out);
+  }
+  return out;
+}
+
+/** The ball rolls up, down, left or right and keeps rolling until something
+    stops it, like a puzzle on ice. It never takes anything. It drops into the
+    hole if it rolls over it, or, when the level says so, only if it comes to
+    rest on it. */
+function ball(L, p, fwd, day) {
+  const out = [], dropsIn = !day?.rules?.ballStops;
+  for (const [dx, dy] of ORTH) {
+    let x = p.x, y = p.y, onHole = false;
+    for (;;) {
+      const c = L(x + dx, y + dy);
+      if (c !== EMPTY && c !== HOLE) break;
+      x += dx; y += dy; onHole = c === HOLE;
+      if (onHole && dropsIn) break;
+    }
+    if (x !== p.x || y !== p.y) out.push({ x, y, cap: false, sink: onHole });
   }
   return out;
 }
@@ -213,6 +234,11 @@ export const PIECES = {
 
   // Only ever on their side. When it thinks (the AI brain) it moves like a
   // king; when it follows a pattern, the pattern decides.
+  // Only ever yours, and only on ball-and-hole levels.
+  ball: { name: 'Ball', kind: 'special', tier: 0, value: 2,
+    desc: 'Rolls up, down, left or right until something stops it. Your other pieces make good walls. Get it into the hole to win.',
+    moves: ball },
+
   rabbit: { name: 'Rabbit', kind: 'quarry', tier: 1, value: 3,
     desc: 'Steps one square in any direction.',
     moves: (L, p) => leap(L, p, ALL8) }
@@ -222,6 +248,7 @@ export const RABBIT_DESC = 'Hops in a fixed pattern that repeats. If it lands on
 export const RABBIT_AI_DESC = 'Thinks for itself and steps one square in any direction, like a king. It eats what it lands on.';
 export const BRAMBLE_DESC = 'Creeps across the board. Nothing can enter it and nothing slides through it. Anything caught inside is safe until it leaves.';
 export const STUMP_DESC = 'In the way. Sliders stop at it; leapers jump over it.';
+export const HOLE_DESC = 'The hole. It moves by its own hidden pattern after every turn, bounces off the edges, and waits if anything is in the way. Nothing but the ball can go in it.';
 
 // --- Level rules. ----------------------------------------------------------
 
@@ -245,6 +272,7 @@ export function initialState(day) {
     t: 0, // moves you have made
     pieces: day.pieces.map((p) => ({ ...p, taken: false })),
     foes: day.foes.map((f) => ({ ...f, i: 0, taken: false })),
+    hole: day.hole ? { ...day.hole, i: 0 } : null,
     won: false
   };
   if (day.rules.first === 'them') { foesAct(s); s.opened = true; }
@@ -252,7 +280,8 @@ export function initialState(day) {
 }
 
 export function clone(s) {
-  return { day: s.day, t: s.t, pieces: s.pieces.map((p) => ({ ...p })), foes: s.foes.map((f) => ({ ...f })), won: s.won };
+  return { day: s.day, t: s.t, pieces: s.pieces.map((p) => ({ ...p })), foes: s.foes.map((f) => ({ ...f })),
+    hole: s.hole ? { ...s.hole } : null, won: s.won, sunk: s.sunk };
 }
 
 const youLook = (s) => (x, y) => look(s, x, y, 'you');
@@ -261,14 +290,14 @@ const foeLook = (s) => (x, y) => look(s, x, y, 'foe');
 export function movesFor(s, i) {
   const p = s.pieces[i];
   if (s.won || p.taken) return [];
-  return PIECES[p.type].moves(youLook(s), p, 1);
+  return PIECES[p.type].moves(youLook(s), p, 1, s.day);
 }
 
 /** Where a thinking foe can go. */
 export function foeMovesFor(s, k) {
   const f = s.foes[k];
   if (f.taken || f.brain !== 'ai') return [];
-  const ms = PIECES[f.type].moves(foeLook(s), f, -1);
+  const ms = PIECES[f.type].moves(foeLook(s), f, -1, s.day);
   return s.day.rules.foesCapture ? ms : ms.filter((m) => !m.cap);
 }
 
@@ -290,6 +319,7 @@ export function isLegal(s, mv) {
 
 function goalMet(s) {
   const g = s.day.rules.goal, F = s.foes;
+  if (g === 'hole') return false; // only the ball in the hole wins
   if (g === 'any') return F.some((f) => f.taken);
   if (g === 'target' && F.some((f) => f.target)) return F.every((f) => !f.target || f.taken);
   return F.every((f) => f.taken);
@@ -297,7 +327,8 @@ function goalMet(s) {
 
 export const allTaken = (s) => s.pieces.every((p) => p.taken);
 export function lost(s) {
-  return allTaken(s) || (s.day.rules.royal && s.pieces.some((p) => p.taken && p.type === 'king'));
+  return allTaken(s) || (s.day.rules.royal && s.pieces.some((p) => p.taken && p.type === 'king')) ||
+    (s.day.rules.goal === 'hole' && s.pieces.some((p) => p.taken && p.type === 'ball'));
 }
 
 // --- Their turn. -----------------------------------------------------------
@@ -339,12 +370,27 @@ export function patternHops(s) {
   }
 }
 
+/** The hole's hop: its pattern, bouncing off the edges like a rabbit, and
+    waiting if anything at all is in the way. Mutates. */
+function holeHop(s) {
+  const h = s.hole, pat = h.pattern, W = s.day.W, H = s.day.H;
+  let [dx, dy] = pat[h.i];
+  dx *= h.mx; dy *= h.my;
+  if (h.x + dx < 0 || h.x + dx >= W) { h.mx = -h.mx; dx = -dx; }
+  if (h.y + dy < 0 || h.y + dy >= H) { h.my = -h.my; dy = -dy; }
+  h.i = (h.i + 1) % pat.length;
+  h.from = [h.x, h.y];
+  if (look(s, h.x + dx, h.y + dy) === EMPTY) { h.x += dx; h.y += dy; h.blocked = false; }
+  else h.blocked = true;
+}
+
 /** Their whole turn: the thinkers choose one move between them, then every
-    pattern foe hops. Mutates. */
+    pattern foe hops, then the hole moves. Mutates. */
 function foesAct(s) {
   for (const f of s.foes) { f.from = [f.x, f.y]; f.ate = -1; f.blocked = false; }
   if (s.foes.some((f) => !f.taken && f.brain === 'ai')) foeMove(s, think(s));
   if (!lost(s)) patternHops(s);
+  if (s.hole?.pattern && !lost(s)) holeHop(s);
 }
 
 /** Only your move, with no reply yet. Returns a new state. */
@@ -356,6 +402,7 @@ export function playerMove(s, mv) {
     const f = n.foes.find((f) => !f.taken && f.x === mv.x && f.y === mv.y);
     if (f) f.taken = true;
     if (f && goalMet(n)) n.won = true;
+    if (p.type === 'ball' && n.hole && p.x === n.hole.x && p.y === n.hole.y) n.won = n.sunk = true;
   }
   return n;
 }
@@ -403,5 +450,6 @@ export function stateKey(s) {
   for (const p of s.pieces) k += p.taken ? '--' : p.x + ',' + p.y + ';';
   k += '|';
   for (const f of s.foes) k += f.taken ? '--' : f.x + ',' + f.y + ',' + f.i + (f.mx > 0 ? '+' : '-') + (f.my > 0 ? '+' : '-') + ';';
+  if (s.hole) k += `|h${s.hole.x},${s.hole.y},${s.hole.i}${s.hole.mx > 0 ? '+' : '-'}${s.hole.my > 0 ? '+' : '-'}`;
   return k;
 }

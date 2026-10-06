@@ -2,7 +2,7 @@
 // test mode (add ?test to the address). Drawing lives in board.js and the
 // pieces menu in sheet.js; the lab (lab/) shares both.
 
-import { $, el, show, haptic, keepAwake } from '../../engine/ui.js';
+import { $, el, show, haptic, keepAwake, themeToggle } from '../../engine/ui.js';
 import { logSitting } from '../../engine/record.js';
 import { makeTarget, render } from '../../engine/lowpoly.js';
 import {
@@ -353,5 +353,6 @@ if (new URLSearchParams(location.search).has('test')) {
     `Par ${day.par}. Board ${N} × ${N}. Bramble: ${day.bramble.length ? 'yes' : 'no'}. Stumps: ${day.stumps.size}.`;
 }
 
+$('.topbar .pill').before(themeToggle());
 show('title');
 requestAnimationFrame(titleFrame);

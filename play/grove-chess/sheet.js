@@ -5,7 +5,7 @@
 import { el } from '../../engine/ui.js';
 import { Mesh, makeTarget, render } from '../../engine/lowpoly.js';
 import { model } from './models.js';
-import { PIECES, RABBIT_DESC, RABBIT_AI_DESC, BRAMBLE_DESC, STUMP_DESC } from './rules.js';
+import { PIECES, RABBIT_DESC, RABBIT_AI_DESC, BRAMBLE_DESC, STUMP_DESC, HOLE_DESC } from './rules.js';
 import { diagram } from './board.js';
 
 /**
@@ -32,9 +32,15 @@ export function piecesSheet(dialog, list, day, notes = {}) {
     head('Yours');
     for (const type of new Set(day.pieces.map((p) => p.type))) {
       const P = PIECES[type];
-      row(type, 'you', P.name, P.kind === 'fairy' ? 'Fairy piece' : 'Classic', [P.desc, P.origin], true);
+      row(type, 'you', P.name, P.kind === 'fairy' ? 'Fairy piece' : P.kind === 'special' ? 'Special' : 'Classic', [P.desc, P.origin], true);
     }
-    head(day.foes.length > 1 ? 'Theirs' : 'The one to catch');
+    if (day.hole) {
+      head('The goal');
+      row('flag', 'you', 'The hole', 'Sink the ball here', [HOLE_DESC,
+        day.rules.ballStops ? 'On this level the ball has to come to rest on the hole; rolling over it is not enough.' : 'The ball drops in if it rolls over it.'],
+      false);
+    }
+    if (day.foes.length) head(day.foes.length > 1 ? 'Theirs' : day.hole ? 'In your way' : 'The one to catch');
     const seen = new Set();
     for (const f of day.foes) {
       const key = f.type + f.brain;

@@ -54,3 +54,31 @@ export function relativeDay(ts) {
   const months = Math.round(days / 30);
   return months === 1 ? 'a month ago' : `${months} months ago`;
 }
+
+// --- Light and dark. -------------------------------------------------------
+// The choice is kept in this browser. Each page's <head> applies it before
+// anything is drawn (see the one-line script there), so there is no flash.
+
+const THEME_KEY = 'ig.theme';
+const systemTheme = () => (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+const currentTheme = () => document.documentElement.dataset.theme || systemTheme();
+
+function paintThemeColour() {
+  const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta && bg) meta.setAttribute('content', bg);
+}
+
+/** A button that flips between light and dark, labelled with where it goes. */
+export function themeToggle() {
+  const b = el('button', { class: 'quiet themebtn', type: 'button' });
+  const paint = () => { b.textContent = currentTheme() === 'light' ? 'Dark' : 'Light'; paintThemeColour(); };
+  b.addEventListener('click', () => {
+    const next = currentTheme() === 'light' ? 'dark' : 'light';
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem(THEME_KEY, next); } catch { /* still switches, just won't remember */ }
+    paint();
+  });
+  paint();
+  return b;
+}

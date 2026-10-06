@@ -154,7 +154,15 @@ and it goes in a notebook you can copy out.
   layout before you see it and keeps the first one it can win in between a
   minimum and a maximum number of moves (3 and 10 by default). That number is
   the level's par. After a game, "Watch the solver's win" replays its line.
-- **Go crazy** rolls every setting at once, goal included.
+- **Sink the ball:** your first piece becomes a ball that rolls up, down,
+  left or right until something stops it (your other pieces make good
+  walls). A hole moves by its own hidden pattern each turn, like a rabbit,
+  and you win by getting the ball into it. It drops in when it rolls over
+  the hole, or, with "Ball must stop on the hole", only when it comes to rest
+  there. Their side can be empty for these.
+- **Go crazy** rolls every setting at once, goal included. "What Go crazy may
+  use" switches individual fairy pieces (and the rabbit) on or off for it;
+  classic pieces are always in.
 
 ### The solver
 

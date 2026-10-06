@@ -123,3 +123,24 @@ details summary {
   cursor: pointer; color: var(--dim); font-size: 15px; padding: 8px 0;
 }
 details[open] summary { margin-bottom: 6px; }
+
+/* Light: a deep cream, for daylight. Used when chosen (data-theme="light",
+   set from the toggle) or when the phone is in light mode and nothing has
+   been chosen. These selectors outrank a page's own :root colours, so one
+   palette here serves every page. */
+:root[data-theme='light'] {
+  --bg: #e8d8b0; --panel: #f2e7cb; --panel-2: #ecdfbf; --line: #cdb88c;
+  --text: #2a2317; --dim: #6b5c43; --accent: #4c7a2f; --accent-ink: #f7f0de;
+  --warm: #a86f12; --miss: #b0443a;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    --bg: #e8d8b0; --panel: #f2e7cb; --panel-2: #ecdfbf; --line: #cdb88c;
+    --text: #2a2317; --dim: #6b5c43; --accent: #4c7a2f; --accent-ink: #f7f0de;
+    --warm: #a86f12; --miss: #b0443a;
+    color-scheme: light;
+  }
+}
+
+.themebtn { width: auto; min-height: 40px; padding: 6px 14px; font-size: 14px; margin-left: auto; }

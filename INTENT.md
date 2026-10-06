@@ -12,6 +12,32 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
+## 2026-10-06: hone in on what is actually fun
+
+Recorded from Timothy's own description. **The goal right now is to make
+something actually fun**, and to start narrowing a lot of ideas into one
+experience.
+
+The shape he described, in three parts:
+
+1. **A daily puzzle, the shareable one.** The same board for everyone, sent
+   around a group chat. That is Grove Chess's daily rabbit today.
+2. **A level-based, exploratory structure.** Much more open-ended: a world
+   you explore, not one puzzle a day. The lab is where its pieces are being
+   found.
+3. **Other players woven in.** Possibly collaborative. The branching idea in
+   particular: when you are on somebody's branch, you play a slightly
+   upgraded version of the game, so the game is something shared by the
+   friend group, as if everyone is in on one pot.
+
+He called this a lot at once. Concrete options for each part, and a
+suggested order, are in [`docs/grove-structure.md`](docs/grove-structure.md);
+none of them is decided.
+
+Also from him the same day: a light mode in a deep cream (dark stays as it
+is), a ball-and-hole win condition, and control over which fairy pieces Go
+crazy may use. All three are built.
+
 ## 2026-10-05: the front door is asynchronous, and it is a group
 
 Recorded from Timothy's own description. **Where this section disagrees with
