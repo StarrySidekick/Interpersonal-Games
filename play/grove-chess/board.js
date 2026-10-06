@@ -5,7 +5,7 @@
 // `image-rendering: pixelated`. Pieces are sprites rendered once from their
 // 3D models (engine/lowpoly.js).
 
-import { Mesh, snapshot } from '../../engine/lowpoly.js';
+import { Mesh, Model, snapshot } from '../../engine/lowpoly.js';
 import { model } from './models.js';
 import { brambleCount, onBoard, movesFor, PIECES } from './rules.js';
 
@@ -70,6 +70,11 @@ export class Board {
     this.pen = new Pen(canvas.getContext('2d'));
     this.tw = null;
     this.loopUntil = 0;
+    // For the opening animation: hide your pieces while the board falls in,
+    // then `landing(i, now)` gives each piece's height above its square, or
+    // null while it has not appeared yet.
+    this.hidePieces = false;
+    this.landing = null;
     this.redraw = () => {};
   }
 
@@ -135,6 +140,32 @@ export class Board {
       P.forEach(([x, y], i) => { if (i < P.length - 1) this.paw(x, y, col + '80'); labels.set(y * this.day.W + x, i); });
       for (const [sq, i] of labels) this.pen.num(i, this.cellX(sq % this.day.W) + 3, this.cellY(Math.floor(sq / this.day.W)) + 3, col);
     });
+    // The hole leaves numbered tracks too, in its own colour.
+    if (last.hole?.pattern) {
+      const col = '#1d6b6b', P = track.map((s) => [s.hole.x, s.hole.y]);
+      for (let i = 1; i < P.length; i++) {
+        if (P[i][0] === P[i - 1][0] && P[i][1] === P[i - 1][1]) continue;
+        const [ax, ay] = this.centre(...P[i - 1]), [bx, by] = this.centre(...P[i]);
+        this.pen.line(ax, ay, bx, by, col + '73', 1, 2);
+      }
+      const labels = new Map();
+      P.forEach(([x, y], i) => labels.set(y * this.day.W + x, i));
+      for (const [sq, i] of labels) this.pen.num(i, this.cellX(sq % this.day.W) + C - 8, this.cellY(Math.floor(sq / this.day.W)) + 3, col);
+    }
+  }
+
+  /** The hole: a dark pit in the grass, drawn flat on the board. */
+  pit(x, y) {
+    const cx = Math.round(this.cellX(0) + x * C + C / 2), cy = Math.round(this.cellY(0) - y * C + C / 2 + 2);
+    const disc = (rx, ry, col, dy = 0) => {
+      for (let j = -ry; j <= ry; j++) {
+        const w = Math.round(rx * Math.sqrt(1 - (j / (ry + 0.5)) ** 2));
+        this.pen.px(cx - w, cy + j + dy, w * 2, 1, col);
+      }
+    };
+    disc(10, 7, '#7a6440');
+    disc(9, 6, '#2a1f13');
+    disc(6, 4, '#140e08', 1);
   }
 
   /** Lines showing where each player's pieces went, one colour per player. */
@@ -179,7 +210,7 @@ export class Board {
     const frame = (x, y, w, col) => { P(x, y, C, w, col); P(x, y + C - w, C, w, col); P(x, y, w, C, col); P(x + C - w, y, w, C, col); };
     for (const m of v.legal || []) {
       const x = this.cellX(m.x), y = this.cellY(m.y);
-      if (m.cap) { P(x, y, C, C, 'rgba(226,96,62,.5)'); frame(x, y, 2, '#c8462e'); }
+      if (m.cap || m.sink) { P(x, y, C, C, 'rgba(226,96,62,.5)'); frame(x, y, 2, '#c8462e'); }
       else { P(x, y, C, C, 'rgba(242,193,78,.45)'); frame(x, y, 1, 'rgba(176,128,24,.55)'); }
     }
     if (v.sel != null) {
@@ -195,6 +226,12 @@ export class Board {
         P(x + a, y + b, 3, 1, 'rgba(63,107,44,.55)'); P(x + a + 1, y + b - 1, 1, 3, 'rgba(63,107,44,.55)');
       }
     }
+    let hole = null;
+    if (s.hole) {
+      hole = { x: s.hole.x, y: s.hole.y };
+      if (tw?.hole) ({ x: hole.x, y: hole.y } = tweenPos(tw.hole, at));
+      this.pit(hole.x, hole.y);
+    }
     if (v.track) this.tracks(v.track);
     if (v.paths) this.paths(v.paths);
 
@@ -205,12 +242,17 @@ export class Board {
       const sq = day.bramble[i];
       things.push({ img: sprite('bramble'), x: sq % day.W, y: Math.floor(sq / day.W), under: true });
     }
-    s.pieces.forEach((p, i) => {
+    if (hole) things.push({ img: sprite('flag'), x: hole.x + 0.32, y: hole.y + 0.12 });
+    if (!this.hidePieces) s.pieces.forEach((p, i) => {
       // An eaten piece stays on the board until whatever ate it lands.
       if (p.taken && !(tw?.eaten?.has(i) && at < tw.landAt)) return;
+      // A sunk ball rolls to the hole, then it is gone.
+      if (s.sunk && p.type === 'ball' && !(tw?.sinkAt && at < tw.sinkAt)) return;
       let x = p.x, y = p.y;
       if (tw?.piece?.i === i) ({ x, y } = tweenPos(tw.piece, at));
-      things.push({ img: sprite(p.type), x, y });
+      let lift = 0;
+      if (this.landing) { lift = this.landing(i, at); if (lift === null) return; }
+      things.push({ img: sprite(p.type), x, y, lift });
     });
     const marked = day.rules.goal === 'target' && day.foes.length > 1;
     s.foes.forEach((f, k) => {
@@ -257,6 +299,11 @@ export class Board {
       tw.poofs.push({ x: a.foes[k].x, y: a.foes[k].y, t0: t, dur: 480, c1: '#ffffff', c2: '#f2c14e' });
     }
     if (tw.caught.size) t += b.won ? 480 : 200;
+    if (b.sunk && !a.sunk) {
+      tw.sinkAt = t;
+      tw.poofs.push({ x: b.hole.x, y: b.hole.y, t0: t, dur: 520, c1: '#2a1f13', c2: '#f4ecd6' });
+      t += 520;
+    }
 
     if (!b.won && b.t !== a.t) {
       // Then their turn, if there was one: every foe that moved (or tried
@@ -271,6 +318,10 @@ export class Board {
           any = true;
         }
       });
+      if (a.hole && b.hole && (a.hole.x !== b.hole.x || a.hole.y !== b.hole.y)) {
+        tw.hole = { from: [a.hole.x, a.hole.y], to: [b.hole.x, b.hole.y], t0, dur };
+        any = true;
+      }
       if (any) t = t0 + dur;
       tw.eaten = new Set(b.pieces.map((p, i) => (p.taken && !a.pieces[i].taken ? i : -1)).filter((i) => i >= 0));
       tw.landAt = t - 40;
@@ -278,8 +329,13 @@ export class Board {
       if (tw.eaten.size) t += 440;
     }
     this.tw = tw;
+    return this.runUntil(t);
+  }
+
+  /** Keep redrawing every frame until time t. Resolves then. */
+  runUntil(t) {
     const start = performance.now() >= this.loopUntil;
-    this.loopUntil = t;
+    this.loopUntil = Math.max(this.loopUntil, t);
     if (start) requestAnimationFrame(() => this.loop());
     return new Promise((res) => setTimeout(res, t - performance.now() + 20));
   }
@@ -321,23 +377,34 @@ export function patternPicture(cv, steps0, mx = 1, my = 1) {
 
 // --- The pieces menu's little move diagrams. -------------------------------
 
+// A few pieces only make sense with something on the board: a pawn catches
+// diagonally, a cannon needs a screen to jump, a grasshopper needs hurdles,
+// a mao can be blocked, a ball needs something to stop against.
 const DEMO = {
   pawn: { rabbit: [4, 4] },
   cannon: { stumps: [[3, 5]], rabbit: [3, 6] },
   grasshopper: { stumps: [[3, 5], [5, 5], [1, 3]] },
-  mao: { stumps: [[4, 3]] }
+  mao: { stumps: [[4, 3]] },
+  ball: { stumps: [[3, 6], [0, 3]] }
 };
+
+/** A 7 x 7 practice board with one piece in the middle, plus whatever its
+    demonstration needs. Returns a level and its starting state. */
+export function demoBoard(type) {
+  const D = 7, demo = DEMO[type] || {}, r = demo.rabbit;
+  const day = { W: D, H: D, holes: new Set(), stumps: new Set((demo.stumps || []).map(([x, y]) => y * D + x)),
+    bramble: [], brambleAt: new Map(), every: 2, rules: { goal: 'all', foesCapture: true, maxMoves: 0, wait: true },
+    pieces: [{ type, x: 3, y: 3 }], foes: r ? [{ type: 'rabbit', x: r[0], y: r[1], brain: 'pattern' }] : [] };
+  const s = { day, t: 0, won: false, hole: null, pieces: [{ type, x: 3, y: 3 }], foes: day.foes.map((f) => ({ ...f })) };
+  return { day, s };
+}
 
 /** A 7 x 7 picture of where a piece can go from the middle of an empty board. */
 export function diagram(type) {
   const D = 7, c = 8, cv = document.createElement('canvas');
   cv.className = 'diagram pix'; cv.width = D * c; cv.height = D * c;
-  const ctx = cv.getContext('2d'), demo = DEMO[type] || {};
-  const day = { W: D, H: D, holes: new Set(), stumps: new Set((demo.stumps || []).map(([x, y]) => y * D + x)),
-    bramble: [], brambleAt: new Map(), every: 2, rules: { foesCapture: true } };
-  const r = demo.rabbit;
-  const s = { day, t: 0, won: false, pieces: [{ type, x: 3, y: 3 }],
-    foes: r ? [{ type: 'rabbit', x: r[0], y: r[1], brain: 'pattern' }] : [] };
+  const ctx = cv.getContext('2d'), demo = DEMO[type] || {}, r = demo.rabbit;
+  const { s } = demoBoard(type);
   const at = (x, y, col, inset = 0) => { ctx.fillStyle = col; ctx.fillRect(x * c + inset, (D - 1 - y) * c + inset, c - inset * 2, c - inset * 2); };
   for (let y = 0; y < D; y++) for (let x = 0; x < D; x++) at(x, y, (x + y) % 2 ? '#f6efd7' : '#b9dc9b');
   for (const [x, y] of demo.stumps || []) at(x, y, '#6a4a30', 1);
@@ -371,6 +438,11 @@ export function scene(day, s = null) {
   const at = (kind, side, x, y, id) => m.add(model(kind, side), x0(x) + T / 2, 0, z0(y) + T / 2, id);
   let id = 1;
   for (const sq of day.stumps) at('stump', 'you', sq % W, Math.floor(sq / W), id++);
+  const h = (s || day).hole || day.hole;
+  if (h) {
+    m.add(new Model().lathe([[3.3, 0.02], [3.3, 0.08]], '#1a130b', { seg: 12 }), x0(h.x) + T / 2, 0, z0(h.y) + T / 2, id++);
+    m.add(model('flag'), x0(h.x) + T / 2 + 2, 0, z0(h.y) + T / 2 - 1, id++);
+  }
   if (day.bramble.length) at('bramble', 'you', day.bramble[0] % W, Math.floor(day.bramble[0] / W), id++);
   for (const p of (s || day).pieces) if (!p.taken) at(p.type, 'you', p.x, p.y, id++);
   for (const f of (s || day).foes) if (!f.taken) at(f.type, 'foe', f.x, f.y, id++);

@@ -25,6 +25,16 @@ function score(s) {
   const r = s.day.rules, W = s.day.W;
   const alive = s.pieces.filter((p) => !p.taken);
   if (!alive.length) return Infinity;
+  const lostPieces = s.pieces.length - alive.length;
+
+  if (r.goal === 'hole') {
+    // Closer is better, and sharing a row or column with the hole is a
+    // big step: from there one roll can do it.
+    const b = alive.find((p) => p.type === 'ball');
+    if (!b || !s.hole) return Infinity;
+    const dx = Math.abs(b.x - s.hole.x), dy = Math.abs(b.y - s.hole.y);
+    return (dx + dy) * 10 - (dx === 0 || dy === 0 ? 15 : 0) + lostPieces * 40;
+  }
   let need = s.foes.filter((f) => !f.taken && (r.goal !== 'target' || f.target));
   if (!need.length) need = s.foes.filter((f) => !f.taken);
 
@@ -32,7 +42,6 @@ function score(s) {
   s.pieces.forEach((p, i) => { for (const m of movesFor(s, i)) if (m.cap) hit.add(m.y * W + m.x); });
   const gap = (f) => (hit.has(f.y * W + f.x) ? 0 : 1 + Math.min(...alive.map((p) => Math.max(Math.abs(p.x - f.x), Math.abs(p.y - f.y)))));
 
-  const lostPieces = s.pieces.length - alive.length;
   if (r.goal === 'any') return Math.min(...need.map(gap)) * 10 + lostPieces * 40;
   return need.reduce((h, f) => h + 100 + gap(f) * 10, 0) + lostPieces * 40;
 }

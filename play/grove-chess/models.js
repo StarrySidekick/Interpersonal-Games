@@ -230,6 +230,23 @@ MODELS.rabbit = () => {
   return m;
 };
 
+// The ball rolls rather than stands, so it has no plinth: a cream ball with a
+// moss band, so it still reads as yours.
+MODELS.ball = () => {
+  const m = new Model();
+  m.ball(0, 2.7, 0, 2.6, P.cream, { seg: 10, rings: 8 });
+  m.lathe([[2.66, 2.4], [2.66, 3.0]], P.moss, { seg: 10 });
+  return m;
+};
+
+// The hole's flag, so a moving hole can be seen from across the board.
+MODELS.flag = () => {
+  const m = new Model();
+  m.lathe([[0.25, 0], [0.25, 9.5]], '#4a3220', { seg: 5 });
+  m.box(1.35, 8.4, 0, 2.5, 1.7, 0.2, '#d2473b');
+  return m;
+};
+
 MODELS.bramble = () => {
   const m = new Model();
   for (const [x, y, z, r, c] of [[-1.4, 1.3, -0.8, 1.7, '#3f6b2c'], [1.4, 1.2, 0.2, 1.6, '#4a7a33'], [0, 2.4, 0.4, 1.7, '#557f36'],

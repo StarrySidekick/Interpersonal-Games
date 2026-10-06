@@ -61,6 +61,17 @@ strong piece per hand.
 Each has a low-poly model and a short description in the in-game pieces menu,
 with a small diagram of where it can move.
 
+### The opening
+
+`intro.js`. A fresh game opens with the board falling from above the screen,
+slamming down and shaking; then a card for each kind of piece you hold (the
+model turning, what it does, and a little board where the squares it can
+reach light up one by one before it makes a move, taking something where that
+is how the piece works); then a card for the goal; then your pieces drop onto
+their squares and play starts. Tap a card to move on; Skip ends it at any
+point. It does not play when you carry on a game, practise, or restart a lab
+level, and phones set to reduce motion skip it.
+
 ## The social layer: the vine
 
 No server. The group chat is the database.
@@ -154,7 +165,15 @@ and it goes in a notebook you can copy out.
   layout before you see it and keeps the first one it can win in between a
   minimum and a maximum number of moves (3 and 10 by default). That number is
   the level's par. After a game, "Watch the solver's win" replays its line.
-- **Go crazy** rolls every setting at once, goal included.
+- **Sink the ball:** your first piece becomes a ball that rolls up, down,
+  left or right until something stops it (your other pieces make good
+  walls). A hole moves by its own hidden pattern each turn, like a rabbit,
+  and you win by getting the ball into it. It drops in when it rolls over
+  the hole, or, with "Ball must stop on the hole", only when it comes to rest
+  there. Their side can be empty for these.
+- **Go crazy** rolls every setting at once, goal included. "What Go crazy may
+  use" switches individual fairy pieces (and the rabbit) on or off for it;
+  classic pieces are always in.
 
 ### The solver
 

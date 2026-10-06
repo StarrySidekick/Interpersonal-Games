@@ -1,15 +1,16 @@
 // The lab page: edit settings, have the solver check the level, see it turn,
 // play it, rate it.
 
-import { $, el, show, haptic, keepAwake } from '../../../engine/ui.js';
+import { $, el, show, haptic, keepAwake, themeToggle } from '../../../engine/ui.js';
 import { makeTarget, render } from '../../../engine/lowpoly.js';
-import { PIECES, movesFor, playerMove, respond, isOver, outcome, initialState, allMoves, isBramble, replay } from '../rules.js';
+import { PIECES, HOLE_DESC, movesFor, playerMove, respond, isOver, outcome, initialState, allMoves, isBramble, replay } from '../rules.js';
 import { Board, scene, sceneFrame, sprite, patternPicture } from '../board.js';
 import { piecesSheet } from '../sheet.js';
+import { playIntro } from '../intro.js';
 import { describeSteps } from '../day.js';
 import {
   SCHEMA, defaults, clean, crazy, makeLevel, summary, encodeLevelWithPar, decodeLevel,
-  loadLab, saveLab, searchLayouts, GOAL_PILL
+  loadLab, saveLab, searchLayouts, GOAL_PILL, FAIRY
 } from '../lab.js';
 
 const lab = loadLab();
@@ -244,7 +245,21 @@ function draw() {
   board.draw({ state: shown || now(), track: level.tracks ? game.states : null, sel, legal });
 }
 
-function startGame() {
+/** What the goal card at the end of the opening shows. */
+function goalCard() {
+  const kind = level.goalKind, foes = level.foes;
+  if (kind === 'hole') return { kind: 'flag', side: 'you', title: 'The hole', text: 'Sink the ball in it. It moves by its own hidden pattern after every turn.' };
+  if (!foes.length) return null;
+  const marked = foes.find((f) => f.target);
+  if (kind === 'king') return { kind: 'king', side: 'foe', title: 'Their King', text: 'Take it and you win. It thinks for itself, and it will run.' };
+  if (kind === 'rabbit') return { kind: 'rabbit', side: 'foe', title: 'The rabbit',
+    text: marked?.brain === 'pattern' ? 'Catch it. It hops in a hidden pattern; its tracks are numbered on the board.' : 'Catch it. It thinks for itself.' };
+  if (kind === 'target' && marked) return { kind: marked.type, side: 'foe', title: 'The marked one', text: 'Catch the one with the gold ring under it.' };
+  if (kind === 'any') return { kind: foes[0].type, side: 'foe', title: 'Any one of them', text: `Catch any one of their ${foes.length} and you win.` };
+  return { kind: foes[0].type, side: 'foe', title: 'All of them', text: `Capture all ${foes.length} of theirs to win.` };
+}
+
+async function startGame({ intro = true } = {}) {
   game = { states: [initialState(level)], moves: [] };
   board = new Board($('#board'), level);
   board.redraw = draw;
@@ -265,6 +280,11 @@ function startGame() {
   if (level.rules.royal) chips.append(el('span', { class: 'pill' }, 'Royal King'));
   if (thinks(now())) chips.append(el('span', { class: 'pill' }, `They think: ${['random', 'greedy', 'two ahead', 'three ahead'][level.ai.skill]}, ${level.ai.style}`));
   hud();
+  if (intro && !isOver(now())) {
+    busy = true;
+    await playIntro(board, level, { section: $('[data-screen=play]'), goal: goalCard() });
+    busy = false;
+  }
   status(level.rules.first === 'them' ? 'They moved first. Your move.' : 'Your move. Tap a piece to see where it can go.');
   select(null);
   if (isOver(now())) finish();
@@ -338,6 +358,7 @@ $('#board').addEventListener('click', (e) => {
   const i = s.pieces.findIndex((p) => !p.taken && p.x === x && p.y === y);
   if (i >= 0) return select(sel === i ? null : i);
   select(null);
+  if (s.hole && s.hole.x === x && s.hole.y === y) return info(HOLE_DESC);
   const f = s.foes.find((f) => !f.taken && f.x === x && f.y === y);
   if (f) info(f.brain === 'pattern' ? 'A rabbit on a hidden pattern. Watch its tracks.' : `Their ${nameOf(f)}, thinking for itself. ${PIECES[f.type].desc}`);
 });
@@ -345,7 +366,7 @@ $('#board').addEventListener('click', (e) => {
 $('#wait').onclick = () => play({ p: -1, x: 0, y: 0 });
 $('#pieces').onclick = () => openSheet();
 $('#sheet-close').onclick = () => $('#sheet').close();
-$('#restart').onclick = () => startGame();
+$('#restart').onclick = () => startGame({ intro: false });
 $('#tolab').onclick = () => { show('lab'); };
 
 // --- The end: what happened, and was it fun? -------------------------------
@@ -360,10 +381,15 @@ function finish() {
   $('#controls').hidden = true;
   $('#end').hidden = false;
   const kingFell = level.rules.royal && end.pieces.some((p) => p.taken && p.type === 'king');
-  $('#end-score').textContent = { caught: `You won in ${end.t}`, eaten: kingFell ? 'Your King fell' : 'They took everything', dusk: 'Out of moves' }[how];
+  const ballLost = level.rules.goal === 'hole' && end.pieces.some((p) => p.taken && p.type === 'ball');
+  $('#end-score').textContent = {
+    caught: end.sunk ? `Sunk in ${end.t}` : `You won in ${end.t}`,
+    eaten: kingFell ? 'Your King fell' : ballLost ? 'They took the ball' : 'They took everything',
+    dusk: 'Out of moves'
+  }[how];
   const caught = end.foes.filter((f) => f.taken).length, lostN = end.pieces.filter((p) => p.taken).length;
   $('#end-detail').textContent = (par ? `Par ${par}${how === 'caught' ? ` · ${golf(end.t - par)}` : ''}. ` : '') +
-    `You caught ${caught} of ${end.foes.length}. You lost ${lostN} of ${end.pieces.length}.`;
+    (end.foes.length ? `You caught ${caught} of ${end.foes.length}. ` : '') + `You lost ${lostN} of ${end.pieces.length}.`;
   $('#solver').hidden = !settings.solve && !par;
   status(''); info('');
   const pats = $('#end-patterns');
@@ -375,6 +401,12 @@ function finish() {
     pats.append(el('div', { class: 'pat' }, el('p', { class: 'small', style: 'margin:0' },
       `Rabbit ${k + 1}: ${describeSteps(f.pattern, f.mx, f.my)}, ${f.hops > 1 ? `${f.hops} hops a turn, ` : ''}then again.`), cv));
   });
+  if (level.hole?.pattern) {
+    const h = level.hole, cv = el('canvas', { class: 'pix' });
+    patternPicture(cv, h.pattern, h.mx, h.my);
+    pats.append(el('div', { class: 'pat' }, el('p', { class: 'small', style: 'margin:0' },
+      `The hole: ${describeSteps(h.pattern, h.mx, h.my)}, then again.`), cv));
+  }
   const rate = $('#rate');
   rate.replaceChildren(...[1, 2, 3, 4, 5].map((n) => el('button', {
     class: 'quiet', 'aria-pressed': 'false',
@@ -425,23 +457,54 @@ $('#save').onclick = () => {
 
 // New layouts from the end screen go back to the lab while the solver tests
 // them, then start the game by themselves.
-$('#again').onclick = () => startGame();
+$('#again').onclick = () => startGame({ intro: false });
 $('#next').onclick = () => { show('lab'); autoplay = true; deal({ reseed: true }); };
-$('#crazy2').onclick = () => { show('lab'); autoplay = true; settings = crazy(); deal({ reseed: true }); };
+$('#crazy2').onclick = () => { show('lab'); autoplay = true; settings = crazy(Math.random, crazyPool()); deal({ reseed: true }); };
 $('#back').onclick = () => show('lab');
 
 // --- The lab's own buttons. ------------------------------------------------
 
 $('#play').onclick = () => startGame();
 $('#reroll').onclick = () => deal({ reseed: true });
-$('#crazy').onclick = () => { settings = crazy(); deal({ reseed: true }); };
+$('#crazy').onclick = () => { settings = crazy(Math.random, crazyPool()); deal({ reseed: true }); };
+
+// --- Which strange pieces Go crazy may use. --------------------------------
+// A lab preference rather than part of a level, so it lives with the
+// notebook, not in level links. Classic pieces are always allowed.
+
+const CRAZY_KINDS = [...FAIRY, 'rabbit'];
+const crazyPool = () => (Array.isArray(lab.crazyPool) ? lab.crazyPool : CRAZY_KINDS).filter((k) => CRAZY_KINDS.includes(k));
+
+function buildCrazyPool() {
+  const btns = CRAZY_KINDS.map((k) => {
+    const cv = el('canvas', { class: 'pix', width: 30, height: 36 });
+    cv.getContext('2d').drawImage(sprite(k, k === 'rabbit' ? 'foe' : 'you'), 0, 0);
+    return el('button', { class: 'quiet chip', onclick: () => {
+      const on = crazyPool();
+      lab.crazyPool = on.includes(k) ? on.filter((x) => x !== k) : [...on, k];
+      saveLab(lab);
+      paint();
+    } }, cv, PIECES[k].name);
+  });
+  const paint = () => btns.forEach((b, i) => b.setAttribute('aria-pressed', String(crazyPool().includes(CRAZY_KINDS[i]))));
+  const all = (on) => () => { lab.crazyPool = on ? [...CRAZY_KINDS] : []; saveLab(lab); paint(); };
+  $('#settings').append(el('details', { class: 'group' }, el('summary', {}, 'What Go crazy may use'),
+    el('p', { class: 'small dim', style: 'margin:4px 0 10px' }, 'Classic pieces are always in. Switch off any fairy piece (or the rabbit) you do not want in random levels.'),
+    el('div', { class: 'chips' }, ...btns),
+    el('div', { class: 'row', style: 'margin-top:10px' },
+      el('button', { class: 'quiet', onclick: all(true) }, 'All on'),
+      el('button', { class: 'quiet', onclick: all(false) }, 'All off'))));
+  paint();
+}
 $('#reset').onclick = () => { settings = defaults(); deal(); };
 $('#link').onclick = async () => {
   try { await navigator.clipboard.writeText(levelLink()); note('Copied. Anyone who opens it gets exactly this level.'); }
   catch { note(levelLink()); }
 };
 
+$('.topbar .pill').before(themeToggle());
 buildForm();
+buildCrazyPool();
 updaters.forEach((u) => u());
 $('#summary').textContent = summary(settings);
 buildPreview();

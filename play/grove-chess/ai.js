@@ -58,7 +58,9 @@ function evaluate(s, budget) {
   const threatened = new Set();
   s.pieces.forEach((p, i) => {
     if (p.taken) return;
-    v -= PIECES[p.type].value * mood.kill * (r.royal && p.type === 'king' ? 10 : 1);
+    // A royal King, or the ball on a hole level, is the game: worth far more.
+    const vital = (r.royal && p.type === 'king') || (r.goal === 'hole' && p.type === 'ball');
+    v -= PIECES[p.type].value * mood.kill * (vital ? 10 : 1);
     for (const m of movesFor(s, i)) if (m.cap) threatened.add(m.y * W + m.x);
   });
   let dist = 0, alive = 0;
