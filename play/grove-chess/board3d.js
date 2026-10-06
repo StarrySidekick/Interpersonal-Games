@@ -129,13 +129,15 @@ export class Board3D extends Board {
     super(canvas, day);
     const W = day.W, H = day.H;
     this.cosS = Math.cos(STAND); this.sinS = Math.sin(STAND);
-    // A board about 210 pixels across whatever its size, drawn that small
+    // A board about 260 pixels across whatever its size, drawn that small
     // and smoothed up by the browser.
-    this.scale = 210 / (Math.max(W, H) * T);
+    this.scale = 260 / (Math.max(W, H) * T);
     const s = this.scale;
-    const half = (W * T) / 2 + 16;              // the board, and a little forest either side
-    const top = 16 * BIG * this.cosS + 14;      // above it: the back row's pieces stand up into this
-    const bottom = 14;
+    // Round it, in model units, a thin band of forest: the board should fill
+    // the picture. Above the board needs the most room, since the back
+    // row's pieces stand up into it (a king there reaches about 9 units
+    // past the far edge).
+    const half = (W * T) / 2 + 6, top = 13, bottom = 5;
     canvas.width = Math.ceil(half * 2 * s);
     canvas.height = Math.ceil((top + H * T + bottom) * s);
     this.cx = canvas.width / 2;
@@ -146,7 +148,16 @@ export class Board3D extends Board {
     this.lctx = this.layer.getContext('2d');
     this.g = canvas.getContext('2d');
     canvas.classList.remove('pix');
-    canvas.style.imageRendering = 'auto';
+    // On the page: on a phone, as wide as the screen, past the page's side
+    // margins, so the forest runs to the edges; but never so tall that the
+    // status line under the board is pushed off the screen. `svh` is the
+    // screen's height with the browser's bars showing.
+    const vh = window.CSS?.supports?.('height', '1svh') ? 'svh' : 'vh';
+    const wide = `min(100vw, 480px, ${((66 * canvas.width) / canvas.height).toFixed(1)}${vh})`;
+    Object.assign(canvas.style, {
+      imageRendering: 'auto', display: 'block', maxWidth: 'none', width: wide,
+      marginLeft: `calc((100% - ${wide}) / 2)`, marginRight: '0'
+    });
     // The forest never changes, so its triangles are placed once.
     this.forest = new Mesh();
     for (const t of forest(day)) t.at ? this.forest.add(t.m, ...t.at, t.id) : this.forest.add(t.m, 0, 0, 0, t.id);
