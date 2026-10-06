@@ -45,26 +45,30 @@ little blurry where 16-bit games look sharp and pixelly.
 
 ### The plan, in order
 
-1. **Play on the 3D board.** *Built* (`play/grove-chess/board3d.js`). The
-   board is a scene like the title's, tilted toward you, the pieces real
-   models a quarter larger than on the title. Lit squares are coloured into
-   the squares themselves. Tracks and lines are drawn flat on the surface
-   between two 3D passes, so a piece still hides what is behind it. A tap is
-   matched to the object drawn at that pixel, or turned back into a square
-   by undoing the tilt; a lit square behind a tall piece still takes the
-   tap. Add `?flat` to any page for the old board.
+1. **Play on the 3D board.** *Built* (`play/grove-chess/board3d.js`). **The
+   board stays top-down** (Timothy, after seeing a tilted version: "the grid
+   cells need to still be perfectly square"). So the board, its squares and
+   the forest are drawn in 3D from straight above, and the pieces are faked
+   the way top-down games draw characters: real models, drawn from a gentle
+   angle with a slight turn, each placed so its base lands exactly on the
+   middle of its square. Lit squares are coloured into the squares. Tracks
+   and lines are drawn flat on the board between the two passes, so pieces
+   always stand over them. A tap is matched to the object drawn at that
+   pixel, or to the square under it; a lit square behind a tall piece still
+   takes the tap. Seen from above, anything falling away shrinks into the
+   dark. Add `?flat` to any page for the old board.
 2. **Soft, not crisp.** *Built.* The board is drawn about 210 pixels across
    and smoothed up by the browser.
-3. **Fog.** *Built.* The board sits in a pool of light in a dark clearing of
-   low-poly pines, fog toward the back, darkness all round, in both modes.
-   It sits over a pit in the forest floor, which is where it falls in the
-   descent.
+3. **Fog.** *Built.* The board sits in a pool of light in a dark clearing,
+   ringed by the tops of low-poly pines, with fog toward the back and
+   darkness all round, in both modes. It sits over a pit in the forest
+   floor, which is where it falls in the descent.
 4. **A camera that breathes.** Not built. It means drawing every frame all
    the time, which costs battery; worth trying once the frame rate is known
    on a real phone.
 5. **Lettering.** *Built.* Round, bold numerals on the tracks.
 
-Speed: a frame takes about 15 to 20 ms on a laptop. A phone will be slower;
+Speed: a frame takes about 14 ms on a laptop. A phone will be slower;
 frames are only drawn while something moves, so a slow phone gets a
 choppier animation, not a hot one. Untested on a real phone.
 

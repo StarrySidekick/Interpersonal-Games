@@ -355,8 +355,9 @@ level that's harder ... see how far you can go."
 
 - Every level is a standard board: about three possessed pieces and a hole.
   Take every possessed piece and the hole opens; sink the ball, and the
-  floor gives way. On the 3D board the squares drop into the pit in a
-  ripple out from the hole and your pieces tumble down after the ball. Lose
+  floor gives way. On the 3D board the squares fall away into the pit in a
+  ripple out from the hole (seen from above: shrinking into the dark) and
+  your pieces tumble after the ball. Lose
   the ball, or run out of moves, and the run ends. How deep you got is the
   score; the deepest you have ever been is kept, and only goes up.
 - **Your pieces go down with you** (Timothy's call, instead of picking a new

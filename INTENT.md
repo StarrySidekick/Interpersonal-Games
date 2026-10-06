@@ -102,6 +102,9 @@ Later still: yes to the 3D board, fog in both modes. And new notes:
   Built, in the lab's standard board and the descent.
 - **An animation for descending**: your pieces falling with the ball. Built
   on the 3D board: the floor gives way into a pit.
+- **The board stays top-down**, grid cells perfectly square; the pieces can
+  be faked. Done: the board is drawn from straight above, the pieces from
+  a gentle angle, standing on their squares.
 - **Your pieces descend with you**, rather than picking a new piece each
   floor. Built; a piece taken stays gone.
 - **A fairy piece that works like the ball?** There is not one exactly (see

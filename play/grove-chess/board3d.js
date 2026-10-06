@@ -1,20 +1,26 @@
-// The board in 3D: the same board as board.js, drawn the way the title's
-// turning model is, tilted toward you, with real models for the pieces, in a
-// clearing in a dark, foggy forest. (docs/grove-look.md: Nintendo 64, not
-// 16-bit; and an air of mystery.)
+// The board in 3D: the same board as board.js, with real models for the
+// pieces, in a clearing in a dark, foggy forest. (docs/grove-look.md:
+// Nintendo 64, not 16-bit; and an air of mystery.)
+//
+// The board is seen from straight above, so every square is a true square
+// (Timothy, 2026-10-06: the grid has to stay perfectly square). The pieces
+// are faked, the way top-down games draw their characters: they are drawn
+// from a gentle angle, with a slight turn, and each is placed so that its
+// base lands exactly on the middle of its square.
 //
 // It is a Board (board.js) with its own drawing. What moves when, the
 // timings and the sounds all come from Board.animate, so the 3D board and
 // the flat one always agree. Add ?flat to a page's address for the flat one.
 //
 // A frame is drawn in layers:
-// 1. The forest floor, the trees and the board's squares, in 3D. Squares a
-//    selected piece can reach are coloured right into the squares.
+// 1. The forest floor, the trees and the board's squares, in 3D, from
+//    straight above. Squares a selected piece can reach are coloured right
+//    into the squares.
 // 2. Flat marks on the board's surface, drawn straight onto the picture:
 //    the numbered tracks, the lines of a finished game, cracks.
-// 3. Everything standing on the board, in 3D again, over the top. The
-//    renderer keeps each pixel's depth from step 1, so a piece still hides
-//    whatever is behind it, and the marks never cover a piece.
+// 3. Everything standing on the board, in 3D again, from the pieces' angle,
+//    over the top. Pieces hide each other properly (nearer ones in front),
+//    and always stand over the marks.
 // 4. Puffs, leaves and flashes; then fog toward the back and darkness all
 //    round, the pool of light the board sits in.
 //
@@ -22,8 +28,8 @@
 // rather than in crisp square pixels.
 //
 // Taps: the renderer also keeps which object each pixel belongs to, so a tap
-// on a piece's head finds the piece. A tap on the board is turned back into
-// a square by undoing the tilt.
+// on a piece's head finds the piece. A tap on the board is a square by plain
+// arithmetic, since the board is seen straight on.
 
 import { Mesh, Model, makeTarget, render } from '../../engine/lowpoly.js';
 import { rng } from '../../engine/seed.js';
@@ -33,7 +39,8 @@ import { onBoard, brambleCount, holeOpen, nextShrink } from './rules.js';
 import * as sfx from './sounds.js';
 
 const T = 10;             // one square, in model units
-const PITCH = 0.78;       // how far the board tilts toward you, in radians
+const STAND = 0.6;        // the angle the pieces are seen from, in radians above level
+const TURN = -0.35;       // and a slight turn, so they read as solid
 const BIG = 1.25;         // pieces stand a little larger here than on the title
 const FOG = '#1b2620';    // the forest, far off
 const RIM = '#5a3d26';    // the board's wooden base
@@ -78,22 +85,19 @@ function forest(day) {
   out.push({ m: floor, id: 1 });
   const rand = rng(`forest:${day.date || day.seed || 0}`);
   let id = 10;
-  // Behind the board, two loose rows; a few either side.
-  for (let i = 0; i < 9; i++) {
-    const x = -W * 0.75 + (i / 8) * W * 1.5 + (rand() - 0.5) * 8, z = -H / 2 - 18 - rand() * 26;
-    out.push({ m: pine(26 + rand() * 18, rand), at: [x, -5, z], id: id++ });
+  // A ring of pines all round the clearing; from above, their tops.
+  for (let i = 0; i < 18; i++) {
+    const side = i % 4, t = (Math.floor(i / 4) + rand()) / 5, out2 = 14 + rand() * 12;
+    const [x, z] = side === 0 ? [-W * 0.7 + t * W * 1.4, -hh - out2] : side === 1 ? [-W * 0.7 + t * W * 1.4, hh + out2]
+      : side === 2 ? [-hw - out2, -H * 0.6 + t * H * 1.2] : [hw + out2, -H * 0.6 + t * H * 1.2];
+    out.push({ m: pine(22 + rand() * 18, rand), at: [x, -5, z], id: id++ });
   }
-  for (const side of [-1, 1])
-    for (let i = 0; i < 3; i++) {
-      const x = side * (W / 2 + 16 + rand() * 10), z = -H / 2 + i * (H / 2) + (rand() - 0.5) * 6;
-      out.push({ m: pine(20 + rand() * 14, rand), at: [x, -5, z], id: id++ });
-    }
   // Stones and a ring of pale toadstools: something to notice.
   for (let i = 0; i < 5; i++) {
     const st = new Model(), side = i % 2 ? 1 : -1;
     st.ellipsoid(0, 0.6, 0, 2 + rand() * 1.5, 1.4, 1.8, '#3b4440', { seg: 6, rings: 4 });
     // Beside or behind the pit, never over it.
-    const at = i < 3 ? [(rand() - 0.5) * W, -4.8, -H / 2 - 9 - rand() * 8] : [side * (W / 2 + 9 + rand() * 6), -4.8, (rand() - 0.5) * H];
+    const at = i < 3 ? [(rand() - 0.5) * W, -4.8, -hh - 5 - rand() * 4] : [side * (hw + 5 + rand() * 4), -4.8, (rand() - 0.5) * H];
     out.push({ m: st, at, id: id++ });
   }
   return out;
@@ -123,19 +127,19 @@ const ring = (col) => rings.get(col) || (rings.set(col, ringModel(col)), rings.g
 export class Board3D extends Board {
   constructor(canvas, day) {
     super(canvas, day);
-    const W = day.W, H = day.H, cp = Math.cos(PITCH), sp = Math.sin(PITCH);
-    this.cp = cp; this.sp = sp;
+    const W = day.W, H = day.H;
+    this.cosS = Math.cos(STAND); this.sinS = Math.sin(STAND);
     // A board about 210 pixels across whatever its size, drawn that small
     // and smoothed up by the browser.
     this.scale = 210 / (Math.max(W, H) * T);
     const s = this.scale;
-    const half = (W * T) / 2 + 16;                     // the board, and a little forest either side
-    const far = ((H * T) / 2) * sp + 16 * BIG * cp + 30; // above the far edge: tall pieces, then trees
-    const near = ((H * T) / 2) * sp + 6 * cp + 12;     // below the near edge: the board's thickness
+    const half = (W * T) / 2 + 16;              // the board, and a little forest either side
+    const top = 16 * BIG * this.cosS + 14;      // above it: the back row's pieces stand up into this
+    const bottom = 14;
     canvas.width = Math.ceil(half * 2 * s);
-    canvas.height = Math.ceil((far + near) * s);
+    canvas.height = Math.ceil((top + H * T + bottom) * s);
     this.cx = canvas.width / 2;
-    this.cy = far * s;
+    this.cy = (top + (H * T) / 2) * s;
     this.t3 = makeTarget(canvas.width, canvas.height);
     this.layer = document.createElement('canvas');
     this.layer.width = canvas.width; this.layer.height = canvas.height;
@@ -156,10 +160,11 @@ export class Board3D extends Board {
   // --- Where things go. ----------------------------------------------------
 
   /** Screen position of a point on the board: (px, py) in squares from its
-      bottom-left corner, h in model units above the surface. */
+      bottom-left corner, h in model units above the surface (as the pieces'
+      angle shows height). */
   pt(px, py, h = 0) {
     const X = (px - this.day.W / 2) * T, Z = (this.day.H / 2 - py) * T;
-    return [this.cx + X * this.scale, this.cy - (h * this.cp - Z * this.sp) * this.scale];
+    return [this.cx + X * this.scale, this.cy + (Z - h * this.cosS) * this.scale];
   }
 
   /** The middle of square (x, y); fractional while something is moving. */
@@ -185,21 +190,26 @@ export class Board3D extends Board {
     return this.toClient(...this.mid(x, y));
   }
 
-  /** Scene coordinates of the middle of square (x, y). */
+  /** Scene coordinates of the middle of square (x, y), for the board. */
   spot(x, y) { return [(x + 0.5 - this.day.W / 2) * T, (this.day.H / 2 - y - 0.5) * T]; }
+
+  /** The same for a piece standing there. The pieces are drawn from their
+      own angle, so their depth is stretched to make each base land exactly
+      where the board, seen from above, has that square. */
+  stood(x, y) { const [X, Z] = this.spot(x, y); return [X, Z / this.sinS]; }
 
   cellAt(e) {
     const r = this.el.getBoundingClientRect(), w = this.el.width, h = this.el.height;
     const ix = Math.floor((e.clientX - r.left) * w / r.width), iy = Math.floor((e.clientY - r.top) * h / r.height);
     if (ix < 0 || iy < 0 || ix >= w || iy >= h) return null;
-    // The square on the surface under the tap: undo the tilt.
+    // The square under the tap: the board is seen straight on.
     const px = (ix + 0.5 - this.cx) / this.scale / T + this.day.W / 2;
-    const py = this.day.H / 2 - (iy + 0.5 - this.cy) / (this.scale * this.sp) / T;
+    const py = this.day.H / 2 - (iy + 0.5 - this.cy) / this.scale / T;
     const x = Math.floor(px), y = Math.floor(py), floor = onBoard(this.day, x, y) ? { x, y } : null;
-    // What is standing there, if anything was drawn at that pixel. On a
-    // tilted board a tall piece hides part of the square behind it, so if a
-    // piece is selected and the floor under the tap is one of its lit
-    // squares, the tap means that square, not the piece in front of it.
+    // What is standing there, if anything was drawn at that pixel. A tall
+    // piece reaches up over the square behind it, so if a piece is selected
+    // and the floor under the tap is one of its lit squares, the tap means
+    // that square, not the piece in front of it.
     const id = this.t3.id[iy * w + ix], s = this.shown;
     const p = s && id >= 100 && id < 200 ? s.pieces[id - 100] : s && id >= 200 && id < 300 ? s.foes[id - 200] : null;
     const at = p && !p.taken ? { x: Math.round(p.x), y: Math.round(p.y) } : null;
@@ -215,13 +225,14 @@ export class Board3D extends Board {
     const s = v.state, at = performance.now(), w = this.el.width, h = this.el.height, g = this.g;
     this.shown = s;
     this.lit = v.legal || [];
-    const view = { pitch: PITCH, yaw: 0, scale: this.scale, cx: this.cx, cy: this.cy };
+    const board = { pitch: Math.PI / 2, yaw: 0, scale: this.scale, cx: this.cx, cy: this.cy }; // straight down
+    const pieces = { ...board, pitch: STAND };
     const fallen = this.fallen || (this.fallAt && at >= this.fallAt);
     // 1. The forest and the squares.
     const m1 = new Mesh();
     m1.tris = this.forest.tris.slice();
     if (!fallen) this.squares(m1, s, v, at);
-    render(this.t3, m1, { ...view, outline: '#0a0f0b' });
+    render(this.t3, m1, { ...board, outline: '#0a0f0b' });
     this.lctx.putImageData(this.t3.img, 0, 0);
     g.fillStyle = FOG;
     g.fillRect(0, 0, w, h);
@@ -232,7 +243,7 @@ export class Board3D extends Board {
       // 3. Everything standing up.
       const m2 = new Mesh();
       this.things(m2, s, at);
-      render(this.t3, m2, { ...view, keep: true, outline: '#1d150e', outlineFrom: 100 });
+      render(this.t3, m2, { ...pieces, outline: '#1d150e' });
       this.lctx.putImageData(this.t3.img, 0, 0);
       g.drawImage(this.layer, 0, 0);
       // 4. Puffs and leaves.
@@ -269,9 +280,11 @@ export class Board3D extends Board {
           const k = Math.max(0, Math.min(1, (at - collapse.t0 - collapse.delay(x, y)) / 900));
           drop = k * k * 180; dark = Math.min(0.95, k * 1.2);
         }
-        const r = (T / 2) * size;
-        if (!slab) m.addBox(X - r - 3, -4 - drop, Z - r - 3, X + r + 3, -1 - drop, Z + r + 3, dim(RIM, dark), 2, 1 << 3);
         const crumbling = fall?.sq === sq && at < fall.t0 + fall.dur;
+        if (crumbling && at >= fall.t0) { const k = (at - fall.t0) / fall.dur; drop = Math.max(drop, k * k * 12); dark = Math.max(dark, k * 0.85); }
+        // Seen from above, falling away reads as shrinking into the dark.
+        const away = 1 / (1 + drop / 22), r = (T / 2) * size * away, rim = 3 * away;
+        if (!slab) m.addBox(X - r - rim, -4 - drop, Z - r - rim, X + r + rim, -1 - drop, Z + r + rim, dim(RIM, dark), 2, 1 << 3);
         if (gone.has(sq) && !crumbling) { m.addBox(X - r, -1.04, Z - r, X + r, -0.98, Z + r, PIT, 2); continue; }
         let col = tileColour(day, x, y);
         const L = lit.get(sq);
@@ -279,7 +292,6 @@ export class Board3D extends Board {
         else if (L === 'catch') col = mix(col, '#e2603e', 0.6);
         else if (L === 'sel') col = mix(col, '#e9b02a', 0.75);
         if (sq === shade) col = dim(col, 0.4);
-        if (crumbling && at >= fall.t0) { const k = (at - fall.t0) / fall.dur; drop = Math.max(drop, k * k * 12); dark = Math.max(dark, k * 0.85); }
         // Hide the sides between neighbouring squares; only the outer ones show.
         const flat = !drop;
         const skip = (1 << 3) | (flat && solid(x + 1, y) ? 1 : 0) | (flat && solid(x - 1, y) ? 2 : 0) |
@@ -345,10 +357,10 @@ export class Board3D extends Board {
   /** Numbered tracks for everything that moves by a pattern, and the hole. */
   tracks(g, track, line, inSq) {
     const last = track[track.length - 1], W = this.day.W;
-    // Numbers sit in the near corner of a square, where whatever stands on
-    // it does not hide them.
+    // Numbers sit in the far left corner of a square, clear of whatever
+    // stands on it (a piece's base covers the middle, its body rises from it).
     const number = (n, x, y, col) => {
-      const [px, py] = inSq(x, y, 5, 22);
+      const [px, py] = inSq(x, y, 4.5, 5.5);
       g.font = `800 ${Math.round(this.scale * 3.6)}px ui-rounded, "SF Pro Rounded", "Nunito", system-ui, sans-serif`;
       g.textAlign = 'center'; g.textBaseline = 'middle';
       g.lineWidth = 2.5; g.strokeStyle = 'rgba(247,240,218,.9)'; g.strokeText(String(n), px, py);
@@ -367,7 +379,7 @@ export class Board3D extends Board {
       }
       const labels = new Map();
       P.forEach(([x, y], i) => {
-        if (i < P.length - 1) { const [px, py] = inSq(x, y, 21, 22); g.fillStyle = rgba(col, 0.45); g.fillRect(px - 1.5, py - 1, 3, 2); }
+        if (i < P.length - 1) { const [px, py] = inSq(x, y, 23.5, 5.5); g.fillStyle = rgba(col, 0.45); g.fillRect(px - 1.5, py - 1, 3, 2); }
         labels.set(y * W + x, i);
       });
       for (const [sq, i] of labels) number(i, sq % W, Math.floor(sq / W), col);
@@ -402,8 +414,8 @@ export class Board3D extends Board {
   things(m, s, at) {
     const day = this.day, tw = this.tw;
     const stand = (mdl, x, y, h, id, o = {}) => {
-      const [X, Z] = this.spot(x, y);
-      m.addXf(mdl, { t: [X, h, Z], ...o, s: (o.s ?? 1) * BIG }, id);
+      const [X, Z] = this.stood(x, y);
+      m.addXf(mdl, { t: [X, h, Z], ...o, ry: (o.ry || 0) + TURN, s: (o.s ?? 1) * BIG }, id);
     };
     for (const sq of day.stumps) stand(model('stump'), sq % day.W, Math.floor(sq / day.W), 0, 400);
     for (let i = 0; i < brambleCount(day, s.t); i++) stand(model('bramble'), day.bramble[i] % day.W, Math.floor(day.bramble[i] / day.W), 0, 401 + i);
@@ -418,17 +430,18 @@ export class Board3D extends Board {
       if (p.taken && !(tw?.eaten?.has(i) && at < tw.landAt)) return;
       let x = p.x, y = p.y, h = 0, o = {};
       if (s.sunk && p.type === 'ball') {
-        // The ball rolls to the hole, then drops into it.
-        if (collapse) { h = -fallBy(at - collapse.t0 - 150); x = s.hole.x; y = s.hole.y; }
+        // The ball rolls to the hole, then drops into it: from above, it
+        // shrinks away into the dark.
+        if (collapse) { x = s.hole.x; y = s.hole.y; o = { s: away(at - collapse.t0 - 150) }; }
         else if (!tw?.sinkAt || at >= tw.sinkAt + 420) return;
-        else if (at > tw.sinkAt) h = -(((at - tw.sinkAt) / 420) ** 2) * 8;
+        else if (at > tw.sinkAt) o = { s: 1 - ((at - tw.sinkAt) / 420) ** 2 };
       }
       if (tw?.piece?.i === i) ({ x, y } = tweenPos(tw.piece, at));
       if (this.landing) { const l = this.landing(i, at); if (l === null) return; h += l * LIFT; }
       if (collapse && !(s.sunk && p.type === 'ball')) {
+        // Falling, from above: tipping over and shrinking away.
         const k = at - collapse.t0 - 260 - i * 110;
-        h -= fallBy(k);
-        if (k > 0) o = { rz: (i % 2 ? 1 : -1) * Math.min(1.2, k / 700), rx: Math.min(0.8, k / 900) };
+        if (k > 0) o = { rz: (i % 2 ? 1 : -1) * Math.min(1.2, k / 700), rx: Math.min(0.8, k / 900), s: away(k) };
       }
       stand(model(p.type, 'you'), x, y, h, 100 + i, o);
     });
@@ -438,9 +451,8 @@ export class Board3D extends Board {
       let x = f.x, y = f.y, h = 0;
       const t = tw?.foes?.[k];
       if (t) { const q = tweenPos(t, at); x = q.x; y = q.y; h = t.hop ? Math.sin(Math.PI * q.k) * (t.blocked ? 1.2 : 3.5) : 0; }
-      if (collapse) h -= fallBy(at - collapse.t0 - collapse.delay(f.x, f.y));
       const mdl = f.brain === 'possessed' ? model(f.type, 'foe', null, this.glowOf(f, k, at)) : model(f.type, 'foe', this.fur(f));
-      stand(mdl, x, y, h, 200 + k);
+      stand(mdl, x, y, h, 200 + k, collapse ? { s: away(at - collapse.t0 - collapse.delay(f.x, f.y)) } : {});
       if (day.rules.goal === 'target' && day.foes.length > 1 && f.target) stand(ring('#e3bd57'), x, y, 0, 200 + k);
     });
     // A winning catch: what was caught pops up and tumbles away. A possessed
@@ -520,7 +532,7 @@ export class Board3D extends Board {
       if (k < 0.78 || k > 1) continue;
       const q = (k - 0.78) / 0.22, [cx, cy] = this.mid(ps.x, ps.y, 1);
       g.strokeStyle = rgba(ps.fur, 1 - q); g.lineWidth = 2.5;
-      g.beginPath(); g.ellipse(cx, cy, (6 + q * 22) * u, (6 + q * 22) * u * this.sp, 0, 0, Math.PI * 2); g.stroke();
+      g.beginPath(); g.ellipse(cx, cy, (6 + q * 22) * u, (6 + q * 22) * u, 0, 0, Math.PI * 2); g.stroke();
     }
   }
 
@@ -578,8 +590,9 @@ export class Board3D extends Board {
   }
 }
 
-/** How far something has fallen, in model units, ms into its fall. */
-const fallBy = (ms) => (ms <= 0 ? 0 : (ms / 1000) ** 2 * 240);
+/** How big something still looks, ms into a fall away from you (seen from
+    above, falling is shrinking): 1 at the start, nearly 0 a second in. */
+const away = (ms) => (ms <= 0 ? 1 : Math.max(0.02, 1 / (1 + ((ms / 1000) ** 2) * 24)));
 
 /** The board for a page: 3D, unless the address says ?flat. */
 export function makeBoard(canvas, day) {
