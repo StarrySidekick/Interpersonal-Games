@@ -32,6 +32,15 @@
   #info { min-height: 44px; font-size: 15px; color: var(--dim); margin-bottom: 10px; }
 
   #end h2 { margin-top: 18px; }
+  /* The result: the golf word in a colour for how good it was, popping in. */
+  .golf { display: inline-block; padding: 1px 9px; border-radius: 999px; font-weight: 700; color: var(--text); background: var(--panel-2); }
+  .golf.g4 { background: #e3b54a; color: #2a1d05; }
+  .golf.g3 { background: var(--accent); color: var(--accent-ink); }
+  .golf.g2 { background: var(--panel-2); border: 1px solid var(--accent); }
+  .pop { animation: pop .5s cubic-bezier(.3, 1.6, .6, 1) both; }
+  #end-par.pop { animation-delay: .25s; }
+  @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: none; opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .pop { animation: none; } }
   .vrow {
     display: grid; grid-template-columns: 14px 1fr auto; gap: 10px; align-items: center;
     padding: 12px 14px; min-height: 52px; margin-bottom: 8px; width: 100%;

@@ -2,6 +2,8 @@
 // play it, rate it.
 
 import { $, el, show, haptic, keepAwake, themeToggle } from '../../../engine/ui.js';
+import { soundToggle } from '../../../engine/sound.js';
+import * as sfx from '../sounds.js';
 import { makeTarget, render } from '../../../engine/lowpoly.js';
 import { PIECES, HOLE_DESC, CRUMBLE_DESC, movesFor, playerMove, respond, isOver, outcome, initialState, allMoves, replay, crumbled } from '../rules.js';
 import { Board, scene, sceneFrame, sprite, patternPicture } from '../board.js';
@@ -342,7 +344,7 @@ async function play(mv) {
   hud();
   if (!b.won) await board.animate(mid, b, { p: -1 });
   busy = false;
-  if (isOver(b)) return finish();
+  if (isOver(b)) return finish(true);
   status(whatHappened(a, b, mv));
   select(null);
 }
@@ -378,8 +380,10 @@ function golf(d) {
   return { '-2': 'Eagle', '-1': 'Birdie', 0: 'Par', 1: 'Bogey', 2: 'Double bogey' }[d] ?? `${d} over par`;
 }
 
-function finish() {
+/** `fresh`: the game has just ended here, so it plays its tune. */
+function finish(fresh = false) {
   const end = now(), how = outcome(end);
+  if (fresh) ({ caught: () => sfx.fanfare(par ? sfx.levelFor(end.t - par) : 2), dusk: () => sfx.dusk(), eaten: () => sfx.lost() })[how]();
   $('#controls').hidden = true;
   $('#end').hidden = false;
   const kingFell = level.rules.royal && end.pieces.some((p) => p.taken && p.type === 'king');
@@ -504,7 +508,7 @@ $('#link').onclick = async () => {
   catch { note(levelLink()); }
 };
 
-$('.topbar .pill').before(themeToggle());
+$('.topbar .pill').before(soundToggle(), themeToggle());
 buildForm();
 buildCrazyPool();
 updaters.forEach((u) => u());

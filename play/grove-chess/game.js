@@ -4,6 +4,7 @@
 
 import { $, el, show, haptic, keepAwake, themeToggle } from '../../engine/ui.js';
 import { logSitting } from '../../engine/record.js';
+import { soundToggle } from '../../engine/sound.js';
 import { makeTarget, render } from '../../engine/lowpoly.js';
 import {
   PIECES, RABBIT_DESC, CRUMBLE_DESC, movesFor, apply, isOver, outcome, isBramble, brambleCount, replay, crumbled
@@ -12,7 +13,8 @@ import { makeDay, todayStr, describePattern, fairyFor } from './day.js';
 import {
   load, save, dayEntry, readLink, parseVine, makeLink, encodeMoves, decodeMoves, cleanName
 } from './vine.js';
-import { Board, patternPicture, scene, sceneFrame } from './board.js';
+import { Board, patternPicture, revealPattern, scene, sceneFrame } from './board.js';
+import * as sfx from './sounds.js';
 import { piecesSheet } from './sheet.js';
 import { playIntro } from './intro.js';
 
@@ -54,11 +56,13 @@ const COLORS = ['#d0473d', '#2f6fc0', '#8a4bb0', '#de7a1f', '#118a74', '#c2378a'
 const board = new Board($('#board'), day);
 let view = { mode: 'play' };
 let sel = null, legal = [];
+// While your finished chase is being drawn out, how many moves of it show.
+let chaseUpto = null;
 
 board.redraw = function redraw() {
   const s = now();
   if (view.mode === 'play') {
-    const paths = isOver(s) ? [{ play: game, color: ME }] : null;
+    const paths = isOver(s) ? [{ play: game, color: ME, upto: chaseUpto ?? undefined }] : null;
     board.draw({ state: s, track: game.states, sel, legal, paths });
   } else if (view.mode === 'watch') {
     const st = view.play.states;
@@ -101,10 +105,12 @@ async function play(mv) {
   const r = rabbitOf(b);
   haptic(b.won ? [20, 40, 30] : r.ate >= 0 ? [40, 30, 40] : 10);
   hud();
+  // A finished chase is drawn out afterwards (drawChase), so it starts hidden.
+  if (isOver(b) && !calm()) chaseUpto = 0;
   await board.animate(a, b, mv);
   busy = false;
 
-  if (isOver(b)) return finish();
+  if (isOver(b)) return finish(true);
   let msg = r.blocked
     ? 'The rabbit tried to hop, but something was in the way. It waited.'
     : r.ate >= 0
@@ -160,8 +166,31 @@ function others() {
   return parseVine(day, entry.seen.join('~')).filter((p) => !(mine && store.name && chunkOf(p) === chunkOf(mine)));
 }
 
-function finish() {
-  const end = now(), how = outcome(end);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+let revealToken = 0, patternWatch = null;
+
+/** Your chase drawn back onto the board a move at a time, just after you
+    finish. Anything else you do with the board stops it. Resolves true if
+    it ran to the end. */
+async function drawChase() {
+  const token = ++revealToken, g = game;
+  await sleep(250);
+  for (let k = 0; k <= g.moves.length; k++) {
+    if (token !== revealToken || game !== g || view.mode !== 'play') break;
+    chaseUpto = k; redraw();
+    if (k && g.moves[k - 1].p >= 0) sfx.tick();
+    await sleep(120);
+  }
+  chaseUpto = null; redraw();
+  return token === revealToken && game === g;
+}
+
+/** `fresh` is true when the game has just ended, rather than being shown
+    again on a later visit: only then does it play its tune and draw itself
+    out. */
+function finish(fresh = false) {
+  const end = now(), how = outcome(end), over = end.t - day.par;
   if (!game.practice && !entry.done) {
     entry.done = true; save(store);
     logSitting({ game: 'grove-chess', data: { date, number: day.number, outcome: how, moves: end.t, par: day.par } });
@@ -169,9 +198,32 @@ function finish() {
   $('#controls').hidden = true;
   $('#end').hidden = false;
   $('#end-score').textContent = (game.practice ? 'Practice: ' : '') + RESULT[how](end.t);
-  $('#end-par').textContent = `Par ${day.par} · ` + { caught: golf(end.t - day.par), eaten: 'the rabbit won', dusk: 'dusk fell first' }[how];
-  $('#end-pattern').textContent = `Its pattern: ${describePattern(day)}, then the same again. Shown the way it started; hitting an edge flips it on that axis.`;
-  patternPicture($('#pattern-pic'), day.pattern, day.rabbit.mx, day.rabbit.my);
+  $('#end-par').replaceChildren(`Par ${day.par} · `, how === 'caught'
+    ? el('span', { class: `golf g${sfx.levelFor(over)}` }, golf(over))
+    : { eaten: 'the rabbit won', dusk: 'dusk fell first' }[how]);
+  $('#end-pattern').textContent = `Its pattern: ${describePattern(day)}, then the same again. Shown the way it started; hitting an edge flips it on that axis. Each hop direction has its own note, so the tune repeats when the pattern does.`;
+  const pic = $('#pattern-pic'), { mx, my } = day.rabbit;
+  patternWatch?.disconnect();
+  if (fresh) {
+    // The result in sound first, then in pictures: the score pops in, your
+    // chase draws itself out, and the rabbit's pattern plays as a tune once
+    // you scroll down to it.
+    ({ caught: () => sfx.fanfare(sfx.levelFor(over)), dusk: () => sfx.dusk(), eaten: () => sfx.lost() })[how]();
+    for (const n of [$('#end-score'), $('#end-par')]) { n.classList.remove('pop'); void n.offsetWidth; n.classList.add('pop'); }
+    if (!calm()) {
+      patternPicture(pic, day.pattern, mx, my, 0);
+      // One thing at a time: the tune waits for the chase to finish drawing.
+      drawChase().then((done) => {
+        if (!done) return;
+        const watch = patternWatch = new IntersectionObserver((seen) => {
+          if (!seen.some((e) => e.isIntersecting)) return;
+          watch.disconnect();
+          if (patternWatch === watch) revealPattern(pic, day.pattern, mx, my);
+        }, { threshold: 0.6 });
+        watch.observe(pic);
+      });
+    } else patternPicture(pic, day.pattern, mx, my);
+  } else patternPicture(pic, day.pattern, mx, my);
   $('#share-card').hidden = game.practice;
   $('#name').value = store.name || '';
   status({ caught: 'Caught.', eaten: 'The rabbit ate your last piece.', dusk: 'The rabbit slipped into its burrow at dusk.' }[how]);
@@ -229,7 +281,7 @@ $('#all-paths').onclick = () => {
 };
 
 $('#practice').onclick = () => {
-  watchToken++;
+  watchToken++; revealToken++; chaseUpto = null;
   game = newGame([], true);
   view = { mode: 'play' };
   $('#end').hidden = true;
@@ -369,6 +421,6 @@ if (new URLSearchParams(location.search).has('test')) {
     ` Dealer v${day.version}.`;
 }
 
-$('.topbar .pill').before(themeToggle());
+$('.topbar .pill').before(soundToggle(), themeToggle());
 show('title');
 requestAnimationFrame(titleFrame);

@@ -144,3 +144,7 @@ details[open] summary { margin-bottom: 6px; }
 }
 
 .themebtn { width: auto; min-height: 40px; padding: 6px 14px; font-size: 14px; margin-left: auto; }
+.themebtn + .themebtn { margin-left: 0; }
+.soundbtn { min-width: 44px; padding: 6px 10px; display: inline-grid; place-items: center; }
+.topbar .back, .topbar .pill { white-space: nowrap; }
+@media (max-width: 400px) { .topbar { gap: 8px; } }
