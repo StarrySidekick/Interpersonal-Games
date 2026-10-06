@@ -167,7 +167,8 @@ No build step, no libraries, same as the rest of the repo.
 | `play/grove-chess/ai.js` | the brain for their pieces in the lab (below) |
 | `play/grove-chess/day.js` | deals the day's board from the date, and the solver that sets par |
 | `play/grove-chess/vine.js` | link format, replay-checking, what the browser remembers |
-| `play/grove-chess/rabbits.js` | the fur colour for each pattern, and the rabbits you have caught |
+| `play/grove-chess/rabbits.js` | the fur colour for each pattern, the patterns with pauses, and the rabbits you have caught |
+| `play/grove-chess/board3d.js` | the 3D board: drawing, taps, possession and the collapse; `?flat` for the old one |
 | `play/grove-chess/sounds.js` | the game's sounds, built on `engine/sound.js` |
 | `play/grove-chess/descent.js`, `descent/` | the descent: what each depth is made of, the record, and its page |
 | `play/grove-chess/board.js` | drawing the board, animating moves, turning taps into squares; shared by both pages |
@@ -244,12 +245,19 @@ engine supports, on one page; tap Play to try it, rate it 1 to 5 with a note,
 and it goes in a notebook you can copy out.
 
 Since 2026-10-06 the default is **the standard board**, Timothy's framing:
-a ground, a shape and a size, then the three kinds of thing against you
-(rabbits, a hole, and dark pieces), and the goal "rabbits, then the ball".
-Settings are version 2 from that day; links carry `v=2`, and anything saved
-before (links, notebook entries) is read against the old defaults, so it
-still builds exactly the level it was. A test proved that for 400 old
-levels.
+a ground, a shape and a size, a hole, and three pieces possessed by one
+kind of rabbit; catch them, then sink the ball. Settings carry a version
+(now 3, with possession; 2 brought the standard board; links without one are
+older). Each is read against its own version's defaults, so every old link
+and notebook entry still builds exactly the level it was; a test checks 400
+levels from each older version.
+
+**Is there a fairy piece that moves like the ball?** Timothy asked, to try
+it in the ball's place. Not exactly: the ball must roll as far as it can
+and never captures. The nearest real thing is a rook under the
+"maximummer" condition from chess problems (a side must always make its
+geometrically longest move), but that rook still captures. So the ball
+stays a ball for now.
 
 - **Board:** width and height (3 to 10), shape (rectangle, diamond, round,
   cross, ring, hourglass, L, stairs, two islands, Swiss cheese), extra holes,
@@ -315,30 +323,60 @@ win on exactly par.
 A level is its settings plus a seed (the dice roll that places everything), so
 a level link rebuilds exactly the same level anywhere.
 
+## Possession
+
+Timothy, 2026-10-06: "the rabbits are possessing the other pieces." In the
+lab's standard board and the descent, the pieces against you are dark
+pieces with a rabbit inside (`possessedStep` in `rules.js`):
+
+- **The rabbit says which way, the piece says how.** Each turn the piece
+  takes its rabbit's next step as a direction: right, up-left, or a pause
+  (some patterns have pauses, `EXTRA_PATTERNS` in `rabbits.js`). Of the
+  piece's own legal moves that head that way, it takes the one landing
+  closest to where the step points; ties go to the shorter move, then the
+  one nearer you, then the one further left. If none heads that way, it
+  waits. A step that would leave the board flips the pattern on that axis,
+  as a rabbit's does.
+- **The colour is the rabbit's.** A possessed piece's plinth band shows its
+  rabbit's fur. One kind of rabbit means every piece moves to the same
+  pattern, which is how a level teaches it; more kinds come deeper down.
+- **Taking one frees its rabbit.** The rabbit tumbles out of the piece and
+  joins your collection.
+- **In the opening**, on the 3D board, a rabbit of each colour hops in out
+  of the fog and dives into its piece, which lights up.
+
+The thinking dark pieces are still there in the lab ("Moved by: Thinking").
+
 ## The descent
 
 `play/grove-chess/descent/`, with the depths in `descent.js`. Timothy,
 2026-10-06: "once you get the ball into the hole it falls down into another
 level that's harder ... see how far you can go."
 
-- Every level is a standard board. Catch every rabbit to open the hole, sink
-  the ball, and the board drops away and you fall to the next one. Lose the
-  ball, or run out of moves, and the run ends. How deep you got is the
+- Every level is a standard board: about three possessed pieces and a hole.
+  Take every possessed piece and the hole opens; sink the ball, and the
+  floor gives way. On the 3D board the squares drop into the pit in a
+  ripple out from the hole and your pieces tumble down after the ball. Lose
+  the ball, or run out of moves, and the run ends. How deep you got is the
   score; the deepest you have ever been is kept, and only goes up.
-- **Depth adds one thing at a time:** a still hole, then a moving one, then
-  a dark piece, crumbling ground, a bigger board and shrinking ground, a
-  second rabbit and one fairy piece, a spiral, and so on (see
-  `depthSettings`). The opening only shows a card the first time a piece or
-  ground turns up in a run.
+- **Your pieces go down with you** (Timothy's call, instead of picking a new
+  piece each depth). A run starts with the ball, a rook, a knight and a
+  bishop; whatever is left when you sink the ball comes down too, and a
+  piece taken stays gone. Each level is found for exactly the pieces you
+  still have.
+- **Depth adds one thing at a time** (`depthSettings`): one kind of rabbit
+  in short-stepping pieces first (king, wazir, ferz), then a moving hole,
+  then pieces that can take yours (depth 3), knights, a second kind of
+  rabbit and a bigger board, sliders, a third kind, stranger pieces. The
+  opening shows a card the first time something new turns up in a run.
 - **Every level is found by the solver**, winnable and balanced, on a
   background thread. The next depth is found while you play the current
   one, so the fall usually does not wait.
 - Rabbits caught on the way down join your collection, the same one the
   daily keeps.
 
-Next for it: a choice between two pieces after each depth (the roguelike
-reward, and the power path), and the Shepard-tone fall from
-[`grove-look.md`](grove-look.md).
+Next for it: the Shepard-tone fall from [`grove-look.md`](grove-look.md),
+and something to find on the way down besides rabbits.
 
 ## Open
 

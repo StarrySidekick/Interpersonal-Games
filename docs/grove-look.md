@@ -1,7 +1,9 @@
 # How Grove Chess should look, sound and feel
 
-Recorded 2026-10-06 from Timothy's notes. **Direction, with a plan; the big
-step (a 3D board) is not built yet** and waits on his go-ahead.
+Recorded 2026-10-06 from Timothy's notes. **The 3D board is built** (he said
+yes the same evening), with fog and the dark forest in both light and dark
+mode. What is still to do is marked below.
+
 
 > "You're interpreting the look and feel of this game as if it's like a
 > 16-bit or 32-bit game. What I'm more aiming for is like a Nintendo 64
@@ -43,25 +45,28 @@ little blurry where 16-bit games look sharp and pixelly.
 
 ### The plan, in order
 
-1. **Play on the 3D board.** The board you play on becomes the same kind of
-   scene as the title: tilted toward you, the pieces as real models, lit.
-   Taps are turned into squares by projecting each square's corners to the
-   screen and finding which one the tap is inside. Highlights, tracks and
-   the next-to-fall shadow become flat shapes laid on the board. This is the
-   big one, and everything below builds on it.
-2. **Soft, not crisp.** Draw at a low resolution and let the browser smooth
-   it up, instead of keeping every pixel square. Slightly fewer, softer
-   pixels than now.
-3. **Fog.** The board sits in a small circle of light; past its rim the
-   forest fades into fog. This is also the mystery (below).
-4. **A camera that breathes.** A slow sway while you think; a short swing
-   when something happens.
-5. **Lettering.** Round, bold numerals on the tracks instead of the pixel
-   font.
+1. **Play on the 3D board.** *Built* (`play/grove-chess/board3d.js`). The
+   board is a scene like the title's, tilted toward you, the pieces real
+   models a quarter larger than on the title. Lit squares are coloured into
+   the squares themselves. Tracks and lines are drawn flat on the surface
+   between two 3D passes, so a piece still hides what is behind it. A tap is
+   matched to the object drawn at that pixel, or turned back into a square
+   by undoing the tilt; a lit square behind a tall piece still takes the
+   tap. Add `?flat` to any page for the old board.
+2. **Soft, not crisp.** *Built.* The board is drawn about 210 pixels across
+   and smoothed up by the browser.
+3. **Fog.** *Built.* The board sits in a pool of light in a dark clearing of
+   low-poly pines, fog toward the back, darkness all round, in both modes.
+   It sits over a pit in the forest floor, which is where it falls in the
+   descent.
+4. **A camera that breathes.** Not built. It means drawing every frame all
+   the time, which costs battery; worth trying once the frame rate is known
+   on a real phone.
+5. **Lettering.** *Built.* Round, bold numerals on the tracks.
 
-Cost: (1) is a few days of careful work and needs real-device testing for
-speed, since every frame is drawn in software. (2) to (5) are small once (1)
-exists.
+Speed: a frame takes about 15 to 20 ms on a laptop. A phone will be slower;
+frames are only drawn while something moves, so a slow phone gets a
+choppier animation, not a hot one. Untested on a real phone.
 
 ## Mystery
 
