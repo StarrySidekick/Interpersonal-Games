@@ -185,6 +185,17 @@ export class Mesh {
     return this;
   }
 
+  /** Place a model turned and scaled: { t: [x, y, z], rx, ry, rz, s }.
+      Turns happen around the model's own base centre, then it is moved. */
+  addXf(model, { t = [0, 0, 0], rx = 0, ry = 0, rz = 0, s = 1 } = {}, id = 0) {
+    const T = xf({ rx, ry, rz });
+    for (const tr of model.tris) {
+      const p = tr.p.map((q) => { const r = app(T.m, q); return [r[0] * s + t[0], r[1] * s + t[1], r[2] * s + t[2]]; });
+      this.tris.push({ p, n: app(T.m, tr.n), vn: tr.vn ? tr.vn.map((n) => app(T.m, n)) : null, c: tr.c, id });
+    }
+    return this;
+  }
+
   /** An axis-aligned box in scene space. `skip` is a bit per face (+x, -x,
       +y, -y, +z, -z) to leave out, for faces nobody can see. */
   addBox(x0, y0, z0, x1, y1, z1, col, id = 0, skip = 0) {
@@ -204,10 +215,20 @@ export function makeTarget(w, h) {
 // stays put while a model turns under it.
 const L = norm([-0.45, 0.85, 0.5]);
 
+/**
+ * Draw `mesh` into target `t`. Options: yaw and pitch (the camera), scale
+ * and the screen centre, and the outline colour (or null for none).
+ * `keep: true` draws over what is already there: the colour image starts
+ * empty again (so the new layer can be laid on top of anything drawn in
+ * between) but the depths stay, so the new things still hide behind, or in
+ * front of, the old. With `outlineFrom`, only edges against objects whose id
+ * is at least that number are outlined.
+ */
 export function render(t, mesh, o = {}) {
-  const { yaw = 0, pitch = 0.5, scale = 2, cx = t.w / 2, cy = t.h / 2, outline = '#2a2118' } = o;
+  const { yaw = 0, pitch = 0.5, scale = 2, cx = t.w / 2, cy = t.h / 2, outline = '#2a2118', keep = false, outlineFrom = -1 } = o;
   const W = t.w, H = t.h, data = t.img.data, zb = t.z, ids = t.id;
-  data.fill(0); zb.fill(-1e9); ids.fill(-1);
+  data.fill(0);
+  if (!keep) { zb.fill(-1e9); ids.fill(-1); }
   const cyw = Math.cos(yaw), syw = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
   const view = (v) => {
     const x1 = v[0] * cyw + v[2] * syw, z1 = -v[0] * syw + v[2] * cyw;
@@ -261,7 +282,7 @@ export function render(t, mesh, o = {}) {
     for (let py = 0; py < H; py++)
       for (let px = 0; px < W; px++) {
         const i = py * W + px, me = ids[i], z = zb[i];
-        const near = (j) => ids[j] !== me && ids[j] !== -1 && zb[j] > z + 0.5;
+        const near = (j) => ids[j] !== me && ids[j] !== -1 && ids[j] >= outlineFrom && zb[j] > z + 0.5;
         if ((px > 0 && near(i - 1)) || (px < W - 1 && near(i + 1)) || (py > 0 && near(i - W)) || (py < H - 1 && near(i + W))) mark.push(i);
       }
     for (const i of mark) { const j = i * 4; data[j] = oc[0]; data[j + 1] = oc[1]; data[j + 2] = oc[2]; data[j + 3] = 255; }

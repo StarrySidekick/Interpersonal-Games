@@ -158,3 +158,18 @@ export function fall(at = 0) {
   noise({ at, dur: 1.0, vol: 0.06, from: 3000, to: 400, type: 'bandpass', q: 1 });
   tone({ f: 110, f2: 40, at: at + 1.15, dur: 0.4, vol: 0.4 });
 }
+
+/** A rabbit diving into a piece to possess it: a soft rising swoop and a
+    glassy ring. */
+export function possess(at = 0) {
+  tone({ f: 300, f2: 900, at, dur: 0.22, vol: 0.12, attack: 0.02 });
+  tone({ f: hz(12), type: 'triangle', at: at + 0.18, dur: 0.5, vol: 0.09 });
+  tone({ f: hz(12) * 1.5, at: at + 0.18, dur: 0.4, vol: 0.04 });
+}
+
+/** The floor giving way under you: a deep crumbling roar that drops off. */
+export function collapse(at = 0) {
+  noise({ at, dur: 1.4, vol: 0.32, from: 900, to: 60, type: 'lowpass' });
+  tone({ f: 90, f2: 30, at, dur: 1.3, vol: 0.32, attack: 0.05 });
+  for (const d of [0.15, 0.35, 0.5, 0.8, 1.0]) noise({ at: at + d, dur: 0.06, vol: 0.08, from: 2200, type: 'bandpass', q: 5 });
+}

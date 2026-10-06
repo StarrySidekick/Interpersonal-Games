@@ -11,6 +11,11 @@
 // still know them because the first two daily boards had them, and links to
 // those boards must keep replaying. Nothing new deals them.
 //
+// Possession (2026-10-06, Timothy's idea): a piece of theirs can be
+// possessed by a rabbit. The rabbit's pattern says which way the piece goes
+// each turn (left, up-right, or a pause); the piece's own moves say how. See
+// possessedStep below.
+//
 // Coordinates: x runs left to right, y runs bottom to top, and (0, 0) is the
 // bottom-left square, on your side of the board. A square's number is
 // y * W + x.
@@ -403,11 +408,50 @@ export function foeMove(s, m) {
   if (m) landFoe(s, s.foes[m.k], m.x, m.y);
 }
 
-/** The pattern foes all hop. Mutates. */
+/** Does list a sort before list b, comparing item by item? */
+function before(a, b) {
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] < b[i];
+  return false;
+}
+
+/**
+ * A possessed piece's step. The rabbit inside says which way: the next step
+ * of its pattern, a direction like (1, 0) for right or (0, 0) for a pause.
+ * The piece says how: of its own legal moves that head that way, it takes
+ * the one landing closest to where the step points (ties: the shorter move,
+ * then the one nearer you, then the one further left). If none heads that
+ * way it waits. Like a rabbit, a step that would leave the board flips the
+ * pattern on that axis from then on. Mutates.
+ */
+function possessedStep(s, f) {
+  const W = s.day.W, H = s.day.H;
+  let [dx, dy] = f.pattern[f.i];
+  dx *= f.mx; dy *= f.my;
+  f.i = (f.i + 1) % f.pattern.length;
+  f.from = [f.x, f.y]; f.ate = -1; f.blocked = false; f.rested = false;
+  if (!dx && !dy) { f.rested = true; return; }
+  if (f.x + dx < 0 || f.x + dx >= W) { f.mx = -f.mx; dx = -dx; }
+  if (f.y + dy < 0 || f.y + dy >= H) { f.my = -f.my; dy = -dy; }
+  const tx = f.x + dx, ty = f.y + dy, take = canTake(s.day.rules, f);
+  let best = null, bk = null;
+  for (const m of PIECES[f.type].moves(foeLook(s), f, -1, s.day)) {
+    if (m.cap && !take) continue;
+    const mx = m.x - f.x, my = m.y - f.y;
+    if (mx * dx + my * dy <= 0) continue; // not this way
+    const key = [(m.x - tx) ** 2 + (m.y - ty) ** 2, mx * mx + my * my, m.y, m.x];
+    if (!bk || before(key, bk)) { best = m; bk = key; }
+  }
+  if (!best) { f.blocked = true; return; }
+  landFoe(s, f, best.x, best.y);
+}
+
+/** The pattern foes all hop, and the possessed pieces take their steps.
+    Mutates. */
 export function patternHops(s) {
   for (const f of s.foes) {
-    if (f.taken || f.brain !== 'pattern') continue;
-    for (let h = 0; h < (f.hops || 1) && !lost(s); h++) hop(s, f);
+    if (f.taken) continue;
+    if (f.brain === 'pattern') for (let h = 0; h < (f.hops || 1) && !lost(s); h++) hop(s, f);
+    else if (f.brain === 'possessed' && !lost(s)) possessedStep(s, f);
   }
 }
 

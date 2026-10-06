@@ -15,8 +15,9 @@ import { Board, scene, sceneFrame, sprite } from '../board.js';
 import { piecesSheet } from '../sheet.js';
 import { playIntro } from '../intro.js';
 import { makeLevel, searchLayouts } from '../lab.js';
-import { depthSettings, loadDescent, saveDescent } from '../descent.js';
+import { depthSettings, loadDescent, saveDescent, START_HAND } from '../descent.js';
 import { FUR, FUR_WORD, caughtRabbits, recordCatch } from '../rabbits.js';
+import { makeBoard } from '../board3d.js';
 
 const rec = loadDescent();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -29,14 +30,17 @@ const info = (t) => { $('#info').textContent = t; };
 let run = null;
 
 function newRun() {
-  run = { seed: 1 + Math.floor(Math.random() * 1e6), depth: 1, caught: [], seen: new Set(), found: new Map() };
+  run = { seed: 1 + Math.floor(Math.random() * 1e6), depth: 1, hand: START_HAND.slice(), caught: [], seen: new Set(), found: new Map() };
 }
 
-/** The level for `depth` of this run, found on a background thread. Asked
-    for early, so it is usually ready by the time you fall into it. */
-function find(depth) {
-  if (run.found.has(depth)) return run.found.get(depth);
-  const settings = depthSettings(depth, rng(`descent:${run.seed}:${depth}`));
+/** The level for `depth` of this run, for the pieces you are carrying, found
+    on a background thread. Asked for early (assuming you keep every piece),
+    so it is usually ready by the time you fall into it; lose a piece and
+    the next level is found again for what is left. */
+function find(depth, hand = run.hand) {
+  const key = `${depth}|${hand.join(',')}`;
+  if (run.found.has(key)) return run.found.get(key);
+  const settings = depthSettings(depth, rng(`descent:${run.seed}:${depth}`), hand);
   const msg = { settings, seed: run.seed + depth * 1000, parMin: settings.parMin, parMax: settings.parMax, maxMs: 20000 };
   const p = new Promise((resolve) => {
     const done = (data) => {
@@ -52,14 +56,15 @@ function find(depth) {
       w.postMessage(msg);
     } catch { setTimeout(() => searchLayouts({ ...msg, maxMs: 4000 }, done), 30); }
   });
-  run.found.set(depth, p);
+  run.found.set(key, p);
   return p;
 }
 
-// --- Rabbits: you know one by its colour once you have caught one like it. -
+// --- Rabbits: every kind wears its colour down here, so you can see which
+// pieces move alike. (The daily keeps its colours until you have earned them.)
 
 let known = caughtRabbits();
-const furOf = (f) => (f.type === 'rabbit' && f.brain === 'pattern' && known[f.patternName] ? FUR[f.patternName] : null);
+const furOf = (f) => ((f.brain === 'pattern' || f.brain === 'possessed') && FUR[f.patternName]) || null;
 
 // --- Playing a level. ------------------------------------------------------
 
@@ -82,13 +87,18 @@ function hud() {
 function goalCard() {
   if (!run.seen.has('goal')) {
     run.seen.add('goal');
-    return { kind: 'flag', side: 'you', title: 'Rabbits, then the ball',
-      text: 'Catch every rabbit. That opens the hole; sink the ball in it and you fall to the next board down. Lose the ball, or run out of moves, and the descent ends.' };
+    return { kind: 'flag', side: 'you', title: 'Catch them, then the ball',
+      text: 'Rabbits have got into their pieces. Take every possessed piece and its rabbit is freed; when they are all free the hole opens. Sink the ball in it and you fall to the next board, with every piece you still have. Lose the ball, or run out of moves, and the descent ends.' };
   }
-  const dark = level.foes.find((f) => f.type !== 'rabbit');
-  if (dark && !run.seen.has('dark')) {
-    run.seen.add('dark');
-    return { kind: dark.type, side: 'foe', title: 'Dark pieces', text: 'Dark versions of your own pieces. They think for themselves, and they can take yours, the ball included.' };
+  if (level.rules.foesCapture && !run.seen.has('capture')) {
+    run.seen.add('capture');
+    const dark = level.foes.find((f) => f.type !== 'rabbit');
+    return { kind: dark?.type || 'king', side: 'foe', title: 'Now they bite', text: 'From here down, a possessed piece that lands on one of yours takes it, the ball included. A piece taken does not come down with you.' };
+  }
+  const kinds = new Set(level.foes.map((f) => f.patternName)).size;
+  if (kinds > 1 && !run.seen.has('kinds')) {
+    run.seen.add('kinds');
+    return { kind: 'rabbit', side: 'foe', title: 'More than one kind', text: 'Down here the pieces are possessed by different kinds of rabbit, each with its own pattern. Watch which pieces move alike.' };
   }
   return null;
 }
@@ -100,7 +110,7 @@ async function startLevel() {
   par = found.par;
   known = caughtRabbits();
   game = { states: [initialState(level)], moves: [] };
-  board = new Board($('#board'), level);
+  board = makeBoard($('#board'), level);
   board.redraw = draw;
   board.fur = furOf;
   sel = null; legal = []; shown = null;
@@ -112,15 +122,19 @@ async function startLevel() {
   chips.replaceChildren(el('span', { class: 'pill' }, `${level.W} × ${level.H}`));
   if (level.rules.crumble) chips.append(el('span', { class: 'pill' }, 'Crumbling'));
   if (level.rules.shrink) chips.append(el('span', { class: 'pill' }, level.rules.shrink === 'spiral' ? 'Shrinking in a spiral' : 'Shrinking'));
-  const darkN = level.foes.filter((f) => f.type !== 'rabbit').length;
-  if (darkN) chips.append(el('span', { class: 'pill' }, `${darkN} dark piece${darkN > 1 ? 's' : ''}`));
+  const held = level.foes.filter((f) => f.brain === 'possessed');
+  if (held.length) {
+    const kinds = new Set(held.map((f) => f.patternName)).size;
+    chips.append(el('span', { class: 'pill' }, `${held.length} possessed · ${kinds} kind${kinds > 1 ? 's' : ''} of rabbit`));
+  }
   show('play');
   keepAwake();
   hud();
   busy = true;
   await playIntro(board, level, { section: $('[data-screen=play]'), seen: run.seen, goal: goalCard() });
   busy = false;
-  status(`Depth ${run.depth}. Catch ${level.foes.filter((f) => f.target).length > 1 ? 'every rabbit' : 'the rabbit'}, then sink the ball.`);
+  const n = level.foes.filter((f) => f.target).length;
+  status(`Depth ${run.depth}. Catch ${n > 1 ? `all ${n}` : 'it'}, then sink the ball.`);
   select(null);
 }
 
@@ -135,11 +149,12 @@ function select(i) {
   draw();
 }
 
-/** Rabbits caught on this move go in the run's tally and your collection. */
+/** Rabbits caught on this move, loose or freed from a piece, go in the
+    run's tally and your collection. */
 function noteCatches(a, b) {
   let first = null;
   b.foes.forEach((f, k) => {
-    if (f.type !== 'rabbit' || !f.taken || a.foes[k].taken) return;
+    if ((f.type !== 'rabbit' && f.brain !== 'possessed') || !f.taken || a.foes[k].taken) return;
     if (f.patternName && FUR[f.patternName]) {
       run.caught.push(f.patternName);
       if (recordCatch(f.patternName)) first = f.patternName;
@@ -151,7 +166,9 @@ function noteCatches(a, b) {
 
 function whatHappened(a, b, mv, first) {
   const bits = [];
-  b.foes.forEach((f, k) => { if (f.taken && !a.foes[k].taken) bits.push(f.type === 'rabbit' ? 'Caught a rabbit.' : `You took their ${nameOf(f)}.`); });
+  b.foes.forEach((f, k) => {
+    if (f.taken && !a.foes[k].taken) bits.push(f.type === 'rabbit' ? 'Caught a rabbit.' : f.brain === 'possessed' ? `You took their ${nameOf(f)}, and the rabbit inside is yours.` : `You took their ${nameOf(f)}.`);
+  });
   b.foes.forEach((f) => {
     if (f.ate >= 0 && b.pieces[f.ate].taken && !a.pieces[f.ate].taken) bits.push(`Their ${nameOf(f)} took your ${nameOf(b.pieces[f.ate])}.`);
   });
@@ -212,16 +229,22 @@ $('#sheet-close').onclick = () => $('#sheet').close();
 
 // --- Falling, and the end. -------------------------------------------------
 
-/** The ball is in: the board drops away and you fall to the next one. */
+/** The ball is in: the floor gives way, and you and whatever pieces you
+    still have fall to the next board. */
 async function descend() {
   sfx.fall(0.2);
+  run.hand = now().pieces.filter((p) => !p.taken).map((p) => p.type);
+  run.hand.sort((a, b) => (a === 'ball' ? -1 : b === 'ball' ? 1 : 0));
   run.depth++;
   rec.best = Math.max(rec.best, run.depth);
   saveDescent(rec);
-  status('The ball drops, and the board goes with it.');
+  status('The ball drops, and the floor goes with it.');
   if (!calm()) {
-    await sleep(500);
-    await board.el.animate([{ transform: 'none', opacity: 1 }, { transform: 'translateY(110vh)', opacity: 0.5 }],
+    await sleep(450);
+    // The floor gives way and your pieces fall with the ball (board3d.js);
+    // the flat board just drops off the screen.
+    if (board.collapse) await board.collapse();
+    else await board.el.animate([{ transform: 'none', opacity: 1 }, { transform: 'translateY(110vh)', opacity: 0.5 }],
       { duration: 900, easing: 'cubic-bezier(.55, 0, 1, .45)' }).finished.catch(() => {});
   }
   show('fall');
@@ -265,7 +288,8 @@ async function over(end) {
   $('#over-best').textContent = run.depth >= rec.best ? 'As deep as you have ever been.' : `The deepest you have been is depth ${rec.best}.`;
   const box = $('#over-rabbits');
   box.replaceChildren();
-  if (run.caught.length) box.append(el('p', { class: 'small dim', style: 'margin:14px 0 0' }, `Rabbits caught on the way down: ${run.caught.length}`), rabbitTiles(run.caught));
+  box.append(el('p', { class: 'small dim', style: 'margin:14px 0 0' }, `You went down with: ${run.hand.map((k) => PIECES[k].name.toLowerCase()).join(', ')}.`));
+  if (run.caught.length) box.append(el('p', { class: 'small dim', style: 'margin:14px 0 0' }, `Rabbits freed on the way down: ${run.caught.length}`), rabbitTiles(run.caught));
 }
 
 // --- The title: the first board, turning. ---------------------------------
@@ -285,7 +309,8 @@ function previewFrame(ts) {
 
 async function prepareTitle() {
   newRun();
-  $('#deepest').textContent = rec.best ? `The deepest you have been: depth ${rec.best}.` : 'Nobody has been down yet.';
+  $('#deepest').textContent = (rec.best ? `The deepest you have been: depth ${rec.best}. ` : 'Nobody has been down yet. ') +
+    `You go down with the ball, a ${START_HAND.slice(1).map((k) => PIECES[k].name.toLowerCase()).join(', a ').replace(/, a ([^,]*)$/, ' and a $1')}; whatever is left when you sink the ball falls with you.`;
   const f = await find(1);
   const first = makeLevel(f.settings, f.seed);
   pframe = sceneFrame(first, pitch, pscale);

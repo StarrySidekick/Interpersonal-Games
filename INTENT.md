@@ -93,6 +93,22 @@ Then a batch of notes from him the same evening. Each with what became of it:
   level, see how far you can go. Built as the descent,
   `play/grove-chess/descent/`.
 
+Later still: yes to the 3D board, fog in both modes. And new notes:
+
+- **The rabbits possess the other pieces.** A coloured rabbit dives into
+  each piece in the opening; you face about three; easy levels have one
+  kind of rabbit so the pattern can be seen, later ones more. The rabbit
+  sets the pattern (left, right, a pause), the piece's own moves are how.
+  Built, in the lab's standard board and the descent.
+- **An animation for descending**: your pieces falling with the ball. Built
+  on the 3D board: the floor gives way into a pit.
+- **Your pieces descend with you**, rather than picking a new piece each
+  floor. Built; a piece taken stays gone.
+- **A fairy piece that works like the ball?** There is not one exactly (see
+  `docs/grove-chess.md`, the lab); the ball stays.
+- The daily keeps its single loose rabbit for now. Possession could come to
+  it in a later dealer version.
+
 ## 2026-10-05: the front door is asynchronous, and it is a group
 
 Recorded from Timothy's own description. **Where this section disagrees with

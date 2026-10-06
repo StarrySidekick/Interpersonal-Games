@@ -21,8 +21,8 @@ const GROUND = {
   shrink: { light: '#a9c4b8', dark: '#e4ece4' }
 };
 export const groundOf = (day) => (day.rules?.shrink ? 'shrink' : day.rules?.crumble ? 'crumble' : 'solid');
-const tileColour = (day, x, y) => { const g = GROUND[groundOf(day)]; return (x + y) % 2 === 0 ? g.light : g.dark; };
-const PIT = '#050302'; // what is left where a square fell away: darkness, nothing else
+export const tileColour = (day, x, y) => { const g = GROUND[groundOf(day)]; return (x + y) % 2 === 0 ? g.light : g.dark; };
+export const PIT = '#050302'; // what is left where a square fell away: darkness, nothing else
 
 export const C = 28, RIM = 5, TOP = 16;
 
@@ -30,7 +30,7 @@ const DIGITS = ['111101101101111', '010110010010111', '111001111100111', '111001
   '111100111001111', '111100111101111', '111001010010010', '111101111101111', '111101111001111'];
 
 // Track colours, one per pattern foe: the first is the daily rabbit's brown.
-const TRACK = ['#6b4a2c', '#2f6fc0', '#8a4bb0', '#118a74', '#c2378a', '#de7a1f', '#5f7a20', '#9a6a0c'];
+export const TRACK = ['#6b4a2c', '#2f6fc0', '#8a4bb0', '#118a74', '#c2378a', '#de7a1f', '#5f7a20', '#9a6a0c'];
 
 const sprites = {};
 export const sprite = (kind, side = 'you', fur = null) =>
@@ -90,7 +90,7 @@ function leafBurst(x, y, t0) {
   return { x, y, t0, dur: 950, bits };
 }
 
-function tweenPos(t, at) {
+export function tweenPos(t, at) {
   const k = Math.max(0, Math.min(1, (at - t.t0) / t.dur)), e = ease(k);
   return { x: t.from[0] + (t.to[0] - t.from[0]) * e, y: t.from[1] + (t.to[1] - t.from[1]) * e, k };
 }
@@ -117,6 +117,16 @@ export class Board {
     // have earned.
     this.fur = () => null;
     this.redraw = () => {};
+    canvas.board = this; // so tests (and anything else) can ask where a square is
+  }
+
+  /** Where the middle of square (x, y) is on the page, in client pixels. */
+  screenOf(x, y) { return this.toClient(...this.centre(x, y)); }
+
+  /** A point on the canvas's own pixels, in client pixels. */
+  toClient(px, py) {
+    const r = this.el.getBoundingClientRect();
+    return { x: r.left + (px * r.width) / this.el.width, y: r.top + (py * r.height) / this.el.height };
   }
 
   cellX(x) { return RIM + x * C; }
@@ -470,7 +480,8 @@ export class Board {
       const hold = 150 * slow, dur = 720 * slow;
       for (const k of tw.caught) {
         const f = a.foes[k];
-        tw.tumbles.push({ img: sprite(f.type, 'foe', this.fur(f)), x: f.x, y: f.y, t0: t, hold, dur: hold + dur });
+        tw.tumbles.push({ img: sprite(f.type, 'foe', this.fur(f)), x: f.x, y: f.y, t0: t, hold, dur: hold + dur,
+          kind: f.type, fur: this.fur(f), possessed: f.brain === 'possessed' });
         tw.leaves.push(leafBurst(f.x, f.y, t + hold));
       }
       sfx.caught(at(t));
@@ -508,6 +519,7 @@ export class Board {
           // Each hop is a note for its direction (sounds.js). A crowd of
           // rabbits plays its first three, so a big level is not a din.
           if (f.x === f0.x && f.y === f0.y) sfx.bump(at(t0 + dur / 2));
+          else if (f.brain === 'possessed') { sfx.slide(at(t0 + dur)); if (hops++ < 3) sfx.note(f.x - f0.x, f.y - f0.y, at(t0), 0.6); }
           else if (f.brain !== 'pattern') sfx.slide(at(t0 + dur));
           else if (hops++ < 3) sfx.hop(f.x - f0.x, f.y - f0.y, at(t0 + (hops - 1) * 20), at(t0 + dur));
         }
@@ -670,7 +682,12 @@ export function scene(day, s = null, fur = () => null) {
   }
   if (day.bramble.length) at('bramble', 'you', day.bramble[0] % W, Math.floor(day.bramble[0] / W), id++);
   for (const p of (s || day).pieces) if (!p.taken) at(p.type, 'you', p.x, p.y, id++);
-  for (const f of (s || day).foes) if (!f.taken) m.add(model(f.type, 'foe', fur(f)), x0(f.x) + T / 2, 0, z0(f.y) + T / 2, id++);
+  // A possessed piece shows its rabbit's colour on its plinth.
+  for (const f of (s || day).foes) {
+    if (f.taken) continue;
+    const mdl = f.brain === 'possessed' ? model(f.type, 'foe', null, fur(f) || '#e9e4da') : model(f.type, 'foe', fur(f));
+    m.add(mdl, x0(f.x) + T / 2, 0, z0(f.y) + T / 2, id++);
+  }
   return m;
 }
 

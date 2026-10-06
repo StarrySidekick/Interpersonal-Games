@@ -7,14 +7,21 @@
 // shareable as a link. New layout = same settings, new seed.
 //
 // The standard board (2026-10-06, Timothy's framing): a kind of ground, a
-// shape and a size, then the three kinds of thing against you: rabbits,
-// a hole, and dark versions of your own pieces. Catch the rabbits, then
-// sink the ball. Settings are version 2 from that day; anything saved
-// before it (links, the notebook) still loads exactly as it was made.
+// shape and a size, a hole, and pieces of theirs possessed by rabbits. The
+// rabbit inside decides which way a piece goes; the piece decides how.
+// Catch every possessed piece, which opens the hole, then sink the ball.
+//
+// Settings carry a version. Version 3 (possession) is the current one;
+// anything saved earlier (links, the notebook) is read against the defaults
+// of its own version, so it still builds exactly the level it was.
 
 import { rng, shuffled } from '../../engine/seed.js';
 import { PIECES, onBoard } from './rules.js';
 import { PATTERNS } from './day.js';
+import { EXTRA_PATTERNS } from './rabbits.js';
+
+/** Every named pattern: the daily's twelve, then the ones with pauses. */
+const ALL_PATTERNS = [...PATTERNS, ...EXTRA_PATTERNS];
 import { solveLevel, assess, unbalanced } from './solve.js';
 
 export const CLASSIC = Object.keys(PIECES).filter((k) => PIECES[k].kind === 'classic');
@@ -46,32 +53,37 @@ export const SCHEMA = [
     { key: 'wait', label: 'Waiting allowed', type: 'bool', def: true }
   ] },
   { group: 'Rabbits', fields: [
-    { key: 'rabbits', label: 'Rabbits', type: 'int', min: 0, max: 4, def: 1 },
+    { key: 'rabbits', label: 'Free rabbits', type: 'int', min: 0, max: 4, def: 0,
+      help: 'Rabbits loose on the board, on top of the ones inside their pieces.' },
     { key: 'rabbitBrain', label: 'Rabbits move by', type: 'choice', def: 'pattern', options: opts(['pattern', 'Hidden pattern'], ['ai', 'Thinking']) },
-    { key: 'patterns', label: 'Rabbit patterns', type: 'choice', def: 'daily', options: opts(
-      ['daily', 'The daily set'], ['short', 'Random, 2 hops'], ['mid', 'Random, 3 to 4'], ['long', 'Random, 5 to 8'], ['wild', 'Random, big jumps']),
-      help: 'Each pattern in the daily set has its own colour of rabbit.' },
+    { key: 'patterns', label: 'Rabbit patterns', type: 'choice', def: 'all', options: opts(
+      ['all', 'Every named kind'], ['daily', 'The daily set'], ['short', 'Random, 2 hops'], ['mid', 'Random, 3 to 4'], ['long', 'Random, 5 to 8'], ['wild', 'Random, big jumps']),
+      help: 'For free rabbits and the ones inside pieces. Every named kind has its own colour; "every named kind" adds three that pause.' },
     { key: 'hops', label: 'Rabbit hops per turn', type: 'int', min: 1, max: 3, def: 1 },
     { key: 'tracks', label: 'Show rabbit tracks', type: 'bool', def: true },
     { key: 'rabbitsEat', label: 'Rabbits eat your pieces', type: 'bool', def: false,
       help: 'Off: a rabbit that would land on one of your pieces waits instead.' }
   ] },
-  { group: 'Dark pieces', fields: [
-    { key: 'foes', label: 'Dark pieces', type: 'int', min: 0, max: 8, def: 2, help: 'Dark versions of chess and fairy pieces. They think for themselves.' },
-    { key: 'foePool', label: 'Dealt from', type: 'pieces', rabbit: true, def: ['king', 'knight', 'bishop', 'pawn'] },
+  { group: 'Their pieces', fields: [
+    { key: 'foes', label: 'Pieces', type: 'int', min: 0, max: 8, def: 3, help: 'Dark versions of chess and fairy pieces.' },
+    { key: 'darkBrain', label: 'Moved by', type: 'choice', def: 'possessed', options: opts(['possessed', 'A rabbit inside'], ['think', 'Thinking']),
+      help: 'A rabbit inside: each piece is possessed by a rabbit, whose pattern decides which way it goes each turn (left, up, a pause); the piece\u2019s own moves decide how.' },
+    { key: 'kinds', label: 'Kinds of rabbit inside', type: 'int', min: 1, max: 4, def: 1,
+      help: 'One kind: every piece moves to the same pattern, so you can see it. More: each piece may have its own.' },
+    { key: 'foePool', label: 'Dealt from', type: 'pieces', rabbit: true, def: ['king', 'knight', 'bishop', 'rook'] },
     { key: 'foeDupes', label: 'Repeats allowed', type: 'bool', def: true },
     { key: 'mirror', label: 'Mirror your pieces instead', type: 'bool', def: false, help: 'They get a copy of your hand, facing you, like chess.' },
     { key: 'foeRows', label: 'Start within the top', type: 'int', min: 1, max: 5, def: 3, unit: 'rows', help: 'Rabbits and the hole start up there too.' },
     { key: 'skill', label: 'Thinking skill', type: 'choice', def: '2', options: opts(
-      ['0', 'Random'], ['1', 'Greedy'], ['2', 'Two ahead'], ['3', 'Three ahead']), help: 'For everything of theirs that thinks.' },
+      ['0', 'Random'], ['1', 'Greedy'], ['2', 'Two ahead'], ['3', 'Three ahead']), help: 'For pieces of theirs that think, and thinking rabbits.' },
     { key: 'style', label: 'Mood', type: 'choice', def: 'balanced', options: opts(['flee', 'Flee'], ['balanced', 'Balanced'], ['hunt', 'Hunt']) },
     { key: 'foesCapture', label: 'They can take your pieces', type: 'bool', def: true }
   ] },
   { group: 'Winning', fields: [
     { key: 'goal', label: 'How you win', type: 'choice', def: 'descent', options: opts(
-      ['descent', 'Rabbits, then the ball'], ['all', 'Capture them all'], ['king', 'Take their King'], ['rabbit', 'Catch the rabbit'],
+      ['descent', 'Catch them, then the ball'], ['all', 'Capture them all'], ['king', 'Take their King'], ['rabbit', 'Catch the rabbit'],
       ['any', 'Catch any one'], ['target', 'A marked one'], ['hole', 'Sink the ball'], ['mix', 'Mix it up']),
-      help: 'Rabbits, then the ball: the hole stays shut until every rabbit is caught, then sink the ball in it. King and rabbit make sure they have one. Sink the ball gives you a ball and a moving hole. Mix picks capture, King or rabbit per layout.' },
+      help: 'Catch them, then the ball: the hole stays shut until every possessed piece and loose rabbit is caught, then sink the ball in it. King and rabbit make sure they have one. Sink the ball gives you a ball and a moving hole. Mix picks capture, King or rabbit per layout.' },
     { key: 'holeMoves', label: 'The hole moves by', type: 'choice', def: 'daily', options: opts(
       ['still', 'Staying put'], ['daily', 'The daily set'], ['short', 'Random, 2 hops'], ['mid', 'Random, 3 to 4'], ['long', 'Random, 5 to 8']),
       help: 'Only when there is a hole. A hidden pattern, like a rabbit\u2019s.' },
@@ -89,22 +101,26 @@ export const SCHEMA = [
 ];
 
 const FIELDS = SCHEMA.flatMap((g) => g.fields);
-export const defaults = () => ({ ...Object.fromEntries(FIELDS.map((f) => [f.key, Array.isArray(f.def) ? [...f.def] : f.def])), v: 2 });
+export const SETTINGS_VERSION = 3;
+export const defaults = () => ({ ...Object.fromEntries(FIELDS.map((f) => [f.key, Array.isArray(f.def) ? [...f.def] : f.def])), v: SETTINGS_VERSION });
 
-/** What the defaults were before version 2. Settings saved then (links and
-    notebook entries) only stored what differed from these, so they are
-    read against them. */
-const legacyDefaults = () => ({
-  ...defaults(), ground: 'solid', foes: 3, rabbits: 0, goal: 'king', balance: 'off'
-});
+/** How each earlier version's defaults differ from today's. Settings saved
+    then (links and notebook entries) only stored what differed from their
+    own defaults, so they are read against them. */
+const BEFORE = {
+  2: { rabbits: 1, foes: 2, patterns: 'daily', darkBrain: 'think', kinds: 1, foePool: ['king', 'knight', 'bishop', 'pawn'] },
+  1: { rabbits: 0, foes: 3, patterns: 'daily', darkBrain: 'think', kinds: 1, foePool: ['king', 'knight', 'bishop', 'pawn'],
+    ground: 'solid', goal: 'king', balance: 'off' }
+};
+const defaultsFor = (v) => ({ ...defaults(), ...structuredClone(BEFORE[v] || {}) });
 
 /** Keep settings inside their ranges, whatever a link or a bug hands us.
     Anything without `v: 2` was made before version 2 and keeps its old
     meaning: crumbling was a switch, there was no separate rabbit count, and
     rabbits ate whenever their side could take your pieces. */
 export function clean(raw) {
-  const legacy = raw?.v !== 2;
-  const s = legacy ? legacyDefaults() : defaults();
+  const v = raw?.v === 3 ? 3 : raw?.v === 2 ? 2 : 1, legacy = v === 1;
+  const s = defaultsFor(v);
   for (const f of FIELDS) {
     const v = raw?.[f.key];
     if (v === undefined) continue;
@@ -125,7 +141,14 @@ export function clean(raw) {
   if (s.foes + s.rabbits < 1 && !ballGoal) s.foes = 1; // nothing to catch otherwise
   if (s.goal === 'king' && s.foes < 1) s.foes = 1;    // something has to be the King
   if (ballGoal && !legacy && s.mine < 2) s.mine = 2;  // the ball, and something to stop it
-  s.v = 2;
+  if (s.kinds > Math.max(1, s.foes)) s.kinds = Math.max(1, s.foes);
+  // A hand given outright (the descent: the pieces you carry down), not
+  // dealt. Not a setting on the page.
+  if (Array.isArray(raw?.hand) && raw.hand.length) {
+    s.hand = raw.hand.filter((k) => PIECES[k]);
+    s.mine = s.hand.length;
+  }
+  s.v = SETTINGS_VERSION;
   return s;
 }
 
@@ -144,17 +167,18 @@ export function crazy(rand = Math.random, allowed = [...FAIRY, 'rabbit']) {
   const mine = int(2, 5);
   const brain = rand() < 0.5 ? 'pattern' : 'ai';
   const out = clean({
-    v: 2, w, h,
+    v: SETTINGS_VERSION, w, h,
     shape: rand() < 0.35 ? 'rect' : pick(['diamond', 'round', 'cross', 'ring', 'hourglass', 'L', 'stairs', 'islands', 'cheese']),
     holes: rand() < 0.6 ? 0 : int(1, 6),
     ground: pick(['solid', 'solid', 'solid', 'crumble', 'shrink', 'spiral']), shrinkEvery: int(1, 3),
     rabbits: rabbitOk ? int(0, 2) : 0, rabbitsEat: rand() < 0.2,
+    darkBrain: rand() < 0.65 ? 'possessed' : 'think', kinds: int(1, 3),
     mine, minePool: some(ALL, 2, 6), mineDupes: rand() < 0.3, mineRows: int(1, 2),
     royal: rand() < 0.2, wait: rand() < 0.8,
     foes: int(1, 4),
     foePool: rabbitOk && rand() < 0.4 ? ['rabbit'] : some(rabbitOk ? ['rabbit', ...ALL] : ALL, 1, 4),
     foeDupes: rand() < 0.6, mirror: rand() < 0.12, foeRows: int(1, 3),
-    rabbitBrain: brain, patterns: pick(['daily', 'daily', 'short', 'mid', 'long', 'wild']),
+    rabbitBrain: brain, patterns: pick(['all', 'all', 'daily', 'short', 'mid', 'long', 'wild']),
     hops: rand() < 0.8 ? 1 : int(2, 3), tracks: rand() < 0.85,
     skill: pick(['0', '1', '2', '2', '3']), style: pick(['flee', 'balanced', 'hunt']),
     foesCapture: rand() < 0.85,
@@ -165,7 +189,7 @@ export function crazy(rand = Math.random, allowed = [...FAIRY, 'rabbit']) {
   });
   // Ball levels are often best with few or no pieces against you.
   if (out.goal === 'hole') out.foes = int(0, 2);
-  if (out.goal === 'descent') { out.foes = int(0, 2); out.rabbits = Math.max(1, out.rabbits); }
+  if (out.goal === 'descent') { out.foes = int(1, 4); if (out.darkBrain !== 'possessed') out.rabbits = Math.max(1, out.rabbits); }
   return out;
 }
 
@@ -279,7 +303,7 @@ export function makeLevel(settings, seed) {
   };
 
   const bottom = rows.slice(0, S.mineRows), top = rows.slice(-S.foeRows);
-  const pieces = deal(S.minePool, S.mine, S.mineDupes).map((type) => ({ type, ...place(bottom) }));
+  const pieces = (S.hand ? S.hand.slice() : deal(S.minePool, S.mine, S.mineDupes)).map((type) => ({ type, ...place(bottom) }));
 
   let foes;
   if (S.mirror) {
@@ -309,7 +333,7 @@ export function makeLevel(settings, seed) {
   if (goal === 'target' && foes.length) (foes.find((f) => f.type === 'rabbit') || foes[0]).target = true;
   // Rabbits, then the ball: every rabbit is marked, and the hole stays shut
   // until they are all caught.
-  if (goal === 'descent') foes.forEach((f) => { if (f.type === 'rabbit') f.target = true; });
+  if (goal === 'descent') foes.forEach((f) => { if (f.type === 'rabbit' || S.darkBrain === 'possessed') f.target = true; });
 
   // Sink the ball: your first piece becomes the ball, and the hole starts on
   // their side of the board. (This draws its random numbers only on ball
@@ -327,11 +351,24 @@ export function makeLevel(settings, seed) {
     }
   }
 
-  // Brains and patterns.
+  // Brains and patterns. A possessed piece gets one of `kinds` patterns,
+  // chosen first, in turn, so with one kind every piece moves alike.
+  // (Possession draws its numbers only when there is some, so levels from
+  // before version 3 come out exactly as they did.)
+  const pickPattern = () => (S.patterns === 'daily' ? PATTERNS[Math.floor(rand() * PATTERNS.length)]
+    : S.patterns === 'all' ? ALL_PATTERNS[Math.floor(rand() * ALL_PATTERNS.length)] : randomPattern(S.patterns, rand));
+  const possessed = S.darkBrain === 'possessed' ? foes.filter((f) => f.type !== 'rabbit') : [];
+  const kindPats = possessed.length ? Array.from({ length: Math.min(S.kinds, possessed.length) }, pickPattern) : [];
   foes.forEach((f) => {
+    if (possessed.includes(f)) {
+      const p = kindPats[possessed.indexOf(f) % kindPats.length];
+      f.brain = 'possessed'; f.pattern = p.steps; f.patternName = p.name;
+      f.mx = rand() < 0.5 ? 1 : -1; f.my = rand() < 0.5 ? 1 : -1;
+      return;
+    }
     f.brain = f.type === 'rabbit' && S.rabbitBrain === 'pattern' ? 'pattern' : 'ai';
     if (f.brain === 'pattern') {
-      const p = S.patterns === 'daily' ? PATTERNS[Math.floor(rand() * PATTERNS.length)] : randomPattern(S.patterns, rand);
+      const p = pickPattern();
       f.pattern = p.steps; f.patternName = p.name;
       f.mx = rand() < 0.5 ? 1 : -1; f.my = rand() < 0.5 ? 1 : -1; f.hops = S.hops;
     }
@@ -352,12 +389,12 @@ export function makeLevel(settings, seed) {
 }
 
 export const GOAL_TEXT = {
-  descent: 'catching every rabbit, then sinking the ball', all: 'capturing them all', king: 'taking their King', rabbit: 'catching the rabbit',
+  descent: 'catching every possessed piece and loose rabbit, then sinking the ball', all: 'capturing them all', king: 'taking their King', rabbit: 'catching the rabbit',
   any: 'catching any one', target: 'catching the marked one', mix: 'a goal that changes with each layout',
   hole: 'sinking the ball in the hole'
 };
 export const GOAL_PILL = {
-  descent: 'Rabbits, then the ball', all: 'Capture them all', king: 'Take their King', rabbit: 'Catch the rabbit', any: 'Catch any one', target: 'Catch the marked one',
+  descent: 'Catch them, then the ball', all: 'Capture them all', king: 'Take their King', rabbit: 'Catch the rabbit', any: 'Catch any one', target: 'Catch the marked one',
   hole: 'Sink the ball'
 };
 
@@ -371,9 +408,10 @@ export function summary(S) {
     : S.goal === 'rabbit' && !hand.includes('rabbit') ? ', one of them made a rabbit' : '';
   const ground = { solid: '', crumble: ', crumbling', shrink: `, shrinking every ${S.shrinkEvery}`, spiral: `, shrinking in a spiral every ${S.shrinkEvery}` }[S.ground];
   const rabbitsHere = S.rabbits > 0 || (S.foePool.includes('rabbit') && !S.mirror);
-  return `${S.w} × ${S.h} ${shape}${ground}. You: ${S.mine} from ${pool(S.minePool)}. ` +
+  const dark = S.darkBrain === 'possessed' ? `possessed by ${S.kinds} kind${S.kinds > 1 ? 's' : ''} of rabbit` : 'thinking';
+  return `${S.w} × ${S.h} ${shape}${ground}. You: ${S.hand ? S.hand.map(name).join(', ') : `${S.mine} from ${pool(S.minePool)}`}. ` +
     `Them: ${S.rabbits ? `${S.rabbits} rabbit${S.rabbits > 1 ? 's' : ''}, ` : ''}` +
-    `${S.mirror ? 'a mirror of you' : S.foes ? `${S.foes} dark from ${pool(S.foePool)}` : 'no dark pieces'}${made}` +
+    `${S.mirror ? 'a mirror of you' : S.foes ? `${S.foes} from ${pool(S.foePool)}, ${dark}` : 'no pieces'}${made}` +
     `${rabbitsHere ? `, rabbits ${S.rabbitBrain === 'pattern' ? 'on patterns' : 'thinking'}${S.rabbitsEat ? ' that eat' : ''}` : ''}. ` +
     `Win by ${GOAL_TEXT[S.goal]}` +
     `${S.maxMoves ? ` in ${S.maxMoves} moves` : ''}.` +
@@ -387,7 +425,7 @@ export function encodeLevel(settings, seed) {
   const S = clean(settings), d = defaults(), diff = {};
   for (const k of Object.keys(S)) if (JSON.stringify(S[k]) !== JSON.stringify(d[k])) diff[k] = S[k];
   const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(diff)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  return `lab=${b64}&v=2&seed=${seed}`;
+  return `lab=${b64}&v=${SETTINGS_VERSION}&seed=${seed}`;
 }
 
 /** A level link with its par attached, so opening it needs no solving. */
@@ -402,8 +440,10 @@ export function decodeLevel(hash) {
     const json = decodeURIComponent(escape(atob(p.get('lab').replace(/-/g, '+').replace(/_/g, '/'))));
     const par = parseInt(p.get('par'), 10);
     const diff = JSON.parse(json || '{}');
-    // A link without v=2 was made before version 2: read it against the old defaults.
-    if (p.get('v') === '2') diff.v = 2; else delete diff.v;
+    // A link is read against the defaults of the version it was made in
+    // (no v at all: before version 2).
+    const v = +p.get('v');
+    if (v === 2 || v === 3) diff.v = v; else delete diff.v;
     return { settings: clean(diff), seed: Math.abs(parseInt(p.get('seed'), 10)) || 1, par: par > 0 ? par : null };
   } catch { return null; }
 }

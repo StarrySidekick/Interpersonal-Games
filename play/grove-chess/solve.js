@@ -126,7 +126,7 @@ export function assess(level, res, { deadline = Infinity, budget = 20000 } = {})
   // A rabbit's hops before it is caught, against the length of its pattern.
   const rabbits = [];
   level.foes.forEach((f, k) => {
-    if (f.brain !== 'pattern') return;
+    if (f.brain !== 'pattern' && f.brain !== 'possessed') return;
     const j = states.findIndex((st) => st.foes[k].taken);
     rabbits.push({ name: f.patternName, len: f.pattern.length, hops: j < 0 ? null : Math.max(0, j - 1) * (f.hops || 1) });
   });
