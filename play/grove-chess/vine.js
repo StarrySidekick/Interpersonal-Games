@@ -44,7 +44,7 @@ export function checkPlay(day, name, moves) {
   const { states, ok } = replay(day, moves);
   const end = states[states.length - 1];
   if (!ok || !isOver(end)) return null;
-  return { name: cleanName(name) || 'Someone', moves, caught: end.caught, score: end.t, outcome: outcome(end), states };
+  return { name: cleanName(name) || 'Someone', moves, caught: end.won, score: end.t, outcome: outcome(end), states };
 }
 
 export function playKey(p, N) { return p.name + '.' + encodeMoves(p.moves, N); }

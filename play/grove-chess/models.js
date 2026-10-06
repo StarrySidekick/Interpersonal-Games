@@ -253,9 +253,21 @@ MODELS.stump = () => {
   return m;
 };
 
+// Their pieces: the same shapes in dark plum wood on a berry-red plinth, so a
+// bishop of theirs never looks like a bishop of yours. The builders read the
+// palette when they run, so swapping it for the length of one build is enough.
+const FOE = { wood: '#4f3c58', woodLight: '#6f5880', woodDark: '#2c2131', moss: '#b8435a', leaf: '#de6f82' };
+
+function withPalette(over, build) {
+  const saved = { ...P };
+  Object.assign(P, over);
+  try { return build(); } finally { Object.assign(P, saved); }
+}
+
 const cache = new Map();
-/** One shared Model per kind. Treat it as read-only. */
-export function model(kind) {
-  if (!cache.has(kind)) cache.set(kind, MODELS[kind]());
-  return cache.get(kind);
+/** One shared Model per kind and side ('you' or 'foe'). Treat it as read-only. */
+export function model(kind, side = 'you') {
+  const key = side === 'foe' && kind !== 'rabbit' ? kind + ':foe' : kind;
+  if (!cache.has(key)) cache.set(key, key.endsWith(':foe') ? withPalette(FOE, MODELS[kind]) : MODELS[kind]());
+  return cache.get(key);
 }

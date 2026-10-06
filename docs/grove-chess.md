@@ -88,11 +88,16 @@ No build step, no libraries, same as the rest of the repo.
 
 | File | What it does |
 |---|---|
-| `play/grove-chess/rules.js` | pieces, the rabbit, bramble, moves. No page code, so the solver and replays use the same rules |
+| `play/grove-chess/rules.js` | the rules for any level: a board (any size, holes allowed), your pieces, theirs. No page code, so the solver, replays, the AI and the tests all use the same rules |
+| `play/grove-chess/ai.js` | the brain for their pieces in the lab (below) |
 | `play/grove-chess/day.js` | deals the day's board from the date, and the solver that sets par |
 | `play/grove-chess/vine.js` | link format, replay-checking, what the browser remembers |
-| `play/grove-chess/models.js` | the models, built from simple shapes |
-| `play/grove-chess/game.js` | the page: title, board, menus, the vine |
+| `play/grove-chess/board.js` | drawing the board, animating moves, turning taps into squares; shared by both pages |
+| `play/grove-chess/sheet.js` | the pieces menu; shared by both pages |
+| `play/grove-chess/models.js` | the models, built from simple shapes, with a plum-and-berry version for their side |
+| `play/grove-chess/game.js` | the daily page: title, play, the vine, test mode |
+| `play/grove-chess/lab.js`, `lab/` | the lab: settings, level generator, notebook, and its page |
+| `play/grove-chess/check-daily.mjs` | the guard that proves the daily boards have not changed |
 | `engine/lowpoly.js` | a small software rasterizer: low-poly models, smooth (Gouraud) shading, drawn at low resolution so they come out pixelated, N64 style |
 
 **Testing.** Add `?test` to the address for a panel on the title screen:
@@ -106,15 +111,73 @@ Every phone throws away the same layouts in the same order, so they all land on
 the same board.
 
 **Do not casually change the dealer.** Any change to dealing, the solver, the
-patterns or the piece list re-deals every board, past days included, and old
-links then replay on the wrong board. Once real people are sharing links,
-change it behind a version.
+patterns, the piece list or the rules re-deals every board, past days
+included, and old links then replay on the wrong board. Once real people are
+sharing links, change it behind a version.
+
+**The guard.** `node play/grove-chess/check-daily.mjs` deals 150 boards, plays
+600 seeded random games on them and compares a fingerprint (a SHA-256 hash)
+against the one recorded before the lab refactor. Run it after touching
+anything under `play/grove-chess/`. It passing is how we know the lab's
+rewrite of the rules engine left the daily game exactly as it was.
 
 **The solver.** It searches every combination of moves for three moves, which
 gives an exact par for short puzzles. Past that the search grows about twenty
 times per move, too much for a phone, so it searches each piece alone with the
 others standing still. That line is always playable, so par is never
 impossible; cleverer two-piece lines are birdies.
+
+## The lab
+
+`play/grove-chess/lab/`. For finding out what is fun. Every setting the
+engine supports, on one page; tap Play to try it, rate it 1 to 5 with a note,
+and it goes in a notebook you can copy out.
+
+- **Board:** width and height (3 to 10), shape (rectangle, diamond, round,
+  cross, ring, hourglass, L, stairs, two islands, Swiss cheese), extra holes,
+  stumps, bramble with its growth rate and size.
+- **Your side:** how many pieces, which kinds they are dealt from, repeats,
+  how far up they start, a royal King (lose it, lose), waiting on or off.
+- **Their side:** how many, which kinds (rabbit or any chess or fairy piece),
+  or a mirror of your hand like chess. Rabbits move by a hidden pattern (the
+  daily set, or random ones up to big jumps, 1 to 3 hops a turn) or think.
+  Everything else of theirs thinks.
+- **The AI:** skill (random, greedy, two or three moves ahead) and mood
+  (flee, balanced, hunt). See the comment at the top of `ai.js` for how it
+  works: minimax search with alpha-beta pruning, to a fixed budget of
+  positions so the same position gets the same move on every phone.
+- **Winning:** capture them all, take their King (it makes sure they have
+  exactly one), catch the rabbit (it makes sure there is one), catch any one,
+  a marked one, or mix it up (a different goal per layout); a move limit or
+  none; who moves first.
+- **Only deal winnable levels** (on by default): the solver plays each new
+  layout before you see it and keeps the first one it can win in between a
+  minimum and a maximum number of moves (3 and 10 by default). That number is
+  the level's par. After a game, "Watch the solver's win" replays its line.
+- **Go crazy** rolls every setting at once, goal included.
+
+### The solver
+
+`solve.js`. Their side is deterministic (a pattern always hops the same way;
+the AI always answers the same position the same way), so from your side a
+level is a puzzle where each move leads to exactly one next position. The
+solver searches your moves alone:
+
+1. **Exhaustive while it is small.** Every move, every reply, positions
+   already seen merged. A win found here is the shortest possible, and the lab
+   says so.
+2. **Beam search after that.** At each move it keeps only the most promising
+   positions (closest to catching what has to be caught), which finishes fast
+   but can miss the very best line. Par then means "the solver found a win
+   this short", and beating it is a birdie.
+
+It works to a budget and a deadline, and `lab-worker.js` runs it on a
+background thread so the page stays smooth. Every line it reports is a real
+win: a fuzz test replays each one through the rules and checks it ends in a
+win on exactly par.
+
+A level is its settings plus a seed (the dice roll that places everything), so
+a level link rebuilds exactly the same level anywhere.
 
 ## Open
 
