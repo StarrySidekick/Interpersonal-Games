@@ -544,25 +544,82 @@ function foesAct(s) {
   if (s.hole?.pattern && !lost(s)) holeHop(s);
 }
 
+/** Your piece i lands on (x, y): the square it left may crumble, anything
+    of theirs there is caught, and the game may be won. Mutates. */
+function landMine(n, i, x, y) {
+  const p = n.pieces[i];
+  // Crumbling ground: the square you leave falls away behind you.
+  if (n.day.rules.crumble) n.gone.push(p.y * n.day.W + p.x);
+  p.x = x; p.y = y;
+  const f = n.foes.find((f) => !f.taken && f.x === x && f.y === y);
+  if (f) f.taken = true;
+  if (f && goalMet(n)) n.won = true;
+  if (p.type === 'ball' && n.hole && p.x === n.hole.x && p.y === n.hole.y && holeOpen(n)) n.won = n.sunk = true;
+  // Catching the last rabbit opens the hole; a ball already resting on
+  // the shut hole drops straight in.
+  const b = f && n.day.rules.goal === 'descent' && holeOpen(n) && n.pieces.find((q) => q.type === 'ball' && !q.taken);
+  if (b && n.hole && b.x === n.hole.x && b.y === n.hole.y) n.won = n.sunk = true;
+}
+
 /** Only your move, with no reply yet. Returns a new state. */
 export function playerMove(s, mv) {
   const n = clone(s);
-  if (mv.p >= 0) {
-    const p = n.pieces[mv.p];
-    // Crumbling ground: the square you leave falls away behind you.
-    if (n.day.rules.crumble) n.gone.push(p.y * n.day.W + p.x);
-    p.x = mv.x; p.y = mv.y;
-    const f = n.foes.find((f) => !f.taken && f.x === mv.x && f.y === mv.y);
-    if (f) f.taken = true;
-    if (f && goalMet(n)) n.won = true;
-    if (p.type === 'ball' && n.hole && p.x === n.hole.x && p.y === n.hole.y && holeOpen(n)) n.won = n.sunk = true;
-    // Catching the last rabbit opens the hole; a ball already resting on
-    // the shut hole drops straight in.
-    const b = f && n.day.rules.goal === 'descent' && holeOpen(n) && n.pieces.find((q) => q.type === 'ball' && !q.taken);
-    if (b && n.hole && b.x === n.hole.x && b.y === n.hole.y) n.won = n.sunk = true;
-  }
+  if (mv.p >= 0) landMine(n, mv.p, mv.x, mv.y);
   return n;
 }
+
+// --- Autochess. ------------------------------------------------------------
+// (Timothy, 2026-10-07.) Rabbits you have caught can possess your pieces
+// too. A possessed piece of yours moves by itself, exactly the way one of
+// theirs does: the rabbit's pattern says which way, the piece's own moves
+// say how (possessedStep, above). You choose which rabbit goes in which
+// piece, which way it faces, and the order of your line; then the game
+// plays itself.
+
+/**
+ * One possessed piece of yours takes its step. The same choice as theirs,
+ * from your side: of its legal moves that head the pattern's way, the one
+ * landing closest to where the step points (ties: the shorter move, then
+ * the one nearer them, then the one further left). Mutates.
+ */
+function mineStep(n, i) {
+  const p = n.pieces[i], W = n.day.W, H = n.day.H;
+  let [dx, dy] = p.pattern[p.i];
+  dx *= p.mx; dy *= p.my;
+  p.i = (p.i + 1) % p.pattern.length;
+  p.from = [p.x, p.y]; p.blocked = false; p.rested = false;
+  if (!dx && !dy) { p.rested = true; return; }
+  if (p.x + dx < 0 || p.x + dx >= W) { p.mx = -p.mx; dx = -dx; }
+  if (p.y + dy < 0 || p.y + dy >= H) { p.my = -p.my; dy = -dy; }
+  const tx = p.x + dx, ty = p.y + dy;
+  let best = null, bk = null;
+  for (const m of PIECES[p.type].moves(youLook(n), p, 1, n.day)) {
+    const mx = m.x - p.x, my = m.y - p.y;
+    if (mx * dx + my * dy <= 0) continue; // not this way
+    const key = [(m.x - tx) ** 2 + (m.y - ty) ** 2, mx * mx + my * my, -m.y, m.x];
+    if (!bk || before(key, bk)) { best = m; bk = key; }
+  }
+  if (!best) { p.blocked = true; return; }
+  landMine(n, i, best.x, best.y);
+}
+
+/** Is this one of your pieces with a rabbit inside? */
+export const autoPiece = (p) => p.brain === 'possessed' && !p.taken;
+
+/** Your half of an autochess turn: every possessed piece of yours steps,
+    in order from the left of the board (then the bottom), as they stand at
+    the start of the turn, until the game is won. No reply yet. Returns a
+    new state. */
+export function autoMove(s) {
+  const n = clone(s);
+  const order = n.pieces.map((p, i) => i).filter((i) => autoPiece(n.pieces[i]))
+    .sort((a, b) => n.pieces[a].x - n.pieces[b].x || n.pieces[a].y - n.pieces[b].y);
+  for (const i of order) if (!n.won && !lost(n) && autoPiece(n.pieces[i])) mineStep(n, i);
+  return n;
+}
+
+/** A whole autochess turn: yours, then theirs. Returns a new state. */
+export const autoApply = (s) => respond(autoMove(s));
 
 // --- Shrinking ground. -----------------------------------------------------
 

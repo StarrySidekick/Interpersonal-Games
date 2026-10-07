@@ -129,6 +129,20 @@ Later again, after playing it on his phone:
   you choose, is 14%, so the descent and the lab use it; ice and billiard
   stay in the lab. The daily keeps the ice ball.
 
+Then, on 2026-10-07:
+
+- **New names for the game** besides Grove Chess: brainstorming, nothing
+  decided.
+- **The lab is now called Chaos.** Renamed on the page; the folder and
+  links keep `lab/`.
+- **Autochess**: rabbits you have caught possess your pieces, and the
+  pieces move by themselves. Built as a Chaos setting; you set up your
+  line (which rabbit in which piece, facing, order), then watch. Details in
+  `docs/grove-chess.md`, under the lab. Not yet in the descent.
+- **Pieces start lined up like chess**, yours on the bottom edge and theirs
+  on the top, "for the most part". Built: the default in Chaos and in the
+  descent.
+
 ## 2026-10-05: the front door is asynchronous, and it is a group
 
 Recorded from Timothy's own description. **Where this section disagrees with

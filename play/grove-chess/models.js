@@ -327,8 +327,9 @@ function shade(hex, k) {
 
 const cache = new Map();
 /** One shared Model per kind and side ('you' or 'foe'), and for rabbits per
-    fur colour. `glow` is for a piece of theirs possessed by a rabbit: its
-    plinth band takes the rabbit's colour. Treat it as read-only. */
+    fur colour. `glow` is for a piece possessed by a rabbit (theirs, or
+    yours in autochess): its plinth band takes the rabbit's colour. Treat it
+    as read-only. */
 export function model(kind, side = 'you', fur = null, glow = null) {
   if (kind === 'rabbit') {
     const key = 'rabbit' + (fur || '');
@@ -338,6 +339,11 @@ export function model(kind, side = 'you', fur = null, glow = null) {
   if (side === 'foe' && glow) {
     const key = `${kind}:foe:${glow}`;
     if (!cache.has(key)) cache.set(key, withPalette({ ...FOE, moss: glow, leaf: glow }, MODELS[kind]));
+    return cache.get(key);
+  }
+  if (glow) {
+    const key = `${kind}:you:${glow}`;
+    if (!cache.has(key)) cache.set(key, withPalette({ moss: glow, leaf: glow }, MODELS[kind]));
     return cache.get(key);
   }
   const key = side === 'foe' ? kind + ':foe' : kind;
