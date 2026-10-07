@@ -244,6 +244,32 @@ do. Measured over 150 version 2 boards: par 3 on 35%, par 4 on 61%, par 5 or
 6 on 4%. Version 1, with stumps and bramble, was par 3 on 12%. Whether par 3
 is too easy is for playing to decide.
 
+
+### Frame rate
+
+Timothy, 2026-10-07: "there are some framerate issues." The board is drawn
+by a software rasterizer (`engine/lowpoly.js`), every pixel in JavaScript,
+so frame rate is how much it draws. Measured in Chromium with the CPU
+slowed four times (roughly a phone), a frame during moves cost about 70 ms,
+about 14 frames a second. Now about 12 ms. What changed:
+
+- **The rasterizer** makes no arrays per corner, steps its weights along
+  each row by addition, and outlines only the part of the picture it drew.
+  Pixel for pixel the same pictures, two to two and a half times faster.
+- **Layers that are kept** (`board3d.js`). The forest is drawn once per
+  level. The squares are drawn again only when something on them changes
+  (a lit square, a falling square, the board turning). The hole has its own
+  small layer, because it moves most turns. The fog over the top is painted
+  once.
+- **Pieces placed once**: a piece standing still keeps its placed
+  triangles from frame to frame.
+- **The fall** draws the rising table once and slides the picture, since
+  with no perspective moving it in the world is moving it on the screen.
+
+Compared against the old drawing on the same level, the board differs by
+about 100 of 105,000 pixels, all of them rounding along one seam where the
+forest floor meets the pit wall.
+
 ## The lab
 
 `play/grove-chess/lab/`, called **Chaos** on the page since 2026-10-07
@@ -255,7 +281,8 @@ and it goes in a notebook you can copy out.
 Since 2026-10-06 the default is **the standard board**, Timothy's framing:
 a ground, a shape and a size, a hole, and three pieces possessed by one
 kind of rabbit; catch them, then sink the ball. Settings carry a version
-(now 5, with lining up and autochess; 4 brought the putting ball; 3
+(now 6, with the capturing ball, statues, magic edges and the geared
+board; 5 brought lining up and autochess; 4 the putting ball; 3
 possession; 2 the standard board; links without one are older). Each is read against its own version's
 defaults, so every old link and notebook entry still builds exactly the
 level it was, ice ball and all; a test checks 400 levels from versions 1
@@ -380,6 +407,49 @@ horizontal rather than vertical. Notated visually (the plinth colours and
 the pieces moving together) and audially (each step plays its rabbit's
 note). Not yet in the descent; that is the obvious next home for it.
 
+### Statues, magic edges, and a board that turns
+
+Timothy, 2026-10-07. Three board settings in Chaos, each also in Go crazy:
+
+- **Statues** (`statues`, 0 to 8, default 2). Stumps came back as grey
+  stone statues of pieces, "almost an npc piece" (the kind of piece is
+  part of the dice roll). Rule for rule they are the old stumps: nothing
+  takes them, sliders stop at them, leapers jump them, and the grasshopper
+  and the cannon can hop over them. They stand in the rows between the two
+  sides. Measured honestly: they did not make the grasshopper and cannon
+  useful more often (the solver's winning lines needed them in about half
+  of layouts with or without statues), but they do make levels deal more
+  easily, by breaking up open lines. Placing them *for* the hoppers is the
+  next idea to try.
+- **Magic edges** (`magic`: the sides join, or all four). Off one edge is
+  on at the other, like Pac-Man's tunnel; the joined edges glow violet.
+  A slider that goes all the way round comes back to where it started and
+  stops there; a rolling or hit ball with nothing to stop it arrives back
+  where it began, which is no move. (In the rules every piece sees its own
+  square as the edge of the world, `sight` in `rules.js`, which is what
+  stops it looping for ever or hopping over itself.) Rabbits, possessed
+  pieces and the hole hop on round instead of bouncing. With all four
+  joined there is no far end, so their line starts halfway up.
+- **Geared** (`geared`). After every turn the board turns a quarter turn
+  clockwise, animated. Your pieces turn with it (a pawn still heads for
+  them); the rabbits' patterns do not: they are fixed to the screen, so a
+  rabbit that hops up always hops up the screen, which is a different way
+  across the board every turn. (Turning everything would change nothing
+  but the view: the interesting part is what does not turn.) Square boards
+  only. Positions stay in the board's squares; the patterns are turned in
+  `patternStep`, and the 3D board turns its view (`viewTurn` in
+  `board3d.js`), taps included. The flat board (`?flat`) does not turn.
+
+### The opening rule: nothing captures on the first move
+
+Timothy, 2026-10-07: "no piece from its starting position can capture
+another piece in its first move." Part of the balance rules ("On", the
+default; `firstCaptures` in `rules.js`): a layout where any piece of yours
+has a capture among its moves, or any piece of theirs could take one of
+yours (a rabbit by its first hop), is thrown out. It is checked before
+solving, since it is cheap and solving is not, so the search can skip
+thousands. Autochess layouts follow the same rule.
+
 ### Hitting the ball
 
 Timothy, 2026-10-07: "find a way for the regular pieces to interact with a
@@ -391,12 +461,17 @@ having the ball be moved by the pieces, like it's getting hit."
 - The ball never moves by itself. Any piece, **yours or theirs**, that
   moves into it knocks it on along the line of that move (`knock` in
   `rules.js`).
-- **The power is how far the hitter came**: the number of steps in its
-  move (the gcd of its two lengths). A rook sliding four squares into it
-  sends it up to four. A king sends it one. A knight sends it one more
-  knight's jump, the same shape as the hit.
-- It stops early against anything. A hit that cannot budge it is not a
-  legal move. Nothing can take it.
+- **It slides like ice** (Timothy, later the same day: "i still want the
+  ball to sort of slide like ice when hit"): one step of the hit's shape at
+  a time (a rook's hit, a square; a knight's, an L) until something stops
+  it. (The first version went as far as the hitter had come.)
+- A hit that cannot budge it is not a legal move. Nothing can take it.
+
+**The ball captures** (`ballCaptures`, on by default from settings version
+6, and in the descent; Timothy: "try something where the ball can capture
+pieces by default"). Rolling, putting, bouncing or sliding from a hit, the
+ball takes the first piece of theirs in its way and stops there. Off, it
+stops short as before. Older links keep the ball that never takes.
 - It sinks in an open hole it rolls over (or, with "Ball must stop on the
   hole", one it stops on), whoever hit it. A possessed piece of theirs can
   knock it in for you, or away.

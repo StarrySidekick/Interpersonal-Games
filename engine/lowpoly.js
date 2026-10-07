@@ -222,11 +222,13 @@ const L = norm([-0.45, 0.85, 0.5]);
  * empty again (so the new layer can be laid on top of anything drawn in
  * between) but the depths stay, so the new things still hide behind, or in
  * front of, the old. With `outlineFrom`, only edges against objects whose id
- * is at least that number are outlined. With `bg`, the image starts filled
+ * is at least that number are outlined; with `outlineEmpty: false`, never on
+ * empty background (for a layer laid over another picture, which has its
+ * own edges). With `bg`, the image starts filled
  * with that colour instead of empty, so it can go straight onto a canvas.
  */
 export function render(t, mesh, o = {}) {
-  const { yaw = 0, pitch = 0.5, scale = 2, cx = t.w / 2, cy = t.h / 2, outline = '#2a2118', keep = false, outlineFrom = -1, bg = null } = o;
+  const { yaw = 0, pitch = 0.5, scale = 2, cx = t.w / 2, cy = t.h / 2, outline = '#2a2118', keep = false, outlineFrom = -1, bg = null, outlineEmpty = true } = o;
   const W = t.w, H = t.h, data = t.img.data, zb = t.z, ids = t.id;
   if (bg) {
     // One pixel's four bytes read as a single 32-bit number, so the whole
@@ -237,60 +239,77 @@ export function render(t, mesh, o = {}) {
   } else data.fill(0);
   if (!keep) { zb.fill(-1e9); ids.fill(-1); }
   const cyw = Math.cos(yaw), syw = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
-  const view = (v) => {
-    const x1 = v[0] * cyw + v[2] * syw, z1 = -v[0] * syw + v[2] * cyw;
-    return [x1, v[1] * cp - z1 * sp, v[1] * sp + z1 * cp];
-  };
-  const shade = (n) => {
-    const v = view(n);
-    return 0.6 + 0.5 * Math.max(0, v[0] * L[0] + v[1] * L[1] + v[2] * L[2]);
+  const Lx = L[0], Ly = L[1], Lz = L[2];
+  // A normal's brightness: how squarely it faces the light, seen from here.
+  const bright = (n) => {
+    const x1 = n[0] * cyw + n[2] * syw, z1 = -n[0] * syw + n[2] * cyw;
+    return 0.6 + 0.5 * Math.max(0, x1 * Lx + (n[1] * cp - z1 * sp) * Ly + (n[1] * sp + z1 * cp) * Lz);
   };
   const sx = [0, 0, 0], sy = [0, 0, 0], sz = [0, 0, 0], sb = [0, 0, 0];
+  // The part of the picture anything was drawn in, so the outline pass need
+  // not look at the rest.
+  let bx0 = W, by0 = H, bx1 = -1, by1 = -1;
 
+  // (Performance, 2026-10-07: this loop is most of every frame, so it makes
+  // no arrays per corner and steps its weights along each row by addition.)
   for (const f of mesh.tris) {
-    if (view(f.n)[2] <= 1e-3) continue; // facing away
+    const n = f.n;
+    if (n[1] * sp + (-n[0] * syw + n[2] * cyw) * cp <= 1e-3) continue; // facing away
+    const flat = f.vn ? 0 : bright(n);
     for (let k = 0; k < 3; k++) {
-      const q = view(f.p[k]);
-      sx[k] = cx + q[0] * scale; sy[k] = cy - q[1] * scale; sz[k] = q[2];
-      sb[k] = shade(f.vn ? f.vn[k] : f.n);
+      const q = f.p[k], x1 = q[0] * cyw + q[2] * syw, z1 = -q[0] * syw + q[2] * cyw;
+      sx[k] = cx + x1 * scale; sy[k] = cy - (q[1] * cp - z1 * sp) * scale; sz[k] = q[1] * sp + z1 * cp;
+      sb[k] = f.vn ? bright(f.vn[k]) : flat;
     }
     const ax = sx[0], ay = sy[0], bx = sx[1], by = sy[1], qx = sx[2], qy = sy[2];
     const area = (bx - ax) * (qy - ay) - (by - ay) * (qx - ax);
     if (Math.abs(area) < 1e-9) continue;
     const x0 = Math.max(0, Math.floor(Math.min(ax, bx, qx))), x1 = Math.min(W - 1, Math.ceil(Math.max(ax, bx, qx)));
     const y0 = Math.max(0, Math.floor(Math.min(ay, by, qy))), y1 = Math.min(H - 1, Math.ceil(Math.max(ay, by, qy)));
+    if (x0 > x1 || y0 > y1) continue;
     const [cr, cg, cb] = f.c;
+    // Barycentric weights (how much of each corner a pixel is) change by a
+    // fixed amount per pixel along a row.
+    const d0 = (by - qy) / area, d1 = (qy - ay) / area;
+    const z0 = sz[0], z1 = sz[1], z2 = sz[2], b0 = sb[0], b1 = sb[1], b2 = sb[2];
+    let drew = false;
     for (let py = y0; py <= y1; py++) {
-      const yy = py + 0.5;
-      for (let px = x0; px <= x1; px++) {
-        const xx = px + 0.5;
-        // Barycentric weights: how much of each corner this pixel is.
-        const w0 = ((bx - xx) * (qy - yy) - (by - yy) * (qx - xx)) / area;
-        const w1 = ((qx - xx) * (ay - yy) - (qy - yy) * (ax - xx)) / area;
+      const yy = py + 0.5, xs = x0 + 0.5;
+      let w0 = ((bx - xs) * (qy - yy) - (by - yy) * (qx - xs)) / area;
+      let w1 = ((qx - xs) * (ay - yy) - (qy - yy) * (ax - xs)) / area;
+      for (let px = x0; px <= x1; px++, w0 += d0, w1 += d1) {
         const w2 = 1 - w0 - w1;
         if (w0 < -1e-4 || w1 < -1e-4 || w2 < -1e-4) continue;
-        const z = w0 * sz[0] + w1 * sz[1] + w2 * sz[2];
+        const z = w0 * z0 + w1 * z1 + w2 * z2;
         const i = py * W + px;
         if (z <= zb[i]) continue;
-        zb[i] = z; ids[i] = f.id;
+        zb[i] = z; ids[i] = f.id; drew = true;
         // A few steps of brightness rather than a smooth ramp: the colour
         // depth of an old console, roughly.
-        const b = Math.round((w0 * sb[0] + w1 * sb[1] + w2 * sb[2]) * 14) / 14;
+        const b = Math.round((w0 * b0 + w1 * b1 + w2 * b2) * 14) / 14;
         const j = i * 4;
         data[j] = Math.min(255, cr * b); data[j + 1] = Math.min(255, cg * b); data[j + 2] = Math.min(255, cb * b); data[j + 3] = 255;
       }
     }
+    if (drew) { if (x0 < bx0) bx0 = x0; if (x1 > bx1) bx1 = x1; if (y0 < by0) by0 = y0; if (y1 > by1) by1 = y1; }
   }
 
-  if (outline) {
+  if (outline && bx1 >= 0) {
     // A pixel is outlined when a neighbour belongs to a different object and
-    // is nearer the viewer. Empty background counts as farthest of all.
+    // is nearer the viewer. Empty background counts as farthest of all. Only
+    // the drawn part (and a pixel round it, for the outer edge) can have any;
+    // with `keep`, earlier layers can too, so then it looks everywhere.
     const oc = rgb(outline), mark = [];
-    for (let py = 0; py < H; py++)
-      for (let px = 0; px < W; px++) {
-        const i = py * W + px, me = ids[i], z = zb[i];
-        const near = (j) => ids[j] !== me && ids[j] !== -1 && ids[j] >= outlineFrom && zb[j] > z + 0.5;
-        if ((px > 0 && near(i - 1)) || (px < W - 1 && near(i + 1)) || (py > 0 && near(i - W)) || (py < H - 1 && near(i + W))) mark.push(i);
+    const X0 = keep ? 0 : Math.max(0, bx0 - 1), X1 = keep ? W - 1 : Math.min(W - 1, bx1 + 1);
+    const Y0 = keep ? 0 : Math.max(0, by0 - 1), Y1 = keep ? H - 1 : Math.min(H - 1, by1 + 1);
+    for (let py = Y0; py <= Y1; py++)
+      for (let px = X0; px <= X1; px++) {
+        const i = py * W + px, me = ids[i], z = zb[i] + 0.5;
+        if (me === -1 && !outlineEmpty) continue;
+        if ((px > 0 && ids[i - 1] !== me && ids[i - 1] !== -1 && ids[i - 1] >= outlineFrom && zb[i - 1] > z) ||
+          (px < W - 1 && ids[i + 1] !== me && ids[i + 1] !== -1 && ids[i + 1] >= outlineFrom && zb[i + 1] > z) ||
+          (py > 0 && ids[i - W] !== me && ids[i - W] !== -1 && ids[i - W] >= outlineFrom && zb[i - W] > z) ||
+          (py < H - 1 && ids[i + W] !== me && ids[i + W] !== -1 && ids[i + W] >= outlineFrom && zb[i + W] > z)) mark.push(i);
       }
     for (const i of mark) { const j = i * 4; data[j] = oc[0]; data[j + 1] = oc[1]; data[j + 2] = oc[2]; data[j + 3] = 255; }
   }

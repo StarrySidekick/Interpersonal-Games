@@ -18,7 +18,7 @@
 // It counts its work in replies computed (the expensive part when their side
 // thinks) and gives up past a budget, so it always finishes.
 
-import { initialState, allMoves, playerMove, respond, isOver, stateKey, movesFor, foeMovesFor, replay, PIECES } from './rules.js';
+import { initialState, allMoves, playerMove, respond, isOver, stateKey, movesFor, foeMovesFor, replay, PIECES, firstCaptures } from './rules.js';
 
 /** How far a position is from a win. Lower is closer. */
 function score(s) {
@@ -141,7 +141,13 @@ export function assess(level, res, { deadline = Infinity, budget = 20000 } = {})
   s0.foes.forEach((_, k) => { for (const m of foeMovesFor(s0, k)) if (m.cap) hit.add(m.y * level.W + m.x); });
   const attacked = s0.pieces.filter((p) => hit.has(p.y * level.W + p.x)).length;
   const end = states[states.length - 1], lost = end.pieces.filter((p) => p.taken).length;
-  return { pieces, rabbits, attacked, lost };
+  return { pieces, rabbits, attacked, lost, opening: openingCaptures(level) };
+}
+
+/** How many pieces on each side could capture on the first move. */
+export function openingCaptures(level) {
+  const { yours, theirs } = firstCaptures(initialState(level));
+  return { yours: yours.length, theirs: theirs.length };
 }
 
 /** Pieces whose moves only work in the right circumstances: a grasshopper
@@ -152,7 +158,8 @@ export const CIRCUMSTANTIAL = ['grasshopper', 'cannon', 'pawn', 'mao'];
 
 /**
  * The balance rules: reasons a level is not fair or not interesting, or none.
- *   'on'     every piece can move at the start, and every fairy or
+ *   'on'     no piece on either side can capture on its first move, every
+ *            piece can move at the start, and every fairy or
  *            circumstantial piece has a job (it makes a catch in the winning
  *            line, or the level is worse without it).
  *   'strict' every piece has a job, not only the strange ones.
@@ -162,6 +169,10 @@ export function unbalanced(a, level = 'on') {
   const why = [];
   const name = (p) => PIECES[p.type].name;
   const job = (p) => p.catches || p.needed;
+  // No piece, on either side, can capture on its first move (Timothy,
+  // 2026-10-07): the opening is for moving, not for trading.
+  if (a.opening?.yours) why.push(`${a.opening.yours > 1 ? `${a.opening.yours} of your pieces` : 'one of your pieces'} could capture on the first move`);
+  if (a.opening?.theirs) why.push(`${a.opening.theirs > 1 ? `${a.opening.theirs} of their pieces` : 'one of their pieces'} could capture on the first move`);
   for (const p of a.pieces) {
     if (p.hit) continue;
     if (p.start === 0) why.push(`the ${name(p)} could not move at the start`);

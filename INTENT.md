@@ -163,6 +163,20 @@ Later on 2026-10-07, more notes. Each with what became of it:
 - **Patents for pieces**: Betza notation, the established system, with
   every piece written in it and new pieces made from it. Built.
 
+And later on 2026-10-07:
+
+- **Frame rate.** Fixed in a pass: moves draw about six times cheaper
+  (`docs/grove-chess.md`, "Frame rate").
+- **The daily is not precious for now**: "don't worry about messing up
+  the daily board, we will hone in on that after we get a solid game loop
+  built." Recorded in `CLAUDE.md`. Nothing in this batch changed it.
+- **No piece can capture on its first move**, either side. Built into the
+  tester's balance rules.
+- **The hit ball slides like ice**, and **the ball captures** by default.
+  Built.
+- **New boards: magic (Pac-Man edges) and geared (turns every turn).**
+  Built as Chaos settings, with **statues** in place of stumps.
+
 ## 2026-10-05: the front door is asynchronous, and it is a group
 
 Recorded from Timothy's own description. **Where this section disagrees with

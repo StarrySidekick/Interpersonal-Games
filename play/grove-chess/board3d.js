@@ -34,8 +34,8 @@
 import { Mesh, Model, makeTarget, render } from '../../engine/lowpoly.js';
 import { rng } from '../../engine/seed.js';
 import { model } from './models.js';
-import { Board, tileColour, PIT, TRACK, tweenPos } from './board.js';
-import { onBoard, brambleCount, holeOpen, nextShrink } from './rules.js';
+import { Board, tileColour, PIT, TRACK, tweenPos, wraps } from './board.js';
+import { onBoard, brambleCount, holeOpen, nextShrink, statueKind } from './rules.js';
 import * as sfx from './sounds.js';
 
 const T = 10;             // one square, in model units
@@ -174,8 +174,32 @@ export class Board3D extends Board {
       bottom-left corner, h in model units above the surface (as the pieces'
       angle shows height). */
   pt(px, py, h = 0) {
-    const X = (px - this.day.W / 2) * T, Z = (this.day.H / 2 - py) * T;
+    const [X, Z] = this.turn((px - this.day.W / 2) * T, (this.day.H / 2 - py) * T);
     return [this.cx + X * this.scale, this.cy + (Z - h * this.cosS) * this.scale];
+  }
+
+  /** A point of the board's scene, turned as the board is turned on screen
+      (a geared board; otherwise as it is). The same turn as the renderer's
+      yaw, so the squares, rendered with that yaw, and everything placed by
+      hand agree. */
+  turn(X, Z) {
+    const a = this.theta || 0;
+    if (!a) return [X, Z];
+    const c = Math.cos(a), s = Math.sin(a);
+    return [X * c + Z * s, -X * s + Z * c];
+  }
+
+  /** How far the board is turned on screen now: a quarter turn clockwise
+      for every turn so far on a geared board, easing round between turns. */
+  viewTurn(s, at) {
+    if (!this.day.rules.geared) return 0;
+    const tt = this.tw?.turn;
+    let t = s.t;
+    if (tt) {
+      const k = Math.max(0, Math.min(1, (at - tt.t0) / tt.dur));
+      t = tt.from + (tt.to - tt.from) * k * k * (3 - 2 * k);
+    }
+    return -t * Math.PI / 2;
   }
 
   /** The middle of square (x, y); fractional while something is moving. */
@@ -207,15 +231,18 @@ export class Board3D extends Board {
   /** The same for a piece standing there. The pieces are drawn from their
       own angle, so their depth is stretched to make each base land exactly
       where the board, seen from above, has that square. */
-  stood(x, y) { const [X, Z] = this.spot(x, y); return [X, Z / this.sinS]; }
+  stood(x, y) { const [X, Z] = this.turn(...this.spot(x, y)); return [X, Z / this.sinS]; }
 
   cellAt(e) {
     const r = this.el.getBoundingClientRect(), w = this.el.width, h = this.el.height;
     const ix = Math.floor((e.clientX - r.left) * w / r.width), iy = Math.floor((e.clientY - r.top) * h / r.height);
     if (ix < 0 || iy < 0 || ix >= w || iy >= h) return null;
-    // The square under the tap: the board is seen straight on.
-    const px = (ix + 0.5 - this.cx) / this.scale / T + this.day.W / 2;
-    const py = this.day.H / 2 - (iy + 0.5 - this.cy) / this.scale / T;
+    // The square under the tap: the board is seen straight on (turned back
+    // first, on a geared board).
+    const a = this.theta || 0, c = Math.cos(a), sn = Math.sin(a);
+    const Xs = (ix + 0.5 - this.cx) / this.scale, Zs = (iy + 0.5 - this.cy) / this.scale;
+    const px = (Xs * c - Zs * sn) / T + this.day.W / 2;
+    const py = this.day.H / 2 - (Xs * sn + Zs * c) / T;
     const x = Math.floor(px), y = Math.floor(py), floor = onBoard(this.day, x, y) ? { x, y } : null;
     // What is standing there, if anything was drawn at that pixel. A tall
     // piece reaches up over the square behind it, so if a piece is selected
@@ -236,17 +263,51 @@ export class Board3D extends Board {
     const s = v.state, at = performance.now(), w = this.el.width, g = this.g;
     this.shown = s;
     this.lit = v.legal || [];
-    const board = { pitch: Math.PI / 2, yaw: 0, scale: this.scale, cx: this.cx, cy: this.cy }; // straight down
-    const pieces = { ...board, pitch: STAND };
+    this.theta = this.viewTurn(s, at);
+    const board = { pitch: Math.PI / 2, yaw: this.theta, scale: this.scale, cx: this.cx, cy: this.cy }; // straight down
+    // The pieces are placed already turned (stood), and always face you.
+    const pieces = { ...board, yaw: 0, pitch: STAND };
     const fallen = this.fallen || (this.fallAt && at >= this.fallAt);
-    // 1. The forest and the squares.
-    const m1 = new Mesh();
-    m1.tris = this.forest.tris.slice();
-    if (!fallen) this.squares(m1, s, v, at);
-    // These cover the whole picture, fog and all, so they go straight onto
-    // the canvas.
-    render(this.t3, m1, { ...board, outline: '#0a0f0b', bg: FOG });
-    g.putImageData(this.t3.img, 0, 0);
+    // 1. The forest and the squares. These cover the whole picture, fog and
+    // all, so they go straight onto the canvas. Most frames they have not
+    // changed (only a piece is moving), so the last picture of them is kept
+    // and reused while nothing they show is different (performance,
+    // 2026-10-07: drawing them was a third of every frame).
+    // The forest never changes: it is drawn once, the first time.
+    // (Fresh canvases each time they are filled: see the WebKit note below.)
+    if (!this.forestImg) {
+      render(this.t3, this.forest, { ...board, outline: '#0a0f0b', bg: FOG });
+      this.forestImg = new ImageData(new Uint8ClampedArray(this.t3.img.data), w, this.el.height);
+    }
+    g.putImageData(this.forestImg, 0, 0);
+    if (!fallen) {
+      const key = this.squaresKey(s, v, at);
+      if (key === null || key !== this.boardKey) {
+        const m1 = new Mesh();
+        this.squares(m1, s, v, at);
+        render(this.t3, m1, { ...board, outline: '#0a0f0b' });
+        this.boardKey = key;
+        this.boardLayer = this.boardLayer || document.createElement('canvas');
+        this.boardLayer.width = w; this.boardLayer.height = this.el.height;
+        this.boardLayer.getContext('2d').putImageData(this.t3.img, 0, 0);
+      }
+      g.drawImage(this.boardLayer, 0, 0);
+      const hl = this.holeLook(s, at);
+      if (hl) {
+        const hk = `${hl.hx.toFixed(2)},${hl.hy.toFixed(2)},${hl.lid.toFixed(2)},${(this.theta || 0).toFixed(3)}`;
+        if (hk !== this.holeKey) {
+          const mh = new Mesh();
+          this.hole(mh, hl);
+          // Its own edges only: on the board it sits flush, with none round it.
+          render(this.t3, mh, { ...board, outline: '#0a0f0b', outlineEmpty: false });
+          this.holeKey = hk;
+          this.holeLayer = this.holeLayer || document.createElement('canvas');
+          this.holeLayer.width = w; this.holeLayer.height = this.el.height;
+          this.holeLayer.getContext('2d').putImageData(this.t3.img, 0, 0);
+        }
+        g.drawImage(this.holeLayer, 0, 0);
+      }
+    }
     if (!fallen) {
       // 2. Marks on the surface (not once the floor starts to go).
       if (!this.tw?.collapse) this.marks(g, v, s);
@@ -269,6 +330,24 @@ export class Board3D extends Board {
       this.effects(g, at);
     }
     this.air(g);
+  }
+
+  /** Everything the squares picture depends on, as a string, or null while
+      something on the board itself is moving (then it is drawn afresh). */
+  squaresKey(s, v, at) {
+    const tw = this.tw;
+    // A square falling, the floor going, the cover opening: drawn afresh
+    // while they play, and only then.
+    const playing = (a) => a && at >= a.t0 - 20 && at <= a.t0 + a.dur + 20;
+    if (playing(tw?.vanish) || playing(tw?.crumble) || tw?.collapse) return null;
+    // (The same condition squares() shades the next square to fall by.)
+    const shrinkNext = v.track && this.day.rules.shrink && !tw && (s.t + 1) % (this.day.rules.shrinkEvery || 2) === 0 ? nextShrink(s) : -1;
+    // (Which animations are under way matters too: a finished one still
+    // draws its end state differently from none at all, e.g. the lid.)
+    const anims = ['vanish', 'crumble'].map((k) => (tw?.[k] ? (at < tw[k].t0 ? 'b' : 'a') : '-')).join('');
+    return [s.gone?.join(','), s.shrunk?.join(','), anims, (this.theta || 0).toFixed(3),
+      (v.legal || []).map((m) => `${m.x},${m.y},${m.cap || m.sink ? 1 : 0}`).join(';'),
+      v.sel != null && s.pieces[v.sel] ? `${s.pieces[v.sel].x},${s.pieces[v.sel].y}` : '', shrinkNext].join('|');
   }
 
   /** The board's squares, the hole, and the lit squares. */
@@ -317,16 +396,27 @@ export class Board3D extends Board {
           (flat && solid(x, y - 1) ? 16 : 0) | (flat && solid(x, y + 1) ? 32 : 0);
         m.addBox(X - r, -1 - drop, Z - r, X + r, 0 - drop, Z + r, dim(col, dark), 2, skip);
       }
-    // The hole: a dark pit, under its twig cover until it opens.
-    if (s.hole && !collapse) {
-      let hx = s.hole.x, hy = s.hole.y;
-      if (tw?.hole) ({ x: hx, y: hy } = tweenPos(tw.hole, at));
-      const [X, Z] = this.spot(hx, hy);
-      m.add(pitModel, X, 0, Z, 3);
-      let lid = holeOpen(s) ? 0 : 1;
-      if (tw?.open && at < tw.open.t0 + tw.open.dur) lid = 1 - Math.max(0, (at - tw.open.t0) / tw.open.dur);
-      if (lid > 0.02) m.addXf(lidModel, { t: [X, 0.05, Z], s: lid, ry: (1 - lid) * 2 }, 4);
-    }
+  }
+
+  /** Where the hole is drawn and how far its cover is on (1 shut, 0 open),
+      mid-animation or not. Null when there is none to draw. */
+  holeLook(s, at) {
+    const tw = this.tw;
+    if (!s.hole || tw?.collapse) return null;
+    let hx = s.hole.x, hy = s.hole.y;
+    if (tw?.hole) ({ x: hx, y: hy } = tweenPos(tw.hole, at));
+    let lid = holeOpen(s) ? 0 : 1;
+    if (tw?.open && at < tw.open.t0 + tw.open.dur) lid = 1 - Math.max(0, (at - tw.open.t0) / tw.open.dur);
+    return { hx, hy, lid };
+  }
+
+  /** The hole: a dark pit, under its twig cover until it opens. A layer of
+      its own over the squares, so the hole sliding each turn redraws only
+      itself (performance, 2026-10-07). */
+  hole(m, { hx, hy, lid }) {
+    const [X, Z] = this.spot(hx, hy);
+    m.add(pitModel, X, 0, Z, 3);
+    if (lid > 0.02) m.addXf(lidModel, { t: [X, 0.05, Z], s: lid, ry: (1 - lid) * 2 }, 4);
   }
 
   /** Flat marks on the board's surface, straight onto the picture. */
@@ -341,6 +431,14 @@ export class Board3D extends Board {
     // In-square points, given the flat board's 28-pixel coordinates.
     const inSq = (x, y, a, b) => this.pt(x + a / 28, y + 1 - b / 28);
     const gone = new Set(s.gone || []), off = new Set(s.shrunk || []);
+
+    // A magic board: the joined edges glow violet, so you can see that off
+    // one side is on at the other.
+    if (day.rules.wrap) {
+      const glow = (a, b) => { line([a, b], 'rgba(170,120,255,.55)', 7); line([a, b], 'rgba(226,206,255,.95)', 2, [3, 3]); };
+      glow(this.pt(0, 0), this.pt(0, day.H)); glow(this.pt(W, 0), this.pt(W, day.H));
+      if (day.rules.wrap === 'all') { glow(this.pt(0, 0), this.pt(W, 0)); glow(this.pt(0, day.H), this.pt(W, day.H)); }
+    }
 
     // Crumbling ground: hairline cracks on every square, the same each time.
     if (day.rules.crumble)
@@ -393,7 +491,7 @@ export class Board3D extends Board {
       const P = [];
       for (const st of track) { const q = st.foes[k]; if (q.taken) break; P.push([q.x, q.y]); }
       for (let i = 1; i < P.length; i++) {
-        if (P[i][0] === P[i - 1][0] && P[i][1] === P[i - 1][1]) continue;
+        if ((P[i][0] === P[i - 1][0] && P[i][1] === P[i - 1][1]) || wraps(this.day, P[i - 1], P[i])) continue;
         line([this.mid(...P[i - 1]), this.mid(...P[i])], rgba(col, 0.55), 1.3, [2, 3]);
       }
       const labels = new Map();
@@ -406,7 +504,7 @@ export class Board3D extends Board {
     if (last.hole?.pattern) {
       const col = '#1d6b6b', P = track.map((st) => [st.hole.x, st.hole.y]);
       for (let i = 1; i < P.length; i++) {
-        if (P[i][0] === P[i - 1][0] && P[i][1] === P[i - 1][1]) continue;
+        if ((P[i][0] === P[i - 1][0] && P[i][1] === P[i - 1][1]) || wraps(this.day, P[i - 1], P[i])) continue;
         line([this.mid(...P[i - 1]), this.mid(...P[i])], rgba(col, 0.55), 1.3, [2, 3]);
       }
     }
@@ -428,15 +526,30 @@ export class Board3D extends Board {
     });
   }
 
-  /** Everything standing up: stumps and bramble, the flag, your pieces, theirs,
+  /** Everything standing up: statues and bramble, the flag, your pieces, theirs,
       and anything tumbling or possessing. */
   things(m, s, at) {
     const day = this.day, tw = this.tw;
+    // Placing a model turns and moves every one of its triangles; a piece
+    // standing still is placed the same way frame after frame, so its
+    // placed triangles are kept and reused (performance, 2026-10-07).
+    const cache = this.placed || (this.placed = new Map());
+    if (cache.size > 600) cache.clear();
     const stand = (mdl, x, y, h, id, o = {}) => {
       const [X, Z] = this.stood(x, y);
-      m.addXf(mdl, { t: [X, h, Z], ...o, ry: (o.ry || 0) + TURN, s: (o.s ?? 1) * BIG }, id);
+      const xfo = { t: [X, h, Z], ...o, ry: (o.ry || 0) + TURN, s: (o.s ?? 1) * BIG };
+      let byModel = cache.get(mdl);
+      if (!byModel) cache.set(mdl, (byModel = new Map()));
+      const k = `${X},${h},${Z},${xfo.rx || 0},${xfo.ry},${xfo.rz || 0},${xfo.s},${id}`;
+      let tris = byModel.get(k);
+      if (!tris) {
+        tris = new Mesh().addXf(mdl, xfo, id).tris;
+        if (byModel.size > 200) byModel.clear();
+        byModel.set(k, tris);
+      }
+      for (const t of tris) m.tris.push(t);
     };
-    for (const sq of day.stumps) stand(model('stump'), sq % day.W, Math.floor(sq / day.W), 0, 400);
+    for (const sq of day.stumps) stand(model(statueKind(day, sq), 'stone'), sq % day.W, Math.floor(sq / day.W), 0, 400); // statues
     for (let i = 0; i < brambleCount(day, s.t); i++) stand(model('bramble'), day.bramble[i] % day.W, Math.floor(day.bramble[i] / day.W), 0, 401 + i);
     const collapse = tw?.collapse;
     if (s.hole && !collapse) {
@@ -571,13 +684,20 @@ export class Board3D extends Board {
 
   /** Fog toward the back, and darkness all round: the pool of light. */
   air(g) {
-    const w = this.el.width, h = this.el.height, top = this.pt(0, this.day.H)[1];
-    const f = g.createLinearGradient(0, 0, 0, top + 6);
-    f.addColorStop(0, 'rgba(27,38,32,.92)'); f.addColorStop(1, 'rgba(27,38,32,0)');
-    g.fillStyle = f; g.fillRect(0, 0, w, top + 6);
-    const r = g.createRadialGradient(w / 2, h * 0.58, Math.min(w, h) * 0.32, w / 2, h * 0.58, Math.max(w, h) * 0.78);
-    r.addColorStop(0, 'rgba(5,9,7,0)'); r.addColorStop(1, 'rgba(5,9,7,.78)');
-    g.fillStyle = r; g.fillRect(0, 0, w, h);
+    // The same every frame, so painted once onto a canvas of its own.
+    if (!this.airLayer) {
+      const w = this.el.width, h = this.el.height, top = this.cy - (this.day.H / 2) * T * this.scale;
+      const c = this.airLayer = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const a = c.getContext('2d');
+      const f = a.createLinearGradient(0, 0, 0, top + 6);
+      f.addColorStop(0, 'rgba(27,38,32,.92)'); f.addColorStop(1, 'rgba(27,38,32,0)');
+      a.fillStyle = f; a.fillRect(0, 0, w, top + 6);
+      const r = a.createRadialGradient(w / 2, h * 0.58, Math.min(w, h) * 0.32, w / 2, h * 0.58, Math.max(w, h) * 0.78);
+      r.addColorStop(0, 'rgba(5,9,7,0)'); r.addColorStop(1, 'rgba(5,9,7,.78)');
+      a.fillStyle = r; a.fillRect(0, 0, w, h);
+    }
+    g.drawImage(this.airLayer, 0, 0);
   }
 
   // --- Moments of their own. -------------------------------------------------

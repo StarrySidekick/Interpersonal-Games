@@ -58,6 +58,68 @@ export function isBramble(s, x, y) {
 
 export const onBoard = (day, x, y) => x >= 0 && y >= 0 && x < day.W && y < day.H && !day.holes.has(y * day.W + x);
 
+// --- The magic board (Timothy, 2026-10-07: "pieces can loop around each
+// side like a pac-man level"). `rules.wrap` is 'sides' (left and right are
+// joined, like Pac-Man's tunnel) or 'all' (top and bottom too: a torus).
+// Off the edge is the other edge. A slider that goes all the way round
+// comes back to where it started, and stops there: every piece sees its
+// own square as the edge of the world (sight, below), so it can never land
+// on it, loop for ever, or hop over itself.
+
+const wrapsX = (day) => day.rules?.wrap === 'sides' || day.rules?.wrap === 'all';
+const wrapsY = (day) => day.rules?.wrap === 'all';
+
+/** A square folded back onto a magic board (unchanged on any other). */
+export function fold(day, x, y) {
+  if (wrapsX(day)) x = ((x % day.W) + day.W) % day.W;
+  if (wrapsY(day)) y = ((y % day.H) + day.H) % day.H;
+  return [x, y];
+}
+
+// --- The geared board (Timothy, 2026-10-07: "rotated 90 degrees every
+// turn"). After every turn the board, and everything on it, turns a
+// quarter turn clockwise. Your pieces turn with it, so their own moves are
+// unchanged (a pawn still goes toward them). What does not turn is
+// everything that moves by a pattern: rabbits, possessed pieces, the hole.
+// Their patterns are fixed to the world, not the board, so a rabbit that
+// hops "up" always hops up the screen, which is a different way across the
+// board every turn. Positions are kept in the board's own squares; only
+// patterns need turning (patternStep) and only the drawing turns the view.
+
+/** How many quarter turns the board has made by state s. */
+export const turns = (s) => (s.day.rules.geared ? ((s.t % 4) + 4) % 4 : 0);
+
+/**
+ * A pattern's next step for `o` (a rabbit, a possessed piece, the hole), in
+ * the board's squares: the step as the pattern says it (raw), facing the
+ * way o faces (o.mx, o.my), turned to match the board on a geared board,
+ * and bounced off any edge it would leave (which flips o's facing on that
+ * axis from then on). Mutates o.mx and o.my.
+ */
+function patternStep(s, o, raw) {
+  const r = turns(s), W = s.day.W, H = s.day.H;
+  const turn = () => {
+    let x = raw[0] * o.mx, y = raw[1] * o.my;
+    for (let k = 0; k < r; k++) [x, y] = [-y, x]; // the world's step, on a board turned r times clockwise
+    return [x, y];
+  };
+  let [dx, dy] = turn();
+  // Bouncing flips the facing of whichever of the pattern's axes is
+  // along that edge now (on a turned board the board's x is the world's y).
+  if (!wrapsX(s.day) && (o.x + dx < 0 || o.x + dx >= W)) { if (r % 2) o.my = -o.my; else o.mx = -o.mx; [dx, dy] = turn(); }
+  if (!wrapsY(s.day) && (o.y + dy < 0 || o.y + dy >= H)) { if (r % 2) o.mx = -o.mx; else o.my = -o.my; [dx, dy] = turn(); }
+  return [dx, dy];
+}
+
+/** The shortest way from one column (or row) to another, on a magic board
+    the way round the back if that is shorter. */
+function delta(day, d, axis) {
+  const n = axis === 'x' ? day.W : day.H, wraps = axis === 'x' ? wrapsX(day) : wrapsY(day);
+  if (!wraps) return d;
+  d = ((d % n) + n) % n;
+  return d > n / 2 ? d - n : d;
+}
+
 /** Has the square at (x, y) crumbled away? Only on crumbling levels, where
     every square you move off falls away behind you. */
 export const crumbled = (s, x, y) => s.gone.length > 0 && s.gone.includes(y * s.day.W + x);
@@ -80,6 +142,7 @@ export function canTake(rules, f) {
 
 /** What is on (x, y), as seen by `side` ('you' or 'foe'). */
 export function look(s, x, y, side = 'you') {
+  if (s.day.rules.wrap) [x, y] = fold(s.day, x, y);
   if (!onBoard(s.day, x, y) || crumbled(s, x, y) || shrunk(s, x, y)) return OFF;
   const bram = isBramble(s, x, y);
   for (const p of s.pieces)
@@ -172,16 +235,26 @@ function ball(L, p, fwd, day) {
   if (how === 'hit') return []; // it only moves when something hits it
   if (how === 'bounce') return billiard(L, p, day);
   if (how === 'putt') return putt(L, p, day);
-  const out = [], dropsIn = !day?.rules?.ballStops;
+  const out = [], dropsIn = !day?.rules?.ballStops, takes = !!day?.rules?.ballCaptures;
   for (const [dx, dy] of ORTH) {
-    let x = p.x, y = p.y, onHole = false;
+    let x = p.x, y = p.y, onHole = false, cap = false;
     for (;;) {
       const c = L(x + dx, y + dy);
+      // A ball that captures (ballCaptures, 2026-10-07) rolls into the
+      // first piece of theirs in its way, takes it, and stops there.
+      if (c === ENEMY && takes) { x += dx; y += dy; cap = true; break; }
       if (c !== EMPTY && c !== HOLE) break;
       x += dx; y += dy; onHole = c === HOLE;
       if (onHole && dropsIn) break;
     }
-    if (x !== p.x || y !== p.y) out.push({ x, y, cap: false, sink: onHole });
+    // On a magic board a roll with nothing in its way goes all the way
+    // round and arrives back where it started (its own square stopped it):
+    // that is no move at all.
+    if (day?.rules?.wrap && !cap && !onHole) {
+      const [nx, ny] = fold(day, x + dx, y + dy);
+      if (nx === p.x && ny === p.y) continue;
+    }
+    if (x !== p.x || y !== p.y) out.push({ x, y, cap, sink: onHole && !cap });
   }
   return out;
 }
@@ -189,10 +262,11 @@ function ball(L, p, fwd, day) {
 /** The putting ball: a rook that never takes. Past an open hole it cannot
     go (it would drop in), unless the level says it must stop on it. */
 function putt(L, p, day) {
-  const out = [], dropsIn = !day?.rules?.ballStops;
+  const out = [], dropsIn = !day?.rules?.ballStops, takes = !!day?.rules?.ballCaptures;
   for (const [dx, dy] of ORTH)
     for (let x = p.x + dx, y = p.y + dy; ; x += dx, y += dy) {
       const c = L(x, y);
+      if (c === ENEMY && takes) { out.push({ x, y, cap: true }); break; }
       if (c !== EMPTY && c !== HOLE) break;
       out.push({ x, y, cap: false, sink: c === HOLE });
       if (c === HOLE && dropsIn) break;
@@ -223,6 +297,7 @@ function billiard(L, p, day) {
       }
       x += dx; y += dy;
       const c = L(x, y);
+      if (c === ENEMY && day?.rules?.ballCaptures) { if (!found.has(y * 64 + x)) found.set(y * 64 + x, { x, y, cap: true, ...(via.length ? { via: via.slice() } : {}) }); break; }
       if (c !== EMPTY && c !== HOLE) break; // anything in the way, itself included
       const k = y * 64 + x;
       if (!found.has(k)) found.set(k, { x, y, cap: false, sink: c === HOLE, ...(via.length ? { via: via.slice() } : {}) });
@@ -379,16 +454,25 @@ export const RABBIT_GENTLE_DESC = 'Hops in a fixed pattern that repeats. It boun
 export const rabbitDesc = (rules) => ((rules.rabbitsEat ?? rules.foesCapture) ? RABBIT_DESC : RABBIT_GENTLE_DESC);
 export const RABBIT_AI_DESC = 'Thinks for itself and steps one square in any direction, like a king. It eats what it lands on.';
 export const BRAMBLE_DESC = 'Creeps across the board. Nothing can enter it and nothing slides through it. Anything caught inside is safe until it leaves.';
-export const STUMP_DESC = 'In the way. Sliders stop at it; leapers jump over it.';
+export const STUMP_DESC = 'A statue: a piece in grey stone, older than the board. It never moves and nothing can take it. Sliders stop at it, leapers jump over it, and pieces that hop (the grasshopper, the cannon) can hop over it.';
+
+/** The kind of piece a statue on square sq is a statue of. (The rules call
+    statues stumps: they were tree stumps until 2026-10-07, and rule for
+    rule they are the same thing.) */
+const STATUE_KINDS = ['pawn', 'rook', 'knight', 'bishop', 'king', 'queen'];
+export const statueKind = (day, sq) => day.statueKinds?.get(sq) ?? STATUE_KINDS[sq % STATUE_KINDS.length];
 export const CRUMBLE_DESC = 'Every square you move off crumbles away behind you. Nothing can stand on it again: sliders stop at the gap, leapers can still jump it, and a rabbit that tries to hop in waits instead.';
 export const SHRINK_DESC = 'The edge of the board falls away. Every few moves one square on the rim drops into the dark for good, and the rim closes in. It never takes a square anything is standing on, never cuts the board in two, and stops when half the board is gone.';
+/** On a level where the ball captures, the sentence that says so. */
+const takesLine = (rules) => (rules?.ballCaptures ? ' Here the ball captures: rolling into one of their pieces, it takes it and stops there.' : '');
+
 /** The ball, in words, for how it moves on this level (`ballMove`). */
 export function ballDesc(rules) {
   const how = rules?.ballMove || 'ice';
-  if (how === 'hit') return 'Never moves by itself: a piece hits it. Move any piece into the ball and it is knocked on along the line of that move, as many steps as the piece travelled (a rook from four away sends it up to four; a knight sends it one more knight\u2019s jump), stopping early against anything. Their pieces hit it too. Nothing can take it. Knock it into the open hole to win.';
-  if (how === 'putt') return 'Rolls up, down, left or right, as far as you like, and stops where you choose. It never takes anything. Get it into the hole to win.';
-  if (how === 'bounce') return 'Rolls diagonally, as far as you like, and bounces off the edge of the board, like a billiard ball: the reflecting bishop of Billiards Chess. Like a bishop it keeps to its colour. It never takes anything. Get it into the hole to win.';
-  return PIECES.ball.desc;
+  if (how === 'hit') return 'Never moves by itself: a piece hits it. Move any piece into the ball and it slides away along the line of that move, like on ice (a knight sends it on in knight\u2019s jumps), until something stops it. Their pieces hit it too. Nothing can take it. Knock it into the open hole to win.' + takesLine(rules);
+  if (how === 'putt') return `Rolls up, down, left or right, as far as you like, and stops where you choose.${rules?.ballCaptures ? '' : ' It never takes anything.'} Get it into the hole to win.${takesLine(rules)}`;
+  if (how === 'bounce') return `Rolls diagonally, as far as you like, and bounces off the edge of the board, like a billiard ball: the reflecting bishop of Billiards Chess. Like a bishop it keeps to its colour.${rules?.ballCaptures ? '' : ' It never takes anything.'} Get it into the hole to win.${takesLine(rules)}`;
+  return PIECES.ball.desc + takesLine(rules);
 }
 
 /** A piece's description on a level: the ball's depends on the level. */
@@ -442,10 +526,32 @@ export function clone(s) {
 const youLook = (s) => (x, y) => look(s, x, y, 'you');
 const foeLook = (s) => (x, y) => look(s, x, y, 'foe');
 
+/** What piece p sees, from `side`: the board as it is, except that on a
+    magic board its own square reads as the edge. */
+function sight(s, p, side) {
+  if (!s.day.rules.wrap) return side === 'you' ? youLook(s) : foeLook(s);
+  return (x, y) => {
+    const [a, b] = fold(s.day, x, y);
+    return a === p.x && b === p.y ? OFF : look(s, a, b, side);
+  };
+}
+
+/** Piece p's moves, from `side`, folded back onto a magic board. */
+function pieceMoves(s, p, side) {
+  const ms = PIECES[p.type].moves(sight(s, p, side), p, side === 'you' ? 1 : -1, s.day);
+  if (!s.day.rules.wrap) return ms;
+  const out = new Map();
+  for (const m of ms) {
+    const [x, y] = fold(s.day, m.x, m.y), k = y * s.day.W + x;
+    if (!out.has(k)) out.set(k, { ...m, x, y });
+  }
+  return [...out.values()];
+}
+
 export function movesFor(s, i) {
   const p = s.pieces[i];
   if (s.won || p.taken) return [];
-  const ms = PIECES[p.type].moves(youLook(s), p, 1, s.day);
+  const ms = pieceMoves(s, p, 'you');
   return s.day.rules.ballMove === 'hit' ? ms.filter((m) => hitOk(s, p, m)) : ms;
 }
 
@@ -453,9 +559,38 @@ export function movesFor(s, i) {
 export function foeMovesFor(s, k) {
   const f = s.foes[k];
   if (f.taken || f.brain !== 'ai') return [];
-  const ms = PIECES[f.type].moves(foeLook(s), f, -1, s.day);
+  const ms = pieceMoves(s, f, 'foe');
   if (s.day.rules.ballMove === 'hit') return ms.filter((m) => hitOk(s, f, m) && (!m.cap || hitBall(s, m.x, m.y) || canTake(s.day.rules, f)));
   return canTake(s.day.rules, f) ? ms : ms.filter((m) => !m.cap);
+}
+
+/**
+ * Who could capture on the very first move, from where everything starts:
+ * your pieces that have a capture among their moves, and their pieces that
+ * could take one of yours (a thinking or possessed piece by any of its
+ * moves, a rabbit by its first hop), as far as the level lets them take.
+ * Hitting a ball is not a capture. Returns { yours, theirs }, lists of
+ * indexes. (Timothy, 2026-10-07: no piece should be able to capture on its
+ * first move; the tester throws such layouts out, solve.js unbalanced.)
+ */
+export function firstCaptures(s) {
+  const onFoe = (m) => s.foes.some((f) => !f.taken && f.x === m.x && f.y === m.y);
+  const onMine = (m) => s.pieces.some((p) => !p.taken && p.type !== 'ball' && p.x === m.x && p.y === m.y) ||
+    s.pieces.some((p) => !p.taken && p.type === 'ball' && p.x === m.x && p.y === m.y && s.day.rules.ballMove !== 'hit');
+  const yours = [], theirs = [];
+  s.pieces.forEach((p, i) => { if (!p.taken && pieceMoves(s, p, 'you').some((m) => m.cap && onFoe(m))) yours.push(i); });
+  s.foes.forEach((f, k) => {
+    if (f.taken || !canTake(s.day.rules, f)) return;
+    if (f.brain === 'pattern') {
+      // A rabbit's first hop is the only move it has.
+      const [dx, dy] = patternStep(s, { ...f }, f.pattern[f.i || 0]); // a copy: only looking
+      const [tx, ty] = fold(s.day, f.x + dx, f.y + dy);
+      if (onMine({ x: tx, y: ty })) theirs.push(k);
+      return;
+    }
+    if (pieceMoves(s, f, 'foe').some((m) => m.cap && onMine(m))) theirs.push(k);
+  });
+  return { yours, theirs };
 }
 
 /** Every move available to you, waiting first if waiting is allowed. With
@@ -504,15 +639,13 @@ function landFoe(s, f, x, y) {
     or (on the first two daily boards) a stump or bramble stops it, and it
     waits. */
 function hop(s, f) {
-  const pat = f.pattern, W = s.day.W, H = s.day.H;
-  let [dx, dy] = pat[f.i];
-  dx *= f.mx; dy *= f.my;
+  const pat = f.pattern;
   // Bouncing flips the whole pattern on that axis from here on, the way a
-  // ball's direction stays flipped after it hits a wall.
-  if (f.x + dx < 0 || f.x + dx >= W) { f.mx = -f.mx; dx = -dx; }
-  if (f.y + dy < 0 || f.y + dy >= H) { f.my = -f.my; dy = -dy; }
+  // ball's direction stays flipped after it hits a wall (patternStep; on a
+  // magic board a joined edge is no wall: it hops on round).
+  const [dx, dy] = patternStep(s, f, pat[f.i]);
   f.i = (f.i + 1) % pat.length;
-  const tx = f.x + dx, ty = f.y + dy, c = look(s, tx, ty, 'foe');
+  const [tx, ty] = fold(s.day, f.x + dx, f.y + dy), c = look(s, tx, ty, 'foe');
   const ball = c === ENEMY && hitBall(s, tx, ty);
   if (c === EMPTY || (c === ENEMY && canTake(s.day.rules, f) && !ball) || (ball && hitOk(s, f, { x: tx, y: ty }))) landFoe(s, f, tx, ty);
   else { f.from = [f.x, f.y]; f.ate = -1; f.blocked = true; }
@@ -539,22 +672,20 @@ function before(a, b) {
  * pattern on that axis from then on. Mutates.
  */
 function possessedStep(s, f) {
-  const W = s.day.W, H = s.day.H;
-  let [dx, dy] = f.pattern[f.i];
-  dx *= f.mx; dy *= f.my;
+  const raw = f.pattern[f.i];
   f.i = (f.i + 1) % f.pattern.length;
   f.from = [f.x, f.y]; f.ate = -1; f.blocked = false; f.rested = false;
-  if (!dx && !dy) { f.rested = true; return; }
-  if (f.x + dx < 0 || f.x + dx >= W) { f.mx = -f.mx; dx = -dx; }
-  if (f.y + dy < 0 || f.y + dy >= H) { f.my = -f.my; dy = -dy; }
-  const tx = f.x + dx, ty = f.y + dy, take = canTake(s.day.rules, f);
+  if (!raw[0] && !raw[1]) { f.rested = true; return; }
+  const [dx, dy] = patternStep(s, f, raw);
+  const [tx, ty] = fold(s.day, f.x + dx, f.y + dy), take = canTake(s.day.rules, f);
   let best = null, bk = null;
-  for (const m of PIECES[f.type].moves(foeLook(s), f, -1, s.day)) {
+  for (const m of pieceMoves(s, f, 'foe')) {
     const ball = m.cap && hitBall(s, m.x, m.y);
     if (ball ? !hitOk(s, f, m) : m.cap && !take) continue;
-    const mx = m.x - f.x, my = m.y - f.y;
+    // (On a magic board, distances go the short way round.)
+    const mx = delta(s.day, m.x - f.x, 'x'), my = delta(s.day, m.y - f.y, 'y');
     if (mx * dx + my * dy <= 0) continue; // not this way
-    const key = [(m.x - tx) ** 2 + (m.y - ty) ** 2, mx * mx + my * my, m.y, m.x];
+    const key = [delta(s.day, m.x - tx, 'x') ** 2 + delta(s.day, m.y - ty, 'y') ** 2, mx * mx + my * my, m.y, m.x];
     if (!bk || before(key, bk)) { best = m; bk = key; }
   }
   if (!best) { f.blocked = true; return; }
@@ -574,14 +705,11 @@ export function patternHops(s) {
 /** The hole's hop: its pattern, bouncing off the edges like a rabbit, and
     waiting if anything at all is in the way. Mutates. */
 function holeHop(s) {
-  const h = s.hole, pat = h.pattern, W = s.day.W, H = s.day.H;
-  let [dx, dy] = pat[h.i];
-  dx *= h.mx; dy *= h.my;
-  if (h.x + dx < 0 || h.x + dx >= W) { h.mx = -h.mx; dx = -dx; }
-  if (h.y + dy < 0 || h.y + dy >= H) { h.my = -h.my; dy = -dy; }
+  const h = s.hole, pat = h.pattern;
+  const [dx, dy] = patternStep(s, h, pat[h.i]);
   h.i = (h.i + 1) % pat.length;
   h.from = [h.x, h.y];
-  if (look(s, h.x + dx, h.y + dy) === EMPTY) { h.x += dx; h.y += dy; h.blocked = false; }
+  if (look(s, h.x + dx, h.y + dy) === EMPTY) { [h.x, h.y] = fold(s.day, h.x + dx, h.y + dy); h.blocked = false; }
   else h.blocked = true;
 }
 
@@ -599,22 +727,34 @@ function foesAct(s) {
 // ... maybe having the ball be moved by the pieces, like it's getting hit."
 
 /** Where a hit ball would end up, or null if it cannot budge. A piece
-    moving from (fx, fy) into the ball sends it on along the same line: the
-    move's shape (a knight's L stays an L) as many times as the piece
-    travelled (gcd of the move's two lengths: a rook from four away, four;
-    a knight, one). It stops at anything, and drops into an open hole it
-    passes over (or, with ballStops, only one it stops on). */
+    moving from (fx, fy) into the ball sends it sliding on along the same
+    line, like on ice (Timothy, 2026-10-07: "slide like ice when hit"): one
+    step of the move's shape at a time (a rook's hit, one square; a knight's,
+    one L) until something stops it. It drops into an open hole it slides
+    over (or, with ballStops, only one it stops on). A ball that captures
+    (ballCaptures) slides into the first piece of theirs in its way and
+    takes it (`takes`, the foe's index). */
 function knockPath(s, b, fx, fy) {
   const vx = b.x - fx, vy = b.y - fy;
   const g = gcd(Math.abs(vx), Math.abs(vy)) || 1, sx = vx / g, sy = vy / g;
-  let x = b.x, y = b.y, sunk = false;
-  for (let k = 1; k <= g; k++) {
-    const c = look(s, x + sx, y + sy, 'you');
+  let x = b.x, y = b.y, sunk = false, takes = -1;
+  for (let k = 0; k < 64; k++) {
+    // On a magic board: all the way round and back to where it started is
+    // no move at all.
+    const [nx, ny] = fold(s.day, x + sx, y + sy);
+    if (nx === b.x && ny === b.y) return null;
+    // The hitter has left its square by the time the ball gets there.
+    const c = nx === fx && ny === fy ? EMPTY : look(s, x + sx, y + sy, 'you');
+    if (c === ENEMY && s.day.rules.ballCaptures) {
+      takes = s.foes.findIndex((f) => !f.taken && f.x === nx && f.y === ny);
+      if (takes >= 0) { x = nx; y = ny; break; }
+    }
     if (c !== EMPTY && c !== HOLE) break;
-    x += sx; y += sy;
-    if (c === HOLE && (!s.day.rules.ballStops || k === g)) { sunk = true; break; }
+    x = nx; y = ny;
+    if (c === HOLE && !s.day.rules.ballStops) { sunk = true; break; }
   }
-  return x === b.x && y === b.y ? null : { x, y, sunk };
+  if (!sunk && s.day.rules.ballStops && s.hole && holeOpen(s) && x === s.hole.x && y === s.hole.y) sunk = true;
+  return x === b.x && y === b.y ? null : { x, y, sunk, takes };
 }
 
 function gcd(a, b) { return b ? gcd(b, a % b) : a; }
@@ -633,6 +773,10 @@ function knock(s, b, fx, fy) {
   const to = knockPath(s, b, fx, fy);
   if (!to) return false;
   b.from = [b.x, b.y]; b.x = to.x; b.y = to.y;
+  if (to.takes >= 0) {
+    s.foes[to.takes].taken = true;
+    if (goalMet(s)) s.won = true;
+  }
   if (to.sunk && holeOpen(s)) s.won = s.sunk = true;
   return true;
 }
@@ -678,21 +822,18 @@ export function playerMove(s, mv) {
  * the one nearer them, then the one further left). Mutates.
  */
 function mineStep(n, i) {
-  const p = n.pieces[i], W = n.day.W, H = n.day.H;
-  let [dx, dy] = p.pattern[p.i];
-  dx *= p.mx; dy *= p.my;
+  const p = n.pieces[i], raw = p.pattern[p.i];
   p.i = (p.i + 1) % p.pattern.length;
   p.from = [p.x, p.y]; p.blocked = false; p.rested = false;
-  if (!dx && !dy) { p.rested = true; return; }
-  if (p.x + dx < 0 || p.x + dx >= W) { p.mx = -p.mx; dx = -dx; }
-  if (p.y + dy < 0 || p.y + dy >= H) { p.my = -p.my; dy = -dy; }
-  const tx = p.x + dx, ty = p.y + dy;
+  if (!raw[0] && !raw[1]) { p.rested = true; return; }
+  const [dx, dy] = patternStep(n, p, raw);
+  const [tx, ty] = fold(n.day, p.x + dx, p.y + dy);
   let best = null, bk = null;
-  for (const m of PIECES[p.type].moves(youLook(n), p, 1, n.day)) {
+  for (const m of pieceMoves(n, p, 'you')) {
     if (!hitOk(n, p, m)) continue;
-    const mx = m.x - p.x, my = m.y - p.y;
+    const mx = delta(n.day, m.x - p.x, 'x'), my = delta(n.day, m.y - p.y, 'y');
     if (mx * dx + my * dy <= 0) continue; // not this way
-    const key = [(m.x - tx) ** 2 + (m.y - ty) ** 2, mx * mx + my * my, -m.y, m.x];
+    const key = [delta(n.day, m.x - tx, 'x') ** 2 + delta(n.day, m.y - ty, 'y') ** 2, mx * mx + my * my, -m.y, m.x];
     if (!bk || before(key, bk)) { best = m; bk = key; }
   }
   if (!best) { p.blocked = true; return; }
@@ -873,5 +1014,7 @@ export function stateKey(s) {
   // Which squares are gone matters; the order they went in does not.
   if (s.gone.length) k += '|g' + s.gone.slice().sort((a, b) => a - b).join(',');
   if (s.shrunk?.length) k += '|s' + s.shrunk.slice().sort((a, b) => a - b).join(',');
+  // On a geared board the same position facing another way is not the same.
+  if (s.day.rules.geared) k += '|r' + turns(s);
   return k;
 }

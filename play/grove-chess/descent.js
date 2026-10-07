@@ -45,7 +45,7 @@ export function depthSettings(d, rand, hand = START_HAND) {
     foes: count, darkBrain: 'possessed', kinds: d < 4 ? 1 : d < 7 ? 2 : 3,
     foePool: pool, foeDupes: true, mirror: false, foeRows: d < 4 ? 2 : 3,
     skill: '2', style: 'balanced', foesCapture: d >= 3,              // from depth 3 they can take your pieces
-    goal: 'descent', holeMoves: d < 2 ? 'still' : 'daily', ballStops: false, ballMove: 'putt',
+    goal: 'descent', holeMoves: d < 2 ? 'still' : 'daily', ballStops: false, ballMove: 'putt', ballCaptures: true,
     maxMoves: Math.min(28, 16 + 2 * Math.floor(d / 2)), first: 'you',
     solve: true, parMin, parMax: parMin + 7, balance: 'on'
   });
