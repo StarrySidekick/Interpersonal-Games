@@ -50,7 +50,10 @@ export const PATTERNS = [
 ];
 
 const CLASSIC = Object.keys(PIECES).filter((k) => PIECES[k].kind === 'classic');
-const FAIRY = Object.keys(PIECES).filter((k) => PIECES[k].kind === 'fairy');
+// The daily's fairy pieces are pinned: the twelve there were when it began.
+// Pieces added later must not join this list, or every board would be dealt
+// again (check-daily.mjs catches it).
+const FAIRY = ['grasshopper', 'nightrider', 'camel', 'zebra', 'alfil', 'ferz', 'wazir', 'cannon', 'mao', 'squirrel', 'rose', 'archbishop'];
 
 export const EPOCH = '2026-10-05';
 

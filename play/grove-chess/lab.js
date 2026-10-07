@@ -96,8 +96,8 @@ export const SCHEMA = [
       ['still', 'Staying put'], ['daily', 'The daily set'], ['short', 'Random, 2 hops'], ['mid', 'Random, 3 to 4'], ['long', 'Random, 5 to 8']),
       help: 'Only when there is a hole. A hidden pattern, like a rabbit\u2019s.' },
     { key: 'ballMove', label: 'The ball moves', type: 'choice', def: 'putt', options: opts(
-      ['ice', 'On ice'], ['putt', 'Like a putt'], ['bounce', 'Like a billiard ball']),
-      help: 'On ice: up, down, left or right, and it rolls until something stops it. Like a putt: up, down, left or right, as far as you like. Like a billiard ball: diagonally, as far as you like, bouncing off the edges (the reflecting bishop from Billiards Chess). It never takes anything.' },
+      ['ice', 'On ice'], ['putt', 'Like a putt'], ['bounce', 'Like a billiard ball'], ['hit', 'Hit by the pieces']),
+      help: 'On ice: up, down, left or right, and it rolls until something stops it. Like a putt: up, down, left or right, as far as you like. Like a billiard ball: diagonally, as far as you like, bouncing off the edges (the reflecting bishop from Billiards Chess). It never takes anything. Hit by the pieces: it never moves by itself; any piece, yours or theirs, that moves into it knocks it on along the line of that move, as many steps as the piece travelled.' },
     { key: 'ballStops', label: 'Ball must stop on the hole', type: 'bool', def: false,
       help: 'Off: it drops in when it rolls over the hole. On: it has to come to rest there.' },
     { key: 'maxMoves', label: 'Move limit', type: 'int', min: 0, max: 60, def: 20, help: '0 means no limit.' },
@@ -198,7 +198,7 @@ export function crazy(rand = Math.random, allowed = [...FAIRY, 'rabbit']) {
     foesCapture: rand() < 0.85,
     goal: pick(['all', 'king', 'king', 'any', 'mix', 'hole', 'hole', ...(rabbitOk ? ['rabbit', 'rabbit', 'descent', 'descent', 'descent'] : [])]),
     maxMoves: pick([0, 15, 20, 25, 30]), first: rand() < 0.8 ? 'you' : 'them',
-    holeMoves: pick(['still', 'daily', 'daily', 'short', 'mid']), ballStops: rand() < 0.3, ballMove: pick(['putt', 'putt', 'ice', 'bounce']),
+    holeMoves: pick(['still', 'daily', 'daily', 'short', 'mid']), ballStops: rand() < 0.3, ballMove: pick(['putt', 'putt', 'ice', 'bounce', 'hit', 'hit']),
     solve: true, parMax: int(6, 12), parMin: int(2, 3)
   });
   // Ball levels are often best with few or no pieces against you.

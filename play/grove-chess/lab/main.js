@@ -6,8 +6,9 @@ import { $, el, show, haptic, keepAwake, themeToggle } from '../../../engine/ui.
 import { soundToggle } from '../../../engine/sound.js';
 import * as sfx from '../sounds.js';
 import { makeTarget, render } from '../../../engine/lowpoly.js';
-import { PIECES, descOf, HOLE_DESC, CRUMBLE_DESC, SHRINK_DESC, movesFor, playerMove, respond, isOver, outcome, initialState, allMoves, replay, crumbled, shrunk, holeOpen, autoMove } from '../rules.js';
-import { FUR, FUR_WORD, caughtRabbits } from '../rabbits.js';
+import { PIECES, descOf, HOLE_DESC, CRUMBLE_DESC, SHRINK_DESC, movesFor, playerMove, respond, isOver, outcome, initialState, allMoves, replay, crumbled, shrunk, holeOpen } from '../rules.js';
+import { setupPanel, setupState, playOut } from '../autosetup.js';
+import { FUR, caughtRabbits } from '../rabbits.js';
 import { Board, scene, sceneFrame, sprite, patternPicture } from '../board.js';
 import { piecesSheet } from '../sheet.js';
 import { describeBalance } from '../solve.js';
@@ -17,7 +18,7 @@ import { describeSteps } from '../day.js';
 import {
   SCHEMA, defaults, clean, crazy, makeLevel, summary, encodeLevelWithPar, decodeLevel,
   loadLab, saveLab, searchLayouts, GOAL_PILL, FAIRY,
-  rabbitPool, emptySetup, withSetup, patternNamed, setupFits
+  rabbitPool, encodeLevel
 } from '../lab.js';
 
 const lab = loadLab();
@@ -344,63 +345,27 @@ async function startGame({ intro = true } = {}) {
 function hud() { $('#movecount').textContent = now().t; }
 
 // --- Autochess: the setup, then the game plays itself. --------------------
+// The panel and the playing out are shared with the descent (autosetup.js).
 
-// `setup` is per piece of the level (lab.js emptySetup); `slot` is the place
-// in your line being filled, counted from the left.
-let setup = null, setupFor = null, slot = 0;
-const places = () => level.pieces.map((p, i) => i).sort((a, b) => level.pieces[a].x - level.pieces[b].x || level.pieces[a].y - level.pieces[b].y);
+let panel = null, setup = null;
 
-function canvasOf(kind, side, fur) {
-  const cv = el('canvas', { class: 'pix', width: 30, height: 36 });
-  cv.getContext('2d').drawImage(sprite(kind, side, fur), 0, 0);
-  return cv;
-}
-
-/** Into the setup: keep the last one for this level, if it still fits. */
+/** Into the setup: the last one for this level is kept, if it still fits. */
 function setUp() {
-  if (setupFor !== level || !setup || !setupFits(setup, myPool())) { setup = emptySetup(level); slot = 0; }
-  setupFor = level;
+  const pool = myPool();
+  panel = setupPanel({ tray: $('#tray'), slots: $('#slots'), level, pool, setup: setup?.level === level ? setup.list : null,
+    onChange: (list) => {
+      setup = { level, list };
+      game.states = [setupState(level, list)];
+      hud();
+      $('#go').disabled = !list.some((u) => u.rabbit);
+      draw();
+    } });
   $('#controls').hidden = true;
   $('#setup').hidden = false;
-  status(Object.keys(myPool()).length ? 'Set up your line, then let them go.' : 'You have no rabbits yet.');
-  info(Object.keys(myPool()).length ? ''
+  status(Object.keys(pool).length ? 'Set up your line, then let them go.' : 'You have no rabbits yet.');
+  info(Object.keys(pool).length ? ''
     : 'Catch rabbits in the descent (or the daily) and they come here, one for every catch. Or set "Your rabbits" to every named kind.');
-  paintSetup();
-}
-
-/** Show the setup on the board, and in the panel. */
-function paintSetup() {
-  game.states = [initialState(withSetup(level, setup))];
-  hud();
-  const pool = myPool(), used = {};
-  for (const u of setup) if (u.rabbit) used[u.rabbit] = (used[u.rabbit] || 0) + 1;
-  const order = places(), cur = order[slot];
-  $('#tray').replaceChildren(...Object.entries(pool).map(([name, n]) => {
-    const left = n - (used[name] || 0);
-    return el('button', { class: 'quiet chip', disabled: left <= 0, title: FUR_WORD[name] || '', onclick: () => {
-      setup[cur].rabbit = name;
-      // On to the next empty place in the line.
-      const next = order.findIndex((i, k) => k > slot && !setup[i].rabbit);
-      if (next >= 0) slot = next;
-      paintSetup();
-    } }, canvasOf('rabbit', 'foe', FUR[name]), name, el('small', {}, left > 0 ? `${left} left` : 'all used'));
-  }));
-  $('#slots').replaceChildren(...order.map((i, k) => {
-    const u = setup[i], pat = u.rabbit && patternNamed(u.rabbit);
-    const swap = (d) => { const j = order[k + d]; [setup[i], setup[j]] = [setup[j], setup[i]]; slot = k + d; paintSetup(); };
-    return el('div', { class: 'slot', 'aria-current': String(k === slot) },
-      el('button', { class: 'quiet who', onclick: () => { slot = k; paintSetup(); } },
-        canvasOf(u.type, 'you'), el('span', {}, `${k + 1}`)),
-      el('div', { class: 'what' }, el('b', {}, PIECES[u.type].name),
-        pat ? `${u.rabbit}: ${describeSteps(pat.steps, u.mx, 1)}, then again.` : 'No rabbit: it stands still.'),
-      el('div', { class: 'acts' },
-        el('button', { class: 'quiet', disabled: !pat, 'aria-pressed': String(u.mx < 0), onclick: () => { u.mx = -u.mx; slot = k; paintSetup(); } }, 'Mirror'),
-        el('button', { class: 'quiet', disabled: !pat, onclick: () => { u.rabbit = null; slot = k; paintSetup(); } }, 'Empty'),
-        el('button', { class: 'quiet', disabled: k === 0, 'aria-label': 'Swap with the place to the left', onclick: () => swap(-1) }, '\u2190'),
-        el('button', { class: 'quiet', disabled: k === order.length - 1, 'aria-label': 'Swap with the place to the right', onclick: () => swap(1) }, '\u2192')));
-  }));
-  $('#go').disabled = !setup.some((u) => u.rabbit);
-  draw();
+  panel.paint();
 }
 
 /** Play the set-up level out, turn by turn. */
@@ -408,28 +373,21 @@ async function runAuto(slow = 1) {
   if (busy) return;
   busy = true;
   $('#setup').hidden = true;
-  game = { states: [initialState(withSetup(level, setup))], moves: [] };
+  game = { states: [setupState(level, setup.list)], moves: [] };
   status('Off they go.'); info('');
   draw();
-  const cap = level.rules.maxMoves || 40;
-  while (!isOver(now()) && now().t < cap) {
-    const a = now(), mid = autoMove(a);
-    shown = mid;
-    await board.animate(a, mid, { p: -1, auto: true }, slow);
-    const b = respond(mid);
-    game.moves.push({ p: -1, auto: true }); game.states.push(b);
-    shown = null;
-    hud();
-    if (!b.won) await board.animate(mid, b, { p: -1 }, slow);
-    if (b.won || b.pieces.some((p, i) => p.taken && !a.pieces[i].taken)) haptic(b.won ? [20, 40, 30] : [40, 30, 40]);
-    if (!isOver(b)) { status(whatHappened(a, b, { p: 0 })); await new Promise((r) => setTimeout(r, 140 * slow)); }
-  }
+  await playOut({ board, level, states: game.states, moves: game.moves, slow, setShown: (s) => { shown = s; },
+    onTurn: (a, b) => {
+      hud();
+      if (b.won || b.pieces.some((p, i) => p.taken && !a.pieces[i].taken)) haptic(b.won ? [20, 40, 30] : [40, 30, 40]);
+      if (!isOver(b)) status(whatHappened(a, b, { p: 0 }));
+    } });
   busy = false;
   finish(true);
 }
 
 $('#go').onclick = () => runAuto();
-$('#clearsetup').onclick = () => { setup = emptySetup(level); slot = 0; paintSetup(); };
+$('#clearsetup').onclick = () => panel.clear();
 $('#setuppieces').onclick = () => openSheet();
 $('#setuprestart').onclick = () => show('lab');
 
@@ -495,9 +453,7 @@ $('#board').addEventListener('click', (e) => {
   if (!c) return;
   if (isAuto()) {
     // Setting up: tapping one of your pieces picks its place in the line.
-    if ($('#setup').hidden) return;
-    const k = places().findIndex((i) => level.pieces[i].x === c.x && level.pieces[i].y === c.y);
-    if (k >= 0) { slot = k; paintSetup(); }
+    if (!$('#setup').hidden) panel.pickAt(c.x, c.y);
     return;
   }
   const { x, y } = c, s = now();
@@ -605,8 +561,7 @@ $('#solver').onclick = () => {
   if (isAuto()) {
     // The solver's setup, played out; it stays in place to change after.
     if (!autoBest || busy) return;
-    setup = autoBest.map((u) => ({ ...u }));
-    setupFor = level;
+    setup = { level, list: autoBest.map((u) => ({ ...u })) };
     $('#end').hidden = true;
     board.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     return runAuto(1.2);
@@ -618,7 +573,7 @@ $('#save').onclick = () => {
   if (!rating) { $('#savenote').textContent = 'Pick a number first: 1 is a slog, 5 is great.'; return; }
   const end = now();
   lab.notes.push({ at: Date.now(), settings, seed, par, outcome: outcome(end), moves: end.t, rating, note: $('#note').value.trim(), balance,
-    ...(isAuto() ? { setup: setup.map((u) => ({ ...u })) } : {}) });
+    ...(isAuto() && setup ? { setup: setup.list.map((u) => ({ ...u })) } : {}) });
   saveLab(lab);
   renderNotebook();
   $('#savenote').textContent = 'Saved to the notebook.';
@@ -636,6 +591,17 @@ $('#back').onclick = () => show('lab');
 // --- The lab's own buttons. ------------------------------------------------
 
 $('#play').onclick = () => startGame();
+// The same settings as a descent: a new layout of them at every depth, your
+// pieces carried down (descent/main.js reads them from the link).
+$('#asdescent').onclick = () => { location.href = `../descent/#${encodeLevel(settings, seed)}`; };
+// Every piece there is, with its patent, to read through.
+$('#allpieces').onclick = () => {
+  const kinds = Object.keys(PIECES).filter((k) => k !== 'rabbit');
+  const all = { pieces: kinds.map((type) => ({ type })), foes: [], rules: {}, hole: null, bramble: [], stumps: new Set() };
+  $('#sheet-list').replaceChildren();
+  piecesSheet($('#sheet'), $('#sheet-list'), all, { when: 'Every piece' })();
+  openSheet = null; // the next game builds its own
+};
 $('#reroll').onclick = () => deal({ reseed: true });
 $('#crazy').onclick = () => { settings = crazy(Math.random, crazyPool()); deal({ reseed: true }); };
 
@@ -688,4 +654,4 @@ show('lab');
 requestAnimationFrame(previewFrame);
 
 // For automated tests: read-only access to what is on the board.
-window.__lab = { now: () => (game ? now() : null), level: () => level, par: () => par, line: () => line };
+window.__lab = { now: () => (game ? now() : null), level: () => level, par: () => par, line: () => line, play: (mv) => play(mv) };

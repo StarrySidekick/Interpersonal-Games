@@ -16,6 +16,7 @@
 // solver for exactly the pieces you are carrying.
 
 import { clean } from './lab.js';
+import { PIECES } from './rules.js';
 
 /** What every descent starts with: the ball, then three pieces. */
 export const START_HAND = ['ball', 'rook', 'knight', 'bishop'];
@@ -61,13 +62,20 @@ export function depthSettings(d, rand, hand = START_HAND) {
 /** How many pieces you can carry, the ball included. */
 export const HAND_MAX = 6;
 
-/** The two pieces offered on the way down to depth d (2 and deeper). */
+/** The two pieces offered on the way down to depth d (2 and deeper): a
+    fairy piece for that depth, and the classic piece nearest it in strength
+    (rules.js `strength`, Timothy 2026-10-07), so the choice is between two
+    pieces worth about the same, not an obvious one. Any classic piece within
+    three quarters of a pawn of the closest counts, and the dice choose. */
 export function offersFor(d, rand) {
   const classic = ['king', 'knight', 'bishop', 'rook', ...(d >= 6 ? ['queen'] : [])];
-  const fairy = ['wazir', 'ferz', 'alfil', 'mao', 'zebra', 'camel', 'grasshopper', 'cannon',
-    ...(d >= 5 ? ['squirrel', 'rose'] : []), ...(d >= 8 ? ['nightrider', 'archbishop'] : [])];
-  const pick = (a) => a[Math.floor(rand() * a.length)];
-  return [pick(classic), pick(fairy)];
+  const fairy = ['wazir', 'ferz', 'alfil', 'dabbaba', 'mao', 'zebra', 'camel', 'grasshopper', 'cannon', 'silver', 'lance',
+    ...(d >= 5 ? ['squirrel', 'rose'] : []), ...(d >= 8 ? ['nightrider', 'archbishop', 'chancellor'] : [])];
+  const f = fairy[Math.floor(rand() * fairy.length)];
+  const gap = (k) => Math.abs(PIECES[k].strength - PIECES[f].strength);
+  const best = Math.min(...classic.map(gap));
+  const near = classic.filter((k) => gap(k) <= best + 0.75); // close enough is close enough
+  return [near[Math.floor(rand() * near.length)], f];
 }
 
 // --- The record: how deep you have been. Only ever goes up. ----------------

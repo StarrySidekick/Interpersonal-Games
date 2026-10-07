@@ -11,7 +11,8 @@ in the code and the URL (build any level, see "The lab"). The daily keeps
 its own design goals (one board a day, the same for everyone) but takes the
 lab's developments through new dealer versions. Balancing is in
 [`grove-balance.md`](grove-balance.md); the look and tone in
-[`grove-look.md`](grove-look.md).
+[`grove-look.md`](grove-look.md); the pieces (their Betza patents, strength,
+models and colours) in [`grove-pieces.md`](grove-pieces.md).
 
 ## The game
 
@@ -174,7 +175,11 @@ No build step, no libraries, same as the rest of the repo.
 | `play/grove-chess/descent.js`, `descent/` | the descent: what each depth is made of, the record, and its page |
 | `play/grove-chess/board.js` | drawing the board, animating moves, turning taps into squares; shared by both pages |
 | `play/grove-chess/sheet.js` | the pieces menu; shared by both pages |
-| `play/grove-chess/models.js` | the models, built from simple shapes, with a plum-and-berry version for their side |
+| `play/grove-chess/models.js` | the models, built from simple shapes: green for yours, purple for theirs, on a plinth the colour of the rabbit inside (see `grove-pieces.md`) |
+| `play/grove-chess/betza.js` | Betza notation: pieces written down, turned into moves and into plain words (`grove-pieces.md`) |
+| `play/grove-chess/betza-check.mjs` | proves each piece's notation gives the same moves as its code |
+| `play/grove-chess/fall.js` | the fall between depths of the descent |
+| `play/grove-chess/autosetup.js` | the autochess setup panel and playing a setup out, for Chaos and the descent |
 | `play/grove-chess/game.js` | the daily page: title, play, the vine, test mode |
 | `play/grove-chess/lab.js`, `lab/` | the lab: settings, level generator, notebook, and its page |
 | `play/grove-chess/check-daily.mjs` | the guard that proves the daily boards have not changed |
@@ -292,7 +297,7 @@ else frozen; other pieces moving, and the hole moving, free it again.
   daily set, or random ones up to big jumps, 1 to 3 hops a turn) or think,
   tracks on or off, and whether they eat your pieces (off by default).
 - **Dark pieces:** how many, which kinds (any chess or fairy piece, in dark
-  plum wood), or a mirror of your hand like chess. They think, and they can
+  purple), or a mirror of your hand like chess. They think, and they can
   take your pieces (a switch).
 - **The AI:** skill (random, greedy, two or three moves ahead) and mood
   (flee, balanced, hunt). See the comment at the top of `ai.js` for how it
@@ -375,6 +380,49 @@ horizontal rather than vertical. Notated visually (the plinth colours and
 the pieces moving together) and audially (each step plays its rabbit's
 note). Not yet in the descent; that is the obvious next home for it.
 
+### Hitting the ball
+
+Timothy, 2026-10-07: "find a way for the regular pieces to interact with a
+ball more, as currently in golf/hole level you kind of capture all the
+pieces then move the ball, and it's sort of two separate things. maybe
+having the ball be moved by the pieces, like it's getting hit."
+`ballMove: 'hit'`, "Hit by the pieces" in Chaos:
+
+- The ball never moves by itself. Any piece, **yours or theirs**, that
+  moves into it knocks it on along the line of that move (`knock` in
+  `rules.js`).
+- **The power is how far the hitter came**: the number of steps in its
+  move (the gcd of its two lengths). A rook sliding four squares into it
+  sends it up to four. A king sends it one. A knight sends it one more
+  knight's jump, the same shape as the hit.
+- It stops early against anything. A hit that cannot budge it is not a
+  legal move. Nothing can take it.
+- It sinks in an open hole it rolls over (or, with "Ball must stop on the
+  hole", one it stops on), whoever hit it. A possessed piece of theirs can
+  knock it in for you, or away.
+
+How it works underneath: from either side the ball looks like something to
+capture, so every piece's own moves (sliders stop at it, leapers land on
+it, a cannon can hit it over a screen) work unchanged. Landing on it knocks
+it instead of taking it. On solver-found levels it plays longer (par 6 to
+9 where the putt is 5 to 6), with the pieces and the ball one puzzle
+instead of two. The balance rule "every piece can move at the start"
+skips a hit ball. It is in Chaos and in Go crazy. To try it in a run, set
+it in Chaos and use "Play as a descent".
+
+### Playing Chaos settings as a descent
+
+Timothy, 2026-10-07: "lab settings to include the ability to apply those
+settings to either a new singular board level or a descent, so i can test
+adequately." Next to "Play this level", **Play as a descent** opens the
+descent with the settings in its link (`#lab=...`). Every depth is a new
+layout of those settings. Your first hand is dealt by them and carried down
+after that, and the offers on the way down still happen. It's a test, so
+nothing is kept: neither the deepest depth nor the rabbits you free.
+Autochess settings play as autochess, with the setup panel at each depth;
+rabbits freed on the way down join your rabbits for the rest of the run.
+The panel and the playing-out live in `autosetup.js`, shared by both pages.
+
 ### The solver
 
 `solve.js`. Their side is deterministic (a pattern always hops the same way;
@@ -429,11 +477,15 @@ The thinking dark pieces are still there in the lab ("Moved by: Thinking").
 level that's harder ... see how far you can go."
 
 - Every level is a standard board: about three possessed pieces and a hole.
-  Take every possessed piece and the hole opens; sink the ball, and the
-  floor gives way. On the 3D board the squares fall away into the pit in a
-  ripple out from the hole (seen from above: shrinking into the dark) and
-  your pieces tumble after the ball. Lose
-  the ball, or run out of moves, and the run ends. How deep you got is the
+  Take every possessed piece and the hole opens. Sink the ball and **your
+  pieces follow it down** (Timothy, 2026-10-07): each one hops to the hole
+  and drops in, one after another (`intoHole` in `board3d.js`). Then the
+  fall has a screen of its own (`fall.js`). Your pieces fall in a row
+  through the dark, turning, past rising motes and a slow spiral. The piece
+  you pick on the way joins them from above. When the next board is found,
+  its table rises out of the dark beneath them and each piece lands on the
+  square it starts the next level on. Lose the ball, or run out of moves,
+  and the run ends. How deep you got is the
   score; the deepest you have ever been is kept, and only goes up.
 - **Your pieces go down with you** (Timothy's call). A run starts with the
   ball, a rook, a knight and a bishop; whatever is left when you sink the

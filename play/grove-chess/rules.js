@@ -22,6 +22,7 @@
 
 import { think } from './ai.js';
 import { rng } from '../../engine/seed.js';
+import { betzaMoves } from './betza.js';
 
 const ORTH = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const DIAG = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
@@ -82,7 +83,13 @@ export function look(s, x, y, side = 'you') {
   if (!onBoard(s.day, x, y) || crumbled(s, x, y) || shrunk(s, x, y)) return OFF;
   const bram = isBramble(s, x, y);
   for (const p of s.pieces)
-    if (!p.taken && p.x === x && p.y === y) return side === 'you' ? OWN : bram ? HIDDEN : ENEMY;
+    if (!p.taken && p.x === x && p.y === y) {
+      // A ball that is hit (ballMove 'hit') is something either side can
+      // move into: the move generators see it as a catch, and landing on it
+      // knocks it on instead (knock, below).
+      if (p.type === 'ball' && s.day.rules.ballMove === 'hit') return ENEMY;
+      return side === 'you' ? OWN : bram ? HIDDEN : ENEMY;
+    }
   for (const f of s.foes)
     if (!f.taken && f.x === x && f.y === y) return side === 'foe' ? OWN : bram ? HIDDEN : ENEMY;
   if (s.hole && s.hole.x === x && s.hole.y === y && holeOpen(s)) return HOLE;
@@ -162,6 +169,7 @@ function mao(L, p) {
       except that the ball never takes anything. */
 function ball(L, p, fwd, day) {
   const how = day?.rules?.ballMove || 'ice';
+  if (how === 'hit') return []; // it only moves when something hits it
   if (how === 'bounce') return billiard(L, p, day);
   if (how === 'putt') return putt(L, p, day);
   const out = [], dropsIn = !day?.rules?.ballStops;
@@ -250,82 +258,117 @@ function rose(L, p) {
 
 /**
  * The pieces. `tier` is used when dealing a hand (at most one strong piece);
- * `value` is what the AI thinks a piece is worth.
+ * `value` is what the AI thinks a piece is worth (left as it was, so the
+ * thinking pieces of old levels play as they did).
+ *
+ * `betza` is the piece written in Betza notation (betza.js), its patent:
+ * the codified answer to how it moves, captures, and what it needs. The
+ * pieces from before 2026-10-07 keep their own move code, and a check
+ * proves their notation gives the same moves; the pieces after that are
+ * made from their notation alone.
+ *
+ * `strength` is how strong a piece is in pawns, the way chess players
+ * count (a knight about 3, a rook 5, a queen 9 and a half). The classic
+ * ones are the usual modern values; the fairy ones are estimates from what
+ * fairy chess players have published for them and from their mobility
+ * (betza.js), which docs/grove-pieces.md sets out. Estimates, not truths.
  */
 export const PIECES = {
-  king: { name: 'King', kind: 'classic', tier: 1, value: 3,
+  king: { name: 'King', kind: 'classic', tier: 1, value: 3, betza: 'K', strength: 3,
     desc: 'Steps one square in any direction.',
     moves: (L, p) => leap(L, p, ALL8) },
-  queen: { name: 'Queen', kind: 'classic', tier: 2, value: 9,
+  queen: { name: 'Queen', kind: 'classic', tier: 2, value: 9, betza: 'Q', strength: 9.5,
     desc: 'Slides any distance in a straight line or a diagonal.',
     moves: (L, p) => ride(L, p, ALL8) },
-  rook: { name: 'Rook', kind: 'classic', tier: 1, value: 5,
+  rook: { name: 'Rook', kind: 'classic', tier: 1, value: 5, betza: 'R', strength: 5,
     desc: 'Slides any distance up, down, left or right.',
     moves: (L, p) => ride(L, p, ORTH) },
-  bishop: { name: 'Bishop', kind: 'classic', tier: 1, value: 3,
+  bishop: { name: 'Bishop', kind: 'classic', tier: 1, value: 3, betza: 'B', strength: 3.25,
     desc: 'Slides any distance diagonally.',
     moves: (L, p) => ride(L, p, DIAG) },
-  knight: { name: 'Knight', kind: 'classic', tier: 1, value: 3,
+  knight: { name: 'Knight', kind: 'classic', tier: 1, value: 3, betza: 'N', strength: 3.25,
     desc: 'Jumps in an L, two one way and one to the side, over anything.',
     moves: (L, p) => leap(L, p, KNIGHT) },
-  pawn: { name: 'Pawn', kind: 'classic', tier: 0, value: 1,
+  pawn: { name: 'Pawn', kind: 'classic', tier: 0, value: 1, betza: 'mfWcfF', strength: 1,
     desc: 'Steps one square forward. Can only catch diagonally forward.',
     moves: pawn },
 
-  grasshopper: { name: 'Grasshopper', kind: 'fairy', tier: 1, value: 2.5,
+  grasshopper: { name: 'Grasshopper', kind: 'fairy', tier: 1, value: 2.5, betza: 'gQ', strength: 2,
     desc: 'Travels along any line but must hop over the first thing in its way, landing just beyond it. No hurdle, no move.',
     origin: 'Invented by T. R. Dawson, 1912.',
     moves: grasshopper },
-  nightrider: { name: 'Nightrider', kind: 'fairy', tier: 2, value: 6,
+  nightrider: { name: 'Nightrider', kind: 'fairy', tier: 2, value: 6, betza: 'NN', strength: 5,
     desc: 'A knight that keeps going: repeats the same L jump in a straight line until something stops it.',
     origin: 'T. R. Dawson, 1925.',
     moves: (L, p) => ride(L, p, KNIGHT) },
-  camel: { name: 'Camel', kind: 'fairy', tier: 1, value: 3,
+  camel: { name: 'Camel', kind: 'fairy', tier: 1, value: 3, betza: 'C', strength: 2.5,
     desc: 'A long knight: leaps three one way and one to the side, over anything.',
     origin: 'From Tamerlane chess.',
     moves: (L, p) => leap(L, p, sym(3, 1)) },
-  zebra: { name: 'Zebra', kind: 'fairy', tier: 0, value: 2,
+  zebra: { name: 'Zebra', kind: 'fairy', tier: 0, value: 2, betza: 'Z', strength: 2.25,
     desc: 'Leaps three one way and two to the side, over anything.',
     moves: (L, p) => leap(L, p, sym(3, 2)) },
-  alfil: { name: 'Alfil', kind: 'fairy', tier: 0, value: 1.5,
+  alfil: { name: 'Alfil', kind: 'fairy', tier: 0, value: 1.5, betza: 'A', strength: 1.25,
     desc: 'Leaps exactly two squares diagonally, over anything.',
     origin: '"The elephant" of shatranj, the medieval ancestor of the bishop.',
     moves: (L, p) => leap(L, p, sym(2, 2)) },
-  ferz: { name: 'Ferz', kind: 'fairy', tier: 0, value: 1.5,
+  ferz: { name: 'Ferz', kind: 'fairy', tier: 0, value: 1.5, betza: 'F', strength: 1.5,
     desc: 'Steps one square diagonally.',
     origin: 'The counsellor of shatranj, the ancestor of the queen.',
     moves: (L, p) => leap(L, p, DIAG) },
-  wazir: { name: 'Wazir', kind: 'fairy', tier: 0, value: 1.5,
+  wazir: { name: 'Wazir', kind: 'fairy', tier: 0, value: 1.5, betza: 'W', strength: 1.5,
     desc: 'Steps one square up, down, left or right.',
     origin: 'Named for the vizier.',
     moves: (L, p) => leap(L, p, ORTH) },
-  cannon: { name: 'Cannon', kind: 'fairy', tier: 1, value: 4,
+  cannon: { name: 'Cannon', kind: 'fairy', tier: 1, value: 4, betza: 'mRcpR', strength: 4,
     desc: 'Slides like a rook, but can only catch by jumping exactly one thing on the way.',
     origin: 'From xiangqi, Chinese chess.',
     moves: cannon },
-  mao: { name: 'Mao', kind: 'fairy', tier: 0, value: 2.5,
+  mao: { name: 'Mao', kind: 'fairy', tier: 0, value: 2.5, betza: 'nN', strength: 2.75,
     desc: 'Moves like a knight, but one straight step first. Anything on that first square blocks it.',
     origin: 'The horse of xiangqi.',
     moves: mao },
-  squirrel: { name: 'Squirrel', kind: 'fairy', tier: 1, value: 4,
+  squirrel: { name: 'Squirrel', kind: 'fairy', tier: 1, value: 4, betza: 'NAD', strength: 5,
     desc: 'Leaps to any square exactly two away, over anything.',
     moves: (L, p) => leap(L, p, [...sym(2, 0), ...sym(2, 1), ...sym(2, 2)]) },
-  rose: { name: 'Rose', kind: 'fairy', tier: 1, value: 4.5,
+  rose: { name: 'Rose', kind: 'fairy', tier: 1, value: 4.5, betza: 'qN', strength: 5.5,
     desc: 'Makes knight jumps that curve, each one turning further, tracing a circle. Stops at anything in its path.',
     moves: rose },
-  archbishop: { name: 'Archbishop', kind: 'fairy', tier: 2, value: 7,
+  archbishop: { name: 'Archbishop', kind: 'fairy', tier: 2, value: 7, betza: 'BN', strength: 8.75,
     desc: 'A bishop that can also jump like a knight.',
     origin: 'From Capablanca chess, 1920s.',
     moves: (L, p) => leap(L, p, KNIGHT, ride(L, p, DIAG)) },
 
+  // --- Added 2026-10-07, made from their Betza notation alone. -------------
+  chancellor: { name: 'Chancellor', kind: 'fairy', tier: 2, value: 8, betza: 'RN', strength: 9,
+    desc: 'A rook that can also jump like a knight.',
+    origin: 'From Capablanca chess, the 1920s; earlier, as the "champion" and "marshal", in variants back to the 1600s.',
+    moves: betzaMoves('RN') },
+  amazon: { name: 'Amazon', kind: 'fairy', tier: 2, value: 12, betza: 'QN', strength: 12.5,
+    desc: 'A queen that can also jump like a knight. The strongest piece here.',
+    origin: 'The queen of some 18th-century Russian chess, and the maharaja of the Indian game "The Maharajah and the Sepoys".',
+    moves: betzaMoves('QN') },
+  dabbaba: { name: 'Dabbaba', kind: 'fairy', tier: 0, value: 1.5, betza: 'D', strength: 1.25,
+    desc: 'Leaps exactly two squares up, down, left or right, over anything.',
+    origin: 'The war engine (dabbaba, a covered siege machine) of Tamerlane chess, 14th century.',
+    moves: betzaMoves('D') },
+  silver: { name: 'Silver general', kind: 'fairy', tier: 0, value: 2.5, betza: 'FfW', strength: 2.5,
+    desc: 'Steps one square diagonally, or one square straight forward. It cannot step sideways or straight back.',
+    origin: 'From shogi, Japanese chess, where pieces are wedges that point at the enemy; this one has been in the game since about the 1100s.',
+    moves: betzaMoves('FfW') },
+  lance: { name: 'Lance', kind: 'fairy', tier: 1, value: 3, betza: 'fR', strength: 2.25,
+    desc: 'Slides any distance straight forward, and only forward.',
+    origin: 'The kyōsha, "incense chariot", of shogi.',
+    moves: betzaMoves('fR') },
+
   // Only ever on their side. When it thinks (the AI brain) it moves like a
   // king; when it follows a pattern, the pattern decides.
   // Only ever yours, and only on ball-and-hole levels.
-  ball: { name: 'Ball', kind: 'special', tier: 0, value: 2,
+  ball: { name: 'Ball', kind: 'special', tier: 0, value: 2, betza: null, strength: null,
     desc: 'Rolls up, down, left or right until something stops it. Your other pieces make good walls. Get it into the hole to win.',
     moves: ball },
 
-  rabbit: { name: 'Rabbit', kind: 'quarry', tier: 1, value: 3,
+  rabbit: { name: 'Rabbit', kind: 'quarry', tier: 1, value: 3, betza: 'K', strength: null,
     desc: 'Steps one square in any direction.',
     moves: (L, p) => leap(L, p, ALL8) }
 };
@@ -342,6 +385,7 @@ export const SHRINK_DESC = 'The edge of the board falls away. Every few moves on
 /** The ball, in words, for how it moves on this level (`ballMove`). */
 export function ballDesc(rules) {
   const how = rules?.ballMove || 'ice';
+  if (how === 'hit') return 'Never moves by itself: a piece hits it. Move any piece into the ball and it is knocked on along the line of that move, as many steps as the piece travelled (a rook from four away sends it up to four; a knight sends it one more knight\u2019s jump), stopping early against anything. Their pieces hit it too. Nothing can take it. Knock it into the open hole to win.';
   if (how === 'putt') return 'Rolls up, down, left or right, as far as you like, and stops where you choose. It never takes anything. Get it into the hole to win.';
   if (how === 'bounce') return 'Rolls diagonally, as far as you like, and bounces off the edge of the board, like a billiard ball: the reflecting bishop of Billiards Chess. Like a bishop it keeps to its colour. It never takes anything. Get it into the hole to win.';
   return PIECES.ball.desc;
@@ -401,7 +445,8 @@ const foeLook = (s) => (x, y) => look(s, x, y, 'foe');
 export function movesFor(s, i) {
   const p = s.pieces[i];
   if (s.won || p.taken) return [];
-  return PIECES[p.type].moves(youLook(s), p, 1, s.day);
+  const ms = PIECES[p.type].moves(youLook(s), p, 1, s.day);
+  return s.day.rules.ballMove === 'hit' ? ms.filter((m) => hitOk(s, p, m)) : ms;
 }
 
 /** Where a thinking foe can go. */
@@ -409,6 +454,7 @@ export function foeMovesFor(s, k) {
   const f = s.foes[k];
   if (f.taken || f.brain !== 'ai') return [];
   const ms = PIECES[f.type].moves(foeLook(s), f, -1, s.day);
+  if (s.day.rules.ballMove === 'hit') return ms.filter((m) => hitOk(s, f, m) && (!m.cap || hitBall(s, m.x, m.y) || canTake(s.day.rules, f)));
   return canTake(s.day.rules, f) ? ms : ms.filter((m) => !m.cap);
 }
 
@@ -446,6 +492,8 @@ export function lost(s) {
 
 /** A foe lands on (x, y), taking whatever of yours is there. Mutates. */
 function landFoe(s, f, x, y) {
+  const b = hitBall(s, x, y);
+  if (b) { knock(s, b, f.x, f.y); f.ate = -1; f.from = [f.x, f.y]; f.x = x; f.y = y; f.blocked = false; return; }
   f.ate = s.pieces.findIndex((p) => !p.taken && p.x === x && p.y === y);
   if (f.ate >= 0) s.pieces[f.ate].taken = true;
   f.from = [f.x, f.y]; f.x = x; f.y = y; f.blocked = false;
@@ -465,7 +513,8 @@ function hop(s, f) {
   if (f.y + dy < 0 || f.y + dy >= H) { f.my = -f.my; dy = -dy; }
   f.i = (f.i + 1) % pat.length;
   const tx = f.x + dx, ty = f.y + dy, c = look(s, tx, ty, 'foe');
-  if (c === EMPTY || (c === ENEMY && canTake(s.day.rules, f))) landFoe(s, f, tx, ty);
+  const ball = c === ENEMY && hitBall(s, tx, ty);
+  if (c === EMPTY || (c === ENEMY && canTake(s.day.rules, f) && !ball) || (ball && hitOk(s, f, { x: tx, y: ty }))) landFoe(s, f, tx, ty);
   else { f.from = [f.x, f.y]; f.ate = -1; f.blocked = true; }
 }
 
@@ -501,7 +550,8 @@ function possessedStep(s, f) {
   const tx = f.x + dx, ty = f.y + dy, take = canTake(s.day.rules, f);
   let best = null, bk = null;
   for (const m of PIECES[f.type].moves(foeLook(s), f, -1, s.day)) {
-    if (m.cap && !take) continue;
+    const ball = m.cap && hitBall(s, m.x, m.y);
+    if (ball ? !hitOk(s, f, m) : m.cap && !take) continue;
     const mx = m.x - f.x, my = m.y - f.y;
     if (mx * dx + my * dy <= 0) continue; // not this way
     const key = [(m.x - tx) ** 2 + (m.y - ty) ** 2, mx * mx + my * my, m.y, m.x];
@@ -544,10 +594,55 @@ function foesAct(s) {
   if (s.hole?.pattern && !lost(s)) holeHop(s);
 }
 
+// --- Hitting the ball (ballMove 'hit', 2026-10-07). ---------------------
+// Timothy: "find a way for the regular pieces to interact with a ball more
+// ... maybe having the ball be moved by the pieces, like it's getting hit."
+
+/** Where a hit ball would end up, or null if it cannot budge. A piece
+    moving from (fx, fy) into the ball sends it on along the same line: the
+    move's shape (a knight's L stays an L) as many times as the piece
+    travelled (gcd of the move's two lengths: a rook from four away, four;
+    a knight, one). It stops at anything, and drops into an open hole it
+    passes over (or, with ballStops, only one it stops on). */
+function knockPath(s, b, fx, fy) {
+  const vx = b.x - fx, vy = b.y - fy;
+  const g = gcd(Math.abs(vx), Math.abs(vy)) || 1, sx = vx / g, sy = vy / g;
+  let x = b.x, y = b.y, sunk = false;
+  for (let k = 1; k <= g; k++) {
+    const c = look(s, x + sx, y + sy, 'you');
+    if (c !== EMPTY && c !== HOLE) break;
+    x += sx; y += sy;
+    if (c === HOLE && (!s.day.rules.ballStops || k === g)) { sunk = true; break; }
+  }
+  return x === b.x && y === b.y ? null : { x, y, sunk };
+}
+
+function gcd(a, b) { return b ? gcd(b, a % b) : a; }
+
+/** The ball piece standing on (x, y) on a level where it is hit, if any. */
+function hitBall(s, x, y) {
+  if (s.day.rules.ballMove !== 'hit') return null;
+  return s.pieces.find((p) => !p.taken && p.type === 'ball' && p.x === x && p.y === y) || null;
+}
+
+/** A move (from `p` to `m`) that hits the ball must be able to move it. */
+const hitOk = (s, p, m) => { const b = hitBall(s, m.x, m.y); return !b || !!knockPath(s, b, p.x, p.y); };
+
+/** Knock the ball on from a hit by a piece coming from (fx, fy). Mutates. */
+function knock(s, b, fx, fy) {
+  const to = knockPath(s, b, fx, fy);
+  if (!to) return false;
+  b.from = [b.x, b.y]; b.x = to.x; b.y = to.y;
+  if (to.sunk && holeOpen(s)) s.won = s.sunk = true;
+  return true;
+}
+
 /** Your piece i lands on (x, y): the square it left may crumble, anything
     of theirs there is caught, and the game may be won. Mutates. */
 function landMine(n, i, x, y) {
   const p = n.pieces[i];
+  const hit = hitBall(n, x, y);
+  if (hit && hit !== p) knock(n, hit, p.x, p.y);
   // Crumbling ground: the square you leave falls away behind you.
   if (n.day.rules.crumble) n.gone.push(p.y * n.day.W + p.x);
   p.x = x; p.y = y;
@@ -594,6 +689,7 @@ function mineStep(n, i) {
   const tx = p.x + dx, ty = p.y + dy;
   let best = null, bk = null;
   for (const m of PIECES[p.type].moves(youLook(n), p, 1, n.day)) {
+    if (!hitOk(n, p, m)) continue;
     const mx = m.x - p.x, my = m.y - p.y;
     if (mx * dx + my * dy <= 0) continue; // not this way
     const key = [(m.x - tx) ** 2 + (m.y - ty) ** 2, mx * mx + my * my, -m.y, m.x];

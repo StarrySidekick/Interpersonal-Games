@@ -4,15 +4,24 @@
 
 import { Model } from '../../engine/lowpoly.js';
 
+// The palette every model is built from. Since 2026-10-07 (Timothy: "enemy
+// pieces should be purple, and friendly pieces should be green for now,
+// just clearly distinguish them") the body colours are the side's: green
+// for yours (YOU, below), purple for theirs (FOE). The plinth is the
+// rabbit's: a piece with a rabbit inside stands on a base of its colour;
+// one without stands on plain stone.
 const P = {
-  wood: '#86593a', woodLight: '#a8774d', woodDark: '#563823',
-  moss: '#6f9f46', leaf: '#8cc155', gold: '#e3bd57', cream: '#f4ecd6',
+  wood: '#4f8a3b', woodLight: '#72ad56', woodDark: '#2d5523',   // the body
+  moss: '#d6e8b4', leaf: '#eef6d8',                               // pale trim on the body
+  band: '#c9c1ae', base: '#8d8577',                               // the plinth: stone, or the rabbit's colour
+  gold: '#e3bd57', cream: '#f4ecd6', iron: '#5f6570',
   eye: '#231a16', pink: '#f0a3b2'
 };
+const YOU = { ...P };
 
-/** Every one of your pieces stands on the same mossy plinth, so a strange
-    animal still reads as one of yours. */
-function plinth(m, ring = P.moss, base = P.woodDark) {
+/** Every piece stands on a plinth, so a strange animal still reads as a
+    piece. Its colour is the rabbit's inside it, or stone. */
+function plinth(m, ring = P.band, base = P.base) {
   m.lathe([[3.7, 0], [3.7, 0.8]], base, { seg: 10 });
   m.lathe([[3.3, 0.8], [3.3, 1.5]], ring, { seg: 10 });
   return m;
@@ -91,35 +100,38 @@ const MODELS = {
     m.box(0, 12.3, 0, 2.2, 0.7, 0.7, P.gold);
   }),
 
-  // --- The fairy pieces. Most are named for animals, so they get to be one.
+  // --- The fairy pieces. Each looks like what its name meant when it was
+  // invented (docs/grove-pieces.md), not like the forest: an animal where
+  // the name is an animal, a person or a machine where it was one. The body
+  // is the side's colour, as every piece's is.
 
-  grasshopper() {
-    const m = plinth(new Model()), g = '#5fae3e', dk = '#3f7d2a', lt = '#9bd36a';
-    m.ellipsoid(0, 3.2, -0.2, 1.2, 1.1, 2.8, g);             // body
-    m.box(0, 4.1, -0.6, 1.6, 0.3, 3.6, dk, { rx: 0.12 });     // folded wings
-    m.ellipsoid(0, 3.9, 2.6, 1.15, 1.25, 1.2, lt);          // head
+  grasshopper() { // T. R. Dawson's grasshopper, 1912: named for how it hops
+    const m = plinth(new Model());
+    m.ellipsoid(0, 3.2, -0.2, 1.2, 1.1, 2.8, P.wood);           // body
+    m.box(0, 4.1, -0.6, 1.6, 0.3, 3.6, P.woodDark, { rx: 0.12 }); // folded wings
+    m.ellipsoid(0, 3.9, 2.6, 1.15, 1.25, 1.2, P.woodLight);     // head
     m.ball(0.85, 4.3, 3.0, 0.42, P.eye, { seg: 6, rings: 4 });
     m.ball(-0.85, 4.3, 3.0, 0.42, P.eye, { seg: 6, rings: 4 });
-    for (const s of [1, -1]) {                                // the big hind legs
-      m.box(s * 1.5, 4.4, -0.9, 0.55, 0.7, 3.6, dk, { rx: 0.75 });
-      m.box(s * 1.55, 2.7, -2.1, 0.45, 2.8, 0.45, dk, { rx: -0.25 });
-      m.box(s * 0.5, 5.6, 3.5, 0.14, 0.14, 2.6, dk, { rx: -0.9 }); // antennae
+    for (const s of [1, -1]) {                                    // the big hind legs
+      m.box(s * 1.5, 4.4, -0.9, 0.55, 0.7, 3.6, P.woodDark, { rx: 0.75 });
+      m.box(s * 1.55, 2.7, -2.1, 0.45, 2.8, 0.45, P.woodDark, { rx: -0.25 });
+      m.box(s * 0.5, 5.6, 3.5, 0.14, 0.14, 2.6, P.woodDark, { rx: -0.9 }); // antennae
     }
     return m;
   },
 
-  nightrider() {
-    const m = horse('#3d4a7a', '#232c4f', { muzzle: '#2a3358', eye: P.gold });
+  nightrider() { // a knight that rides on (Dawson, 1925); the stars for its name
+    const m = horse(P.woodDark, P.wood, { muzzle: P.woodDark, eye: P.gold });
     for (const [x, y] of [[-0.9, 11.0], [-0.4, 11.6], [0.3, 11.8], [0.9, 11.5]]) m.box(x, y, -0.2, 0.6, 0.6, 0.6, P.gold);
     return m;
   },
 
-  camel() {
-    const m = plinth(new Model()), c = '#c9a26b', dk = '#9c7a4c';
+  camel() { // the camel of Tamerlane chess
+    const m = plinth(new Model()), c = P.woodLight, dk = P.woodDark;
     for (const [x, z] of [[1.2, 1.5], [-1.2, 1.5], [1.2, -1.5], [-1.2, -1.5]]) m.box(x, 3.2, z, 0.75, 3.4, 0.75, dk);
     m.ellipsoid(0, 5.6, 0, 1.95, 1.5, 2.9, c);              // body
-    m.ellipsoid(0, 7.0, -1.1, 1.15, 1.35, 1.05, c);         // humps
-    m.ellipsoid(0, 7.0, 1.0, 1.15, 1.35, 1.05, c);
+    m.ellipsoid(0, 7.0, -1.1, 1.15, 1.35, 1.05, P.wood);    // humps
+    m.ellipsoid(0, 7.0, 1.0, 1.15, 1.35, 1.05, P.wood);
     m.box(0, 7.4, 2.8, 1.05, 3.2, 1.05, c, { rx: 0.35 });   // neck
     m.ellipsoid(0, 8.9, 3.3, 0.85, 0.75, 1.35, c);          // head
     m.ball(0.65, 9.1, 3.7, 0.24, P.eye, { seg: 5, rings: 3 });
@@ -127,15 +139,15 @@ const MODELS = {
     return m;
   },
 
-  zebra: () => horse('#f1efe6', '#1f1f1f', { muzzle: '#2b2b2b', stripes: '#1f1f1f' }),
+  zebra: () => horse(P.woodLight, P.woodDark, { muzzle: P.woodDark, stripes: P.woodDark }),
 
-  alfil() { // al-fil, "the elephant"
-    const m = plinth(new Model()), g = '#9aa3ad', dk = '#7c858f';
+  alfil() { // al-fil, "the elephant", of shatranj
+    const m = plinth(new Model()), g = P.wood, dk = P.woodDark;
     for (const [x, z] of [[1.4, 1.3], [-1.4, 1.3], [1.4, -1.5], [-1.4, -1.5]]) m.lathe([[0.8, 1.5], [0.8, 4.0]], dk, { seg: 6, at: [x, 0, z] });
     m.ellipsoid(0, 5.5, -0.3, 2.6, 2.2, 2.9, g);            // body
     m.ellipsoid(0, 6.8, 2.3, 1.8, 1.7, 1.5, g);             // head
-    m.ellipsoid(2.0, 6.9, 1.6, 0.3, 1.7, 1.5, '#c7a5a8');   // ears
-    m.ellipsoid(-2.0, 6.9, 1.6, 0.3, 1.7, 1.5, '#c7a5a8');
+    m.ellipsoid(2.0, 6.9, 1.6, 0.3, 1.7, 1.5, P.woodLight); // ears
+    m.ellipsoid(-2.0, 6.9, 1.6, 0.3, 1.7, 1.5, P.woodLight);
     m.box(0, 5.3, 3.6, 0.95, 2.1, 0.95, dk, { rx: 0.2 });   // trunk
     m.box(0, 3.9, 4.0, 0.7, 1.4, 0.7, dk, { rx: 0.5 });
     m.cone(0.8, 5.6, 3.4, 0.28, 1.5, P.cream, { rot: { rx: 1.9 } }); // tusks
@@ -145,42 +157,50 @@ const MODELS = {
     return m;
   },
 
-  ferz() { // drawn as an acorn
+  ferz() {
+    // The fers, firzan, the shah's counsellor in shatranj, and the piece the
+    // queen grew out of. Early Islamic sets made their pieces abstract: the
+    // counsellor was a smaller turned drum than the shah's, with a dome.
     const m = plinth(new Model());
-    m.lathe([[0.6, 1.5], [1.8, 2.3], [2.3, 3.9], [2.2, 5.5], [1.9, 6.2]], '#c98b45', { seg: 10 });
-    m.lathe([[2.5, 5.9], [2.7, 6.8], [2.1, 7.8], [0.7, 8.3]], ['#6b4a2c', '#5a3d24', '#6b4a2c'], { seg: 10 });
-    m.lathe([[0.35, 8.2], [0.3, 9.4]], '#5a3d24', { seg: 5 });
+    m.lathe([[2.5, 1.5], [2.1, 2.4], [1.7, 4.6], [2.1, 5.2], [2.1, 5.6]], [P.wood, P.wood, P.moss, P.wood]);
+    m.lathe([[2.1, 5.6], [1.9, 6.6], [1.2, 7.6], [0.0, 8.0]], P.woodLight, { seg: 10 });
+    m.ball(0, 8.4, 0, 0.55, P.gold, { seg: 6, rings: 4 });
     return m;
   },
 
-  wazir() { // drawn as a toadstool
+  wazir() {
+    // The vizier: wazir is the Arabic word, and Tamerlane chess had a vizier
+    // that moved one square straight. A turned body under a wound turban.
     const m = plinth(new Model());
-    m.lathe([[1.3, 1.5], [1.1, 4.5], [1.25, 5.5]], P.cream, { seg: 8 });
-    m.lathe([[3.7, 5.3], [3.6, 6.0], [2.8, 7.3], [1.2, 8.2], [0, 8.4]], '#d2473b', { seg: 10 });
-    for (const [x, y, z] of [[1.8, 7.2, 1.2], [-1.5, 7.3, -1.4], [0.2, 8.15, 0.3], [-2.5, 6.4, 1.3], [2.5, 6.4, -1.4], [0.4, 6.7, 2.7]])
-      m.ellipsoid(x, y, z, 0.5, 0.25, 0.5, P.cream, { seg: 6, rings: 3 });
+    m.lathe([[2.4, 1.5], [1.6, 3.0], [1.3, 5.6], [1.7, 6.1]], [P.wood, P.wood, P.wood]);
+    m.ellipsoid(0, 6.6, 0.45, 1.0, 0.9, 0.9, P.woodLight);                 // face, under the turban
+    m.ellipsoid(0, 8.0, 0, 2.1, 1.0, 2.1, P.cream, { seg: 10 });          // the turban's wrap
+    m.ellipsoid(0, 8.8, 0, 1.6, 0.9, 1.6, P.cream, { seg: 10 });
+    m.ellipsoid(0, 9.5, 0, 0.9, 0.7, 0.9, P.moss, { seg: 8 });
+    m.ball(0, 8.4, 1.95, 0.35, P.gold, { seg: 5, rings: 3 });            // the jewel
     return m;
   },
 
-  cannon() {
-    const m = plinth(new Model()), iron = '#5f6570';
+  cannon() { // pao, the cannon of xiangqi (once a catapult), on a xiangqi disc
+    const m = plinth(new Model());
+    m.lathe([[3.75, 0], [3.75, 0.82]], P.cream, { seg: 10 });
     m.box(0, 2.9, 0, 2.6, 1.8, 4.4, P.wood);                // carriage
     for (const s of [1, -1])                                  // wheels
       m.lathe([[2.2, -0.4], [2.2, 0.4]], P.woodDark, { seg: 8, at: [s * 1.9, 3.4, -0.3], rot: { rz: Math.PI / 2 } });
     const aim = { at: [0, 5.2, 0], rot: { rx: Math.PI / 2 - 0.45 } };
-    m.lathe([[1.7, -3.0], [1.55, 0], [1.25, 3.0], [1.5, 3.2], [1.5, 3.8]], iron, { seg: 8, ...aim });
+    m.lathe([[1.7, -3.0], [1.55, 0], [1.25, 3.0], [1.5, 3.2], [1.5, 3.8]], P.iron, { seg: 8, ...aim });
     m.lathe([[0.85, 3.81], [0.85, 3.86]], '#16171a', { seg: 8, ...aim });
     return m;
   },
 
-  mao() { // the horse of xiangqi, red lacquer on a cream disc
-    const m = horse('#b5372f', P.gold, { muzzle: '#7d211b', eye: P.cream });
+  mao() { // the horse of xiangqi, on a xiangqi disc
+    const m = horse(P.wood, P.gold, { muzzle: P.woodDark, eye: P.cream });
     m.lathe([[3.75, 0], [3.75, 0.82]], P.cream, { seg: 10 });
     return m;
   },
 
-  squirrel() {
-    const m = plinth(new Model()), o = '#c56a2c', lt = '#e08f4f';
+  squirrel() { // a modern leaper, named for an animal as leapers are
+    const m = plinth(new Model()), o = P.wood, lt = P.woodLight;
     m.ellipsoid(0, 3.7, 0.5, 1.5, 2.0, 1.4, o);             // body
     m.ellipsoid(0, 3.4, 1.4, 1.0, 1.4, 0.7, P.cream);       // belly
     m.ellipsoid(0, 6.3, 1.1, 1.3, 1.2, 1.3, o);             // head
@@ -193,11 +213,11 @@ const MODELS = {
     return m;
   },
 
-  rose() {
-    const m = plinth(new Model()), red = '#c8324a', deep = '#962238';
-    m.lathe([[0.35, 1.5], [0.3, 7.4]], '#4f8a35', { seg: 5 });
-    m.ellipsoid(1.2, 4.0, 0, 1.2, 0.25, 0.6, P.leaf, { rot: { rz: 0.5 } });
-    m.ellipsoid(-1.1, 5.3, 0, 1.2, 0.25, 0.6, P.leaf, { rot: { rz: -0.5 } });
+  rose() { // named for the flower its circling path draws
+    const m = plinth(new Model()), red = P.woodLight, deep = P.woodDark;
+    m.lathe([[0.35, 1.5], [0.3, 7.4]], P.woodDark, { seg: 5 });
+    m.ellipsoid(1.2, 4.0, 0, 1.2, 0.25, 0.6, P.wood, { rot: { rz: 0.5 } });
+    m.ellipsoid(-1.1, 5.3, 0, 1.2, 0.25, 0.6, P.wood, { rot: { rz: -0.5 } });
     m.lathe([[0.6, 7.0], [1.9, 8.0], [2.4, 9.4], [2.1, 10.3]], red, { seg: 8 });
     m.ellipsoid(0, 10.0, 0, 1.6, 1.0, 1.6, deep);
     for (let k = 0; k < 5; k++) {
@@ -207,11 +227,74 @@ const MODELS = {
     return m;
   },
 
-  archbishop: () => bishopShape('#6a4a8c', P.gold, (m) => {
-    m.box(1.0, 11.6, -0.3, 0.5, 1.2, 0.5, '#6a4a8c', { rz: -0.3 }); // horse ears
-    m.box(-1.0, 11.6, -0.3, 0.5, 1.2, 0.5, '#6a4a8c', { rz: 0.3 });
+  archbishop: () => bishopShape(P.woodDark, P.gold, (m) => { // Capablanca's bishop-knight
+    m.box(1.0, 11.6, -0.3, 0.5, 1.2, 0.5, P.woodDark, { rz: -0.3 }); // horse ears
+    m.box(-1.0, 11.6, -0.3, 0.5, 1.2, 0.5, P.woodDark, { rz: 0.3 });
+  }),
+
+  // --- Added 2026-10-07. --------------------------------------------------
+
+  chancellor() { // Capablanca's rook-knight: a tower with a horse's head
+    const m = plinth(new Model());
+    m.lathe([[2.8, 1.5], [2.2, 3.0], [2.1, 4.2], [2.1, 4.8], [2.1, 7.0], [2.8, 7.6], [2.8, 8.4]], [P.wood, P.wood, P.moss, P.wood, P.wood, P.wood]);
+    m.group({ t: [0, 9.6, 0.3], rx: 0.3 }, () => {
+      m.box(0, 0, 0, 2.2, 2.0, 3.6, P.woodLight);              // head
+      m.box(0, -0.2, 1.7, 1.9, 1.5, 0.7, P.woodDark);          // muzzle
+      m.box(0, 1.1, -1.5, 0.7, 2.0, 0.7, P.woodDark);          // mane
+    });
+    m.box(0.7, 11.3, -0.2, 0.5, 1.0, 0.5, P.woodLight);        // ears
+    m.box(-0.7, 11.3, -0.2, 0.5, 1.0, 0.5, P.woodLight);
+    return m;
+  },
+
+  amazon: () => queenShape((m) => { // the queen with a knight's jump: crowned, and horse-headed
+    for (let k = 0; k < 6; k++) {
+      const a = (k / 6) * Math.PI * 2;
+      m.cone(Math.cos(a) * 1.9, 10.1, Math.sin(a) * 1.9, 0.6, 1.4, P.leaf, { seg: 5 });
+    }
+    m.group({ t: [0, 12.0, 0.4], rx: 0.35 }, () => {
+      m.box(0, 0, 0, 2.0, 1.9, 3.2, P.woodLight);
+      m.box(0, -0.2, 1.5, 1.7, 1.4, 0.6, P.woodDark);
+    });
+    m.box(0.6, 13.4, -0.1, 0.45, 0.9, 0.45, P.gold);
+    m.box(-0.6, 13.4, -0.1, 0.45, 0.9, 0.45, P.gold);
+  }),
+
+  dabbaba() { // the dabbaba, a covered siege engine: a shed on wheels with a ram
+    const m = plinth(new Model());
+    for (const [x, z] of [[1.9, 1.6], [-1.9, 1.6], [1.9, -1.6], [-1.9, -1.6]])
+      m.lathe([[1.0, -0.3], [1.0, 0.3]], P.woodDark, { seg: 8, at: [x, 2.5, z], rot: { rz: Math.PI / 2 } });
+    m.box(0, 4.2, 0, 3.4, 2.4, 4.6, P.wood);                   // the shed
+    m.box(0.95, 6.3, 0, 1.4, 0.4, 4.8, P.woodLight, { rz: -0.6 }); // its pitched roof
+    m.box(-0.95, 6.3, 0, 1.4, 0.4, 4.8, P.woodLight, { rz: 0.6 });
+    m.lathe([[0.55, 0], [0.55, 3.6]], P.woodDark, { seg: 6, at: [0, 4.0, 1.4], rot: { rx: Math.PI / 2 } }); // the ram
+    m.box(0, 4.0, 5.1, 1.3, 1.3, 0.5, P.iron);
+    return m;
+  },
+
+  silver: () => shogi((m) => { // a silver general: a wedge with a silver mark
+    m.box(0, 5.2, 0.75, 1.3, 1.3, 0.12, '#c9ccd2', { rz: Math.PI / 4 });
+    m.box(0, 3.4, 0.75, 1.9, 0.35, 0.12, '#c9ccd2');
+  }),
+
+  lance: () => shogi((m) => { // a lance, the incense chariot: a wedge marked with a spear
+    m.box(0, 4.0, 0.75, 0.3, 4.4, 0.12, P.cream);
+    m.box(0, 6.5, 0.75, 0.9, 0.9, 0.12, P.cream, { rz: Math.PI / 4 });
   })
 };
+
+/** A shogi piece: a five-sided wooden wedge that leans back, its point
+    toward the enemy. `mark` paints its face. */
+function shogi(mark) {
+  const m = plinth(new Model());
+  m.group({ t: [0, 1.5, 0], rx: -0.12 }, () => {
+    m.box(0, 3.2, 0, 4.0, 5.6, 1.4, P.woodLight);             // the body
+    m.box(0, 6.5, 0, 2.9, 2.9, 1.4, P.woodLight, { rz: Math.PI / 4 }); // the point
+    m.box(0, 3.2, -0.05, 4.1, 5.6, 1.3, P.woodDark);          // its back
+    mark(m);
+  });
+  return m;
+}
 
 // --- Not yours. ------------------------------------------------------------
 
@@ -308,10 +391,10 @@ MODELS.shrink = () => {
   return m;
 };
 
-// Their pieces: the same shapes in dark plum wood on a berry-red plinth, so a
-// bishop of theirs never looks like a bishop of yours. The builders read the
-// palette when they run, so swapping it for the length of one build is enough.
-const FOE = { wood: '#4f3c58', woodLight: '#6f5880', woodDark: '#2c2131', moss: '#b8435a', leaf: '#de6f82' };
+// Their pieces: the same shapes in purple, so nothing of theirs looks like
+// anything of yours. The builders read the palette when they run, so
+// swapping it for the length of one build is enough.
+const FOE = { wood: '#6c4795', woodLight: '#9170bd', woodDark: '#3b2558', moss: '#e3d3f2', leaf: '#f1e7fa' };
 
 function withPalette(over, build) {
   const saved = { ...P };
@@ -336,17 +419,12 @@ export function model(kind, side = 'you', fur = null, glow = null) {
     if (!cache.has(key)) cache.set(key, MODELS.rabbit(fur));
     return cache.get(key);
   }
-  if (side === 'foe' && glow) {
-    const key = `${kind}:foe:${glow}`;
-    if (!cache.has(key)) cache.set(key, withPalette({ ...FOE, moss: glow, leaf: glow }, MODELS[kind]));
-    return cache.get(key);
+  const key = `${kind}:${side}:${glow || ''}`;
+  if (!cache.has(key)) {
+    // The rabbit inside colours the whole plinth: its fur on the band, a
+    // darker shade of it underneath.
+    const plinthOf = glow ? { band: glow, base: shade(glow, 0.62) } : {};
+    cache.set(key, withPalette({ ...(side === 'foe' ? FOE : YOU), ...plinthOf }, MODELS[kind]));
   }
-  if (glow) {
-    const key = `${kind}:you:${glow}`;
-    if (!cache.has(key)) cache.set(key, withPalette({ moss: glow, leaf: glow }, MODELS[kind]));
-    return cache.get(key);
-  }
-  const key = side === 'foe' ? kind + ':foe' : kind;
-  if (!cache.has(key)) cache.set(key, key.endsWith(':foe') ? withPalette(FOE, MODELS[kind]) : MODELS[kind]());
   return cache.get(key);
 }

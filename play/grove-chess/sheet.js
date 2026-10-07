@@ -7,6 +7,19 @@ import { Mesh, makeTarget, render } from '../../engine/lowpoly.js';
 import { model } from './models.js';
 import { PIECES, descOf, rabbitDesc, RABBIT_AI_DESC, BRAMBLE_DESC, STUMP_DESC, HOLE_DESC, CRUMBLE_DESC, SHRINK_DESC, LOCKED_DESC } from './rules.js';
 import { diagram } from './board.js';
+import { patent } from './betza.js';
+
+/** A piece's patent, in two short lines: its Betza notation with what that
+    means, and its strength. */
+export function patentLines(type) {
+  const P = PIECES[type];
+  if (!P?.betza) return [];
+  const t = patent(P.betza);
+  return [
+    `Betza ${t.code}: ${t.shapes.join('; ')}. It ${t.travel}, and captures ${t.captures}${t.notes.length ? `; it ${t.notes.join(', ')}` : ''}.`,
+    P.strength ? `Strength: about ${P.strength} pawns.` : null
+  ].filter(Boolean);
+}
 
 /**
  * Wire a <dialog> up as the pieces menu for `day`. `notes.rabbit` adds a line
@@ -33,7 +46,7 @@ export function piecesSheet(dialog, list, day, notes = {}) {
     head('Yours');
     for (const type of new Set(day.pieces.map((p) => p.type))) {
       const P = PIECES[type];
-      row(type, 'you', P.name, P.kind === 'fairy' ? 'Fairy piece' : P.kind === 'special' ? 'Special' : 'Classic', [descOf(type, day.rules), P.origin], true);
+      row(type, 'you', P.name, P.kind === 'fairy' ? 'Fairy piece' : P.kind === 'special' ? 'Special' : 'Classic', [descOf(type, day.rules), P.origin, ...patentLines(type)], true);
     }
     if (day.hole) {
       head('The goal');
@@ -52,7 +65,7 @@ export function piecesSheet(dialog, list, day, notes = {}) {
           [f.brain === 'ai' ? RABBIT_AI_DESC : rabbitDesc(day.rules), f.brain === 'ai' ? null : notes.rabbit], f.brain === 'ai');
       } else {
         const P = PIECES[f.type];
-        row(f.type, 'foe', P.name, 'Theirs, and it thinks', [P.desc, P.origin], true);
+        row(f.type, 'foe', P.name, f.brain === 'possessed' ? 'Theirs, with a rabbit inside' : 'Theirs, and it thinks', [P.desc, P.origin, ...patentLines(f.type)], true);
       }
     }
     if (day.rules.crumble || day.rules.shrink || day.bramble.length || day.stumps.size) head('On the board');
@@ -65,7 +78,9 @@ export function piecesSheet(dialog, list, day, notes = {}) {
       [BRAMBLE_DESC, `It grows one square every ${day.every} move${day.every > 1 ? 's' : ''}. The faint thorns show where it goes next.`]);
     if (day.stumps.size) row('stump', 'you', 'Stump', notes.when || 'Today', [STUMP_DESC]);
     list.append(el('p', { class: 'small dim' },
-      'Fairy pieces are invented chess pieces, some centuries old. In the diagrams: gold squares are moves, coral is a catch, brown is something in the way.'));
+      'Fairy pieces are invented chess pieces, some centuries old. In the diagrams: gold squares are moves, coral is a catch, brown is something in the way.'),
+      el('p', { class: 'small dim' },
+        'Betza notation is how fairy chess writes a piece down: a letter for each shape of jump (W one step straight, F one step diagonally, N a knight\u2019s L, D and A two steps), doubled to slide (WW is a rook), with small letters for the rest (m moves only, c captures only, p hops a screen, g hops like a grasshopper, n can be blocked, f forward only).'));
   }
 
   function spin(ts) {

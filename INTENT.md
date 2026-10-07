@@ -143,6 +143,26 @@ Then, on 2026-10-07:
   on the top, "for the most part". Built: the default in Chaos and in the
   descent.
 
+Later on 2026-10-07, more notes. Each with what became of it:
+
+- **The fall between depths**: your pieces go down the hole after the
+  ball, then a screen of them falling, then landing on the next table.
+  Built.
+- **Purple against green**, and the rabbit inside colours the base.
+  Built, for every piece.
+- **Five more fairy pieces, and models true to history, not the forest.**
+  Built: chancellor, amazon, dabbaba, silver general, lance; the ferz and
+  wazir remodelled (an acorn and a toadstool were theming). In
+  [`docs/grove-pieces.md`](docs/grove-pieces.md).
+- **A strength score for every piece**, used to match the two pieces
+  offered in the descent. Built (estimates, set out in the same doc).
+- **Chaos settings as one board or a whole descent.** Built: "Play as a
+  descent".
+- **The pieces and the ball interacting**: the ball gets hit. Built as a
+  Chaos setting, "Hit by the pieces", not yet the default anywhere.
+- **Patents for pieces**: Betza notation, the established system, with
+  every piece written in it and new pieces made from it. Built.
+
 ## 2026-10-05: the front door is asynchronous, and it is a group
 
 Recorded from Timothy's own description. **Where this section disagrees with

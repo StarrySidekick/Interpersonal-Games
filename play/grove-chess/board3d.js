@@ -457,6 +457,18 @@ export class Board3D extends Board {
       }
       if (tw?.piece?.i === i) ({ x, y } = tweenPos(tw.piece, at));
       if (tw?.mine?.[i]) { const q = tweenPos(tw.mine[i], at); x = q.x; y = q.y; h += Math.sin(Math.PI * q.k) * (tw.mine[i].blocked ? 1.2 : 2.5); }
+      // Down the hole after the ball: hop to it, then drop in and shrink away.
+      const into = tw?.into?.find((d) => d.i === i);
+      if (into) {
+        const k = (at - into.t0) / into.dur;
+        if (k >= 1) return;
+        if (k > 0) {
+          const hop = Math.min(1, k / 0.6), e = hop * hop * (3 - 2 * hop);
+          x = into.from[0] + (tw.intoHole[0] - into.from[0]) * e; y = into.from[1] + (tw.intoHole[1] - into.from[1]) * e;
+          h += Math.sin(Math.PI * hop) * 4;
+          if (k > 0.6) { const d = (k - 0.6) / 0.4; h -= d * d * 9; o = { ...o, s: Math.max(0.02, 1 - d * 0.9), ry: d * 3 }; }
+        }
+      }
       if (this.landing) { const l = this.landing(i, at); if (l === null) return; h += l * LIFT; }
       if (collapse && !(s.sunk && p.type === 'ball')) {
         // Falling, from above: tipping over and shrinking away.
@@ -594,6 +606,23 @@ export class Board3D extends Board {
   /** The floor gives way: the squares drop into the dark in a ripple out
       from the hole, and your pieces and the ball fall with them. Resolves
       when they are gone. */
+  /** After the ball: every piece of yours still on the board goes to the
+      hole, one after another, and down it (Timothy, 2026-10-07). The
+      separate fall screen (fall.js) takes over from there. */
+  async intoHole() {
+    const s = this.shown, hole = s?.hole;
+    if (!s || !hole) return;
+    const t0 = performance.now(), into = [];
+    s.pieces.forEach((p, i) => {
+      if (p.taken || p.type === 'ball') return;
+      into.push({ i, from: [p.x, p.y], t0: t0 + 250 + into.length * 330, dur: 760 });
+    });
+    this.tw = { poofs: [], foes: {}, tumbles: [], leaves: [], into, intoHole: [hole.x, hole.y] };
+    into.forEach((d) => sfx.hop(hole.x - d.from[0], hole.y - d.from[1], (d.t0 - t0) / 1000, (d.t0 - t0 + d.dur * 0.6) / 1000));
+    const end = into.length ? into[into.length - 1].t0 + into[into.length - 1].dur : t0 + 400;
+    await this.runUntil(end + 250);
+  }
+
   async collapse() {
     const s = this.shown, hx = s?.hole?.x ?? this.day.W / 2, hy = s?.hole?.y ?? this.day.H / 2;
     const t0 = performance.now(), rand = rng(`collapse:${t0}`), jitter = new Map();

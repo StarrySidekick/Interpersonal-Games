@@ -1,6 +1,13 @@
 // The Descent's page: a run of levels, each one found by the solver on a
 // background thread while you play the one above it. What each depth is made
 // of is in ../descent.js; this file plays them and keeps score.
+//
+// Opened with Chaos settings in its link (#lab=..., Chaos's "Play as a
+// descent"), it is a test descent: every depth is a new layout of those
+// settings, your pieces carry down as ever, and nothing is kept, neither
+// the deepest depth nor the rabbits (Timothy, 2026-10-07: "apply those
+// settings to either a new singular board level or a descent, so I can
+// test adequately"). Autochess settings play as autochess.
 
 import { $, el, show, haptic, keepAwake, themeToggle } from '../../../engine/ui.js';
 import { soundToggle } from '../../../engine/sound.js';
@@ -14,12 +21,16 @@ import {
 import { Board, scene, sceneFrame, sprite, diagram } from '../board.js';
 import { piecesSheet } from '../sheet.js';
 import { playIntro } from '../intro.js';
-import { makeLevel, searchLayouts } from '../lab.js';
+import { makeLevel, searchLayouts, decodeLevel, clean, rabbitPool, GOAL_PILL, summary } from '../lab.js';
+import { setupPanel, setupState, playOut } from '../autosetup.js';
 import { depthSettings, loadDescent, saveDescent, START_HAND, HAND_MAX, offersFor } from '../descent.js';
 import { FUR, FUR_WORD, caughtRabbits, recordCatch } from '../rabbits.js';
 import { makeBoard } from '../board3d.js';
+import { startFall } from '../fall.js';
 
 const rec = loadDescent();
+// A test descent, from Chaos: its settings, or null for the real thing.
+const test = decodeLevel(location.hash)?.settings || null;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const status = (t) => { $('#status').textContent = t; };
@@ -30,7 +41,8 @@ const info = (t) => { $('#info').textContent = t; };
 let run = null;
 
 function newRun() {
-  run = { seed: 1 + Math.floor(Math.random() * 1e6), depth: 1, hand: START_HAND.slice(), caught: [], seen: new Set(), found: new Map() };
+  // A test descent deals its first hand from the Chaos settings.
+  run = { seed: 1 + Math.floor(Math.random() * 1e6), depth: 1, hand: test ? null : START_HAND.slice(), caught: [], seen: new Set(), found: new Map() };
 }
 
 /** The level for `depth` of this run, for the pieces you are carrying, found
@@ -39,10 +51,11 @@ function newRun() {
     ready by the time you fall into it; lose a piece and the next level is
     found again for what is left. */
 function find(depth, hand = run.hand) {
-  const key = `${depth}|${hand.join(',')}`;
+  const key = `${depth}|${hand ? hand.join(',') : 'dealt'}`;
   if (run.found.has(key)) return run.found.get(key);
-  const settings = depthSettings(depth, rng(`descent:${run.seed}:${depth}`), hand);
-  const msg = { settings, seed: run.seed + depth * 1000, parMin: settings.parMin, parMax: settings.parMax, maxMs: 20000 };
+  const settings = test ? clean({ ...test, ...(hand ? { hand } : {}) }) : depthSettings(depth, rng(`descent:${run.seed}:${depth}`), hand);
+  const msg = { settings, seed: run.seed + depth * 1000, parMin: settings.parMin, parMax: settings.parMax, maxMs: 20000,
+    pool: rabbitPool(settings, myRabbits(), 8) };
   const p = new Promise((resolve) => {
     const done = (data) => {
       if (data.type === 'progress') return;
@@ -69,6 +82,14 @@ const offersAt = (depth, hand = run.hand) => (depth > 1 && hand.length < HAND_MA
 // pieces move alike. (The daily keeps its colours until you have earned them.)
 
 let known = caughtRabbits();
+/** The rabbits you can put in pieces in autochess: your collection, and
+    the ones freed on this run (which a test run does not keep). */
+function myRabbits() {
+  const out = { ...caughtRabbits() };
+  if (test && run) for (const n of run.caught) out[n] = (out[n] || 0) + 1;
+  return out;
+}
+const isAuto = () => level?.settings.mode === 'auto';
 const furOf = (f) => ((f.brain === 'pattern' || f.brain === 'possessed') && FUR[f.patternName]) || null;
 
 // --- Playing a level. ------------------------------------------------------
@@ -90,6 +111,12 @@ function hud() {
 /** The last card of the opening: the goal on the first level, and the dark
     pieces the first time they turn up. Nothing after that. */
 function goalCard() {
+  if (test) {
+    if (run.seen.has('goal')) return null;
+    run.seen.add('goal');
+    return { kind: 'flag', side: 'you', title: 'Chaos, all the way down',
+      text: `Every depth is a new layout of your Chaos settings. ${GOAL_PILL[level.goalKind] || 'Win'} to fall to the next one; your pieces come with you, and nothing here is kept.` };
+  }
   if (!run.seen.has('goal')) {
     run.seen.add('goal');
     return { kind: 'flag', side: 'you', title: 'Catch them, then the ball',
@@ -110,11 +137,12 @@ function goalCard() {
 
 async function startLevel() {
   const found = await find(run.depth);
+  level = makeLevel(found.settings, found.seed);
+  if (!run.hand) run.hand = level.pieces.map((p) => p.type); // a test run's first hand, as dealt
   // The next one down, found while you play this one: one for each piece
   // you might pick on the way.
   const next = offersAt(run.depth + 1);
   if (next) next.forEach((k) => find(run.depth + 1, [...run.hand, k])); else find(run.depth + 1);
-  level = makeLevel(found.settings, found.seed);
   par = found.par;
   known = caughtRabbits();
   game = { states: [initialState(level)], moves: [] };
@@ -141,15 +169,58 @@ async function startLevel() {
   busy = true;
   await playIntro(board, level, { section: $('[data-screen=play]'), seen: run.seen, goal: goalCard() });
   busy = false;
+  if (test) $('#goalpill').textContent = GOAL_PILL[level.goalKind] || 'Win';
+  if (isAuto()) return setUp();
+  $('#controls').hidden = false;
   const n = level.foes.filter((f) => f.target).length;
-  status(`Depth ${run.depth}. Catch ${n > 1 ? `all ${n}` : 'it'}, then sink the ball.`);
+  status(test ? `Depth ${run.depth}. ${GOAL_PILL[level.goalKind] || 'Win'}.` : `Depth ${run.depth}. Catch ${n > 1 ? `all ${n}` : 'it'}, then sink the ball.`);
   select(null);
 }
+
+// --- Autochess (test descents with autochess settings). --------------------
+
+let panel = null;
+
+function setUp() {
+  const pool = rabbitPool(level.settings, myRabbits(), level.pieces.length);
+  panel = setupPanel({ tray: $('#tray'), slots: $('#slots'), level, pool, onChange: (list) => {
+    game.states = [setupState(level, list)];
+    $('#go').disabled = !list.some((u) => u.rabbit);
+    draw();
+  } });
+  $('#controls').hidden = true;
+  $('#setup').hidden = false;
+  status(Object.keys(pool).length ? `Depth ${run.depth}. Set up your line, then let them go.` : 'You have no rabbits yet.');
+  info(Object.keys(pool).length ? '' : 'Catch rabbits in the descent (or the daily), or set "Your rabbits" to every named kind in Chaos.');
+  panel.paint();
+}
+
+$('#go').onclick = async () => {
+  if (busy) return;
+  busy = true;
+  $('#setup').hidden = true;
+  game = { states: [setupState(level, panel.setup())], moves: [] };
+  status('Off they go.'); info('');
+  draw();
+  await playOut({ board, level, states: game.states, moves: game.moves, setShown: (s) => { shown = s; },
+    onTurn: (a, b) => {
+      const first = noteCatches(a, b);
+      hud();
+      if (b.won || b.pieces.some((p, i) => p.taken && !a.pieces[i].taken)) haptic(b.won ? [20, 40, 30] : [40, 30, 40]);
+      if (!isOver(b)) status(whatHappened(a, b, { p: 0 }, first));
+    } });
+  busy = false;
+  const end = now();
+  if (end.won) return descend();
+  over(end);
+};
+$('#clearsetup').onclick = () => panel?.clear();
+$('#setuppieces').onclick = () => openSheet?.();
 
 function select(i) {
   sel = i;
   legal = i == null ? [] : movesFor(now(), i);
-  if (i == null) info(holeOpen(now()) ? 'The hole is open. Roll the ball in.' : 'Tap a piece to light up where it can go. The hole opens once every rabbit is caught.');
+  if (i == null) info(!now().hole ? 'Tap a piece to light up where it can go.' : holeOpen(now()) ? (level.rules.ballMove === 'hit' ? 'The hole is open. Hit the ball in.' : 'The hole is open. Roll the ball in.') : 'Tap a piece to light up where it can go. The hole opens once every rabbit is caught.');
   else {
     const type = now().pieces[i].type;
     info(`${PIECES[type].name}: ${descOf(type, now().day.rules)}${legal.length ? '' : ' It has nowhere to go right now.'}`);
@@ -165,7 +236,7 @@ function noteCatches(a, b) {
     if ((f.type !== 'rabbit' && f.brain !== 'possessed') || !f.taken || a.foes[k].taken) return;
     if (f.patternName && FUR[f.patternName]) {
       run.caught.push(f.patternName);
-      if (recordCatch(f.patternName)) first = f.patternName;
+      if (!test && recordCatch(f.patternName)) first = f.patternName;
     }
   });
   known = caughtRabbits();
@@ -216,6 +287,7 @@ $('#board').addEventListener('click', (e) => {
   if (!board || busy || isOver(now())) return;
   const c = board.cellAt(e);
   if (!c) return;
+  if (isAuto()) { if (!$('#setup').hidden) panel.pickAt(c.x, c.y); return; }
   const { x, y } = c, s = now();
   if (sel != null) {
     const m = legal.find((m) => m.x === x && m.y === y);
@@ -244,18 +316,21 @@ async function descend() {
   run.hand = now().pieces.filter((p) => !p.taken).map((p) => p.type);
   run.hand.sort((a, b) => (a === 'ball' ? -1 : b === 'ball' ? 1 : 0));
   run.depth++;
-  rec.best = Math.max(rec.best, run.depth);
-  saveDescent(rec);
-  status('The ball drops, and the floor goes with it.');
+  if (!test) { rec.best = Math.max(rec.best, run.depth); saveDescent(rec); }
+  status('The ball drops, and your pieces follow it down.');
   if (!calm()) {
     await sleep(450);
-    // The floor gives way and your pieces fall with the ball (board3d.js);
-    // the flat board just drops off the screen.
-    if (board.collapse) await board.collapse();
+    // Your pieces go to the hole and down it, one by one (board3d.js); the
+    // flat board just drops off the screen.
+    if (board.intoHole) await board.intoHole();
     else await board.el.animate([{ transform: 'none', opacity: 1 }, { transform: 'translateY(110vh)', opacity: 0.5 }],
       { duration: 900, easing: 'cubic-bezier(.55, 0, 1, .45)' }).finished.catch(() => {});
   }
   show('fall');
+  // Then the fall itself, on its own screen (fall.js): your pieces in the
+  // dark, until the next table comes up under them.
+  const fall = calm() ? null : startFall($('#fallcv'), run.hand);
+  $('#fallcv').hidden = !fall;
   $('#fallnote').textContent = `Depth ${run.depth}`;
   $('#depthpill').textContent = `Depth ${run.depth}`;
   $('#fallsub').textContent = '';
@@ -263,13 +338,20 @@ async function descend() {
   const offers = offersAt(run.depth);
   if (offers) {
     offers.forEach((k) => find(run.depth, [...run.hand, k])); // both found while you choose
-    run.hand.push(await choose(offers));
+    const k = await choose(offers);
+    run.hand.push(k);
+    fall?.add(k);
   }
   const t0 = performance.now();
   const slow = setTimeout(() => { $('#fallsub').textContent = 'Still falling. The next board is being found.'; }, 1500);
-  await find(run.depth);
+  const found = await find(run.depth);
   clearTimeout(slow);
-  await sleep(Math.max(0, 1400 - (performance.now() - t0)));
+  await sleep(Math.max(0, 1600 - (performance.now() - t0)));
+  if (fall) {
+    const next = makeLevel(found.settings, found.seed);
+    await fall.land(next, initialState(next));
+    fall.stop();
+  }
   board.el.style.transform = '';
   board.el.style.opacity = '';
   startLevel();
@@ -316,16 +398,14 @@ function rabbitTiles(names) {
 async function over(end) {
   const how = outcome(end);
   ({ dusk: () => sfx.dusk(), eaten: () => sfx.lost() })[how]?.();
-  status(how === 'dusk' ? 'Out of moves.' : 'They took the ball.');
-  rec.runs++;
-  rec.best = Math.max(rec.best, run.depth);
-  saveDescent(rec);
+  status(how === 'dusk' ? 'Out of moves.' : end.pieces.some((p) => p.type === 'ball' && p.taken) ? 'They took the ball.' : 'They took everything.');
+  if (!test) { rec.runs++; rec.best = Math.max(rec.best, run.depth); saveDescent(rec); }
   await sleep(1600); // a moment to see what happened
   show('over');
   $('#over-depth').textContent = `Depth ${run.depth}`;
   const ball = end.pieces.some((p) => p.type === 'ball' && p.taken);
   $('#over-why').textContent = how === 'dusk' ? 'You ran out of moves.' : ball ? 'They took the ball.' : 'They took everything.';
-  $('#over-best').textContent = run.depth >= rec.best ? 'As deep as you have ever been.' : `The deepest you have been is depth ${rec.best}.`;
+  $('#over-best').textContent = test ? 'A test descent, from Chaos: nothing kept.' : run.depth >= rec.best ? 'As deep as you have ever been.' : `The deepest you have been is depth ${rec.best}.`;
   const box = $('#over-rabbits');
   box.replaceChildren();
   box.append(el('p', { class: 'small dim', style: 'margin:14px 0 0' }, `You went down with: ${run.hand.map((k) => PIECES[k].name.toLowerCase()).join(', ')}.`));
@@ -349,7 +429,13 @@ function previewFrame(ts) {
 
 async function prepareTitle() {
   newRun();
-  $('#deepest').textContent = (rec.best ? `The deepest you have been: depth ${rec.best}. ` : 'Nobody has been down yet. ') +
+  if (test) {
+    $('#title').textContent = 'A Chaos descent';
+    $('#testnote').hidden = false;
+    $('#testnote').textContent = 'Your Chaos settings, a new layout at every depth. A test: the deepest depth and the rabbits you free are not kept.';
+  }
+  if (test) $('#deepest').textContent = summary(test);
+  else $('#deepest').textContent = (rec.best ? `The deepest you have been: depth ${rec.best}. ` : 'Nobody has been down yet. ') +
     `You go down with the ball, a ${START_HAND.slice(1).map((k) => PIECES[k].name.toLowerCase()).join(', a ').replace(/, a ([^,]*)$/, ' and a $1')}; whatever is left when you sink the ball falls with you, and at each new depth you find one more piece.`;
   const f = await find(1);
   const first = makeLevel(f.settings, f.seed);
@@ -377,4 +463,4 @@ prepareTitle();
 requestAnimationFrame(previewFrame);
 
 // For automated tests: read-only access to what is on the board.
-window.__descent = { now: () => (game ? now() : null), level: () => level, depth: () => run.depth, find: (d) => find(d), hand: () => run.hand.slice() };
+window.__descent = { now: () => (game ? now() : null), level: () => level, depth: () => run.depth, find: (d) => find(d), hand: () => run.hand.slice(), play: (mv) => play(mv) };
