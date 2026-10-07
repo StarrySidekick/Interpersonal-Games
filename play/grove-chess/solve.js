@@ -124,7 +124,9 @@ export function assess(level, res, { deadline = Infinity, budget = 20000 } = {})
       if (a.foes.some((f) => !f.taken && f.x === mv.x && f.y === mv.y) || (b?.sunk && !a.sunk)) catches = true;
     });
     const r = solveLevel(level, { maxDepth: res.par + 2, frozen: new Set([i]), deadline, budget });
-    return { type: p.type, start: movesFor(s0, i).length, moves, catches, without: r.par, needed: !r.par || r.par > res.par };
+    // A ball that is hit never moves by itself, so it has no moves of its own to count.
+    const hitBall = p.type === 'ball' && level.rules.ballMove === 'hit';
+    return { type: p.type, start: movesFor(s0, i).length, moves, catches, without: r.par, needed: !r.par || r.par > res.par, ...(hitBall ? { hit: true } : {}) };
   });
   // A rabbit's hops before it is caught, against the length of its pattern.
   const rabbits = [];
@@ -161,6 +163,7 @@ export function unbalanced(a, level = 'on') {
   const name = (p) => PIECES[p.type].name;
   const job = (p) => p.catches || p.needed;
   for (const p of a.pieces) {
+    if (p.hit) continue;
     if (p.start === 0) why.push(`the ${name(p)} could not move at the start`);
     else if (level === 'strict' && !job(p)) why.push(`the ${name(p)} had no job`);
     else if ((PIECES[p.type].kind === 'fairy' || CIRCUMSTANTIAL.includes(p.type)) && !job(p)) why.push(`the ${name(p)} had no job`);

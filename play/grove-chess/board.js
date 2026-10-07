@@ -462,7 +462,7 @@ export class Board {
     }
   }
 
-  /** Animate the step from state `a` to state `b` made by your move `mv`.
+    /** Animate the step from state from state `a` to state `b` made by your move `mv`.
       Resolves when it is done. */
   animate(a, b, mv, slow = 1) {
     let t = performance.now();
@@ -502,6 +502,9 @@ export class Board {
       }
       if (any) { t += dur; sfx.move(at(t)); }
     }
+    // A ball that was hit rolls on from where the hitter lands.
+    // (Once per step: if their turn is in this step too, it rolls then.)
+    if (b.won || b.t === a.t) t = this.knocked(a, b, mv.p, t, slow, tw, at);
     // Anything you caught vanishes as your piece lands. A catch that wins
     // the game is a moment of its own: a held beat, then the tumble.
     tw.caught = new Set(b.foes.map((f, k) => (f.taken && !a.foes[k].taken ? k : -1)).filter((k) => k >= 0));
@@ -559,6 +562,7 @@ export class Board {
         any = true;
       }
       if (any) t = t0 + dur;
+      t = this.knocked(a, b, mv.p, t, slow, tw, at);
       tw.eaten = new Set(b.pieces.map((p, i) => (p.taken && !a.pieces[i].taken ? i : -1)).filter((i) => i >= 0));
       tw.landAt = t - 40;
       for (const i of tw.eaten) tw.poofs.push({ x: a.pieces[i].x, y: a.pieces[i].y, t0: t - 40, dur: 480, c1: '#7a5133', c2: '#c8462e' });
@@ -572,6 +576,20 @@ export class Board {
     }
     this.tw = tw;
     return this.runUntil(Math.max(t, tw.crumble ? tw.crumble.t0 + tw.crumble.dur : 0));
+  }
+
+  /** If the ball moved between a and b without being the piece moved (it
+      was hit), tween it from time t. Returns when it stops. */
+  knocked(a, b, moved, t, slow, tw, at) {
+    const i = b.pieces.findIndex((p) => p.type === 'ball');
+    if (i < 0 || i === moved || !a.pieces[i]) return t;
+    const p0 = a.pieces[i], p1 = b.pieces[i];
+    if (p0.x === p1.x && p0.y === p1.y) return t;
+    const dist = Math.hypot(p1.x - p0.x, p1.y - p0.y), dur = (160 + 70 * dist) * slow;
+    tw.mine = tw.mine || {};
+    tw.mine[i] = { from: [p0.x, p0.y], to: [p1.x, p1.y], t0: t, dur };
+    sfx.bump(at(t));
+    return t + dur;
   }
 
   /** Keep redrawing every frame until time t. Resolves then. */

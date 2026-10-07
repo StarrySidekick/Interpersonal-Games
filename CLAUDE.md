@@ -25,6 +25,8 @@ release: confirm the live site serves the new files before saying it is live.
   boards have not changed; a change there breaks every link people have
   shared. If a change is deliberate, version the dealer first (see
   `docs/grove-chess.md`).
+- `node play/grove-chess/betza-check.mjs` must pass. It proves every
+  piece's Betza notation gives the same moves as its move code.
 - `node --check` on every changed `.js` file.
 - Play the change in a real browser (Playwright and Chromium are available in
   cloud sessions).
