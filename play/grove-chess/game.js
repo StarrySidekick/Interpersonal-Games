@@ -397,7 +397,7 @@ async function startPlay() {
   if (day.rules.crumble) chips.append(el('span', { class: 'pill' }, 'Crumbling ground'));
   if (day.rules.shrink) chips.append(el('span', { class: 'pill' }, day.rules.shrink === 'spiral' ? 'Shrinking in a spiral' : 'Shrinking ground'));
   if (day.bramble.length) chips.append(el('span', { class: 'pill' }, 'Bramble creeps'));
-  if (day.stumps.size) chips.append(el('span', { class: 'pill' }, `${day.stumps.size} stump${day.stumps.size > 1 ? 's' : ''}`));
+  if (day.stumps.size) chips.append(el('span', { class: 'pill' }, `${day.stumps.size} statue${day.stumps.size > 1 ? 's' : ''}`));
   if (isOver(now())) return finish();
   // The opening plays for a fresh game only: not when carrying on, and not
   // for practice.

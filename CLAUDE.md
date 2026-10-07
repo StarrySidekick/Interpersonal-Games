@@ -21,10 +21,12 @@ release: confirm the live site serves the new files before saying it is live.
 
 ## Before every merge
 
-- `node play/grove-chess/check-daily.mjs` must pass. It proves the daily
-  boards have not changed; a change there breaks every link people have
-  shared. If a change is deliberate, version the dealer first (see
-  `docs/grove-chess.md`).
+- `node play/grove-chess/check-daily.mjs`: run it. It proves the daily
+  boards have not changed. **For now a change to the daily is allowed**
+  (Timothy, 2026-10-07: "don't worry about messing up the daily board, we
+  will hone in on that after we get a solid game loop built"): if it fails,
+  say so plainly in the merge and to Timothy, rather than versioning the
+  dealer. Once the daily is redesigned, this goes back to must-pass.
 - `node play/grove-chess/betza-check.mjs` must pass. It proves every
   piece's Betza notation gives the same moves as its move code.
 - `node --check` on every changed `.js` file.

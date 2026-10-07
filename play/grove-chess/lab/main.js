@@ -6,7 +6,7 @@ import { $, el, show, haptic, keepAwake, themeToggle } from '../../../engine/ui.
 import { soundToggle } from '../../../engine/sound.js';
 import * as sfx from '../sounds.js';
 import { makeTarget, render } from '../../../engine/lowpoly.js';
-import { PIECES, descOf, HOLE_DESC, CRUMBLE_DESC, SHRINK_DESC, movesFor, playerMove, respond, isOver, outcome, initialState, allMoves, replay, crumbled, shrunk, holeOpen } from '../rules.js';
+import { PIECES, descOf, HOLE_DESC, CRUMBLE_DESC, SHRINK_DESC, STUMP_DESC, movesFor, playerMove, respond, isOver, outcome, initialState, allMoves, replay, crumbled, shrunk, holeOpen } from '../rules.js';
 import { setupPanel, setupState, playOut } from '../autosetup.js';
 import { FUR, caughtRabbits } from '../rabbits.js';
 import { Board, scene, sceneFrame, sprite, patternPicture } from '../board.js';
@@ -325,6 +325,8 @@ async function startGame({ intro = true } = {}) {
   const chips = $('#chips');
   chips.replaceChildren(el('span', { class: 'pill' }, `${level.W} × ${level.H}`));
   if (level.rules.crumble) chips.append(el('span', { class: 'pill' }, 'Crumbling'));
+  if (level.rules.wrap) chips.append(el('span', { class: 'pill' }, level.rules.wrap === 'all' ? 'Magic: all four sides join' : 'Magic: the sides join'));
+  if (level.rules.geared) chips.append(el('span', { class: 'pill' }, 'Geared: turns every turn'));
   if (level.rules.shrink) chips.append(el('span', { class: 'pill' }, level.rules.shrink === 'spiral' ? 'Shrinking in a spiral' : 'Shrinking'));
   if (level.foes.some((f) => f.type === 'rabbit') && level.rules.rabbitsEat) chips.append(el('span', { class: 'pill' }, 'Rabbits eat'));
   if (level.rules.royal) chips.append(el('span', { class: 'pill' }, 'Royal King'));
@@ -467,6 +469,7 @@ $('#board').addEventListener('click', (e) => {
   if (s.hole && s.hole.x === x && s.hole.y === y) return info(HOLE_DESC);
   if (crumbled(s, x, y)) return info(CRUMBLE_DESC);
   if (shrunk(s, x, y)) return info(SHRINK_DESC);
+  if (s.day.stumps.has(y * s.day.W + x)) return info(STUMP_DESC);
   const f = s.foes.find((f) => !f.taken && f.x === x && f.y === y);
   if (f) info(f.brain === 'pattern' ? 'A rabbit on a hidden pattern. Watch its tracks.' : `Their ${nameOf(f)}, thinking for itself. ${PIECES[f.type].desc}`);
 });
@@ -654,4 +657,4 @@ show('lab');
 requestAnimationFrame(previewFrame);
 
 // For automated tests: read-only access to what is on the board.
-window.__lab = { now: () => (game ? now() : null), level: () => level, par: () => par, line: () => line, play: (mv) => play(mv) };
+window.__lab = { now: () => (game ? now() : null), level: () => level, par: () => par, line: () => line, play: (mv) => play(mv), board: () => board };

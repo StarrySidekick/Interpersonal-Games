@@ -135,6 +135,10 @@ piece, not the forest theming of the game." The audit:
 | Rose | a rose | kept | Named for the flower its circling path draws. |
 | Archbishop | a mitre with ears | kept | Capablanca's bishop-knight. |
 
+**Statues** (2026-10-07) are any classic piece's shape in grey stone,
+`STONE` in `models.js`, on a stone plinth: no side's colour, since they
+belong to nobody.
+
 **Colour** (Timothy: "enemy pieces should be purple, and friendly pieces
 should be green for now, just clearly distinguish them. The rabbit inside
 the pieces defines what colour the base is"). Every body is the side's

@@ -7,7 +7,7 @@
 
 import { Mesh, Model, snapshot } from '../../engine/lowpoly.js';
 import { model } from './models.js';
-import { brambleCount, onBoard, movesFor, holeOpen, nextShrink, PIECES } from './rules.js';
+import { brambleCount, onBoard, movesFor, holeOpen, nextShrink, PIECES, statueKind } from './rules.js';
 import * as sfx from './sounds.js';
 
 const GREEN = '#b9dc9b', CREAM = '#f6efd7';
@@ -91,6 +91,33 @@ function leafBurst(x, y, t0) {
 }
 
 export function tweenPos(t, at) {
+  const p = tweenRaw(t, at);
+  // On a magic board a move across an edge goes the short way round: off
+  // one side and in at the other (`t.wrap`, set by wrapTween).
+  if (t.wrap) {
+    if (t.wrap.x) p.x = ((p.x + 0.5) % t.wrap.W + t.wrap.W) % t.wrap.W - 0.5;
+    if (t.wrap.y) p.y = ((p.y + 0.5) % t.wrap.H + t.wrap.H) % t.wrap.H - 0.5;
+  }
+  return p;
+}
+
+/** On a magic board, aim a tween the short way round. Mutates; returns it. */
+export function wrapTween(t, day) {
+  const w = day.rules?.wrap;
+  if (!t || !w || t.via?.length) return t;
+  const x = w === 'sides' || w === 'all', y = w === 'all';
+  const to = t.to.slice();
+  if (x && Math.abs(to[0] - t.from[0]) > day.W / 2) to[0] += to[0] > t.from[0] ? -day.W : day.W;
+  if (y && Math.abs(to[1] - t.from[1]) > day.H / 2) to[1] += to[1] > t.from[1] ? -day.H : day.H;
+  t.to = to; t.wrap = { W: day.W, H: day.H, x, y };
+  return t;
+}
+
+/** Is a step from a to b a wrap round the edge (so not a line to draw)? */
+export const wraps = (day, a, b) => !!day.rules?.wrap &&
+  (Math.abs(a[0] - b[0]) > day.W / 2 || Math.abs(a[1] - b[1]) > day.H / 2);
+
+function tweenRaw(t, at) {
   const k = Math.max(0, Math.min(1, (at - t.t0) / t.dur)), e = ease(k);
   if (!t.via?.length) return { x: t.from[0] + (t.to[0] - t.from[0]) * e, y: t.from[1] + (t.to[1] - t.from[1]) * e, k };
   // A move that bounced: along each leg in turn, at an even speed.
@@ -253,7 +280,7 @@ export class Board {
       const P = [];
       for (const s of track) { const g = s.foes[k]; if (g.taken) break; P.push([g.x, g.y]); }
       for (let i = 1; i < P.length; i++) {
-        if (P[i][0] === P[i - 1][0] && P[i][1] === P[i - 1][1]) continue;
+        if ((P[i][0] === P[i - 1][0] && P[i][1] === P[i - 1][1]) || wraps(this.day, P[i - 1], P[i])) continue;
         const [ax, ay] = this.centre(...P[i - 1]), [bx, by] = this.centre(...P[i]);
         this.pen.line(ax, ay, bx, by, col + '73', 1, 2);
       }
@@ -265,7 +292,7 @@ export class Board {
     if (last.hole?.pattern) {
       const col = '#1d6b6b', P = track.map((s) => [s.hole.x, s.hole.y]);
       for (let i = 1; i < P.length; i++) {
-        if (P[i][0] === P[i - 1][0] && P[i][1] === P[i - 1][1]) continue;
+        if ((P[i][0] === P[i - 1][0] && P[i][1] === P[i - 1][1]) || wraps(this.day, P[i - 1], P[i])) continue;
         const [ax, ay] = this.centre(...P[i - 1]), [bx, by] = this.centre(...P[i]);
         this.pen.line(ax, ay, bx, by, col + '73', 1, 2);
       }
@@ -380,7 +407,7 @@ export class Board {
 
     // Everything that stands up, drawn back to front.
     const things = [];
-    for (const sq of day.stumps) things.push({ img: sprite('stump'), x: sq % day.W, y: Math.floor(sq / day.W) });
+    for (const sq of day.stumps) things.push({ img: sprite(statueKind(day, sq), 'stone'), x: sq % day.W, y: Math.floor(sq / day.W) });
     for (let i = 0; i < bc; i++) {
       const sq = day.bramble[i];
       things.push({ img: sprite('bramble'), x: sq % day.W, y: Math.floor(sq / day.W), under: true });
@@ -574,6 +601,13 @@ export class Board {
       sfx.shrink(at(tw.vanish.t0));
       t = tw.vanish.t0 + tw.vanish.dur;
     }
+    // A geared board turns a quarter turn once the whole turn is over.
+    if (this.day.rules.geared && !b.won && b.t !== a.t) {
+      tw.turn = { from: a.t, to: b.t, t0: t + 80 * slow, dur: 650 * slow };
+      sfx.slide(at(tw.turn.t0));
+      t = tw.turn.t0 + tw.turn.dur;
+    }
+    for (const x of [tw.piece, tw.hole, ...Object.values(tw.foes), ...Object.values(tw.mine || {})]) wrapTween(x, this.day);
     this.tw = tw;
     return this.runUntil(Math.max(t, tw.crumble ? tw.crumble.t0 + tw.crumble.dur : 0));
   }
@@ -720,7 +754,7 @@ export function scene(day, s = null, fur = () => null) {
     }
   const at = (kind, side, x, y, id) => m.add(model(kind, side), x0(x) + T / 2, 0, z0(y) + T / 2, id);
   let id = 1;
-  for (const sq of day.stumps) at('stump', 'you', sq % W, Math.floor(sq / W), id++);
+  for (const sq of day.stumps) at(statueKind(day, sq), 'stone', sq % W, Math.floor(sq / W), id++);
   const h = (s || day).hole || day.hole;
   if (h) {
     // A shut hole (rabbits still loose) has its twig cover on.

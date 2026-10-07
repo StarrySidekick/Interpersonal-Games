@@ -5,7 +5,7 @@
 import { el } from '../../engine/ui.js';
 import { Mesh, makeTarget, render } from '../../engine/lowpoly.js';
 import { model } from './models.js';
-import { PIECES, descOf, rabbitDesc, RABBIT_AI_DESC, BRAMBLE_DESC, STUMP_DESC, HOLE_DESC, CRUMBLE_DESC, SHRINK_DESC, LOCKED_DESC } from './rules.js';
+import { PIECES, descOf, rabbitDesc, RABBIT_AI_DESC, BRAMBLE_DESC, STUMP_DESC, HOLE_DESC, CRUMBLE_DESC, SHRINK_DESC, LOCKED_DESC, statueKind } from './rules.js';
 import { diagram } from './board.js';
 import { patent } from './betza.js';
 
@@ -76,7 +76,7 @@ export function piecesSheet(dialog, list, day, notes = {}) {
     // Only the first two daily boards have these.
     if (day.bramble.length) row('bramble', 'you', 'Bramble', notes.when || 'Today',
       [BRAMBLE_DESC, `It grows one square every ${day.every} move${day.every > 1 ? 's' : ''}. The faint thorns show where it goes next.`]);
-    if (day.stumps.size) row('stump', 'you', 'Stump', notes.when || 'Today', [STUMP_DESC]);
+    if (day.stumps.size) row(statueKind(day, [...day.stumps][0]), 'stone', 'Statue', notes.when || 'Today', [STUMP_DESC]);
     list.append(el('p', { class: 'small dim' },
       'Fairy pieces are invented chess pieces, some centuries old. In the diagrams: gold squares are moves, coral is a catch, brown is something in the way.'),
       el('p', { class: 'small dim' },

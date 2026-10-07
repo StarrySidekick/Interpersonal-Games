@@ -19,11 +19,6 @@ const T = 10;           // a square, in world units (board.js scene)
 const PITCH = 0.42;     // the camera looks down a little
 const SCALE = 2.6;
 
-/** Every triangle of `mesh` moved down by dy, into `out`. */
-function shifted(out, mesh, dy) {
-  for (const t of mesh.tris) out.tris.push({ ...t, p: t.p.map((q) => [q[0], q[1] - dy, q[2]]) });
-  return out;
-}
 
 /**
  * Start the fall on `canvas` with `kinds` (your pieces, the ball first).
@@ -72,7 +67,9 @@ export function startFall(canvas, kinds) {
     if (landing) {
       const k = Math.min(1, (now - landing.t0) / landing.dur);
       tableTop = -landing.D * (1 - (1 - (1 - k) ** 3)); // eases up from below
-      shifted(mesh, landing.table, -tableTop);
+      // The picture has no perspective, so the table lower down is the same
+      // picture lower down: it is drawn once (land, below) and slid up.
+      ctx.drawImage(landing.tableLayer, 0, Math.round(-tableTop * Math.cos(PITCH) * SCALE));
     }
     fallers.forEach((f, i) => {
       const age = (now - f.t0) / 1000;
@@ -95,7 +92,9 @@ export function startFall(canvas, kinds) {
     });
     render(target, mesh, { yaw: 0, pitch: PITCH, scale: SCALE, cx, cy, outline: '#05080a' });
     // The picture goes over the backdrop, keeping the backdrop where it is empty.
-    const layer = canvas._layer || (canvas._layer = Object.assign(document.createElement('canvas'), { width: w, height: h }));
+    // A fresh layer each frame (WebKit bug 256151; see board3d.js).
+    const layer = canvas._layer || (canvas._layer = document.createElement('canvas'));
+    layer.width = w; layer.height = h;
     layer.getContext('2d').putImageData(target.img, 0, 0);
     ctx.drawImage(layer, 0, 0);
     frame = requestAnimationFrame(draw);
@@ -109,6 +108,9 @@ export function startFall(canvas, kinds) {
       // The table without your pieces on it: they are the ones landing.
       const bare = { ...state, pieces: [] };
       const table = scene(level, bare);
+      render(target, table, { yaw: 0, pitch: PITCH, scale: SCALE, cx, cy, outline: '#05080a' });
+      const tableLayer = Object.assign(document.createElement('canvas'), { width: w, height: h });
+      tableLayer.getContext('2d').putImageData(target.img, 0, 0);
       const W = level.W, H = level.H;
       const used = new Set();
       const spots = fallers.map((f) => {
@@ -116,7 +118,7 @@ export function startFall(canvas, kinds) {
         return p ? { X: (p.x - W / 2) * T + T / 2, Z: (H / 2 - 1 - p.y) * T + T / 2 } : null;
       });
       const dur = 1300;
-      landing = { t0: performance.now(), dur, table, spots, D: 120, turn: 0 };
+      landing = { t0: performance.now(), dur, tableLayer, spots, D: 120, turn: 0 };
       return new Promise((resolve) => setTimeout(resolve, dur + 520));
     },
     stop() { stopped = true; cancelAnimationFrame(frame); }

@@ -396,6 +396,11 @@ MODELS.shrink = () => {
 // swapping it for the length of one build is enough.
 const FOE = { wood: '#6c4795', woodLight: '#9170bd', woodDark: '#3b2558', moss: '#e3d3f2', leaf: '#f1e7fa' };
 
+// Statues: any piece's shape in weathered grey stone, on a stone plinth,
+// with no colour of either side (2026-10-07; they were stumps before).
+const STONE = { wood: '#8e918c', woodLight: '#adb0aa', woodDark: '#62665f', moss: '#a3a69f', leaf: '#b8bbb4',
+  band: '#7b7f78', base: '#555a53', gold: '#9da09a', cream: '#c4c6bf' };
+
 function withPalette(over, build) {
   const saved = { ...P };
   Object.assign(P, over);
@@ -424,7 +429,7 @@ export function model(kind, side = 'you', fur = null, glow = null) {
     // The rabbit inside colours the whole plinth: its fur on the band, a
     // darker shade of it underneath.
     const plinthOf = glow ? { band: glow, base: shade(glow, 0.62) } : {};
-    cache.set(key, withPalette({ ...(side === 'foe' ? FOE : YOU), ...plinthOf }, MODELS[kind]));
+    cache.set(key, withPalette({ ...(side === 'foe' ? FOE : side === 'stone' ? STONE : YOU), ...plinthOf }, MODELS[kind]));
   }
   return cache.get(key);
 }
