@@ -456,13 +456,15 @@ export class Board3D extends Board {
         else if (at > tw.sinkAt) o = { s: 1 - ((at - tw.sinkAt) / 420) ** 2 };
       }
       if (tw?.piece?.i === i) ({ x, y } = tweenPos(tw.piece, at));
+      if (tw?.mine?.[i]) { const q = tweenPos(tw.mine[i], at); x = q.x; y = q.y; h += Math.sin(Math.PI * q.k) * (tw.mine[i].blocked ? 1.2 : 2.5); }
       if (this.landing) { const l = this.landing(i, at); if (l === null) return; h += l * LIFT; }
       if (collapse && !(s.sunk && p.type === 'ball')) {
         // Falling, from above: tipping over and shrinking away.
         const k = at - collapse.t0 - 260 - i * 110;
         if (k > 0) o = { rz: (i % 2 ? 1 : -1) * Math.min(1.2, k / 700), rx: Math.min(0.8, k / 900), s: away(k) };
       }
-      stand(model(p.type, 'you'), x, y, h, 100 + i, o);
+      // In autochess a piece of yours with a rabbit inside wears its colour.
+      stand(model(p.type, 'you', null, p.brain === 'possessed' ? this.fur(p) : null), x, y, h, 100 + i, o);
     });
     // Theirs.
     s.foes.forEach((f, k) => {

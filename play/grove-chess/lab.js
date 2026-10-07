@@ -16,7 +16,7 @@
 // of its own version, so it still builds exactly the level it was.
 
 import { rng, shuffled } from '../../engine/seed.js';
-import { PIECES, onBoard } from './rules.js';
+import { PIECES, onBoard, initialState, autoApply, isOver } from './rules.js';
 import { PATTERNS } from './day.js';
 import { EXTRA_PATTERNS } from './rabbits.js';
 
@@ -32,6 +32,12 @@ const opts = (...pairs) => pairs.map(([v, label]) => ({ v, label }));
 
 /** Every setting: its group, label, kind and range. The page is built from this. */
 export const SCHEMA = [
+  { group: 'How you play', fields: [
+    { key: 'mode', label: 'Who moves your pieces', type: 'choice', def: 'hand', options: opts(['hand', 'You do'], ['auto', 'Rabbits (autochess)']),
+      help: 'Autochess: before the game you put rabbits you have caught into your pieces, choose which way each faces and the order of your line. Then it plays itself: each rabbit picks the way, its piece picks how, the same as theirs.' },
+    { key: 'autoPool', label: 'Your rabbits', type: 'choice', def: 'caught', options: opts(['caught', 'The ones you have caught'], ['all', 'Every named kind']),
+      help: 'For autochess. Caught: one rabbit for every time you caught its kind, in the descent or the daily.' }
+  ] },
   { group: 'Board', fields: [
     { key: 'w', label: 'Width', type: 'int', min: 3, max: 10, def: 6 },
     { key: 'h', label: 'Height', type: 'int', min: 3, max: 10, def: 6 },
@@ -48,7 +54,9 @@ export const SCHEMA = [
     { key: 'mine', label: 'Pieces', type: 'int', min: 1, max: 8, def: 4 },
     { key: 'minePool', label: 'Dealt from', type: 'pieces', def: ['queen', 'knight', 'bishop', 'rook', 'grasshopper'] },
     { key: 'mineDupes', label: 'Repeats allowed', type: 'bool', def: false },
-    { key: 'mineRows', label: 'Start within the bottom', type: 'int', min: 1, max: 5, def: 2, unit: 'rows' },
+    { key: 'lineup', label: 'Line up like chess', type: 'bool', def: true,
+      help: 'Your pieces start in a line along the bottom edge, theirs along the top. Off: scattered within the rows below.' },
+    { key: 'mineRows', label: 'Start within the bottom', type: 'int', min: 1, max: 5, def: 2, unit: 'rows', help: 'When not lined up.' },
     { key: 'royal', label: 'Your King is royal', type: 'bool', def: false, help: 'Lose the King, lose the game.' },
     { key: 'wait', label: 'Waiting allowed', type: 'bool', def: true }
   ] },
@@ -73,7 +81,7 @@ export const SCHEMA = [
     { key: 'foePool', label: 'Dealt from', type: 'pieces', rabbit: true, def: ['king', 'knight', 'bishop', 'rook'] },
     { key: 'foeDupes', label: 'Repeats allowed', type: 'bool', def: true },
     { key: 'mirror', label: 'Mirror your pieces instead', type: 'bool', def: false, help: 'They get a copy of your hand, facing you, like chess.' },
-    { key: 'foeRows', label: 'Start within the top', type: 'int', min: 1, max: 5, def: 3, unit: 'rows', help: 'Rabbits and the hole start up there too.' },
+    { key: 'foeRows', label: 'Start within the top', type: 'int', min: 1, max: 5, def: 3, unit: 'rows', help: 'Loose rabbits and the hole start up there too, lined up or not.' },
     { key: 'skill', label: 'Thinking skill', type: 'choice', def: '2', options: opts(
       ['0', 'Random'], ['1', 'Greedy'], ['2', 'Two ahead'], ['3', 'Three ahead']), help: 'For pieces of theirs that think, and thinking rabbits.' },
     { key: 'style', label: 'Mood', type: 'choice', def: 'balanced', options: opts(['flee', 'Flee'], ['balanced', 'Balanced'], ['hunt', 'Hunt']) },
@@ -104,16 +112,17 @@ export const SCHEMA = [
 ];
 
 const FIELDS = SCHEMA.flatMap((g) => g.fields);
-export const SETTINGS_VERSION = 4;
+export const SETTINGS_VERSION = 5;
 export const defaults = () => ({ ...Object.fromEntries(FIELDS.map((f) => [f.key, Array.isArray(f.def) ? [...f.def] : f.def])), v: SETTINGS_VERSION });
 
 /** How each earlier version's defaults differ from today's. Settings saved
     then (links and notebook entries) only stored what differed from their
     own defaults, so they are read against them. */
 const BEFORE = {
-  3: { ballMove: 'ice' },
-  2: { rabbits: 1, foes: 2, patterns: 'daily', darkBrain: 'think', kinds: 1, foePool: ['king', 'knight', 'bishop', 'pawn'], ballMove: 'ice' },
-  1: { rabbits: 0, foes: 3, patterns: 'daily', darkBrain: 'think', kinds: 1, foePool: ['king', 'knight', 'bishop', 'pawn'],
+  4: { lineup: false },
+  3: { ballMove: 'ice', lineup: false },
+  2: { lineup: false, rabbits: 1, foes: 2, patterns: 'daily', darkBrain: 'think', kinds: 1, foePool: ['king', 'knight', 'bishop', 'pawn'], ballMove: 'ice' },
+  1: { lineup: false, rabbits: 0, foes: 3, patterns: 'daily', darkBrain: 'think', kinds: 1, foePool: ['king', 'knight', 'bishop', 'pawn'],
     ground: 'solid', goal: 'king', balance: 'off', ballMove: 'ice' }
 };
 const defaultsFor = (v) => ({ ...defaults(), ...JSON.parse(JSON.stringify(BEFORE[v] || {})) });
@@ -123,7 +132,7 @@ const defaultsFor = (v) => ({ ...defaults(), ...JSON.parse(JSON.stringify(BEFORE
     meaning: crumbling was a switch, there was no separate rabbit count, and
     rabbits ate whenever their side could take your pieces. */
 export function clean(raw) {
-  const v = [2, 3, 4].includes(raw?.v) ? raw.v : 1, legacy = v === 1;
+  const v = [2, 3, 4, 5].includes(raw?.v) ? raw.v : 1, legacy = v === 1;
   const s = defaultsFor(v);
   for (const f of FIELDS) {
     const v = raw?.[f.key];
@@ -177,7 +186,8 @@ export function crazy(rand = Math.random, allowed = [...FAIRY, 'rabbit']) {
     ground: pick(['solid', 'solid', 'solid', 'crumble', 'shrink', 'spiral']), shrinkEvery: int(1, 3),
     rabbits: rabbitOk ? int(0, 2) : 0, rabbitsEat: rand() < 0.2,
     darkBrain: rand() < 0.65 ? 'possessed' : 'think', kinds: int(1, 3),
-    mine, minePool: some(ALL, 2, 6), mineDupes: rand() < 0.3, mineRows: int(1, 2),
+    mine, minePool: some(ALL, 2, 6), mineDupes: rand() < 0.3, mineRows: int(1, 2), lineup: rand() < 0.8,
+    mode: rand() < 0.15 ? 'auto' : 'hand', autoPool: 'all',
     royal: rand() < 0.2, wait: rand() < 0.8,
     foes: int(1, 4),
     foePool: rabbitOk && rand() < 0.4 ? ['rabbit'] : some(rabbitOk ? ['rabbit', ...ALL] : ALL, 1, 4),
@@ -306,8 +316,25 @@ export function makeLevel(settings, seed) {
     return out;
   };
 
+  /** Lined up like chess (version 5): n squares side by side along the
+      first of `rowList` (its edge row first), a run of them at a random
+      place along it, spilling onto the next row if the shape is too narrow. */
+  const lineUp = (rowList, n) => {
+    const out = [];
+    for (const y of rowList) {
+      if (out.length >= n) break;
+      const row = cells.filter((c) => c[1] === y && free(c)).sort((p, q) => p[0] - q[0]);
+      const k = Math.min(n - out.length, row.length), at = Math.floor(rand() * (row.length - k + 1));
+      for (const [x] of row.slice(at, at + k)) { taken.add(y * W + x); out.push({ x, y }); }
+    }
+    while (out.length < n) out.push(place(rowList));
+    return shuffled(out, rand); // which piece stands where is part of the dice roll
+  };
+
   const bottom = rows.slice(0, S.mineRows), top = rows.slice(-S.foeRows);
-  const pieces = (S.hand ? S.hand.slice() : deal(S.minePool, S.mine, S.mineDupes)).map((type) => ({ type, ...place(bottom) }));
+  const myTypes = S.hand ? S.hand.slice() : deal(S.minePool, S.mine, S.mineDupes);
+  const mySpots = S.lineup ? lineUp(rows, myTypes.length) : null;
+  const pieces = myTypes.map((type, i) => ({ type, ...(S.lineup ? mySpots[i] : place(bottom)) }));
 
   let foes;
   if (S.mirror) {
@@ -316,6 +343,9 @@ export function makeLevel(settings, seed) {
       const spot = onBoard(day, p.x, my) && !taken.has(sq) ? (taken.add(sq), { x: p.x, y: my }) : place(top);
       return { type: p.type, ...spot };
     });
+  } else if (S.lineup) {
+    const types = deal(S.foePool, S.foes, S.foeDupes), spots = lineUp(rows.slice().reverse(), types.length);
+    foes = types.map((type, i) => ({ type, ...spots[i] }));
   } else foes = deal(S.foePool, S.foes, S.foeDupes).map((type) => ({ type, ...place(top) }));
   // Rabbits of their own, on top of the dark pieces. (Only drawn when there
   // are some, so levels from before version 2 come out exactly as they did.)
@@ -406,20 +436,21 @@ export const GOAL_PILL = {
 export function summary(S) {
   const name = (k) => PIECES[k].name;
   const pool = (a) => (a.length > 4 ? `${a.slice(0, 4).map(name).join(', ')} and ${a.length - 4} more` : a.map(name).join(', '));
-  const shape = S.shape === 'L' ? 'L-shaped board' : SCHEMA[0].fields.find((f) => f.key === 'shape').options.find((o) => o.v === S.shape).label.toLowerCase();
+  const shape = S.shape === 'L' ? 'L-shaped board' : FIELDS.find((f) => f.key === 'shape').options.find((o) => o.v === S.shape).label.toLowerCase();
   const hand = S.mirror ? S.minePool : S.foePool;
   const made = S.goal === 'king' && !hand.includes('king') ? ', one of them made a King'
     : S.goal === 'rabbit' && !hand.includes('rabbit') ? ', one of them made a rabbit' : '';
   const ground = { solid: '', crumble: ', crumbling', shrink: `, shrinking every ${S.shrinkEvery}`, spiral: `, shrinking in a spiral every ${S.shrinkEvery}` }[S.ground];
   const rabbitsHere = S.rabbits > 0 || (S.foePool.includes('rabbit') && !S.mirror);
   const dark = S.darkBrain === 'possessed' ? `possessed by ${S.kinds} kind${S.kinds > 1 ? 's' : ''} of rabbit` : 'thinking';
-  return `${S.w} × ${S.h} ${shape}${ground}. You: ${S.hand ? S.hand.map(name).join(', ') : `${S.mine} from ${pool(S.minePool)}`}. ` +
+  const auto = S.mode === 'auto' ? `Autochess, with ${S.autoPool === 'all' ? 'every named kind of rabbit' : 'the rabbits you have caught'}. ` : '';
+  return `${auto}${S.w} × ${S.h} ${shape}${ground}${S.lineup ? ', lined up' : ''}. You: ${S.hand ? S.hand.map(name).join(', ') : `${S.mine} from ${pool(S.minePool)}`}. ` +
     `Them: ${S.rabbits ? `${S.rabbits} rabbit${S.rabbits > 1 ? 's' : ''}, ` : ''}` +
     `${S.mirror ? 'a mirror of you' : S.foes ? `${S.foes} from ${pool(S.foePool)}, ${dark}` : 'no pieces'}${made}` +
     `${rabbitsHere ? `, rabbits ${S.rabbitBrain === 'pattern' ? 'on patterns' : 'thinking'}${S.rabbitsEat ? ' that eat' : ''}` : ''}. ` +
     `Win by ${GOAL_TEXT[S.goal]}` +
     `${S.maxMoves ? ` in ${S.maxMoves} moves` : ''}.` +
-    `${S.solve ? ` Checked winnable in ${S.parMin} to ${S.parMax}.` : ''}`;
+    `${!S.solve ? '' : S.mode === 'auto' ? ` Checked: some setup wins in ${S.maxMoves || 40} turns.` : ` Checked winnable in ${S.parMin} to ${S.parMax}.`}`;
 }
 
 // --- Links. ----------------------------------------------------------------
@@ -447,7 +478,7 @@ export function decodeLevel(hash) {
     // A link is read against the defaults of the version it was made in
     // (no v at all: before version 2).
     const v = +p.get('v');
-    if ([2, 3, 4].includes(v)) diff.v = v; else delete diff.v;
+    if ([2, 3, 4, 5].includes(v)) diff.v = v; else delete diff.v;
     return { settings: clean(diff), seed: Math.abs(parseInt(p.get('seed'), 10)) || 1, par: par > 0 ? par : null };
   } catch { return null; }
 }
@@ -468,6 +499,85 @@ export function saveLab(lab) {
   try { localStorage.setItem(NOTE_KEY, JSON.stringify(lab)); } catch { /* never lose a game over storage */ }
 }
 
+// --- Autochess. ------------------------------------------------------------
+// Rabbits you have caught possess your pieces, and the game plays itself
+// (rules.js, autoMove). A level is the same board as ever; what you bring
+// to it is a setup: for each place in your line, which piece stands there,
+// which rabbit is inside it (or none: it stands still), and which way the
+// rabbit faces.
+
+/** A pattern by its name, or null. */
+export const patternNamed = (name) => ALL_PATTERNS.find((p) => p.name === name) || null;
+
+/** The rabbits you can use, { name: how many }. 'caught': one for every
+    time you caught that kind (`caught` is rabbits.js caughtRabbits()).
+    'all': every named kind, enough of each for every piece. */
+export function rabbitPool(S, caught = {}, pieces = 8) {
+  const out = {};
+  for (const p of ALL_PATTERNS) {
+    const n = S.autoPool === 'all' ? pieces : caught[p.name] || 0;
+    if (n > 0) out[p.name] = n;
+  }
+  return out;
+}
+
+/** A fresh setup for a level: every piece where it was dealt, no rabbits. */
+export const emptySetup = (level) => level.pieces.map((p) => ({ type: p.type, rabbit: null, mx: 1 }));
+
+/** Does a setup use no more of each rabbit than the pool has? */
+export function setupFits(setup, pool) {
+  const used = {};
+  for (const u of setup) if (u.rabbit) used[u.rabbit] = (used[u.rabbit] || 0) + 1;
+  return Object.entries(used).every(([k, n]) => (pool[k] || 0) >= n);
+}
+
+/** The level with a setup applied: the pieces in their places, possessed. */
+export function withSetup(level, setup) {
+  return Object.assign(Object.create(Object.getPrototypeOf(level)), level, {
+    pieces: level.pieces.map((p, i) => {
+      const u = setup[i], pat = u?.rabbit && patternNamed(u.rabbit);
+      const out = { x: p.x, y: p.y, type: u?.type || p.type };
+      if (pat) Object.assign(out, { brain: 'possessed', pattern: pat.steps, patternName: pat.name, mx: u.mx || 1, my: 1, i: 0 });
+      return out;
+    })
+  });
+}
+
+/** Play a set-up level to the end. Returns the last state. */
+export function runAuto(day) {
+  const cap = day.rules.maxMoves || 40;
+  let s = initialState(day);
+  while (!isOver(s) && s.t < cap) s = autoApply(s);
+  return s;
+}
+
+/**
+ * Try setups at random (and every one, when there are few) and keep the
+ * fastest win. Autochess has no moves to search, only setups, and a setup
+ * plays out the same way every time, so this is enough to say whether a
+ * level can be won and roughly how fast. Returns { par, setup, tried, wins }.
+ */
+export function searchAuto(level, pool, { deadline = Date.now() + 1500, maxTries = 4000 } = {}) {
+  const rand = rng(`auto:${level.seed}`), names = Object.keys(pool);
+  const types = level.pieces.map((p) => p.type);
+  let best = null, tried = 0, wins = 0;
+  if (!names.length) return { par: null, setup: null, tried, wins };
+  for (; tried < maxTries && Date.now() < deadline; tried++) {
+    const left = { ...pool }, order = tried === 0 ? types : shuffled(types, rand);
+    const setup = order.map((type) => {
+      const have = names.filter((k) => left[k] > 0);
+      const rabbit = have.length && rand() < 0.92 ? have[Math.floor(rand() * have.length)] : null;
+      if (rabbit) left[rabbit]--;
+      return { type, rabbit, mx: rand() < 0.5 ? 1 : -1 };
+    });
+    const end = runAuto(withSetup(level, setup));
+    if (!end.won) continue;
+    wins++;
+    if (!best || end.t < best.par) best = { par: end.t, setup };
+  }
+  return { par: best?.par ?? null, setup: best?.setup ?? null, tried, wins };
+}
+
 // --- Testing layouts. ------------------------------------------------------
 
 /**
@@ -476,7 +586,8 @@ export function saveLab(lab) {
  * solves exactly the seed given. Used by lab-worker.js on a background
  * thread, and directly by the page when workers are not available.
  */
-export function searchLayouts({ settings, seed, parMin, parMax, maxTries = 400, maxMs = 15000, fixed = false }, post) {
+export function searchLayouts({ settings, seed, parMin, parMax, maxTries = 400, maxMs = 15000, fixed = false, pool }, post) {
+  if (clean(settings).mode === 'auto') return searchAutoLayouts({ settings, seed, parMin, maxMs, fixed, pool }, post);
   const t0 = Date.now(), rules = clean(settings).balance;
   let best = null, tried = 0;
   const thrown = {}; // why layouts were thrown out by the balance rules, with counts
@@ -500,4 +611,24 @@ export function searchLayouts({ settings, seed, parMin, parMax, maxTries = 400, 
   }
   if (best && !best.balance) best.balance = assess(makeLevel(settings, best.seed), best, { deadline: Date.now() + 3000 });
   post({ type: 'failed', tried, best, thrown });
+}
+
+/** searchLayouts for autochess: try seed after seed until some setup, from
+    the rabbits in `pool`, wins within the move limit and in no fewer than
+    parMin turns. Par is the fastest win found. */
+function searchAutoLayouts({ settings, seed, parMin, maxMs = 15000, fixed = false, pool = {} }, post) {
+  const t0 = Date.now();
+  let best = null, tried = 0;
+  if (!Object.keys(pool).length) return post({ type: 'failed', tried: 0, best: null, noRabbits: true });
+  for (let i = 0; i < (fixed ? 1 : 60); i++) {
+    const sd = seed + i, level = makeLevel(settings, sd);
+    const r = searchAuto(level, pool, { deadline: Math.min(t0 + maxMs, Date.now() + 1200) });
+    tried = i + 1;
+    const found = { seed: sd, par: r.par, setup: r.setup, setups: r.tried, wins: r.wins, auto: true };
+    if (r.par && (fixed || r.par >= parMin)) return post({ type: 'done', ...found, tried });
+    if (r.par && (!best || r.par > best.par)) best = found;
+    post({ type: 'progress', tried });
+    if (Date.now() - t0 > maxMs) break;
+  }
+  post({ type: 'failed', tried, best });
 }

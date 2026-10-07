@@ -393,6 +393,7 @@ export class Board {
       if (s.sunk && p.type === 'ball' && !(tw?.sinkAt && at < tw.sinkAt)) return;
       let x = p.x, y = p.y;
       if (tw?.piece?.i === i) ({ x, y } = tweenPos(tw.piece, at));
+      if (tw?.mine?.[i]) ({ x, y } = tweenPos(tw.mine[i], at));
       let lift = 0;
       if (this.landing) { lift = this.landing(i, at); if (lift === null) return; }
       things.push({ img: sprite(p.type), x, y, lift });
@@ -481,6 +482,25 @@ export class Board {
       }
       t += tw.piece.dur;
       sfx.move(at(t));
+    } else if (mv.auto) {
+      // Autochess: every piece of yours with a rabbit inside steps at once.
+      const dur = 300 * slow;
+      tw.mine = {};
+      let any = false, notes = 0;
+      b.pieces.forEach((p1, i) => {
+        const p0 = a.pieces[i];
+        if (p0.taken || p0.brain !== 'possessed') return;
+        if (p1.x === p0.x && p1.y === p0.y && !p1.blocked) return;
+        tw.mine[i] = { from: [p0.x, p0.y], to: [p1.x, p1.y], t0: t, dur, blocked: p1.blocked };
+        any = true;
+        if (p1.blocked) sfx.bump(at(t + dur / 2));
+        else if (notes++ < 3) sfx.note(p1.x - p0.x, p1.y - p0.y, at(t), 0.6);
+      });
+      if (b.gone?.length > (a.gone?.length || 0)) {
+        tw.crumble = { sq: b.gone[b.gone.length - 1], t0: t + 60 * slow, dur: 420 * slow };
+        sfx.crumble(at(tw.crumble.t0));
+      }
+      if (any) { t += dur; sfx.move(at(t)); }
     }
     // Anything you caught vanishes as your piece lands. A catch that wins
     // the game is a moment of its own: a held beat, then the tumble.

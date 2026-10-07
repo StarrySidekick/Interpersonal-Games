@@ -6,7 +6,8 @@ The first asynchronous game for Hikari Garden. Playable at
 
 Three ways to play, linked from each other's pages and sharing one engine:
 **the daily** (below), **the descent** (a roguelike run of levels, see "The
-descent") and **the lab** (build any level, see "The lab"). The daily keeps
+descent") and **Chaos**, called the lab until 2026-10-07 and still `lab/`
+in the code and the URL (build any level, see "The lab"). The daily keeps
 its own design goals (one board a day, the same for everyone) but takes the
 lab's developments through new dealer versions. Balancing is in
 [`grove-balance.md`](grove-balance.md); the look and tone in
@@ -240,15 +241,17 @@ is too easy is for playing to decide.
 
 ## The lab
 
-`play/grove-chess/lab/`. For finding out what is fun. Every setting the
+`play/grove-chess/lab/`, called **Chaos** on the page since 2026-10-07
+(Timothy's rename; the folder, the code and level links keep `lab`, so no
+link breaks). For finding out what is fun. Every setting the
 engine supports, on one page; tap Play to try it, rate it 1 to 5 with a note,
 and it goes in a notebook you can copy out.
 
 Since 2026-10-06 the default is **the standard board**, Timothy's framing:
 a ground, a shape and a size, a hole, and three pieces possessed by one
 kind of rabbit; catch them, then sink the ball. Settings carry a version
-(now 4, with the putting ball; 3 brought possession; 2 the standard board;
-links without one are older). Each is read against its own version's
+(now 5, with lining up and autochess; 4 brought the putting ball; 3
+possession; 2 the standard board; links without one are older). Each is read against its own version's
 defaults, so every old link and notebook entry still builds exactly the
 level it was, ice ball and all; a test checks 400 levels from versions 1
 and 2 and 300 from version 3.
@@ -318,6 +321,59 @@ else frozen; other pieces moving, and the hole moving, free it again.
 - **Go crazy** rolls every setting at once, goal included. "What Go crazy may
   use" switches individual fairy pieces (and the rabbit) on or off for it;
   classic pieces are always in.
+
+### Lined up like chess
+
+Timothy, 2026-10-07: "for the most part friendly and enemy pieces should
+start at the opposite ends of the board, on the furthest lanes in one line,
+like normal chess." From version 5 ("Line up like chess", on by default)
+your pieces stand side by side on the bottom edge and theirs on the top
+edge: a run of squares at a random place along the row (the dice roll),
+spilling onto the next row if a shape is too narrow, and which piece stands
+where is shuffled. Loose rabbits and the hole are still placed within the
+top rows. Off, pieces scatter within their rows as before; Go crazy turns it
+off one time in five, hence "for the most part". The descent lines up too.
+
+Measured on the default settings, it deals winnable levels about as often
+as scattering did (par 4 to 6 on six seeds each, the same spread), and the
+descent's solver failed 1 of 16 levels at depths 4 to 7 either way.
+
+### Autochess
+
+Timothy, 2026-10-07: "rabbits can be used on your pieces too once you
+collect them within a descent, and then pieces automatically move." A
+setting under "How you play": **Who moves your pieces: You do / Rabbits
+(autochess)**.
+
+- **The rabbits are your collection.** One rabbit for every time you have
+  caught its kind, in the descent or the daily (`caughtRabbits()` in
+  `rabbits.js`): catch the amber rabbit three times and you have three
+  amber rabbits. "Your rabbits: every named kind" lends you all of them, for
+  testing. With none caught the page says where to get some.
+- **Before the game, you set up your line** (`lab/main.js`, the setup
+  panel): which rabbit goes in which piece, whether it faces the mirrored
+  way, and the order of your pieces along the line (swap neighbours). A
+  piece with no rabbit stands still, which is still a job: a wall for the
+  ball. The plinth takes the rabbit's colour, the same as theirs.
+- **Then it plays itself.** Each turn every possessed piece of yours steps
+  by the same rule as theirs (`mineStep` and `autoMove` in `rules.js`): the
+  rabbit says which way, the piece says how, ties toward them instead of
+  toward you. Pieces step left to right, then their side answers as usual.
+- **The solver for it** (`searchAuto` in `lab.js`) has no moves to search,
+  only setups, and a setup plays the same way every time. It tries up to
+  4,000 random setups from your rabbits and keeps the fastest win: that is
+  par, in turns, and "Watch the solver's setup" plays it. It also reports
+  how many setups won. On the defaults, with every named kind, 1 to 4% of
+  random setups win, so choosing one is a real puzzle and not a formality.
+- **The record.** A rating saved from autochess keeps its setup in the
+  notebook.
+
+Paths (`docs/design-philosophy.md`): it gives **collection** a use, and
+makes how many of a kind you have caught matter, not only whether; it is a
+**mastery** puzzle of a different shape (plan, then watch, then adjust),
+horizontal rather than vertical. Notated visually (the plinth colours and
+the pieces moving together) and audially (each step plays its rabbit's
+note). Not yet in the descent; that is the obvious next home for it.
 
 ### The solver
 

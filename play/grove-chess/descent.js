@@ -39,7 +39,7 @@ export function depthSettings(d, rand, hand = START_HAND) {
     shape: d < 4 ? 'rect' : pick(['rect', 'rect', 'diamond', 'round', 'cross', 'hourglass', 'cheese']),
     holes: 0,
     ground: pick(grounds), shrinkEvery: d < 7 ? 2 : 1,
-    hand, mineRows: 2, royal: false, wait: true,
+    hand, lineup: true, mineRows: 2, royal: false, wait: true,     // lined up like chess (2026-10-07)
     rabbits: 0, rabbitBrain: 'pattern', patterns: 'all', hops: 1, tracks: true, rabbitsEat: false,
     foes: count, darkBrain: 'possessed', kinds: d < 4 ? 1 : d < 7 ? 2 : 3,
     foePool: pool, foeDupes: true, mirror: false, foeRows: d < 4 ? 2 : 3,

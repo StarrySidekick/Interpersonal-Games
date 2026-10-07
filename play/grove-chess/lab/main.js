@@ -1,12 +1,13 @@
-// The lab page: edit settings, have the solver check the level, see it turn,
-// play it, rate it.
+// The lab page (called Chaos on the page since 2026-10-07): edit settings,
+// have the solver check the level, see it turn, play it, rate it. In
+// autochess you set up your pieces and the game plays itself.
 
 import { $, el, show, haptic, keepAwake, themeToggle } from '../../../engine/ui.js';
 import { soundToggle } from '../../../engine/sound.js';
 import * as sfx from '../sounds.js';
 import { makeTarget, render } from '../../../engine/lowpoly.js';
-import { PIECES, descOf, HOLE_DESC, CRUMBLE_DESC, SHRINK_DESC, movesFor, playerMove, respond, isOver, outcome, initialState, allMoves, replay, crumbled, shrunk, holeOpen } from '../rules.js';
-import { FUR } from '../rabbits.js';
+import { PIECES, descOf, HOLE_DESC, CRUMBLE_DESC, SHRINK_DESC, movesFor, playerMove, respond, isOver, outcome, initialState, allMoves, replay, crumbled, shrunk, holeOpen, autoMove } from '../rules.js';
+import { FUR, FUR_WORD, caughtRabbits } from '../rabbits.js';
 import { Board, scene, sceneFrame, sprite, patternPicture } from '../board.js';
 import { piecesSheet } from '../sheet.js';
 import { describeBalance } from '../solve.js';
@@ -15,7 +16,8 @@ import { playIntro } from '../intro.js';
 import { describeSteps } from '../day.js';
 import {
   SCHEMA, defaults, clean, crazy, makeLevel, summary, encodeLevelWithPar, decodeLevel,
-  loadLab, saveLab, searchLayouts, GOAL_PILL, FAIRY
+  loadLab, saveLab, searchLayouts, GOAL_PILL, FAIRY,
+  rabbitPool, emptySetup, withSetup, patternNamed, setupFits
 } from '../lab.js';
 
 const lab = loadLab();
@@ -24,7 +26,11 @@ const furOf = (f) => (f.brain === 'pattern' || f.brain === 'possessed' ? FUR[f.p
 const newSeed = () => 1 + Math.floor(Math.random() * 1e9);
 
 // A link wins; then whatever you were last working on; then the defaults.
-let settings, seed, par = null, exactPar = false, line = null, balance = null;
+// `autoBest` is the solver's fastest autochess setup, when it found one.
+let settings, seed, par = null, exactPar = false, line = null, balance = null, autoBest = null;
+const isAuto = () => level.settings.mode === 'auto';
+/** The rabbits you can put in your pieces on this level. */
+const myPool = () => rabbitPool(settings, caughtRabbits(), Math.max(1, level.pieces.length));
 const linked = decodeLevel(location.hash);
 if (linked) ({ settings, seed, par } = linked);
 else if (lab.current) { settings = clean(lab.current.settings); seed = lab.current.seed; par = lab.current.par ?? null; }
@@ -82,7 +88,7 @@ function field(f) {
 
 function buildForm() {
   const root = $('#settings');
-  for (const g of SCHEMA) root.append(el('details', { class: 'group', open: g.group === 'Board' }, el('summary', {}, g.group), ...g.fields.map(field)));
+  for (const g of SCHEMA) root.append(el('details', { class: 'group', open: g.group === 'Board' || g.group === 'How you play' }, el('summary', {}, g.group), ...g.fields.map(field)));
 }
 
 function set(key, value) {
@@ -115,7 +121,7 @@ function deal({ reseed = false, fixed = false } = {}) {
   stopJob();
   watching = null;
   if (reseed) seed = newSeed();
-  par = null; exactPar = false; line = null; showBalance(null);
+  par = null; exactPar = false; line = null; autoBest = null; showBalance(null);
   level = makeLevel(settings, seed);
   updaters.forEach((u) => u());
   $('#summary').textContent = summary(settings);
@@ -124,7 +130,7 @@ function deal({ reseed = false, fixed = false } = {}) {
 
   searching(true);
   note('Testing layouts…');
-  const msg = { settings, seed, parMin: settings.parMin, parMax: settings.parMax, fixed };
+  const msg = { settings, seed, parMin: settings.parMin, parMax: settings.parMax, fixed, pool: myPool() };
   try {
     const w = new Worker(new URL('../lab-worker.js', import.meta.url), { type: 'module' });
     job = w;
@@ -155,7 +161,21 @@ function result(data) {
   stopJob();
   const thrown = thrownText(data.thrown);
   const tries = (data.tried > 1 ? ` It tried ${data.tried} layouts to find it.` : '') + (thrown ? ` The balance rules threw some out: ${thrown}.` : '');
-  if (data.type === 'done') {
+  const won = (d) => ` ${d.wins} of the ${d.setups} setups it tried won.`;
+  if (data.noRabbits) {
+    note('Autochess needs rabbits to put in your pieces, and you have not caught any yet. Catch some in the descent (or the daily), or set "Your rabbits" to every named kind.');
+  } else if (data.type === 'done' && data.auto) {
+    ({ seed, par } = data);
+    autoBest = data.setup;
+    note(`Winnable in ${par} turns, the fastest setup the solver found.${won(data)}${tries}`);
+  } else if (data.auto && data.best) {
+    ({ seed, par } = data.best);
+    autoBest = data.best.setup;
+    note(`Every layout it tried could be won in under ${settings.parMin} turns. This is the slowest it found: par ${par}.${won(data.best)}`);
+  } else if (data.auto) {
+    note(`No setup it tried won within ${settings.maxMoves || 40} turns, in ${data.tried} layout${data.tried === 1 ? '' : 's'}. ` +
+      'Try more rabbits, more pieces of yours, fewer of theirs, or a looser move limit. You can still play this one.');
+  } else if (data.type === 'done') {
     ({ seed, par, line } = data);
     exactPar = data.exact;
     showBalance(data.balance);
@@ -309,17 +329,109 @@ async function startGame({ intro = true } = {}) {
   if (level.rules.royal) chips.append(el('span', { class: 'pill' }, 'Royal King'));
   if (thinks(now())) chips.append(el('span', { class: 'pill' }, `They think: ${['random', 'greedy', 'two ahead', 'three ahead'][level.ai.skill]}, ${level.ai.style}`));
   hud();
+  $('#setup').hidden = true;
   if (intro && !isOver(now())) {
     busy = true;
     await playIntro(board, level, { section: $('[data-screen=play]'), goal: goalCard() });
     busy = false;
   }
+  if (isAuto()) return setUp();
   status(level.rules.first === 'them' ? 'They moved first. Your move.' : 'Your move. Tap a piece to see where it can go.');
   select(null);
   if (isOver(now())) finish();
 }
 
 function hud() { $('#movecount').textContent = now().t; }
+
+// --- Autochess: the setup, then the game plays itself. --------------------
+
+// `setup` is per piece of the level (lab.js emptySetup); `slot` is the place
+// in your line being filled, counted from the left.
+let setup = null, setupFor = null, slot = 0;
+const places = () => level.pieces.map((p, i) => i).sort((a, b) => level.pieces[a].x - level.pieces[b].x || level.pieces[a].y - level.pieces[b].y);
+
+function canvasOf(kind, side, fur) {
+  const cv = el('canvas', { class: 'pix', width: 30, height: 36 });
+  cv.getContext('2d').drawImage(sprite(kind, side, fur), 0, 0);
+  return cv;
+}
+
+/** Into the setup: keep the last one for this level, if it still fits. */
+function setUp() {
+  if (setupFor !== level || !setup || !setupFits(setup, myPool())) { setup = emptySetup(level); slot = 0; }
+  setupFor = level;
+  $('#controls').hidden = true;
+  $('#setup').hidden = false;
+  status(Object.keys(myPool()).length ? 'Set up your line, then let them go.' : 'You have no rabbits yet.');
+  info(Object.keys(myPool()).length ? ''
+    : 'Catch rabbits in the descent (or the daily) and they come here, one for every catch. Or set "Your rabbits" to every named kind.');
+  paintSetup();
+}
+
+/** Show the setup on the board, and in the panel. */
+function paintSetup() {
+  game.states = [initialState(withSetup(level, setup))];
+  hud();
+  const pool = myPool(), used = {};
+  for (const u of setup) if (u.rabbit) used[u.rabbit] = (used[u.rabbit] || 0) + 1;
+  const order = places(), cur = order[slot];
+  $('#tray').replaceChildren(...Object.entries(pool).map(([name, n]) => {
+    const left = n - (used[name] || 0);
+    return el('button', { class: 'quiet chip', disabled: left <= 0, title: FUR_WORD[name] || '', onclick: () => {
+      setup[cur].rabbit = name;
+      // On to the next empty place in the line.
+      const next = order.findIndex((i, k) => k > slot && !setup[i].rabbit);
+      if (next >= 0) slot = next;
+      paintSetup();
+    } }, canvasOf('rabbit', 'foe', FUR[name]), name, el('small', {}, left > 0 ? `${left} left` : 'all used'));
+  }));
+  $('#slots').replaceChildren(...order.map((i, k) => {
+    const u = setup[i], pat = u.rabbit && patternNamed(u.rabbit);
+    const swap = (d) => { const j = order[k + d]; [setup[i], setup[j]] = [setup[j], setup[i]]; slot = k + d; paintSetup(); };
+    return el('div', { class: 'slot', 'aria-current': String(k === slot) },
+      el('button', { class: 'quiet who', onclick: () => { slot = k; paintSetup(); } },
+        canvasOf(u.type, 'you'), el('span', {}, `${k + 1}`)),
+      el('div', { class: 'what' }, el('b', {}, PIECES[u.type].name),
+        pat ? `${u.rabbit}: ${describeSteps(pat.steps, u.mx, 1)}, then again.` : 'No rabbit: it stands still.'),
+      el('div', { class: 'acts' },
+        el('button', { class: 'quiet', disabled: !pat, 'aria-pressed': String(u.mx < 0), onclick: () => { u.mx = -u.mx; slot = k; paintSetup(); } }, 'Mirror'),
+        el('button', { class: 'quiet', disabled: !pat, onclick: () => { u.rabbit = null; slot = k; paintSetup(); } }, 'Empty'),
+        el('button', { class: 'quiet', disabled: k === 0, 'aria-label': 'Swap with the place to the left', onclick: () => swap(-1) }, '\u2190'),
+        el('button', { class: 'quiet', disabled: k === order.length - 1, 'aria-label': 'Swap with the place to the right', onclick: () => swap(1) }, '\u2192')));
+  }));
+  $('#go').disabled = !setup.some((u) => u.rabbit);
+  draw();
+}
+
+/** Play the set-up level out, turn by turn. */
+async function runAuto(slow = 1) {
+  if (busy) return;
+  busy = true;
+  $('#setup').hidden = true;
+  game = { states: [initialState(withSetup(level, setup))], moves: [] };
+  status('Off they go.'); info('');
+  draw();
+  const cap = level.rules.maxMoves || 40;
+  while (!isOver(now()) && now().t < cap) {
+    const a = now(), mid = autoMove(a);
+    shown = mid;
+    await board.animate(a, mid, { p: -1, auto: true }, slow);
+    const b = respond(mid);
+    game.moves.push({ p: -1, auto: true }); game.states.push(b);
+    shown = null;
+    hud();
+    if (!b.won) await board.animate(mid, b, { p: -1 }, slow);
+    if (b.won || b.pieces.some((p, i) => p.taken && !a.pieces[i].taken)) haptic(b.won ? [20, 40, 30] : [40, 30, 40]);
+    if (!isOver(b)) { status(whatHappened(a, b, { p: 0 })); await new Promise((r) => setTimeout(r, 140 * slow)); }
+  }
+  busy = false;
+  finish(true);
+}
+
+$('#go').onclick = () => runAuto();
+$('#clearsetup').onclick = () => { setup = emptySetup(level); slot = 0; paintSetup(); };
+$('#setuppieces').onclick = () => openSheet();
+$('#setuprestart').onclick = () => show('lab');
 
 function select(i) {
   sel = i;
@@ -348,7 +460,7 @@ function whatHappened(a, b, mv) {
     if (f.ate >= 0 && b.pieces[f.ate].taken && !a.pieces[f.ate].taken)
       bits.push(f.type === 'rabbit' ? `A rabbit ate your ${nameOf(b.pieces[f.ate])}.` : `Their ${nameOf(f)} took your ${nameOf(b.pieces[f.ate])}.`);
   });
-  if (!bits.length) bits.push(mv.p === -1 ? 'You waited.' : 'Your move.');
+  if (!bits.length) bits.push(isAuto() ? 'Next turn.' : mv.p === -1 ? 'You waited.' : 'Your move.');
   if (b.gone.length === 1 && !a.gone.length) bits.unshift('The square you left crumbled away.');
   if (b.hole && !holeOpen(a) && holeOpen(b)) bits.push('That was the last rabbit: the hole is open.');
   if (b.shrunk.length > a.shrunk.length) bits.push('A square fell off the edge.');
@@ -381,6 +493,13 @@ $('#board').addEventListener('click', (e) => {
   if (!board || busy || watching || isOver(now())) return;
   const c = board.cellAt(e);
   if (!c) return;
+  if (isAuto()) {
+    // Setting up: tapping one of your pieces picks its place in the line.
+    if ($('#setup').hidden) return;
+    const k = places().findIndex((i) => level.pieces[i].x === c.x && level.pieces[i].y === c.y);
+    if (k >= 0) { slot = k; paintSetup(); }
+    return;
+  }
   const { x, y } = c, s = now();
   if (sel != null) {
     const m = legal.find((m) => m.x === x && m.y === y);
@@ -427,7 +546,9 @@ function finish(fresh = false) {
     (level.rules.goal === 'descent'
       ? `You caught ${end.foes.filter((f) => f.target && f.taken).length} of ${end.foes.filter((f) => f.target).length} rabbit${end.foes.filter((f) => f.target).length === 1 ? '' : 's'}. `
       : end.foes.length ? `You caught ${caught} of ${end.foes.length}. ` : '') + `You lost ${lostN} of ${end.pieces.length}.`;
-  $('#solver').hidden = !settings.solve && !par;
+  $('#solver').hidden = isAuto() ? !autoBest : !settings.solve && !par;
+  $('#solver').textContent = isAuto() ? "Watch the solver's setup" : "Watch the solver's win";
+  $('#again').textContent = isAuto() ? 'Change the setup' : 'Play it again';
   status(''); info('');
   const pats = $('#end-patterns');
   pats.replaceChildren();
@@ -480,12 +601,24 @@ async function watchSolver() {
   }
 }
 
-$('#solver').onclick = () => { if (!watching) watchSolver(); else { watching = null; draw(); } };
+$('#solver').onclick = () => {
+  if (isAuto()) {
+    // The solver's setup, played out; it stays in place to change after.
+    if (!autoBest || busy) return;
+    setup = autoBest.map((u) => ({ ...u }));
+    setupFor = level;
+    $('#end').hidden = true;
+    board.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return runAuto(1.2);
+  }
+  if (!watching) watchSolver(); else { watching = null; draw(); }
+};
 
 $('#save').onclick = () => {
   if (!rating) { $('#savenote').textContent = 'Pick a number first: 1 is a slog, 5 is great.'; return; }
   const end = now();
-  lab.notes.push({ at: Date.now(), settings, seed, par, outcome: outcome(end), moves: end.t, rating, note: $('#note').value.trim(), balance });
+  lab.notes.push({ at: Date.now(), settings, seed, par, outcome: outcome(end), moves: end.t, rating, note: $('#note').value.trim(), balance,
+    ...(isAuto() ? { setup: setup.map((u) => ({ ...u })) } : {}) });
   saveLab(lab);
   renderNotebook();
   $('#savenote').textContent = 'Saved to the notebook.';
@@ -495,6 +628,7 @@ $('#save').onclick = () => {
 // New layouts from the end screen go back to the lab while the solver tests
 // them, then start the game by themselves.
 $('#again').onclick = () => startGame({ intro: false });
+// (In autochess "again" is "change the setup": startGame goes straight to it.)
 $('#next').onclick = () => { show('lab'); autoplay = true; deal({ reseed: true }); };
 $('#crazy2').onclick = () => { show('lab'); autoplay = true; settings = crazy(Math.random, crazyPool()); deal({ reseed: true }); };
 $('#back').onclick = () => show('lab');
