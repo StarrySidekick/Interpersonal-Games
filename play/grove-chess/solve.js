@@ -81,7 +81,9 @@ export function solveLevel(level, opts = {}) {
     for (const node of layer) {
       let cands = allMoves(node.s).filter((mv) => !frozen?.has(mv.p)).map((mv) => ({ mv, mid: playerMove(node.s, mv) }));
       const win = cands.find((c) => c.mid.won);
-      if (win) return { par: depth, exact, line: [...node.line, win.mv], work };
+      // Par is moves on the clock, not plies: a move a suit adds (Swords,
+      // Stars) is the same turn. Without one the two are the same number.
+      if (win) return { par: win.mid.t + 1, exact, line: [...node.line, win.mv], work };
       if (beam) cands = cands.map((c) => ({ ...c, h: score(c.mid) })).sort((a, b) => a.h - b.h).slice(0, branch);
       for (const c of cands) {
         if (++work > budget || (work % 8 === 0 && Date.now() > deadline)) return { par: null, work, gaveUp: true };

@@ -23,6 +23,33 @@ const opts = (...pairs) => pairs.map(([v, label]) => ({ v, label }));
 
 export const BALLS = opts(['ice', 'On ice'], ['putt', 'Putting'], ['bounce', 'Billiard'], ['hit', 'Hit by the pieces'], ['sticky', 'Sticky'], ['ghost', 'Ghost']);
 
+// --- Golf courses (2026-10-08). ------------------------------------------
+// Golf "needs to be fun somehow" (Timothy): a first answer is that each
+// course is a place with its own character, the way a real course is. A
+// course says its balls, its ground and what turns up as it goes round;
+// `hole(h, pick)` gives what changes on hole h (0-based). Finishing one
+// course, at any score, opens the next on the title screen. "Mixed" is the
+// old course: every ball in turn, a little more each hole.
+
+export const COURSES = {
+  meadow: { name: 'The Meadow', blurb: 'Six gentle holes on open grass. Putts and sticky balls, nothing in the way to begin with.', holes: 6,
+    balls: ['putt', 'sticky'], base: { statues: 1, w: 6, h: 6, rabbits: 0, iq: 3 },
+    hole: (h) => ({ holeMoves: 'still', shape: h < 3 ? 'rect' : 'L', statues: 1 + Math.floor(h / 3), rabbits: h >= 4 ? 1 : 0 }) },
+  pond: { name: 'The Frozen Pond', blurb: 'Nine holes on ice. The ball slides until something stops it, and from the third hole the sides of the pond join.', holes: 9,
+    balls: ['ice', 'ice', 'sticky'], base: { statues: 2, w: 6, h: 6 },
+    hole: (h, pick) => ({ shape: h < 2 ? 'round' : pick(['round', 'diamond', 'rect']), magic: h >= 2 ? 'sides' : 'none', statues: 2 + Math.floor(h / 3), holeMoves: 'still' }) },
+  hall: { name: 'The Billiard Hall', blurb: 'Nine holes on the cloth. Diagonal shots that bank off the cushions, and balls your pieces strike.', holes: 9,
+    balls: ['bounce', 'hit', 'bounce'], base: { statues: 3, w: 7, h: 6, rabbits: 0 },
+    hole: (h) => ({ shape: 'rect', statues: 3 + Math.floor(h / 3), holeMoves: h >= 5 ? 'short' : 'still' }) },
+  clock: { name: 'The Clockwork Links', blurb: 'Nine holes on gears. The board turns, the hole wanders, and the edges join late on.', holes: 9,
+    balls: ['putt', 'bounce', 'ice'], base: { statues: 2, w: 6, h: 6 },
+    hole: (h, pick) => ({ geared: h >= 1, holeMoves: h < 3 ? 'short' : pick(['short', 'mid']), magic: h >= 6 ? 'sides' : 'none', shape: pick(['rect', 'cross', 'diamond']) }) },
+  hollow: { name: 'The Haunted Hollow', blurb: 'Nine holes after dark. Ghost balls pass through anything, rabbits wander the fairways, and the ground gives way.', holes: 9,
+    balls: ['ghost', 'sticky', 'ghost'], base: { statues: 2, w: 7, h: 7, rabbits: 1, iq: 5 },
+    hole: (h, pick) => ({ shape: pick(['hourglass', 'cross', 'L', 'cheese']), rabbits: Math.min(3, 1 + Math.floor(h / 3)), ground: h >= 4 ? pick(['solid', 'crumble']) : 'solid', holeMoves: h >= 3 ? 'short' : 'still' }) }
+};
+export const COURSE_ORDER = Object.keys(COURSES);
+
 export const RUN_SCHEMA = [
   { group: 'The mode', fields: [
     { key: 'run', label: 'A session is', type: 'choice', def: 'single', options: opts(
@@ -40,9 +67,15 @@ export const RUN_SCHEMA = [
       help: 'What a run offers when it finds a piece. Pieces vetoed in the catalog are left out anyway.' },
     { key: 'ramp', label: 'It gets harder', type: 'choice', def: 'steady', options: opts(['gentle', 'Gently'], ['steady', 'Steadily'], ['steep', 'Steeply']),
       help: 'Each level down, or each round: more pieces of theirs, sharper rabbits, bigger boards.' },
+    { key: 'carry', label: 'What you find carries over', type: 'bool', def: true,
+      help: 'For a descent. Every piece you find joins your roster, and you can start a later descent with any of them. Going deeper lights waystones for good: at depth 4 every descent starts with an upgrade, at depth 7 with one more piece, at depth 10 with two upgrades.' },
+    { key: 'shop', label: 'Spend acorns in a shop', type: 'bool', def: false,
+      help: 'For autochess rounds. Each round earns acorns (three for a win, one for a loss, one per piece of theirs taken), spent between rounds on pieces and upgrades in place of a free pick.' },
     { key: 'outOfMoves', label: 'Out of moves', type: 'choice', def: 'fall', options: opts(['fall', 'Fall on, with nothing found'], ['end', 'Ends the run']),
       help: 'For a descent. Losing every piece always ends it.' },
-    { key: 'courseHoles', label: 'Holes on a course', type: 'int', min: 3, max: 18, def: 9 },
+    { key: 'courseName', label: 'Course', type: 'choice', def: 'meadow', options: opts(...COURSE_ORDER.map((k) => [k, COURSES[k].name]), ['mixed', 'Mixed: every ball in turn']),
+      help: 'Each course has its own holes, balls and ground. The title screen offers the ones you have opened: finishing a course opens the next.' },
+    { key: 'courseHoles', label: 'Holes on a mixed course', type: 'int', min: 3, max: 18, def: 9 },
     { key: 'balls', label: 'Balls on a course', type: 'multi', def: BALLS.map((b) => b.v), options: BALLS,
       help: 'Each hole uses one, in turn. Sticky stops beside the first thing it passes; a ghost rolls straight through pieces.' },
     { key: 'lives', label: 'Lives', type: 'int', min: 1, max: 5, def: 3, help: 'For autochess rounds: a lost round costs one.' }
@@ -92,7 +125,7 @@ export const MODES = {
   golf: {
     name: 'Golf', blurb: 'A course of holes. Your pieces are the walls, the ramps and, with some balls, the clubs; sink the ball in as few strokes as you can.',
     settings: {
-      run: 'course', roll: 'fixed', courseHoles: 9, goal: 'hole', foes: 0, rabbits: 1, rabbitsEat: false, rabbitMind: 'mind', traits: ['messy', 'shy', 'guard'], iq: 4,
+      run: 'course', roll: 'fixed', courseName: 'meadow', courseHoles: 9, goal: 'hole', foes: 0, rabbits: 1, rabbitsEat: false, rabbitMind: 'mind', traits: ['messy', 'shy', 'guard'], iq: 4,
       mine: 3, minePool: ['rook', 'bishop', 'knight', 'king', 'wazir', 'ferz', 'grasshopper'], statues: 2, ballCaptures: false, holeMoves: 'still',
       maxMoves: 15, parMin: 3, parMax: 9, w: 6, h: 6, lineup: false, mineRows: 2, foeRows: 3, difficulty: 'any'
     }
@@ -100,7 +133,7 @@ export const MODES = {
   autochess: {
     name: 'Autochess', blurb: 'Put rabbits in your pieces and let them fight. Win rounds to grow your side; lose three and it is over.',
     settings: {
-      run: 'rounds', roll: 'fixed', mode: 'auto', autoPool: 'all', lives: 3, startPieces: 3, maxPieces: 6, rewards: true, jokers: false,
+      run: 'rounds', roll: 'fixed', mode: 'auto', autoPool: 'all', lives: 3, startPieces: 3, maxPieces: 6, rewards: true, shop: true, jokers: false,
       goal: 'all', foes: 2, foePool: ['king', 'knight', 'bishop', 'wazir'], darkBrain: 'possessed', rabbitMind: 'mind', iq: 4, kinds: 2,
       maxMoves: 20, lineup: true, statues: 1, difficulty: 'any'
     }
@@ -177,7 +210,11 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
     const r = round - 1;
     Object.assign(S, { foes: Math.min(6, M.foes + Math.floor(r * k / 2)), iq: Math.min(10, M.iq + Math.floor(r * k * 0.6)), kinds: Math.min(4, M.kinds + Math.floor(r * k / 3)) });
   }
-  if (M.run === 'course') {
+  if (M.run === 'course' && COURSES[M.courseName]) {
+    // A named course: its own balls, ground and turns, hole by hole.
+    const C = COURSES[M.courseName], h = hole - 1;
+    Object.assign(S, C.base, { goal: 'hole', ballMove: C.balls[h % C.balls.length], magic: 'none', geared: false, ground: 'solid' }, C.hole(h, pick));
+  } else if (M.run === 'course') {
     // Each hole its own ball, in turn, and a little more going on as the
     // course goes round: statues, a moving hole, then magic edges or a
     // board that turns.
@@ -194,6 +231,9 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
   if (invented.length) S.invented = [...(S.invented || []), ...invented];
   return clean({ ...S, solve: true });
 }
+
+/** How many holes this course is. */
+export const holesOf = (M) => COURSES[M.courseName]?.holes ?? M.courseHoles;
 
 /** Plain words: what this mode is. */
 export function modeLine(id) { return MODES[id]?.blurb || ''; }

@@ -51,31 +51,65 @@ then upgrades (`run.js`):
 | Upgrade | What it does | Name |
 |---|---|---|
 | ♥ Hearts | a second life: the first capture costs the heart, and the attacker bounces off | Knight of Hearts |
-| ♠ Swords | one more step in any direction (Betza `+K`) | Knight of Swords (the old centaur) |
-| ★ Stars | its leaps keep going (a knight becomes a nightrider); a slider gains a knight's jump | Knight of Stars |
-| ♦ Diamonds | only a piece at least as strong can take it | Bishop of Diamonds |
-| @ Spirals | its leaps curl on round a circle, the rose's way (Betza `q`); a piece with no leaps gains the rose's whole move | Knight of Spirals (moves as a rose), Rook of Spirals (rook and rose) |
+| ♠ Swords | cleave: after it takes a piece it may take again, the same turn, as long as a capture is open | Rook of Swords |
+| ★ Stars | moves twice: once a level, its first move is followed straight away by a second | Knight of Stars |
+| ♦ Diamonds | treasure: each piece it takes adds a reward pick when the level is done (two extra at most) | Bishop of Diamonds |
+| @ Spirals | swap: as its move, it trades squares with any other piece of yours | Knight of Spirals |
 | Fuse | two pieces become one with both move sets; it frees a slot | rook + knight = Chancellor, bishop + knight = Archbishop, rook + bishop = Queen |
 | Promotion | a piece becomes the next piece up in strength | |
 | Jokers | rules for the rest of the run: Double Time (two moves to their one), Foresight (see where every rabbit goes next), Recruiter (your first catch each level joins you), Lazy Rabbits (they move every other turn), Overtime (five more moves) | |
 
-Hearts was Timothy's; **swords, stars, diamonds and spirals are
-proposals** (he named them, not what they do). Spirals came from history:
-the rose is the fairy piece whose knight jumps curl round a circle, so a
-spiral suit makes a piece's leaps do the same. The strength estimate now
-counts circling squares between a slide and a leap, since each can be
-blocked on the way round (the rose comes out at its known 5.5). A suit shows as the plinth's colour. A
+**Every suit is Timothy's** (2026-10-08: he chose cleave, moves twice,
+treasure and swap over the first proposals, which rewrote a piece's Betza
+or made it hard to take). A suit is now a rule the piece carries, not a
+change to its moves, so a Knight of Stars is still a knight. In
+`rules.js`, Swords and Stars leave the turn open (`s.bonus`): only that
+piece may move, waiting ends the turn, and the rabbits do not reply and
+the clock does not tick until it closes. Par counts moves on the clock,
+not plies, so a bonus move is free (`solve.js`). Spirals adds swap moves
+to `movesFor`; Diamonds counts `s.treasure`. A stronger hand makes the
+tester throw out more layouts ("the Wazir had no job"); the runner falls
+back on the best it saw. A suit shows as the plinth's colour. A
 piece taken is gone for good. Running out of moves falls on with nothing
 found ("Out of moves" can end the run instead). The descent ends when every
 piece is gone. Each level down: more pieces of theirs, sharper rabbits,
 bigger boards, stranger ground, as fast as "It gets harder" says. No hole,
 no ball: those are golf's now.
 
+**What carries between descents** (setting "What you find carries over",
+on by default). Every piece a descent finds joins **the roster**
+(`ig.grove.roster.v1`): tap a piece of the dealt hand on the title to swap
+it for any piece on it. **Waystones** are lit for good by the deepest
+depth reached, shown on the title as lit or not, and announced with a
+fanfare and a buzz on the way down when one lights (`WAYSTONES` in
+`run.js`):
+
+| Depth | Waystone | Every later descent |
+|---|---|---|
+| 4 | A keepsake | starts with an upgrade of your choice (a suit, a promotion or a joker) |
+| 7 | Another piece | starts with one more piece |
+| 10 | A second keepsake | starts with two upgrades |
+
+Going deeper is the only way to light one: no experience, no grinding.
+
 **Chaos.** One level from a completely random mix of every rule and
 setting. The only rules: it is winnable, balanced, and as hard as the
 Difficulty setting asks (measured, `metrics.js`).
 
-**Golf.** A course of holes (nine by default). Each hole has its own ball,
+**Golf.** Five **courses**, each a place with its own balls, ground and
+turns (`COURSES` in `modes.js`), chosen on the title. Finishing a course,
+at any score, opens the next; each keeps its own best.
+
+| Course | Holes | Balls | Its character |
+|---|---|---|---|
+| The Meadow | 6 | putt, sticky | open grass, a statue or two, an L late on |
+| The Frozen Pond | 9 | ice, sticky | round ponds; the sides join from hole 3 |
+| The Billiard Hall | 9 | billiard, hit | many statues to bank off; the hole wanders late |
+| The Clockwork Links | 9 | putt, billiard, ice | the board turns; the hole wanders; edges join late |
+| The Haunted Hollow | 9 | ghost, sticky | rabbits on the fairways, crumbling ground, odd shapes |
+
+"Mixed" in the settings is the old course: a course of holes (nine by
+default). Each hole has its own ball,
 in turn, from the six (ice, putting, billiard, hit by the pieces, and two
 made for golf: sticky, which stops beside the first thing it passes, and
 ghost, which rolls through pieces). As the course goes round: statues to
@@ -85,8 +119,13 @@ golf words. A hole not sunk in time counts the limit and two, as if picked
 up.
 
 **Autochess.** Rounds. Put rabbits (patterns or minds) in your pieces and
-let them fight; win a round to find a piece or an upgrade, lose one and it
-costs a life (three by default). The chip says how forgiving a round is:
+let them fight; lose a round and it costs a life (three by default).
+**The shop** (setting "Spend acorns in a shop", on for autochess): a round
+earns acorns, three for a win, one for a loss and one more per piece of
+theirs taken, spent between rounds on pieces (priced by strength), suits
+(4), fusing (3), promotions (4) and, if allowed, jokers (5). New stock
+costs one acorn; what is not spent is kept for later rounds. With the shop
+off, a won round finds a piece or an upgrade as before. The chip says how forgiving a round is:
 the share of setups the solver tried that win.
 
 ## Path audit
@@ -111,14 +150,25 @@ you get The Unwilling Mitten under par?"). World: a name and a theme
 each day, light on purpose (written and visual), with no lore behind
 them yet; if the names are liked, a world could grow from them.
 
-Gaps: power resets with every run, so nothing carries between descents
-except the record and the rabbits; the long game
-(`grove-long-game.md`) is where something should. Golf's progression is
-only the scorecard. Autochess has no shop yet (rewards stand in for it).
+2026-10-08, second pass. Power: the roster and waystones carry between
+descents, so the power path climbs across runs as well as within one
+(vertical: waystones; horizontal: the roster), notated visually (lit
+stones, the hand), in writing and audibly (the fanfare when one lights).
+Suits now change the turn rather than the move set, which adds choices
+(take again or stop, which piece swaps) without trivialising the solver's
+par. World: golf has five named places, opened in order. Mastery: a best
+per course. Autochess: acorns turn every round, lost ones too, into a
+choice.
+
+Gaps: the roster and waystones are per phone, like everything else. Golf's
+courses are named but have no look of their own yet (the board is the same
+green). The long game (`grove-long-game.md`) is still unbuilt.
 
 ## Out on purpose
 
 - No currency or shop in the descent: rewards are chosen, not bought.
+  (Autochess has one; the descent stays chosen.)
+- No experience points for waystones: only reaching a new depth lights one.
 - No streaks or daily login rewards (house rule).
 - The flat board (`?flat`) does not show everything new (turning boards,
   suit colours are 3D only).
@@ -129,4 +179,6 @@ only the scorecard. Autochess has no shop yet (rewards stand in for it).
   end of 2026; after that a date falls back to version 3).
 - Calibrate difficulty and engagement against the workshop notebook's
   ratings.
-- An autochess shop, and golf courses with their own character.
+- Give each golf course its own look (board colours, a sound).
+- Watch how often a suited hand makes the tester settle for its best
+  layout, and tune the ramp if it is often.
