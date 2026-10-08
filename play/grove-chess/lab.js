@@ -40,6 +40,12 @@ export const SCHEMA = [
     { key: 'autoPool', label: 'Your rabbits', type: 'choice', def: 'caught', options: opts(['caught', 'The ones you have caught'], ['all', 'Every named kind']),
       help: 'For autochess. Caught: one rabbit for every time you caught its kind, in the descent or the daily.' }
   ] },
+  { group: 'Difficulty', fields: [
+    { key: 'difficulty', label: 'Difficulty', type: 'choice', def: 'any', options: opts(['any', 'Any'], ['easy', 'Easy (1 to 3)'], ['normal', 'Normal (4 to 6)'], ['hard', 'Hard (7 to 8)'], ['brutal', 'Brutal (9 to 10)']),
+      help: 'Measured by a novice bot playing the level two dozen times (metrics.js): how often it loses, and how long the shortest win is. Needs the solver.' },
+    { key: 'minEngage', label: 'Engaging, at least', type: 'int', min: 0, max: 90, def: 0, unit: 'of 100',
+      help: 'A first guess at how engaging a level is: choices that matter, pieces used, tension, comebacks. 0 lets anything through.' }
+  ] },
   { group: 'Board', fields: [
     { key: 'w', label: 'Width', type: 'int', min: 3, max: 10, def: 6 },
     { key: 'h', label: 'Height', type: 'int', min: 3, max: 10, def: 6 },
@@ -110,8 +116,8 @@ export const SCHEMA = [
       ['still', 'Staying put'], ['daily', 'The daily set'], ['short', 'Random, 2 hops'], ['mid', 'Random, 3 to 4'], ['long', 'Random, 5 to 8']),
       help: 'Only when there is a hole. A hidden pattern, like a rabbit\u2019s.' },
     { key: 'ballMove', label: 'The ball moves', type: 'choice', def: 'putt', options: opts(
-      ['ice', 'On ice'], ['putt', 'Like a putt'], ['bounce', 'Like a billiard ball'], ['hit', 'Hit by the pieces']),
-      help: 'On ice: up, down, left or right, and it rolls until something stops it. Like a putt: up, down, left or right, as far as you like. Like a billiard ball: diagonally, as far as you like, bouncing off the edges (the reflecting bishop from Billiards Chess). It never takes anything. Hit by the pieces: it never moves by itself; any piece, yours or theirs, that moves into it sends it sliding along the line of that move, like on ice, until something stops it.' },
+      ['ice', 'On ice'], ['putt', 'Like a putt'], ['bounce', 'Like a billiard ball'], ['hit', 'Hit by the pieces'], ['sticky', 'Sticky'], ['ghost', 'A ghost']),
+      help: 'On ice: up, down, left or right, and it rolls until something stops it. Like a putt: up, down, left or right, as far as you like. Like a billiard ball: diagonally, as far as you like, bouncing off the edges (the reflecting bishop from Billiards Chess). It never takes anything. Hit by the pieces: it never moves by itself; any piece, yours or theirs, that moves into it sends it sliding along the line of that move, like on ice, until something stops it. Sticky: like ice, but it stops beside the first thing it passes. A ghost: like ice, straight through pieces.' },
     { key: 'ballCaptures', label: 'The ball captures', type: 'bool', def: true,
       help: 'On: rolling or sliding into one of their pieces, the ball takes it and stops there. Off: it stops short, and never takes anything.' },
     { key: 'ballStops', label: 'Ball must stop on the hole', type: 'bool', def: false,
@@ -122,10 +128,6 @@ export const SCHEMA = [
       help: 'The solver plays each layout first and throws out any it cannot win in time. It also sets par.' },
     { key: 'parMax', label: 'Winnable within', type: 'int', min: 2, max: 15, def: 10, unit: 'moves' },
     { key: 'parMin', label: 'But not in fewer than', type: 'int', min: 1, max: 12, def: 3, unit: 'moves' },
-    { key: 'difficulty', label: 'Difficulty', type: 'choice', def: 'any', options: opts(['any', 'Any'], ['easy', 'Easy (1 to 3)'], ['normal', 'Normal (4 to 6)'], ['hard', 'Hard (7 to 8)'], ['brutal', 'Brutal (9 to 10)']),
-      help: 'Measured by a novice bot playing the level two dozen times (metrics.js): how often it loses, and how long the shortest win is. Needs the solver.' },
-    { key: 'minEngage', label: 'Engaging, at least', type: 'int', min: 0, max: 90, def: 0, unit: 'of 100',
-      help: 'A first guess at how engaging a level is: choices that matter, pieces used, tension, comebacks. 0 lets anything through.' },
     { key: 'balance', label: 'Balance rules', type: 'choice', def: 'on', options: opts(['off', 'Off'], ['on', 'On'], ['strict', 'Strict']),
       help: 'On: no piece on either side can capture on its first move, every piece of yours can move at the start, and every strange piece (fairy pieces, and the grasshopper-like ones that need the right circumstances) has a job: it makes a catch in the winning line, or the level is worse without it. Strict: every piece has a job. Needs the solver.' }
   ] }
@@ -193,9 +195,18 @@ export function clean(raw) {
   // A hand given outright (the descent: the pieces you carry down), not
   // dealt. Not a setting on the page.
   if (Array.isArray(raw?.hand) && raw.hand.length) {
-    s.hand = raw.hand.filter((k) => PIECES[k]);
+    const keep = raw.hand.map((k) => !!PIECES[k]);
+    s.hand = raw.hand.filter((k, i) => keep[i]);
     s.mine = s.hand.length;
+    // What the descent has done to each piece in the hand: hearts (lives),
+    // diamonds, its suit (for its colour).
+    if (Array.isArray(raw.handMods)) s.handMods = raw.handMods.filter((m, i) => keep[i]).map((m) => ({
+      ...(m?.lives > 1 ? { lives: Math.min(9, m.lives | 0) } : {}), ...(m?.diamond ? { diamond: true } : {}),
+      ...(['hearts', 'swords', 'stars', 'diamonds'].includes(m?.suit) ? { suit: m.suit } : {}) }));
   }
+  // Run rules carried by a level (the descent's jokers).
+  if (raw?.movesPerTurn === 2) s.movesPerTurn = 2;
+  if (raw?.lazyFoes) s.lazyFoes = true;
   s.v = SETTINGS_VERSION;
   return s;
 }
@@ -374,7 +385,7 @@ export function makeLevel(settings, seed) {
   const bottom = rows.slice(0, S.mineRows), top = rows.slice(-S.foeRows);
   const myTypes = S.hand ? S.hand.slice() : deal(S.minePool, S.mine, S.mineDupes);
   const mySpots = S.lineup ? lineUp(rows, myTypes.length) : null;
-  const pieces = myTypes.map((type, i) => ({ type, ...(S.lineup ? mySpots[i] : place(bottom)) }));
+  const pieces = myTypes.map((type, i) => ({ type, ...(S.lineup ? mySpots[i] : place(bottom)), ...(S.handMods?.[i] || {}) }));
 
   let foes;
   if (S.mirror) {
@@ -490,6 +501,7 @@ export function makeLevel(settings, seed) {
       ...(S.ballCaptures ? { ballCaptures: true } : {}),
       ...(S.magic !== 'none' ? { wrap: S.magic } : {}),
       ...(S.geared ? { geared: true } : {}),
+      ...(S.movesPerTurn === 2 ? { movesPerTurn: 2 } : {}), ...(S.lazyFoes ? { lazyFoes: true } : {}),
       crumble: S.ground === 'crumble', shrink: S.ground === 'shrink' ? 'random' : S.ground === 'spiral' ? 'spiral' : null,
       shrinkEvery: S.shrinkEvery },
     ai: { skill: +S.skill, style: S.style },

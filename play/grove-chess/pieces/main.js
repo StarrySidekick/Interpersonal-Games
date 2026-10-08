@@ -116,7 +116,7 @@ $('#d-remove').onclick = () => {
 // Chaos with this piece in your hand and theirs.
 $('#d-chaos').onclick = () => {
   const S = clean({ ...defaults(), minePool: [current, 'knight', 'rook'], foePool: [current, 'king', 'bishop'], invented: cat.invented });
-  location.href = `../lab/#${encodeLevel(S, 1 + Math.floor(Math.random() * 1e9))}`;
+  location.href = `../lab/#${encodeLevel(S, 1 + Math.floor(Math.random() * 1e9))}`; // the workshop
 };
 
 // --- Inventing. ------------------------------------------------------------

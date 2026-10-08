@@ -33,6 +33,7 @@
 // What a square holds, from the mover's side. The same numbers as rules.js
 // (copied, not imported, so this module has no import cycle with it).
 const OFF = 0, EMPTY = 1, ENEMY = 3;
+const MAX_SLIDE = 64; // as in rules.js: no slide is longer, and no loop can run for ever
 
 const ATOMS = { W: [1, 0], F: [1, 1], D: [2, 0], N: [2, 1], A: [2, 2], H: [3, 0], C: [3, 1], Z: [3, 2], G: [3, 3] };
 const COMPOUND = { K: 'WF', R: 'WW', B: 'FF', Q: 'WWFF' };
@@ -107,18 +108,18 @@ export function betzaMoves(code) {
       for (const [dx, dy] of vecs) {
         if (mods.includes('g')) {          // grasshopper: over the first thing, land just beyond
           let x = p.x + dx, y = p.y + dy;
-          while (L(x, y) === EMPTY) { x += dx; y += dy; }
-          if (L(x, y) === OFF) continue;
+          for (let n = 0; n < MAX_SLIDE && L(x, y) === EMPTY; n++) { x += dx; y += dy; }
+          if (L(x, y) === OFF || L(x, y) === EMPTY) continue;
           const c = L(x + dx, y + dy);
           if (c === EMPTY || c === ENEMY) put(x + dx, y + dy, c === ENEMY);
           continue;
         }
         if (mods.includes('p')) {          // over one screen first, then on
           let x = p.x + dx, y = p.y + dy;
-          while (L(x, y) === EMPTY) { x += dx; y += dy; }
-          if (L(x, y) === OFF) continue;
+          for (let n = 0; n < MAX_SLIDE && L(x, y) === EMPTY; n++) { x += dx; y += dy; }
+          if (L(x, y) === OFF || L(x, y) === EMPTY) continue;
           x += dx; y += dy;
-          for (;;) {
+          for (let n = 0; n < MAX_SLIDE; n++) {
             const c = L(x, y);
             if (c === EMPTY) { if (moveOk) put(x, y, false); if (!ride) break; }
             else { if (c === ENEMY && capOk) put(x, y, true); break; }
@@ -132,7 +133,7 @@ export function betzaMoves(code) {
           if (L(p.x + bx, p.y + by) !== EMPTY) continue;
         }
         let x = p.x + dx, y = p.y + dy;
-        for (;;) {
+        for (let n = 0; n < MAX_SLIDE; n++) {
           const c = L(x, y);
           if (c === EMPTY) { if (moveOk) put(x, y, false); }
           else { if (c === ENEMY && capOk) put(x, y, true); break; }

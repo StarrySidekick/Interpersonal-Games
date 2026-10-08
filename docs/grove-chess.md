@@ -172,7 +172,11 @@ No build step, no libraries, same as the rest of the repo.
 | `play/grove-chess/rabbits.js` | the fur colour for each pattern, the patterns with pauses, and the rabbits you have caught |
 | `play/grove-chess/board3d.js` | the 3D board: drawing, taps, possession and the collapse; `?flat` for the old one |
 | `play/grove-chess/sounds.js` | the game's sounds, built on `engine/sound.js` |
-| `play/grove-chess/descent.js`, `descent/` | the descent: what each depth is made of, the record, and its page |
+| `play/grove-chess/modes.js`, `play/` | modes as settings, and the runner that plays any of them ([`grove-modes.md`](grove-modes.md)) |
+| `play/grove-chess/run.js` | a run's hand: finds, suits, fusing, promotion, jokers |
+| `play/grove-chess/form.js`, `menu.js` | the settings form and the menu every page shares |
+| `play/grove-chess/metrics.js` | difficulty, skill ceiling, engagement |
+| `play/grove-chess/invented.js`, `history.js`, `pieces/` | the pieces catalog |
 | `play/grove-chess/board.js` | drawing the board, animating moves, turning taps into squares; shared by both pages |
 | `play/grove-chess/sheet.js` | the pieces menu; shared by both pages |
 | `play/grove-chess/models.js` | the models, built from simple shapes: green for yours, purple for theirs, on a plinth the colour of the rabbit inside (see `grove-pieces.md`) |
@@ -597,6 +601,13 @@ pieces with a rabbit inside (`possessedStep` in `rules.js`):
 The thinking dark pieces are still there in the lab ("Moved by: Thinking").
 
 ## The descent
+
+**Replaced on 2026-10-08** by the descent mode of the runner
+(`play/?mode=descent`, [`grove-modes.md`](grove-modes.md)): no hole or
+ball, four pieces growing to six, pieces lost for good, suits, fusing and
+jokers. The old `descent/` page redirects there. What follows is the
+first descent, kept as a record.
+
 
 `play/grove-chess/descent/`, with the depths in `descent.js`. Timothy,
 2026-10-06: "once you get the ball into the hole it falls down into another
