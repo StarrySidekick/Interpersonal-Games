@@ -12,6 +12,7 @@ import { FUR, caughtRabbits } from '../rabbits.js';
 import { Board, scene, sceneFrame, sprite, patternPicture } from '../board.js';
 import { piecesSheet } from '../sheet.js';
 import { describeBalance } from '../solve.js';
+import { describeMeasure } from '../metrics.js';
 import { makeBoard } from '../board3d.js';
 import { playIntro } from '../intro.js';
 import { describeSteps } from '../day.js';
@@ -28,7 +29,7 @@ const newSeed = () => 1 + Math.floor(Math.random() * 1e9);
 
 // A link wins; then whatever you were last working on; then the defaults.
 // `autoBest` is the solver's fastest autochess setup, when it found one.
-let settings, seed, par = null, exactPar = false, line = null, balance = null, autoBest = null;
+let settings, seed, par = null, exactPar = false, line = null, balance = null, autoBest = null, measured = null;
 const isAuto = () => level.settings.mode === 'auto';
 /** The rabbits you can put in your pieces on this level. */
 const myPool = () => rabbitPool(settings, caughtRabbits(), Math.max(1, level.pieces.length));
@@ -68,6 +69,13 @@ function field(f) {
     const btns = f.options.map((o) => el('button', { class: 'quiet', onclick: () => set(f.key, o.v) }, o.label));
     ctrl = el('div', { class: 'seg' }, ...btns);
     updaters.push(() => btns.forEach((b, i) => b.setAttribute('aria-pressed', String(f.options[i].v === settings[f.key]))));
+  } else if (f.type === 'multi') {
+    const btns = f.options.map((o) => el('button', { class: 'quiet', onclick: () => {
+      const on = settings[f.key].includes(o.v) ? settings[f.key].filter((x) => x !== o.v) : [...settings[f.key], o.v];
+      if (on.length) set(f.key, on); // always keep at least one
+    } }, o.label));
+    ctrl = el('div', { class: 'seg' }, ...btns);
+    updaters.push(() => btns.forEach((b, i) => b.setAttribute('aria-pressed', String(settings[f.key].includes(f.options[i].v)))));
   } else if (f.type === 'pieces') {
     const kinds = [...(f.rabbit ? ['rabbit'] : []), ...Object.keys(PIECES).filter((k) => k !== 'rabbit')];
     const btns = kinds.map((k) => {
@@ -84,7 +92,7 @@ function field(f) {
     ctrl = el('div', { class: 'chips' }, ...btns);
     updaters.push(() => btns.forEach((b, i) => b.setAttribute('aria-pressed', String(settings[f.key].includes(kinds[i])))));
   }
-  return el('div', { class: `field${f.type === 'pieces' || f.type === 'choice' ? ' wide' : ''}` }, label, ctrl);
+  return el('div', { class: `field${f.type === 'pieces' || f.type === 'choice' || f.type === 'multi' ? ' wide' : ''}` }, label, ctrl);
 }
 
 function buildForm() {
@@ -148,10 +156,11 @@ function inline(msg) {
 }
 
 /** The balance report (solve.js assess) under the lab's note. */
-function showBalance(b) {
+function showBalance(b, m = null) {
+  measured = m;
   balance = b;
   $('#balancebox').hidden = !b;
-  $('#balance').replaceChildren(...describeBalance(b).map((l) => el('li', {}, l)));
+  $('#balance').replaceChildren(...[...describeMeasure(m), ...describeBalance(b)].map((l) => el('li', {}, l)));
 }
 
 /** "the Grasshopper had no job ×3; ..." from the balance rules' throw-outs. */
@@ -179,7 +188,7 @@ function result(data) {
   } else if (data.type === 'done') {
     ({ seed, par, line } = data);
     exactPar = data.exact;
-    showBalance(data.balance);
+    showBalance(data.balance, data.measure);
     note(`Winnable in ${par}. ${exactPar ? 'The solver checked every line, so that is the shortest win there is.' : 'That is the shortest win the solver found; you might beat it.'}${tries}`);
   } else if (data.best) {
     ({ seed, par, line } = data.best);
@@ -248,7 +257,7 @@ function renderNotebook() {
 
 function load(n) {
   stopJob();
-  settings = clean(n.settings); seed = n.seed; par = n.par ?? null; line = null; exactPar = false; showBalance(n.balance || null);
+  settings = clean(n.settings); seed = n.seed; par = n.par ?? null; line = null; exactPar = false; showBalance(n.balance || null, n.measure || null);
   level = makeLevel(settings, seed);
   updaters.forEach((u) => u());
   $('#summary').textContent = summary(settings);
@@ -265,6 +274,7 @@ $('#copynotes').onclick = async () => {
     `${n.rating}/5, ${RESULT[n.outcome] || n.outcome} in ${n.moves}${n.par ? ` (par ${n.par})` : ''}`,
     n.note ? `Note: ${n.note}` : null,
     summary(clean(n.settings)),
+    ...describeMeasure(n.measure),
     ...describeBalance(n.balance),
     `${base}#${encodeLevelWithPar(n.settings, n.seed, n.par)}`
   ].filter(Boolean).join('\n')).join('\n\n');
@@ -575,7 +585,8 @@ $('#solver').onclick = () => {
 $('#save').onclick = () => {
   if (!rating) { $('#savenote').textContent = 'Pick a number first: 1 is a slog, 5 is great.'; return; }
   const end = now();
-  lab.notes.push({ at: Date.now(), settings, seed, par, outcome: outcome(end), moves: end.t, rating, note: $('#note').value.trim(), balance,
+  // The measures go in with the rating, so they can be checked against what was fun.
+  lab.notes.push({ at: Date.now(), settings, seed, par, outcome: outcome(end), moves: end.t, rating, note: $('#note').value.trim(), balance, measure: measured,
     ...(isAuto() && setup ? { setup: setup.list.map((u) => ({ ...u })) } : {}) });
   saveLab(lab);
   renderNotebook();

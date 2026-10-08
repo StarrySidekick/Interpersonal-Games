@@ -22,7 +22,9 @@ export const FUR = {
   'Doze': '#78c3dc', 'Lurk': '#5c6b7c', 'Pace': '#c8435f',
   'Hopscotch': '#e8a33d', 'Zigzag': '#3fae9f', 'Wobble': '#e07a9a', 'Sidestep': '#8f7fd1',
   'Knight’s jig': '#4f86d6', 'Long leap': '#c45a3c', 'Corner run': '#e3cc3c', 'Box step': '#6f9a48',
-  'Spiral': '#a855c4', 'Two up, one back': '#8b6a4f', 'Skip': '#e2865a', 'Drift': '#93aec4'
+  'Spiral': '#a855c4', 'Two up, one back': '#8b6a4f', 'Skip': '#e2865a', 'Drift': '#93aec4',
+  // Rabbits with minds wear their trait's colour (rules.js TRAITS).
+  'Aggressive': '#d23c2a', 'Hunter': '#e8742a', 'Shy': '#bfe3f0', 'Guard': '#3f6e4a', 'Messy': '#f0a8d0', 'Habit': '#d9b25b'
 };
 
 /** A word for each fur, for sentences. */
@@ -30,7 +32,8 @@ export const FUR_WORD = {
   'Doze': 'sky blue', 'Lurk': 'slate', 'Pace': 'crimson',
   'Hopscotch': 'amber', 'Zigzag': 'teal', 'Wobble': 'pink', 'Sidestep': 'lavender',
   'Knight’s jig': 'blue', 'Long leap': 'rust', 'Corner run': 'yellow', 'Box step': 'moss green',
-  'Spiral': 'violet', 'Two up, one back': 'brown', 'Skip': 'orange', 'Drift': 'mist blue'
+  'Spiral': 'violet', 'Two up, one back': 'brown', 'Skip': 'orange', 'Drift': 'mist blue',
+  'Aggressive': 'red', 'Hunter': 'burnt orange', 'Shy': 'pale blue', 'Guard': 'deep green', 'Messy': 'candy pink', 'Habit': 'gold'
 };
 
 const KEY = 'ig.grove.rabbits.v1';
