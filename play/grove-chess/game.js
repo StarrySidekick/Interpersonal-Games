@@ -18,6 +18,7 @@ import { FUR, FUR_WORD, caughtRabbits, recordCatch } from './rabbits.js';
 import { makeBoard } from './board3d.js';
 import * as sfx from './sounds.js';
 import { piecesSheet } from './sheet.js';
+import { fillMenu } from './menu.js';
 import { playIntro } from './intro.js';
 
 // --- The day, and what this phone already knows about it. -----------------
@@ -459,3 +460,4 @@ if (new URLSearchParams(location.search).has('test')) {
 $('.topbar .pill').before(soundToggle(), themeToggle());
 show('title');
 requestAnimationFrame(titleFrame);
+fillMenu($('#modes'), 'daily', '');

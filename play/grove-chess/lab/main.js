@@ -13,6 +13,8 @@ import { Board, scene, sceneFrame, sprite, patternPicture } from '../board.js';
 import { piecesSheet } from '../sheet.js';
 import { describeBalance } from '../solve.js';
 import { describeMeasure } from '../metrics.js';
+import { fillMenu } from '../menu.js';
+import { loadCatalog, registerInvented } from '../invented.js';
 import { makeBoard } from '../board3d.js';
 import { playIntro } from '../intro.js';
 import { describeSteps } from '../day.js';
@@ -23,6 +25,10 @@ import {
 } from '../lab.js';
 
 const lab = loadLab();
+// The pieces catalog: invented pieces are real here, and vetoed ones are
+// left out of everything dealt from now on.
+const catalog = loadCatalog();
+registerInvented(catalog.invented);
 // In the lab every rabbit on a named pattern wears its colour (rabbits.js).
 const furOf = (f) => (f.brain === 'pattern' || f.brain === 'possessed' ? FUR[f.patternName] ?? null : null);
 const newSeed = () => 1 + Math.floor(Math.random() * 1e9);
@@ -128,6 +134,7 @@ function searching(on) {
  */
 function deal({ reseed = false, fixed = false } = {}) {
   stopJob();
+  if (!fixed) settings = clean({ ...settings, veto: catalog.vetoed, invented: catalog.invented });
   watching = null;
   if (reseed) seed = newSeed();
   par = null; exactPar = false; line = null; autoBest = null; showBalance(null);
@@ -654,6 +661,7 @@ $('#link').onclick = async () => {
 };
 
 $('.topbar .pill').before(soundToggle(), themeToggle());
+fillMenu($('#modes'), 'chaos', '../');
 buildForm();
 buildCrazyPool();
 updaters.forEach((u) => u());

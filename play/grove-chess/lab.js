@@ -24,6 +24,7 @@ import { EXTRA_PATTERNS } from './rabbits.js';
 const ALL_PATTERNS = [...PATTERNS, ...EXTRA_PATTERNS];
 import { solveLevel, assess, unbalanced, openingCaptures } from './solve.js';
 import { measure, BANDS } from './metrics.js';
+import { cleanInvented, registerInvented } from './invented.js';
 
 export const CLASSIC = Object.keys(PIECES).filter((k) => PIECES[k].kind === 'classic');
 export const FAIRY = Object.keys(PIECES).filter((k) => PIECES[k].kind === 'fairy');
@@ -154,6 +155,10 @@ const defaultsFor = (v) => ({ ...defaults(), ...JSON.parse(JSON.stringify(BEFORE
     rabbits ate whenever their side could take your pieces. */
 export function clean(raw) {
   const v = [2, 3, 4, 5, 6, 7].includes(raw?.v) ? raw.v : 1, legacy = v === 1;
+  // Pieces invented in the catalog travel with the settings (so a link, or
+  // the solver's background thread, knows them), and are made real first.
+  const invented = cleanInvented(raw?.invented);
+  if (invented.length) registerInvented(invented);
   const s = defaultsFor(v);
   for (const f of FIELDS) {
     const v = raw?.[f.key];
@@ -174,6 +179,10 @@ export function clean(raw) {
     if (raw?.crumble && raw.ground === undefined) s.ground = 'crumble';
     if (raw?.rabbitsEat === undefined) s.rabbitsEat = s.foesCapture;
   }
+  if (invented.length) s.invented = invented;
+  // The catalog's vetoes: pieces kept out of every deal (not out of a hand
+  // given outright).
+  if (Array.isArray(raw?.veto)) { const veto = raw.veto.filter((k) => PIECES[k]); if (veto.length) s.veto = [...new Set(veto)]; }
   if (s.parMin > s.parMax) s.parMin = s.parMax;
   if (s.geared) s.h = s.w; // a board that turns has to be square
   const ballGoal = s.goal === 'hole' || s.goal === 'descent';
@@ -333,7 +342,10 @@ export function makeLevel(settings, seed) {
   };
   /** n piece types from a pool: drawn without repeats until the pool runs
       out (or with repeats from the start, if allowed). */
-  const deal = (pool, n, dupes) => {
+  const deal = (pool0, n, dupes) => {
+    // Vetoed pieces are left out, unless that would leave nothing.
+    const kept = S.veto ? pool0.filter((k) => !S.veto.includes(k)) : pool0;
+    const pool = kept.length ? kept : pool0;
     const out = [];
     let bag = [];
     for (let i = 0; i < n; i++) {

@@ -27,6 +27,7 @@ import { depthSettings, loadDescent, saveDescent, START_HAND, HAND_MAX, offersFo
 import { FUR, FUR_WORD, caughtRabbits, recordCatch } from '../rabbits.js';
 import { makeBoard } from '../board3d.js';
 import { startFall } from '../fall.js';
+import { fillMenu } from '../menu.js';
 
 const rec = loadDescent();
 // A test descent, from Chaos: its settings, or null for the real thing.
@@ -461,6 +462,7 @@ $('#again').onclick = async () => {
 };
 
 $('.topbar .pill').before(soundToggle(), themeToggle());
+fillMenu($('#modes'), 'descent', '../');
 show('title');
 prepareTitle();
 requestAnimationFrame(previewFrame);
