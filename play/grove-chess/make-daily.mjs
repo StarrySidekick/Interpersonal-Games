@@ -66,7 +66,17 @@ function good(m, par, S) {
 
 /** One day's board, or null if nothing passed. */
 function deal(date) {
-  const rand = rng(`daily4:${date}`);
+  // Rolls come in streams of 80; a rare day where none passes goes on to a
+  // second stream, and so on.
+  for (let stream = 1; stream <= 4; stream++) {
+    const b = dealStream(date, stream);
+    if (b) return b;
+  }
+  return null;
+}
+
+function dealStream(date, stream) {
+  const rand = rng(stream === 1 ? `daily4:${date}` : `daily4:${date}:${stream}`);
   for (let k = 0; k < MAX_ROLLS; k++) {
     const S = dailyRoll(rand), seed = 1 + Math.floor(rand() * 1e6);
     let out = null;
@@ -78,7 +88,7 @@ function deal(date) {
       name: dailyName(rand), theme: THEMES[Math.floor(rand() * THEMES.length)].id,
       lab: level.get('lab'), v: SETTINGS_VERSION, seed: out.seed, par: out.par,
       measure: { difficulty: m.difficulty, ceiling: +m.ceiling.toFixed(2), engagement: m.engagement, winRate: +m.novice.winRate.toFixed(2), winLen: +m.novice.winLen.toFixed(1) },
-      rolls: k + 1
+      rolls: (stream - 1) * MAX_ROLLS + k + 1
     };
   }
   return null;

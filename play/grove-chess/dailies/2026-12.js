@@ -14,7 +14,8 @@ export default {
    "winRate": 0.67,
    "winLen": 7.6
   },
-  "rolls": 10
+  "rolls": 10,
+  "print": "16325ec4a47ec025"
  },
  "2026-12-02": {
   "name": "A Whispering Matter of Hats",
@@ -30,7 +31,8 @@ export default {
    "winRate": 0.67,
    "winLen": 12.9
   },
-  "rolls": 7
+  "rolls": 7,
+  "print": "9e61180659bc1118"
  },
  "2026-12-03": {
   "name": "The Sugared Eel",
@@ -46,7 +48,8 @@ export default {
    "winRate": 0.58,
    "winLen": 14.2
   },
-  "rolls": 16
+  "rolls": 16,
+  "print": "e71f1813a1e6e5e4"
  },
  "2026-12-04": {
   "name": "Where the Sundial Hums",
@@ -62,7 +65,8 @@ export default {
    "winRate": 0.58,
    "winLen": 9.7
   },
-  "rolls": 32
+  "rolls": 32,
+  "print": "b0480c5a75a39b84"
  },
  "2026-12-05": {
   "name": "Sundial of Five Buttons",
@@ -78,7 +82,8 @@ export default {
    "winRate": 0.83,
    "winLen": 8.8
   },
-  "rolls": 13
+  "rolls": 13,
+  "print": "4592197f6a84aa0b"
  },
  "2026-12-06": {
   "name": "Aunt Wobble’s Spindle",
@@ -94,7 +99,8 @@ export default {
    "winRate": 0.75,
    "winLen": 10.9
   },
-  "rolls": 25
+  "rolls": 25,
+  "print": "900c69ed4a0c2d8a"
  },
  "2026-12-07": {
   "name": "A Hollow Matter of Clocks",
@@ -110,7 +116,8 @@ export default {
    "winRate": 0.58,
    "winLen": 11.9
   },
-  "rolls": 30
+  "rolls": 30,
+  "print": "93d7897ac1aef305"
  },
  "2026-12-08": {
   "name": "Where the Spindle Argues",
@@ -126,7 +133,8 @@ export default {
    "winRate": 0.79,
    "winLen": 8.9
   },
-  "rolls": 26
+  "rolls": 26,
+  "print": "5e638e6881cdc5d2"
  },
  "2026-12-09": {
   "name": "The Mayor’s Doorknob",
@@ -142,6 +150,7 @@ export default {
    "winRate": 0.71,
    "winLen": 10.3
   },
-  "rolls": 28
+  "rolls": 28,
+  "print": "df1a36d179b590e5"
  }
 };

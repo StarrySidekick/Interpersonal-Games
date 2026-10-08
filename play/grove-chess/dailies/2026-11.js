@@ -14,7 +14,8 @@ export default {
    "winRate": 0.54,
    "winLen": 14.9
   },
-  "rolls": 15
+  "rolls": 15,
+  "print": "518ccf78ec6cec43"
  },
  "2026-11-02": {
   "name": "Accordion of Five Moths",
@@ -30,7 +31,8 @@ export default {
    "winRate": 0.58,
    "winLen": 15.3
   },
-  "rolls": 25
+  "rolls": 25,
+  "print": "184d5d533b66f22f"
  },
  "2026-11-03": {
   "name": "The Unwilling Mitten",
@@ -46,7 +48,8 @@ export default {
    "winRate": 0.63,
    "winLen": 9.8
   },
-  "rolls": 32
+  "rolls": 32,
+  "print": "e4f39427534d0afc"
  },
  "2026-11-04": {
   "name": "Where the Turnip Sulks",
@@ -62,7 +65,8 @@ export default {
    "winRate": 0.67,
    "winLen": 12.1
   },
-  "rolls": 4
+  "rolls": 4,
+  "print": "eff43dd050a5d60b"
  },
  "2026-11-05": {
   "name": "The Glass Umbrella",
@@ -78,7 +82,8 @@ export default {
    "winRate": 0.5,
    "winLen": 16.9
   },
-  "rolls": 19
+  "rolls": 19,
+  "print": "77a599850d79d831"
  },
  "2026-11-06": {
   "name": "The Velvet Biscuit",
@@ -94,7 +99,8 @@ export default {
    "winRate": 0.83,
    "winLen": 8.8
   },
-  "rolls": 21
+  "rolls": 21,
+  "print": "f29f78ca81d1f8ef"
  },
  "2026-11-07": {
   "name": "The Bishop of Nowhere’s Meadow",
@@ -110,7 +116,8 @@ export default {
    "winRate": 0.67,
    "winLen": 9.4
   },
-  "rolls": 4
+  "rolls": 4,
+  "print": "6e447e2caa793a8e"
  },
  "2026-11-08": {
   "name": "The Brass Kettle",
@@ -126,7 +133,8 @@ export default {
    "winRate": 0.88,
    "winLen": 13.3
   },
-  "rolls": 22
+  "rolls": 22,
+  "print": "1b7587a1c24ed8e2"
  },
  "2026-11-09": {
   "name": "A Glass Matter of Moths",
@@ -142,6 +150,7 @@ export default {
    "winRate": 0.75,
    "winLen": 10.7
   },
-  "rolls": 2
+  "rolls": 2,
+  "print": "9b1ce096023be9ac"
  }
 };

@@ -14,7 +14,8 @@ export default {
    "winRate": 0.54,
    "winLen": 12.7
   },
-  "rolls": 25
+  "rolls": 25,
+  "print": "bcae2c640407ddc3"
  },
  "2026-10-10": {
   "name": "The Lodger’s Eel",
@@ -30,7 +31,8 @@ export default {
    "winRate": 0.5,
    "winLen": 10.4
   },
-  "rolls": 22
+  "rolls": 22,
+  "print": "5c0f668d24c96a4a"
  },
  "2026-10-11": {
   "name": "Where the Thimble Forgets",
@@ -46,7 +48,8 @@ export default {
    "winRate": 0.79,
    "winLen": 9.3
   },
-  "rolls": 32
+  "rolls": 32,
+  "print": "c1ad211ac121e42f"
  },
  "2026-10-12": {
   "name": "The Midweek Cupboard",
@@ -62,7 +65,8 @@ export default {
    "winRate": 0.79,
    "winLen": 13.8
   },
-  "rolls": 16
+  "rolls": 16,
+  "print": "b335f8076a7febc7"
  },
  "2026-10-13": {
   "name": "A Brass Matter of Buttons",
@@ -78,7 +82,8 @@ export default {
    "winRate": 0.5,
    "winLen": 9.3
   },
-  "rolls": 5
+  "rolls": 5,
+  "print": "cdb7772ec6594181"
  },
  "2026-10-14": {
   "name": "The Bishop of Nowhere’s Orchard",
@@ -94,7 +99,8 @@ export default {
    "winRate": 0.58,
    "winLen": 10.8
   },
-  "rolls": 3
+  "rolls": 3,
+  "print": "107769fecc5876e5"
  },
  "2026-10-15": {
   "name": "Where the Thimble Dozes",
@@ -110,7 +116,8 @@ export default {
    "winRate": 0.67,
    "winLen": 10.1
   },
-  "rolls": 23
+  "rolls": 23,
+  "print": "b0c947ec9659a85d"
  },
  "2026-10-16": {
   "name": "Meadow of Five Puddles",
@@ -126,7 +133,25 @@ export default {
    "winRate": 0.54,
    "winLen": 21.2
   },
-  "rolls": 63
+  "rolls": 63,
+  "print": "8adf5ffce5e16a8a"
+ },
+ "2026-10-17": {
+  "name": "The Gentle Hatstand",
+  "theme": "honey",
+  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsIm1pbkVuZ2FnZSI6NTAsIm1pbkNlaWxpbmciOjYsInciOjcsImgiOjUsInNoYXBlIjoicmluZyIsImhvbGVzIjoyLCJzaHJpbmtFdmVyeSI6MSwibWFnaWMiOiJzaWRlcyIsInN0YXR1ZXMiOjAsIm1pbmUiOjIsIm1pbmVQb29sIjpbImNoYW5jZWxsb3IiLCJmZXJ6IiwiYW1hem9uIiwicm9zZSIsInNxdWlycmVsIiwibGFuY2UiXSwid2FpdCI6ZmFsc2UsImlxIjo0LCJ0cmFpdHMiOlsiaHVudGVyIl0sInBhdHRlcm5zIjoiZGFpbHkiLCJmb2VzIjoyLCJkYXJrQnJhaW4iOiJ0aGluayIsImtpbmRzIjoyLCJmb2VQb29sIjpbIndhemlyIiwiYW1hem9uIl0sImZvZUR1cGVzIjpmYWxzZSwiZm9lUm93cyI6Miwic2tpbGwiOiIwIiwiZ29hbCI6ImhvbGUiLCJob2xlTW92ZXMiOiJtaWQiLCJiYWxsTW92ZSI6ImJvdW5jZSIsInBhck1pbiI6NH0",
+  "v": 7,
+  "seed": 612482,
+  "par": 5,
+  "measure": {
+   "difficulty": 3,
+   "ceiling": 1.53,
+   "engagement": 59,
+   "winRate": 0.88,
+   "winLen": 12.7
+  },
+  "rolls": 86,
+  "print": "38f644f7810bf40e"
  },
  "2026-10-18": {
   "name": "The Mayor’s Parliament",
@@ -142,6 +167,41 @@ export default {
    "winRate": 0.63,
    "winLen": 12.6
   },
-  "rolls": 4
+  "rolls": 4,
+  "print": "321e8a0a8669ac18"
+ },
+ "2026-10-19": {
+  "name": "Where the Almanac Counts",
+  "theme": "ash",
+  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsIm1pbkVuZ2FnZSI6NTAsIm1pbkNlaWxpbmciOjYsInNoYXBlIjoiY2hlZXNlIiwiaG9sZXMiOjEsInNocmlua0V2ZXJ5IjozLCJtYWdpYyI6InNpZGVzIiwic3RhdHVlcyI6MCwibWluZSI6MywibWluZVBvb2wiOlsibmlnaHRyaWRlciIsImtuaWdodCIsImNhbm5vbiJdLCJsaW5ldXAiOmZhbHNlLCJyb3lhbCI6dHJ1ZSwiaXEiOjgsInRyYWl0cyI6WyJtZXNzeSIsInBhdHRlcm4iLCJndWFyZCJdLCJwYXR0ZXJucyI6IndpbGQiLCJyYWJiaXRzRWF0Ijp0cnVlLCJraW5kcyI6MywiZm9lUG9vbCI6WyJhcmNoYmlzaG9wIiwiY2Fubm9uIiwid2F6aXIiLCJyb3NlIl0sInNraWxsIjoiMSIsInN0eWxlIjoiZmxlZSIsImJhbGxNb3ZlIjoiaWNlIiwibWF4TW92ZXMiOjI1LCJmaXJzdCI6InRoZW0iLCJwYXJNaW4iOjR9",
+  "v": 7,
+  "seed": 308689,
+  "par": 5,
+  "measure": {
+   "difficulty": 3,
+   "ceiling": 1.92,
+   "engagement": 67,
+   "winRate": 0.79,
+   "winLen": 14.6
+  },
+  "rolls": 19,
+  "print": "38ce54cd46d3f926"
+ },
+ "2026-10-20": {
+  "name": "Where the Orchard Sulks",
+  "theme": "moth",
+  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsIm1pbkVuZ2FnZSI6NTAsIm1pbkNlaWxpbmciOjYsInciOjUsImgiOjcsInNoYXBlIjoicmluZyIsImhvbGVzIjozLCJtaW5lIjoyLCJtaW5lUG9vbCI6WyJyb29rIiwiY2Fubm9uIiwibmlnaHRyaWRlciIsInF1ZWVuIl0sIm1pbmVEdXBlcyI6dHJ1ZSwibGluZXVwIjpmYWxzZSwibWluZVJvd3MiOjEsImlxIjoyLCJ0cmFpdHMiOlsiYWdncmVzc2l2ZSIsIm1lc3N5Il0sInJhYmJpdEJyYWluIjoiYWkiLCJob3BzIjozLCJmb2VzIjoyLCJraW5kcyI6MiwiZm9lUG9vbCI6WyJyYWJiaXQiXSwibWlycm9yIjp0cnVlLCJmb2VSb3dzIjoyLCJza2lsbCI6IjAiLCJob2xlTW92ZXMiOiJtaWQiLCJtYXhNb3ZlcyI6MzAsInBhck1pbiI6NH0",
+  "v": 7,
+  "seed": 309891,
+  "par": 8,
+  "measure": {
+   "difficulty": 4,
+   "ceiling": 1.04,
+   "engagement": 50,
+   "winRate": 0.71,
+   "winLen": 16.3
+  },
+  "rolls": 11,
+  "print": "0c2a8b970ffe86a9"
  }
 };
