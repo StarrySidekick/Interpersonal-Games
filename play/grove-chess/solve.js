@@ -21,7 +21,7 @@
 import { initialState, allMoves, playerMove, respond, isOver, stateKey, movesFor, foeMovesFor, replay, PIECES, firstCaptures } from './rules.js';
 
 /** How far a position is from a win. Lower is closer. */
-function score(s) {
+export function score(s) {
   const r = s.day.rules, W = s.day.W;
   const alive = s.pieces.filter((p) => !p.taken);
   if (!alive.length) return Infinity;

@@ -16,13 +16,14 @@
 // of its own version, so it still builds exactly the level it was.
 
 import { rng, shuffled } from '../../engine/seed.js';
-import { PIECES, onBoard, initialState, autoApply, isOver } from './rules.js';
+import { PIECES, onBoard, initialState, autoApply, isOver, TRAITS } from './rules.js';
 import { PATTERNS } from './day.js';
 import { EXTRA_PATTERNS } from './rabbits.js';
 
 /** Every named pattern: the daily's twelve, then the ones with pauses. */
 const ALL_PATTERNS = [...PATTERNS, ...EXTRA_PATTERNS];
 import { solveLevel, assess, unbalanced, openingCaptures } from './solve.js';
+import { measure, BANDS } from './metrics.js';
 
 export const CLASSIC = Object.keys(PIECES).filter((k) => PIECES[k].kind === 'classic');
 export const FAIRY = Object.keys(PIECES).filter((k) => PIECES[k].kind === 'fairy');
@@ -67,6 +68,12 @@ export const SCHEMA = [
     { key: 'wait', label: 'Waiting allowed', type: 'bool', def: true }
   ] },
   { group: 'Rabbits', fields: [
+    { key: 'rabbitMind', label: 'Rabbits move by', type: 'choice', def: 'mind', options: opts(['mind', 'A mind of their own'], ['pattern', 'A fixed pattern']),
+      help: 'A mind: every rabbit, loose or inside a piece, picks its own move each turn, by its trait and its intelligence. A fixed pattern: the old way, a hidden pattern that repeats.' },
+    { key: 'iq', label: 'Intelligence', type: 'int', min: 1, max: 10, def: 5,
+      help: 'For rabbits with minds. Low: fumbling, half blind to danger. High: sharp, sees what you could take, never boxes itself in.' },
+    { key: 'traits', label: 'Traits', type: 'multi', def: Object.keys(TRAITS), options: Object.entries(TRAITS).map(([v, t]) => ({ v, label: t.name })),
+      help: 'Which kinds of mind can turn up. Aggressive goes for you; Hunter for your strongest piece; Shy keeps away; Guard stays with its own side; Messy is all over the place; Habit keeps a learnable pattern but steps round trouble.' },
     { key: 'rabbits', label: 'Free rabbits', type: 'int', min: 0, max: 4, def: 0,
       help: 'Rabbits loose on the board, on top of the ones inside their pieces.' },
     { key: 'rabbitBrain', label: 'Rabbits move by', type: 'choice', def: 'pattern', options: opts(['pattern', 'Hidden pattern'], ['ai', 'Thinking']) },
@@ -83,7 +90,7 @@ export const SCHEMA = [
     { key: 'darkBrain', label: 'Moved by', type: 'choice', def: 'possessed', options: opts(['possessed', 'A rabbit inside'], ['think', 'Thinking']),
       help: 'A rabbit inside: each piece is possessed by a rabbit, whose pattern decides which way it goes each turn (left, up, a pause); the piece\u2019s own moves decide how.' },
     { key: 'kinds', label: 'Kinds of rabbit inside', type: 'int', min: 1, max: 4, def: 1,
-      help: 'One kind: every piece moves to the same pattern, so you can see it. More: each piece may have its own.' },
+      help: 'One kind: every piece moves to the same pattern (or has the same trait), so you can see it. More: each piece may have its own.' },
     { key: 'foePool', label: 'Dealt from', type: 'pieces', rabbit: true, def: ['king', 'knight', 'bishop', 'rook'] },
     { key: 'foeDupes', label: 'Repeats allowed', type: 'bool', def: true },
     { key: 'mirror', label: 'Mirror your pieces instead', type: 'bool', def: false, help: 'They get a copy of your hand, facing you, like chess.' },
@@ -114,24 +121,29 @@ export const SCHEMA = [
       help: 'The solver plays each layout first and throws out any it cannot win in time. It also sets par.' },
     { key: 'parMax', label: 'Winnable within', type: 'int', min: 2, max: 15, def: 10, unit: 'moves' },
     { key: 'parMin', label: 'But not in fewer than', type: 'int', min: 1, max: 12, def: 3, unit: 'moves' },
+    { key: 'difficulty', label: 'Difficulty', type: 'choice', def: 'any', options: opts(['any', 'Any'], ['easy', 'Easy (1 to 3)'], ['normal', 'Normal (4 to 6)'], ['hard', 'Hard (7 to 8)'], ['brutal', 'Brutal (9 to 10)']),
+      help: 'Measured by a novice bot playing the level two dozen times (metrics.js): how often it loses, and how long the shortest win is. Needs the solver.' },
+    { key: 'minEngage', label: 'Engaging, at least', type: 'int', min: 0, max: 90, def: 0, unit: 'of 100',
+      help: 'A first guess at how engaging a level is: choices that matter, pieces used, tension, comebacks. 0 lets anything through.' },
     { key: 'balance', label: 'Balance rules', type: 'choice', def: 'on', options: opts(['off', 'Off'], ['on', 'On'], ['strict', 'Strict']),
       help: 'On: no piece on either side can capture on its first move, every piece of yours can move at the start, and every strange piece (fairy pieces, and the grasshopper-like ones that need the right circumstances) has a job: it makes a catch in the winning line, or the level is worse without it. Strict: every piece has a job. Needs the solver.' }
   ] }
 ];
 
 const FIELDS = SCHEMA.flatMap((g) => g.fields);
-export const SETTINGS_VERSION = 6;
+export const SETTINGS_VERSION = 7;
 export const defaults = () => ({ ...Object.fromEntries(FIELDS.map((f) => [f.key, Array.isArray(f.def) ? [...f.def] : f.def])), v: SETTINGS_VERSION });
 
 /** How each earlier version's defaults differ from today's. Settings saved
     then (links and notebook entries) only stored what differed from their
     own defaults, so they are read against them. */
 const BEFORE = {
-  5: { ballCaptures: false, statues: 0 },
-  4: { lineup: false, ballCaptures: false, statues: 0 },
-  3: { ballMove: 'ice', lineup: false, ballCaptures: false, statues: 0 },
-  2: { lineup: false, ballCaptures: false, statues: 0, rabbits: 1, foes: 2, patterns: 'daily', darkBrain: 'think', kinds: 1, foePool: ['king', 'knight', 'bishop', 'pawn'], ballMove: 'ice' },
-  1: { lineup: false, ballCaptures: false, statues: 0, rabbits: 0, foes: 3, patterns: 'daily', darkBrain: 'think', kinds: 1, foePool: ['king', 'knight', 'bishop', 'pawn'],
+  6: { rabbitMind: 'pattern' },
+  5: { rabbitMind: 'pattern', ballCaptures: false, statues: 0 },
+  4: { rabbitMind: 'pattern', lineup: false, ballCaptures: false, statues: 0 },
+  3: { rabbitMind: 'pattern', ballMove: 'ice', lineup: false, ballCaptures: false, statues: 0 },
+  2: { rabbitMind: 'pattern', lineup: false, ballCaptures: false, statues: 0, rabbits: 1, foes: 2, patterns: 'daily', darkBrain: 'think', kinds: 1, foePool: ['king', 'knight', 'bishop', 'pawn'], ballMove: 'ice' },
+  1: { rabbitMind: 'pattern', lineup: false, ballCaptures: false, statues: 0, rabbits: 0, foes: 3, patterns: 'daily', darkBrain: 'think', kinds: 1, foePool: ['king', 'knight', 'bishop', 'pawn'],
     ground: 'solid', goal: 'king', balance: 'off', ballMove: 'ice' }
 };
 const defaultsFor = (v) => ({ ...defaults(), ...JSON.parse(JSON.stringify(BEFORE[v] || {})) });
@@ -141,7 +153,7 @@ const defaultsFor = (v) => ({ ...defaults(), ...JSON.parse(JSON.stringify(BEFORE
     meaning: crumbling was a switch, there was no separate rabbit count, and
     rabbits ate whenever their side could take your pieces. */
 export function clean(raw) {
-  const v = [2, 3, 4, 5, 6].includes(raw?.v) ? raw.v : 1, legacy = v === 1;
+  const v = [2, 3, 4, 5, 6, 7].includes(raw?.v) ? raw.v : 1, legacy = v === 1;
   const s = defaultsFor(v);
   for (const f of FIELDS) {
     const v = raw?.[f.key];
@@ -149,6 +161,10 @@ export function clean(raw) {
     if (f.type === 'int' && Number.isFinite(+v)) s[f.key] = Math.max(f.min, Math.min(f.max, Math.round(+v)));
     if (f.type === 'bool') s[f.key] = !!v;
     if (f.type === 'choice' && f.options.some((o) => o.v === String(v))) s[f.key] = String(v);
+    if (f.type === 'multi' && Array.isArray(v)) {
+      const ok = v.filter((k) => f.options.some((o) => o.v === k));
+      if (ok.length) s[f.key] = [...new Set(ok)];
+    }
     if (f.type === 'pieces' && Array.isArray(v)) {
       const ok = v.filter((k) => PIECES[k] && (k !== 'rabbit' || f.rabbit));
       if (ok.length) s[f.key] = [...new Set(ok)];
@@ -197,6 +213,7 @@ export function crazy(rand = Math.random, allowed = [...FAIRY, 'rabbit']) {
     ground: pick(['solid', 'solid', 'solid', 'crumble', 'shrink', 'spiral']), shrinkEvery: int(1, 3),
     rabbits: rabbitOk ? int(0, 2) : 0, rabbitsEat: rand() < 0.2,
     darkBrain: rand() < 0.65 ? 'possessed' : 'think', kinds: int(1, 3),
+    rabbitMind: rand() < 0.8 ? 'mind' : 'pattern', iq: int(2, 9), traits: some(Object.keys(TRAITS), 1, 4),
     mine, minePool: some(ALL, 2, 6), mineDupes: rand() < 0.3, mineRows: int(1, 2), lineup: rand() < 0.8,
     mode: rand() < 0.15 ? 'auto' : 'hand', autoPool: 'all',
     royal: rand() < 0.2, wait: rand() < 0.8,
@@ -437,6 +454,20 @@ export function makeLevel(settings, seed) {
     }
   }
 
+  // Minds (version 7): every rabbit, loose or inside a piece, gets an
+  // intelligence and a trait; `kinds` says how many different traits.
+  // Drawn last, so a level without minds is dealt as it always was.
+  if (S.rabbitMind === 'mind') {
+    const minded = foes.filter((f) => f.brain === 'possessed' || f.brain === 'pattern');
+    const traits = shuffled(S.traits, rand).slice(0, Math.max(1, Math.min(S.kinds, minded.length)));
+    minded.forEach((f, i) => {
+      const trait = traits[i % traits.length];
+      f.mind = { iq: S.iq, trait };
+      // It wears its trait's colour; a habit keeps its pattern's name.
+      if (trait !== 'pattern') f.patternName = TRAITS[trait].name;
+    });
+  }
+
   return Object.assign(day, {
     seed, settings: S, shrinkKey: seed,
     pieces: pieces.filter((p) => p.x !== undefined),
@@ -476,7 +507,8 @@ export function summary(S) {
     (S.magic === 'sides' ? ', magic sides' : S.magic === 'all' ? ', magic on all four sides' : '') + (S.geared ? ', geared' : '');
   const ground = { solid: '', crumble: ', crumbling', shrink: `, shrinking every ${S.shrinkEvery}`, spiral: `, shrinking in a spiral every ${S.shrinkEvery}` }[S.ground];
   const rabbitsHere = S.rabbits > 0 || (S.foePool.includes('rabbit') && !S.mirror);
-  const dark = S.darkBrain === 'possessed' ? `possessed by ${S.kinds} kind${S.kinds > 1 ? 's' : ''} of rabbit` : 'thinking';
+  const minds = S.rabbitMind === 'mind' ? ` with minds (intelligence ${S.iq}, ${S.traits.map((t) => TRAITS[t].name.toLowerCase()).join('/')})` : '';
+  const dark = S.darkBrain === 'possessed' ? `possessed by ${S.kinds} kind${S.kinds > 1 ? 's' : ''} of rabbit${minds}` : 'thinking';
   const auto = S.mode === 'auto' ? `Autochess, with ${S.autoPool === 'all' ? 'every named kind of rabbit' : 'the rabbits you have caught'}. ` : '';
   return `${auto}${S.w} × ${S.h} ${shape}${ground}${statues}${S.lineup ? ', lined up' : ''}. You: ${S.hand ? S.hand.map(name).join(', ') : `${S.mine} from ${pool(S.minePool)}`}. ` +
     `Them: ${S.rabbits ? `${S.rabbits} rabbit${S.rabbits > 1 ? 's' : ''}, ` : ''}` +
@@ -512,7 +544,7 @@ export function decodeLevel(hash) {
     // A link is read against the defaults of the version it was made in
     // (no v at all: before version 2).
     const v = +p.get('v');
-    if ([2, 3, 4, 5, 6].includes(v)) diff.v = v; else delete diff.v;
+    if ([2, 3, 4, 5, 6, 7].includes(v)) diff.v = v; else delete diff.v;
     return { settings: clean(diff), seed: Math.abs(parseInt(p.get('seed'), 10)) || 1, par: par > 0 ? par : null };
   } catch { return null; }
 }
@@ -548,12 +580,15 @@ export const patternNamed = (name) => ALL_PATTERNS.find((p) => p.name === name) 
     'all': every named kind, enough of each for every piece. */
 export function rabbitPool(S, caught = {}, pieces = 8) {
   const out = {};
-  for (const p of ALL_PATTERNS) {
-    const n = S.autoPool === 'all' ? pieces : caught[p.name] || 0;
-    if (n > 0) out[p.name] = n;
+  for (const name of [...ALL_PATTERNS.map((p) => p.name), ...Object.values(TRAITS).filter((t) => t.name !== 'Habit').map((t) => t.name)]) {
+    const n = S.autoPool === 'all' ? pieces : caught[name] || 0;
+    if (n > 0) out[name] = n;
   }
   return out;
 }
+
+/** The trait a rabbit's name stands for (a rabbit with a mind), or null. */
+export const traitNamed = (name) => Object.keys(TRAITS).find((k) => TRAITS[k].name === name && k !== 'pattern') || null;
 
 /** A fresh setup for a level: every piece where it was dealt, no rabbits. */
 export const emptySetup = (level) => level.pieces.map((p) => ({ type: p.type, rabbit: null, mx: 1 }));
@@ -569,9 +604,11 @@ export function setupFits(setup, pool) {
 export function withSetup(level, setup) {
   return Object.assign(Object.create(Object.getPrototypeOf(level)), level, {
     pieces: level.pieces.map((p, i) => {
-      const u = setup[i], pat = u?.rabbit && patternNamed(u.rabbit);
+      const u = setup[i], pat = u?.rabbit && patternNamed(u.rabbit), trait = u?.rabbit && traitNamed(u.rabbit);
       const out = { x: p.x, y: p.y, type: u?.type || p.type };
       if (pat) Object.assign(out, { brain: 'possessed', pattern: pat.steps, patternName: pat.name, mx: u.mx || 1, my: 1, i: 0 });
+      // A rabbit with a mind plays for you as it would against you.
+      if (trait) Object.assign(out, { brain: 'possessed', mind: { iq: level.settings?.iq ?? 6, trait }, patternName: u.rabbit, mx: 1, my: 1, i: 0 });
       return out;
     })
   });
@@ -642,7 +679,11 @@ export function searchLayouts({ settings, seed, parMin, parMax, maxTries = 400, 
       // Winnable at the right length. Now: is it balanced?
       const balance = assess(level, r, { deadline: t0 + maxMs });
       const why = unbalanced(balance, rules);
-      if (fixed || !why.length) return post({ type: 'done', seed: sd, par: r.par, exact: r.exact, line: r.line, tried, balance, why, thrown });
+      // Then: is it as hard, and as engaging, as asked?
+      const S = clean(settings), m = measure(level, r), band = BANDS[S.difficulty] || BANDS.any;
+      if (!fixed && !why.length && (m.difficulty < band[0] || m.difficulty > band[1])) why.push(m.difficulty < band[0] ? 'it was too easy' : 'it was too hard');
+      if (!fixed && !why.length && m.engagement < S.minEngage) why.push('it was not engaging enough');
+      if (fixed || !why.length) return post({ type: 'done', seed: sd, par: r.par, exact: r.exact, line: r.line, tried, balance, why, thrown, measure: m });
       for (const w of why) thrown[w] = (thrown[w] || 0) + 1;
       if (!best || !best.unbalanced) best = { seed: sd, par: r.par, exact: r.exact, line: r.line, balance, why, unbalanced: true };
     } else if (r.par && (!best || (!best.unbalanced && r.par > best.par))) {

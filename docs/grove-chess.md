@@ -407,6 +407,57 @@ horizontal rather than vertical. Notated visually (the plinth colours and
 the pieces moving together) and audially (each step plays its rabbit's
 note). Not yet in the descent; that is the obvious next home for it.
 
+### Rabbit minds
+
+Timothy, 2026-10-08: "currently rabbits are too stupid. we need maybe more
+adaptive types that don't get stuck in a corner ... an intelligence level
+from 1-10, along with a trait." Settings version 7 makes minds the default
+(`rabbitMind`; old links keep patterns). Every rabbit, loose or inside a
+piece, scores each move it has (and staying put) and takes the best
+(`mindStep` in `rules.js`):
+
+| Measure | What it is |
+|---|---|
+| catch | what it would take, by that piece's strength |
+| danger | standing where you could take it next turn; seen better the higher its intelligence |
+| near / target / ally | distance to your nearest piece, your strongest piece, its own side |
+| room | how many moves it would have from there (the cure for corners) |
+| edges | every rabbit dislikes edges, and corners more |
+| restless | staying put gets worse each turn it has stayed |
+
+The trait sets the weights: **Aggressive** (goes for you), **Hunter** (your
+strongest piece), **Shy** (keeps away, never stands in reach), **Guard**
+(stays with its side), **Messy** (long odd moves, half an eye on danger),
+**Habit** (a learnable pattern that steps round trouble). Intelligence
+1 to 10 sets how well it sees danger and how much it fumbles. The fumbling
+comes from a hash of the position, not true randomness, so the same
+position always gets the same move and the solver still works. Each trait
+has its fur colour.
+
+Measured over 60 random games each: rabbits stood still on 18% of turns
+with patterns and 8 to 9% with minds, and sat in a corner on 8% against 4%.
+
+### How a level plays: difficulty, skill ceiling, engagement
+
+`metrics.js`. A novice bot plays each level two dozen times (it takes a win
+it can see, usually grabs a capture, otherwise picks among its three
+best-looking moves), seeded so the numbers repeat:
+
+- **Difficulty**, 1 to 10: mostly how often the novice loses, plus how long
+  par is against the move limit.
+- **Skill ceiling**: how much longer the novice takes to win than par
+  (0.5: an expert is one and a half times faster). High is the daily's
+  shape: hard to win fast, easy to win slowly.
+- **Engagement**, 0 to 100: choices that matter (on the solver's line, the
+  share of moves that improve the position, best near a quarter), pieces
+  used, tension (threats and captures per turn) and comebacks (wins that
+  cost a piece). **A first guess**: Chaos saves these next to every rating,
+  so the formula can be checked against what was actually fun.
+
+Chaos has two new settings, **Difficulty** (any, easy, normal, hard,
+brutal) and **Engaging, at least**, and keeps dealing until a layout fits.
+"How this level plays" shows all three.
+
 ### Statues, magic edges, and a board that turns
 
 Timothy, 2026-10-07. Three board settings in Chaos, each also in Go crazy:

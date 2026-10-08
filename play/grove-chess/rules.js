@@ -692,14 +692,138 @@ function possessedStep(s, f) {
   landFoe(s, f, best.x, best.y);
 }
 
-/** The pattern foes all hop, and the possessed pieces take their steps.
-    Mutates. */
+/** The pattern foes all hop, the possessed pieces take their steps, and
+    every rabbit with a mind thinks for itself. Mutates. */
 export function patternHops(s) {
-  for (const f of s.foes) {
-    if (f.taken) continue;
+  s.foes.forEach((f, k) => {
+    if (f.taken) return;
+    if (f.mind) { if (!lost(s)) mindStep(s, f, k, 'foe'); return; }
     if (f.brain === 'pattern') for (let h = 0; h < (f.hops || 1) && !lost(s); h++) hop(s, f);
     else if (f.brain === 'possessed' && !lost(s)) possessedStep(s, f);
+  });
+}
+
+// --- Rabbit minds (Timothy, 2026-10-08: "currently rabbits are too stupid
+// ... intelligence level from 1-10, along with a trait"). ------------------
+//
+// A rabbit with a mind (loose, or inside one of their pieces, or inside one
+// of yours in autochess) looks at every move it has, and staying put, and
+// scores each: what it would catch, whether the other side could take it
+// there next turn, how near the other side it ends up, how much room it
+// would have to move from there (so it never boxes itself into a corner),
+// how near the middle it is. Its trait says how much each of those matters;
+// its intelligence says how well it sees danger and how much it fumbles.
+// The fumbling is not random: it comes from a hash of the position, so the
+// same position always gets the same move, on every phone, and the solver
+// can still treat the level as a puzzle.
+
+/** What each trait cares about. cap: catching; danger: standing where it
+    can be taken; near: distance to the nearest of the other side (minus
+    means closer is better); target: distance to the other side's strongest
+    piece; ally: distance to its own side; room: moves it would have next
+    turn; center: distance to the middle (minus: likes the middle); long:
+    the length of the move; follow: going the way its pattern says; noise:
+    extra fumbling. */
+export const TRAITS = {
+  aggressive: { name: 'Aggressive', cap: 9, danger: -3, near: -1.4, room: 0.3, center: -0.2,
+    desc: 'Goes for your pieces, and takes any it can.' },
+  hunter: { name: 'Hunter', cap: 5, capTarget: 10, danger: -4, target: -2.2, room: 0.3,
+    desc: 'Picks your strongest piece and goes after it, whatever else is on the board.' },
+  shy: { name: 'Shy', cap: 1.5, danger: -10, near: 1.6, room: 0.7, center: -0.3,
+    desc: 'Keeps away from your pieces and never stands where you could take it, if it can help it.' },
+  guard: { name: 'Guard', cap: 4, danger: -6, ally: -1.3, near: -0.2, room: 0.3,
+    desc: 'Stays close to its own side, keeps out of reach, and takes what wanders near.' },
+  messy: { name: 'Messy', cap: 4, danger: -2, near: -0.4, room: 0.2, long: 0.6, noise: 3,
+    desc: 'All over the place: long, odd moves, and only half an eye on danger.' },
+  pattern: { name: 'Habit', cap: 3, danger: -5, follow: 4, room: 0.4,
+    desc: 'Keeps a habit you can learn, a pattern of ways it likes to go, but steps round trouble instead of walking into it.' }
+};
+
+/** A number in [0, 1) from a string, the same everywhere (FNV-1a). */
+function hash01(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return ((h >>> 0) % 100000) / 100000;
+}
+
+/** Squares the side `who` could move to next turn: where a piece of the
+    other side would be standing in reach. (A little generous: a pawn's
+    forward step is counted though it cannot capture that way.) */
+function reachOf(s, who) {
+  const out = new Set(), W = s.day.W;
+  const list = who === 'you' ? s.pieces : s.foes;
+  for (const p of list) {
+    if (p.taken || p.type === 'ball') continue;
+    if (who === 'foe' && !canTake(s.day.rules, p)) continue;
+    for (const m of pieceMoves(s, p, who)) out.add(m.y * W + m.x);
   }
+  return out;
+}
+
+/**
+ * One rabbit-minded piece's turn: `f` is s.foes[k] (side 'foe') or
+ * s.pieces[k] (side 'you', autochess). Mutates.
+ */
+function mindStep(s, f, k, side) {
+  const day = s.day, W = day.W, H = day.H, T = TRAITS[f.mind.trait] || TRAITS.aggressive;
+  const iq = Math.max(1, Math.min(10, f.mind.iq || 5));
+  const other = side === 'foe' ? 'you' : 'foe';
+  const them = (side === 'foe' ? s.pieces : s.foes).filter((p) => !p.taken && p.type !== 'ball');
+  const mine = (side === 'foe' ? s.foes : s.pieces).filter((p) => !p.taken && p !== f);
+  const reach = reachOf(s, other);
+  const take = side === 'foe' ? canTake(day.rules, f) : true;
+  const dist = (ax, ay, bx, by) => Math.max(Math.abs(delta(day, ax - bx, 'x')), Math.abs(delta(day, ay - by, 'y')));
+  const strongest = them.reduce((a, p) => (!a || (PIECES[p.type].strength || 0) > (PIECES[a.type].strength || 0) ? p : a), null);
+  // A habit, if it has one: the way its pattern points this turn.
+  let want = null;
+  if (T.follow && f.pattern) { want = patternStep(s, f, f.pattern[f.i || 0]); f.i = ((f.i || 0) + 1) % f.pattern.length; }
+  const aware = 0.25 + 0.75 * (iq / 10), fumble = (11 - iq) * 0.55 + (T.noise || 0);
+
+  /** How many moves it would have standing on (x, y). */
+  const room = (x, y) => {
+    const L0 = sight(s, f, side);
+    const L = (a, b) => { const [p, q] = fold(day, a, b); if (p === f.x && q === f.y) return EMPTY; if (p === x && q === y) return OFF; return L0(a, b); };
+    return PIECES[f.type].moves(L, { ...f, x, y }, side === 'foe' ? -1 : 1, day).length;
+  };
+  const score = (x, y, cap) => {
+    let v = 0;
+    const victim = cap ? them.find((p) => p.x === x && p.y === y) : null;
+    if (victim) v += T.cap * (PIECES[victim.type].strength || 3) / 3 + (victim === strongest ? T.capTarget || 0 : 0);
+    if (reach.has(y * W + x) && !(cap && iq < 4)) v += T.danger * aware;
+    if (them.length) {
+      const near = Math.min(...them.map((p) => dist(x, y, p.x, p.y)));
+      v += (T.near || 0) * near;
+      if (T.target && strongest) v += T.target * dist(x, y, strongest.x, strongest.y);
+    }
+    if (T.ally && mine.length) v += T.ally * Math.min(...mine.map((p) => dist(x, y, p.x, p.y)));
+    v += (T.room || 0) * Math.min(8, room(x, y)) * (0.5 + iq / 20);
+    v += (T.center || 0) * (Math.abs(x - (W - 1) / 2) + Math.abs(y - (H - 1) / 2)) / 2;
+    // Every rabbit dislikes edges and, more, corners: that is where they get
+    // stuck. (Not on a joined edge of a magic board: there is no edge.)
+    const edgeX = !wrapsX(day) && (x === 0 || x === W - 1), edgeY = !wrapsY(day) && (y === 0 || y === H - 1);
+    v -= (edgeX && edgeY ? 1.6 : edgeX || edgeY ? 0.5 : 0) * (0.4 + iq / 10);
+    v += (T.long || 0) * Math.max(Math.abs(delta(day, x - f.x, 'x')), Math.abs(delta(day, y - f.y, 'y')));
+    if (want) {
+      const mx = delta(day, x - f.x, 'x'), my = delta(day, y - f.y, 'y');
+      if (mx * want[0] + my * want[1] > 0) v += T.follow;
+    }
+    return v + hash01(`${day.seed ?? 0}|${s.t}|${side}${k}|${x},${y}`) * fumble;
+  };
+
+  // Staying put gets less appealing the longer it has stayed: restless.
+  let best = { x: f.x, y: f.y, cap: false, v: score(f.x, f.y, false) - 0.8 - 1.2 * (f.idle || 0) };
+  for (const m of pieceMoves(s, f, side)) {
+    const ball = m.cap && hitBall(s, m.x, m.y);
+    if (ball ? !hitOk(s, f, m) : m.cap && !take) continue;
+    if (side === 'you' && !hitOk(s, f, m)) continue;
+    const v = score(m.x, m.y, m.cap && !ball);
+    if (v > best.v) best = { ...m, v };
+  }
+  f.from = [f.x, f.y];
+  if (best.x === f.x && best.y === f.y) { f.rested = true; f.blocked = false; f.idle = (f.idle || 0) + 1; return; }
+  f.rested = false; f.idle = 0;
+  if (side === 'foe') landFoe(s, f, best.x, best.y);
+  else landMine(s, k, best.x, best.y);
 }
 
 /** The hole's hop: its pattern, bouncing off the edges like a rabbit, and
@@ -841,7 +965,7 @@ function mineStep(n, i) {
 }
 
 /** Is this one of your pieces with a rabbit inside? */
-export const autoPiece = (p) => p.brain === 'possessed' && !p.taken;
+export const autoPiece = (p) => (p.brain === 'possessed' || p.mind) && !p.taken;
 
 /** Your half of an autochess turn: every possessed piece of yours steps,
     in order from the left of the board (then the bottom), as they stand at
@@ -851,7 +975,7 @@ export function autoMove(s) {
   const n = clone(s);
   const order = n.pieces.map((p, i) => i).filter((i) => autoPiece(n.pieces[i]))
     .sort((a, b) => n.pieces[a].x - n.pieces[b].x || n.pieces[a].y - n.pieces[b].y);
-  for (const i of order) if (!n.won && !lost(n) && autoPiece(n.pieces[i])) mineStep(n, i);
+  for (const i of order) if (!n.won && !lost(n) && autoPiece(n.pieces[i])) { if (n.pieces[i].mind) mindStep(n, n.pieces[i], i, 'you'); else mineStep(n, i); }
   return n;
 }
 
@@ -1009,7 +1133,7 @@ export function stateKey(s) {
   let k = '';
   for (const p of s.pieces) k += p.taken ? '--' : p.x + ',' + p.y + ';';
   k += '|';
-  for (const f of s.foes) k += f.taken ? '--' : f.x + ',' + f.y + ',' + f.i + (f.mx > 0 ? '+' : '-') + (f.my > 0 ? '+' : '-') + ';';
+  for (const f of s.foes) k += f.taken ? '--' : f.x + ',' + f.y + ',' + f.i + (f.mx > 0 ? '+' : '-') + (f.my > 0 ? '+' : '-') + (f.idle ? 'i' + f.idle : '') + ';';
   if (s.hole) k += `|h${s.hole.x},${s.hole.y},${s.hole.i}${s.hole.mx > 0 ? '+' : '-'}${s.hole.my > 0 ? '+' : '-'}`;
   // Which squares are gone matters; the order they went in does not.
   if (s.gone.length) k += '|g' + s.gone.slice().sort((a, b) => a - b).join(',');
