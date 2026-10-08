@@ -127,5 +127,21 @@ export default {
    "winLen": 8.9
   },
   "rolls": 26
+ },
+ "2026-12-09": {
+  "name": "The Mayor’s Doorknob",
+  "theme": "dusk",
+  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsIm1pbkVuZ2FnZSI6NTAsIm1pbkNlaWxpbmciOjYsInciOjQsImgiOjgsInNoYXBlIjoic3RhaXJzIiwiaG9sZXMiOjQsImdyb3VuZCI6InNwaXJhbCIsInN0YXR1ZXMiOjAsIm1pbmUiOjIsIm1pbmVQb29sIjpbInplYnJhIiwic2lsdmVyIiwiYWxmaWwiLCJjYW5ub24iXSwibWluZVJvd3MiOjEsInJveWFsIjp0cnVlLCJ3YWl0IjpmYWxzZSwiaXEiOjksInRyYWl0cyI6WyJtZXNzeSIsInNoeSIsImd1YXJkIl0sInJhYmJpdHMiOjEsInBhdHRlcm5zIjoic2hvcnQiLCJkYXJrQnJhaW4iOiJ0aGluayIsImtpbmRzIjoyLCJmb2VQb29sIjpbInJhYmJpdCJdLCJmb2VEdXBlcyI6ZmFsc2UsIm1pcnJvciI6dHJ1ZSwiZm9lUm93cyI6MSwiaG9sZU1vdmVzIjoic3RpbGwiLCJwYXJNaW4iOjR9",
+  "v": 7,
+  "seed": 42563,
+  "par": 4,
+  "measure": {
+   "difficulty": 3,
+   "ceiling": 1.57,
+   "engagement": 53,
+   "winRate": 0.71,
+   "winLen": 10.3
+  },
+  "rolls": 28
  }
 };

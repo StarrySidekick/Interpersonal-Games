@@ -127,5 +127,21 @@ export default {
    "winLen": 21.2
   },
   "rolls": 63
+ },
+ "2026-10-18": {
+  "name": "The Mayor’s Parliament",
+  "theme": "ash",
+  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsIm1pbkVuZ2FnZSI6NTAsIm1pbkNlaWxpbmciOjYsInciOjgsImgiOjQsImhvbGVzIjoyLCJzdGF0dWVzIjozLCJtaW5lIjozLCJtaW5lUG9vbCI6WyJhbWF6b24iLCJxdWVlbiIsImZlcnoiLCJwYXduIiwiZGFiYmFiYSJdLCJtaW5lRHVwZXMiOnRydWUsImxpbmV1cCI6ZmFsc2UsIm1pbmVSb3dzIjoxLCJyb3lhbCI6dHJ1ZSwiaXEiOjYsInRyYWl0cyI6WyJodW50ZXIiLCJwYXR0ZXJuIiwibWVzc3kiLCJzaHkiXSwicmFiYml0cyI6MSwicGF0dGVybnMiOiJzaG9ydCIsImhvcHMiOjIsImZvZXMiOjQsImRhcmtCcmFpbiI6InRoaW5rIiwia2luZHMiOjMsImZvZVBvb2wiOlsicmFiYml0Il0sImZvZVJvd3MiOjIsInNraWxsIjoiMCIsImJhbGxNb3ZlIjoiYm91bmNlIiwiYmFsbFN0b3BzIjp0cnVlLCJtYXhNb3ZlcyI6MzAsInBhck1pbiI6NH0",
+  "v": 7,
+  "seed": 401928,
+  "par": 7,
+  "measure": {
+   "difficulty": 4,
+   "ceiling": 0.8,
+   "engagement": 55,
+   "winRate": 0.63,
+   "winLen": 12.6
+  },
+  "rolls": 4
  }
 };
