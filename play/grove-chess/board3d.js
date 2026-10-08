@@ -45,6 +45,7 @@ const BIG = 1.25;         // pieces stand a little larger here than on the title
 const FOG = '#1b2620';    // the forest, far off
 const RIM = '#5a3d26';    // the board's wooden base
 const PALE = '#e9e4da';   // a possessed piece whose rabbit you do not know
+const SUIT_COLOUR = { hearts: '#e0445a', swords: '#7f9fc0', stars: '#e8c547', diamonds: '#5fd0d8' }; // run.js SUITS
 const LIFT = 10 / 28;     // the flat board's pixels of height, in model units
 
 // --- Colours, as the renderer wants them ('#rrggbb'). ----------------------
@@ -588,8 +589,9 @@ export class Board3D extends Board {
         const k = at - collapse.t0 - 260 - i * 110;
         if (k > 0) o = { rz: (i % 2 ? 1 : -1) * Math.min(1.2, k / 700), rx: Math.min(0.8, k / 900), s: away(k) };
       }
-      // In autochess a piece of yours with a rabbit inside wears its colour.
-      stand(model(p.type, 'you', null, p.brain === 'possessed' ? this.fur(p) : null), x, y, h, 100 + i, o);
+      // In autochess a piece of yours with a rabbit inside wears its colour;
+      // in a descent, a piece with a suit wears the suit's.
+      stand(model(p.type, 'you', null, p.brain === 'possessed' ? this.fur(p) : SUIT_COLOUR[p.suit] || null), x, y, h, 100 + i, o);
     });
     // Theirs.
     s.foes.forEach((f, k) => {

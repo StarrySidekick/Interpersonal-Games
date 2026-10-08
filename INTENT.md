@@ -177,6 +177,29 @@ And later on 2026-10-07:
 - **New boards: magic (Pac-Man edges) and geared (turns every turn).**
   Built as Chaos settings, with **statues** in place of stumps.
 
+## 2026-10-08: modes are collections of settings
+
+From Timothy. What became of each note:
+
+- **A piece catalog in the main menu**, with history, vetoes, notes,
+  inventing pieces and export. Built (`pieces/`, `docs/grove-pieces.md`).
+- **Every mode is settings, with a settings panel each.** Built: run and
+  level settings, presets for the daily, descent, Chaos, golf and
+  autochess, one runner and one panel (`docs/grove-modes.md`).
+- **The descent as a roguelite**: four pieces to six, lost for good, then
+  upgrades: hearts, swords, stars, diamonds, fusing, promotion, jokers.
+  Built; swords, stars and diamonds are proposals for what he named.
+- **Chaos**: one completely random level, balanced, winnable, at the chosen
+  difficulty. Built.
+- **Golf**: built as a course with six balls (two new) and a scorecard.
+  "It needs to be fun somehow": a first version.
+- **Autochess** as its own mode: rounds and lives. Built, without a shop.
+- **Rabbits with minds**: intelligence 1 to 10 and a trait. Built.
+- **How difficult, and how engaging, a level is.** Built as measures
+  (`metrics.js`); engagement is a first guess to check against ratings.
+- **The daily**: one board, a big spread between few and many moves,
+  balanced, any rules, a mysterious name and light theming. Next.
+
 ## 2026-10-05: the front door is asynchronous, and it is a group
 
 Recorded from Timothy's own description. **Where this section disagrees with

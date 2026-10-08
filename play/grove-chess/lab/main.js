@@ -14,6 +14,7 @@ import { piecesSheet } from '../sheet.js';
 import { describeBalance } from '../solve.js';
 import { describeMeasure } from '../metrics.js';
 import { fillMenu } from '../menu.js';
+import { buildForm } from '../form.js';
 import { loadCatalog, registerInvented } from '../invented.js';
 import { makeBoard } from '../board3d.js';
 import { playIntro } from '../intro.js';
@@ -53,57 +54,13 @@ function remember() {
   history.replaceState(null, '', `#${encodeLevelWithPar(settings, seed, par)}`);
 }
 
-// --- The settings form, built from the schema. ----------------------------
+// --- The settings form, built from the schema (form.js). -------------------
 
-const updaters = [];
+let updaters = [];
 
-function field(f) {
-  const label = el('div', { class: 'flabel' }, f.label, f.help ? el('span', { class: 'fhelp' }, f.help) : null);
-  let ctrl;
-  if (f.type === 'int') {
-    const val = el('span', { class: 'fval' });
-    const step = (d) => el('button', { class: 'quiet', 'aria-label': d < 0 ? `Less ${f.label}` : `More ${f.label}`, onclick: () => set(f.key, settings[f.key] + d) }, d < 0 ? '−' : '+');
-    ctrl = el('div', { class: 'stepper' }, step(-1), val, step(1));
-    updaters.push(() => {
-      const v = settings[f.key];
-      val.textContent = f.key === 'maxMoves' && v === 0 ? 'none' : `${v}${f.unit ? ' ' + f.unit : ''}`;
-    });
-  } else if (f.type === 'bool') {
-    ctrl = el('button', { class: 'quiet tog', onclick: () => set(f.key, !settings[f.key]) });
-    updaters.push(() => { ctrl.textContent = settings[f.key] ? 'On' : 'Off'; ctrl.setAttribute('aria-pressed', String(settings[f.key])); });
-  } else if (f.type === 'choice') {
-    const btns = f.options.map((o) => el('button', { class: 'quiet', onclick: () => set(f.key, o.v) }, o.label));
-    ctrl = el('div', { class: 'seg' }, ...btns);
-    updaters.push(() => btns.forEach((b, i) => b.setAttribute('aria-pressed', String(f.options[i].v === settings[f.key]))));
-  } else if (f.type === 'multi') {
-    const btns = f.options.map((o) => el('button', { class: 'quiet', onclick: () => {
-      const on = settings[f.key].includes(o.v) ? settings[f.key].filter((x) => x !== o.v) : [...settings[f.key], o.v];
-      if (on.length) set(f.key, on); // always keep at least one
-    } }, o.label));
-    ctrl = el('div', { class: 'seg' }, ...btns);
-    updaters.push(() => btns.forEach((b, i) => b.setAttribute('aria-pressed', String(settings[f.key].includes(f.options[i].v)))));
-  } else if (f.type === 'pieces') {
-    const kinds = [...(f.rabbit ? ['rabbit'] : []), ...Object.keys(PIECES).filter((k) => k !== 'rabbit')];
-    const btns = kinds.map((k) => {
-      const cv = el('canvas', { class: 'pix', width: 30, height: 36 });
-      cv.getContext('2d').drawImage(sprite(k, f.rabbit ? 'foe' : 'you'), 0, 0);
-      return el('button', {
-        class: 'quiet chip',
-        onclick: () => {
-          const pool = settings[f.key].includes(k) ? settings[f.key].filter((x) => x !== k) : [...settings[f.key], k];
-          if (pool.length) set(f.key, pool); // always keep at least one
-        }
-      }, cv, PIECES[k].name);
-    });
-    ctrl = el('div', { class: 'chips' }, ...btns);
-    updaters.push(() => btns.forEach((b, i) => b.setAttribute('aria-pressed', String(settings[f.key].includes(kinds[i])))));
-  }
-  return el('div', { class: `field${f.type === 'pieces' || f.type === 'choice' || f.type === 'multi' ? ' wide' : ''}` }, label, ctrl);
-}
-
-function buildForm() {
-  const root = $('#settings');
-  for (const g of SCHEMA) root.append(el('details', { class: 'group', open: g.group === 'Board' || g.group === 'How you play' }, el('summary', {}, g.group), ...g.fields.map(field)));
+function buildFormHere() {
+  const update = buildForm($('#settings'), SCHEMA, () => settings, set, (g) => g === 'Board' || g === 'How you play');
+  updaters = [update];
 }
 
 function set(key, value) {
@@ -613,8 +570,8 @@ $('#back').onclick = () => show('lab');
 
 $('#play').onclick = () => startGame();
 // The same settings as a descent: a new layout of them at every depth, your
-// pieces carried down (descent/main.js reads them from the link).
-$('#asdescent').onclick = () => { location.href = `../descent/#${encodeLevel(settings, seed)}`; };
+// pieces carried down (the runner, play/main.js, reads them from the link).
+$('#asdescent').onclick = () => { location.href = `../play/?mode=descent#${encodeLevel(settings, seed)}`; };
 // Every piece there is, with its patent, to read through.
 $('#allpieces').onclick = () => {
   const kinds = Object.keys(PIECES).filter((k) => k !== 'rabbit');
@@ -661,8 +618,8 @@ $('#link').onclick = async () => {
 };
 
 $('.topbar .pill').before(soundToggle(), themeToggle());
-fillMenu($('#modes'), 'chaos', '../');
-buildForm();
+fillMenu($('#modes'), 'workshop', '../');
+buildFormHere();
 buildCrazyPool();
 updaters.forEach((u) => u());
 $('#summary').textContent = summary(settings);

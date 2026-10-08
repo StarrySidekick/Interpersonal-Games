@@ -172,10 +172,15 @@ function leap(L, p, vecs, out = []) {
   return out;
 }
 
+// Every loop that slides is capped at 64 steps: no real slide is longer
+// (a lap of a magic board is under 20), and a mistake somewhere can then
+// never freeze a phone in an endless loop.
+const MAX_SLIDE = 64;
+
 function ride(L, p, vecs, out = []) {
   for (const [dx, dy] of vecs) {
     let x = p.x + dx, y = p.y + dy;
-    for (;;) {
+    for (let n = 0; n < MAX_SLIDE; n++) {
       const c = L(x, y);
       if (c === EMPTY) out.push({ x, y, cap: false });
       else { if (c === ENEMY) out.push({ x, y, cap: true }); break; }
@@ -189,8 +194,8 @@ function grasshopper(L, p) {
   const out = [];
   for (const [dx, dy] of ALL8) {
     let x = p.x + dx, y = p.y + dy;
-    while (L(x, y) === EMPTY) { x += dx; y += dy; }
-    if (L(x, y) === OFF) continue; // nothing to hop over
+    for (let n = 0; n < MAX_SLIDE && L(x, y) === EMPTY; n++) { x += dx; y += dy; }
+    if (L(x, y) === OFF || L(x, y) === EMPTY) continue; // nothing to hop over
     const c = L(x + dx, y + dy);
     if (c === EMPTY || c === ENEMY) out.push({ x: x + dx, y: y + dy, cap: c === ENEMY });
   }
@@ -201,10 +206,10 @@ function cannon(L, p) {
   const out = [];
   for (const [dx, dy] of ORTH) {
     let x = p.x + dx, y = p.y + dy;
-    while (L(x, y) === EMPTY) { out.push({ x, y, cap: false }); x += dx; y += dy; }
-    if (L(x, y) === OFF) continue;
+    for (let n = 0; n < MAX_SLIDE && L(x, y) === EMPTY; n++) { out.push({ x, y, cap: false }); x += dx; y += dy; }
+    if (L(x, y) === OFF || L(x, y) === EMPTY) continue;
     x += dx; y += dy; // over the screen
-    while (L(x, y) === EMPTY) { x += dx; y += dy; }
+    for (let n = 0; n < MAX_SLIDE && L(x, y) === EMPTY; n++) { x += dx; y += dy; }
     if (L(x, y) === ENEMY) out.push({ x, y, cap: true });
   }
   return out;
@@ -235,10 +240,11 @@ function ball(L, p, fwd, day) {
   if (how === 'hit') return []; // it only moves when something hits it
   if (how === 'bounce') return billiard(L, p, day);
   if (how === 'putt') return putt(L, p, day);
+  if (how === 'sticky' || how === 'ghost') return oddBall(L, p, day, how);
   const out = [], dropsIn = !day?.rules?.ballStops, takes = !!day?.rules?.ballCaptures;
   for (const [dx, dy] of ORTH) {
     let x = p.x, y = p.y, onHole = false, cap = false;
-    for (;;) {
+    for (let n = 0; n < MAX_SLIDE; n++) {
       const c = L(x + dx, y + dy);
       // A ball that captures (ballCaptures, 2026-10-07) rolls into the
       // first piece of theirs in its way, takes it, and stops there.
@@ -259,12 +265,45 @@ function ball(L, p, fwd, day) {
   return out;
 }
 
+/** Two balls for golf (2026-10-08). Both roll up, down, left or right
+    like a ball on ice. Sticky: it stops on the first square beside anything
+    (a piece of either side, a statue) that it rolls past. Ghost: it rolls
+    straight through pieces and statues, and stops only at the edge, a gap
+    or the hole; if it would end on something, it stops on the last empty
+    square before. Both drop into an open hole they roll over. */
+function oddBall(L, p, day, how) {
+  const out = [], dropsIn = !day?.rules?.ballStops;
+  const solid = (c) => c !== EMPTY && c !== HOLE && c !== OFF;
+  for (const [dx, dy] of ORTH) {
+    let x = p.x, y = p.y, onHole = false, lastFree = null;
+    for (let step = 0; step < 64; step++) {
+      const c = L(x + dx, y + dy);
+      if (how === 'sticky') {
+        if (c !== EMPTY && c !== HOLE) break;
+        x += dx; y += dy; onHole = c === HOLE;
+        if (onHole && dropsIn) break;
+        // Beside anything (not itself, not behind it): it sticks.
+        if (ALL8.some(([ax, ay]) => !(ax === -dx && ay === -dy) && solid(L(x + ax, y + ay)))) break;
+      } else {
+        if (c === OFF) break;
+        x += dx; y += dy;
+        if (c === EMPTY || c === HOLE) { lastFree = [x, y]; onHole = c === HOLE; if (onHole && dropsIn) break; }
+        else onHole = false;
+      }
+    }
+    if (how === 'ghost') { if (!lastFree) continue; [x, y] = lastFree; }
+    if (day?.rules?.wrap) { const [nx, ny] = fold(day, x, y); if (nx === p.x && ny === p.y) continue; }
+    if (x !== p.x || y !== p.y) out.push({ x, y, cap: false, sink: onHole });
+  }
+  return out;
+}
+
 /** The putting ball: a rook that never takes. Past an open hole it cannot
     go (it would drop in), unless the level says it must stop on it. */
 function putt(L, p, day) {
   const out = [], dropsIn = !day?.rules?.ballStops, takes = !!day?.rules?.ballCaptures;
   for (const [dx, dy] of ORTH)
-    for (let x = p.x + dx, y = p.y + dy; ; x += dx, y += dy) {
+    for (let x = p.x + dx, y = p.y + dy, n = 0; n < MAX_SLIDE; x += dx, y += dy, n++) {
       const c = L(x, y);
       if (c === ENEMY && takes) { out.push({ x, y, cap: true }); break; }
       if (c !== EMPTY && c !== HOLE) break;
@@ -469,6 +508,8 @@ const takesLine = (rules) => (rules?.ballCaptures ? ' Here the ball captures: ro
 /** The ball, in words, for how it moves on this level (`ballMove`). */
 export function ballDesc(rules) {
   const how = rules?.ballMove || 'ice';
+  if (how === 'sticky') return 'Rolls up, down, left or right like a ball on ice, but it is sticky: it stops on the first square beside anything it rolls past, a piece of either side or a statue. Get it into the hole to win.';
+  if (how === 'ghost') return 'Rolls up, down, left or right like a ball on ice, straight through pieces and statues, and stops only at the edge, a gap or the hole (on the last empty square, if it would end on something). Get it into the hole to win.';
   if (how === 'hit') return 'Never moves by itself: a piece hits it. Move any piece into the ball and it slides away along the line of that move, like on ice (a knight sends it on in knight\u2019s jumps), until something stops it. Their pieces hit it too. Nothing can take it. Knock it into the open hole to win.' + takesLine(rules);
   if (how === 'putt') return `Rolls up, down, left or right, as far as you like, and stops where you choose.${rules?.ballCaptures ? '' : ' It never takes anything.'} Get it into the hole to win.${takesLine(rules)}`;
   if (how === 'bounce') return `Rolls diagonally, as far as you like, and bounces off the edge of the board, like a billiard ball: the reflecting bishop of Billiards Chess. Like a bishop it keeps to its colour.${rules?.ballCaptures ? '' : ' It never takes anything.'} Get it into the hole to win.${takesLine(rules)}`;
@@ -630,7 +671,20 @@ function landFoe(s, f, x, y) {
   const b = hitBall(s, x, y);
   if (b) { knock(s, b, f.x, f.y); f.ate = -1; f.from = [f.x, f.y]; f.x = x; f.y = y; f.blocked = false; return; }
   f.ate = s.pieces.findIndex((p) => !p.taken && p.x === x && p.y === y);
-  if (f.ate >= 0) s.pieces[f.ate].taken = true;
+  f.wounded = -1;
+  if (f.ate >= 0) {
+    const p = s.pieces[f.ate];
+    // Upgrades from the descent (2026-10-08). Diamonds: only a piece at
+    // least as strong can take it. Hearts: a second life; the first
+    // capture costs the heart instead, and the attacker bounces off.
+    const weaker = p.diamond && (PIECES[f.type].strength ?? 3) < (PIECES[p.type].strength ?? 3);
+    if (weaker || (p.lives || 1) > 1) {
+      if (!weaker) { p.lives--; f.wounded = f.ate; }
+      f.ate = -1; f.from = [f.x, f.y]; f.blocked = true;
+      return;
+    }
+    p.taken = true;
+  }
   f.from = [f.x, f.y]; f.x = x; f.y = y; f.blocked = false;
 }
 
@@ -782,7 +836,10 @@ function mindStep(s, f, k, side) {
   /** How many moves it would have standing on (x, y). */
   const room = (x, y) => {
     const L0 = sight(s, f, side);
-    const L = (a, b) => { const [p, q] = fold(day, a, b); if (p === f.x && q === f.y) return EMPTY; if (p === x && q === y) return OFF; return L0(a, b); };
+    // Where it would stand is its own edge of the world (checked first: when
+    // it stays put that is also the square it is on); where it stands now it
+    // will have left.
+    const L = (a, b) => { const [p, q] = fold(day, a, b); if (p === x && q === y) return OFF; if (p === f.x && q === f.y) return EMPTY; return L0(a, b); };
     return PIECES[f.type].moves(L, { ...f, x, y }, side === 'foe' ? -1 : 1, day).length;
   };
   const score = (x, y, cap) => {
@@ -1090,9 +1147,18 @@ export function nextShrink(s) {
 }
 
 /** Your move, then theirs. Returns a new state. */
+/** Do they move after this move of yours? Usually yes. Double Time (a
+    joker: rules.movesPerTurn 2) gives you two moves to their one; Lazy
+    Rabbits (rules.lazyFoes) has them sit out every other turn. */
+function theyMove(s) {
+  const r = s.day.rules, per = r.movesPerTurn || 1, k = s.t + 1;
+  if (k % per) return false;
+  return !r.lazyFoes || (k / per) % 2 === 1;
+}
+
 export function apply(s, mv) {
   const n = playerMove(s, mv);
-  if (!n.won) foesAct(n);
+  if (!n.won && theyMove(n)) foesAct(n);
   n.t++;
   afterMove(n);
   return n;
@@ -1103,7 +1169,7 @@ export function apply(s, mv) {
     before they finish thinking. */
 export function respond(n) {
   const c = clone(n);
-  if (!c.won) foesAct(c);
+  if (!c.won && theyMove(c)) foesAct(c);
   c.t++;
   afterMove(c);
   return c;
@@ -1131,7 +1197,7 @@ export function replay(day, moves) {
 
 export function stateKey(s) {
   let k = '';
-  for (const p of s.pieces) k += p.taken ? '--' : p.x + ',' + p.y + ';';
+  for (const p of s.pieces) k += p.taken ? '--' : p.x + ',' + p.y + (p.lives > 1 ? 'L' + p.lives : '') + ';';
   k += '|';
   for (const f of s.foes) k += f.taken ? '--' : f.x + ',' + f.y + ',' + f.i + (f.mx > 0 ? '+' : '-') + (f.my > 0 ? '+' : '-') + (f.idle ? 'i' + f.idle : '') + ';';
   if (s.hole) k += `|h${s.hole.x},${s.hole.y},${s.hole.i}${s.hole.mx > 0 ? '+' : '-'}${s.hole.my > 0 ? '+' : '-'}`;
@@ -1140,5 +1206,7 @@ export function stateKey(s) {
   if (s.shrunk?.length) k += '|s' + s.shrunk.slice().sort((a, b) => a - b).join(',');
   // On a geared board the same position facing another way is not the same.
   if (s.day.rules.geared) k += '|r' + turns(s);
+  // Nor, with Double Time or Lazy Rabbits, at a different point in the turn.
+  if (s.day.rules.movesPerTurn > 1 || s.day.rules.lazyFoes) k += '|t' + (s.t % (2 * (s.day.rules.movesPerTurn || 1)));
   return k;
 }
