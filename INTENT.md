@@ -198,7 +198,9 @@ From Timothy. What became of each note:
 - **How difficult, and how engaging, a level is.** Built as measures
   (`metrics.js`); engagement is a first guess to check against ratings.
 - **The daily**: one board, a big spread between few and many moves,
-  balanced, any rules, a mysterious name and light theming. Next.
+  balanced, any rules, a mysterious name and light theming. Built as dealer
+  version 4 from 2026-10-09: boards made ahead of time and stored, to the
+  end of 2026 (`make-daily.mjs`).
 
 ## 2026-10-05: the front door is asynchronous, and it is a group
 

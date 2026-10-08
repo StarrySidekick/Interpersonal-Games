@@ -187,6 +187,8 @@ No build step, no libraries, same as the rest of the repo.
 | `play/grove-chess/game.js` | the daily page: title, play, the vine, test mode |
 | `play/grove-chess/lab.js`, `lab/` | the lab: settings, level generator, notebook, and its page |
 | `play/grove-chess/check-daily.mjs` | the guard that proves the daily boards have not changed |
+| `play/grove-chess/make-daily.mjs`, `dailies/` | makes the named dailies ahead of time (version 4), and the boards it made |
+| `play/grove-chess/daily4.js`, `daily-names.js`, `daily-print.mjs` | reads a stored daily, names and themes, a stored board's fingerprint |
 | `engine/lowpoly.js` | a small software rasterizer: low-poly models, smooth (Gouraud) shading, drawn at low resolution so they come out pixelated, N64 style |
 
 **Testing.** Add `?test` to the address for a panel on the title screen:
@@ -210,6 +212,7 @@ from a cutover date onward and never changes once shipped (`VERSIONS` in
 | 1 | 2026-10-05 and 06 | stumps and bramble on some days; up to 30 hands of 80 layouts |
 | 2 | (none) | no stumps or bramble; a third of days crumble; up to 20 hands of 60 layouts, with a bounded par search. Superseded by version 3 before it dealt a day |
 | 3 | from 2026-10-07 | rabbits do not eat; the day's ground (solid, crumbling, shrinking, spiral); boards with par 4 to 7 must pass the balance rules (`grove-balance.md`), checking at most 12 per day, counted, not timed, so every phone lands on the same board |
+| 4 | from 2026-10-09 | named boards, made ahead of time and stored (`dailies/`); any rules at all; a high skill ceiling (below) |
 
 To change the daily game: add a version with a cutover date after today,
 leave the old ones alone, and add its fingerprint to the guard. Version 3
@@ -221,12 +224,45 @@ Dealing time for version 3, on a laptop: median 0.14 s, 9 days in 10 under
 0.4 s, worst 0.8 s over 40 days. Shrinking boards were the slow ones until
 the falling edge was made cheap to compute (`shrinkStep` in `rules.js`).
 
+**Version 4: named boards, made ahead of time.** Timothy, 2026-10-08: "one
+board, large spectrum between moves to win possible, as in its really hard
+to win the match in a few moves and easy to win in a lot ... very balanced
+... can draw from any other rule as long as those parameters are met. each
+daily board has [a] mysterious nonsensical name and potentially some light
+theming."
+
+- `make-daily.mjs` rolls a Chaos level (any rules, any goal) for each date,
+  seeded on the date, and keeps the first that passes: winnable in 4 to 10
+  (par); the balance rules; difficulty 3 to 6; a novice bot wins at least
+  half its games (easy to win in many moves); a skill ceiling of at least
+  0.6, so the novice takes 1.6 times par or longer (hard to win in few);
+  engagement at least 50; a move limit at least twice par. About 20 rolls
+  and 90 seconds a day, which is why it is done here and not on a phone.
+- Limits so share links keep working: at most four pieces of yours, at
+  most 36 squares, at most 30 moves (`vine.js` writes a move in two
+  characters).
+- Each board gets a name (`daily-names.js`: "The Unwilling Mitten",
+  "Aunt Wobble's Almanac") and a theme: the solid ground's two colours and
+  one line under the name. Crumbling and shrinking ground keep their own
+  colours, since those say what the ground does.
+- Stored as the workshop's settings and seed (`dailies/YYYY-MM.js`), laid
+  out by `makeLevel` (`daily4.js`). A date with no stored board falls back
+  to version 3, so **make boards well ahead**: `node
+  play/grove-chess/make-daily.mjs 2027-01-01 31` adds January, and never
+  touches a date already made.
+- The page (`game.js`) plays any level now: the old dailies keep their
+  rabbit-and-pattern words and ending; a named one says what winning was
+  ("Cleared in 6", "Sunk in 5") and ends with its name, its line, and how a
+  novice bot did on it.
+
 **The guard.** `node play/grove-chess/check-daily.mjs` deals 150 boards with
 each version, plays 600 seeded random games on them, and compares each
 version's fingerprint (a SHA-256 hash) with the one recorded when it shipped.
 Run it after touching anything under `play/grove-chess/`. Version 1's
 fingerprint is the one recorded before the lab refactor, so it passing proves
 the first two boards, and every link to them, are exactly as they were.
+For version 4 it lays out every stored board again and checks each one's own
+fingerprint (`daily-print.mjs`), which `make-daily.mjs` wrote when it made it.
 
 **The solver.** It searches every combination of moves for three moves, which
 gives an exact par for short puzzles. Past that the search grows about twenty

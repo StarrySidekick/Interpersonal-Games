@@ -7,9 +7,12 @@ import { logSitting } from '../../engine/record.js';
 import { soundToggle } from '../../engine/sound.js';
 import { makeTarget, render } from '../../engine/lowpoly.js';
 import {
-  PIECES, descOf, rabbitDesc, CRUMBLE_DESC, SHRINK_DESC, movesFor, apply, isOver, outcome, isBramble, brambleCount, replay, crumbled, shrunk
+  PIECES, descOf, rabbitDesc, CRUMBLE_DESC, SHRINK_DESC, STUMP_DESC, HOLE_DESC, movesFor, apply, playerMove, respond, isOver, outcome,
+  isBramble, brambleCount, replay, crumbled, shrunk, holeOpen
 } from './rules.js';
-import { makeDay, todayStr, describePattern, fairyFor } from './day.js';
+import { todayStr, describePattern, fairyFor } from './day.js';
+import { loadDay } from './daily4.js';
+import { GOAL_PILL, GOAL_TEXT, summary } from './lab.js';
 import {
   load, save, dayEntry, readLink, parseVine, makeLink, encodeMoves, decodeMoves, cleanName
 } from './vine.js';
@@ -26,8 +29,12 @@ import { playIntro } from './intro.js';
 const store = load();
 const link = readLink();
 const date = link.date || todayStr();
-const day = makeDay(date);
+const day = await loadDay(date);
 const N = day.N;
+// From version 4 (2026-10-09) a daily can be any level at all, with a
+// name; before that it was always one rabbit on a pattern. `named` marks
+// the new kind wherever the page has to say something different.
+const named = day.version >= 4;
 const entry = dayEntry(store, date);
 
 const chunkOf = (p) => encodeURIComponent(cleanName(p.name) || 'Someone') + '.' + encodeMoves(p.moves, N);
@@ -60,17 +67,22 @@ const board = makeBoard($('#board'), day);
 // The rabbit wears its pattern's colour once you have caught that pattern
 // before (rabbits.js); until then it is white.
 let knownFur = caughtRabbits()[day.patternName] ? FUR[day.patternName] : null;
-board.fur = (f) => (f.type === 'rabbit' ? knownFur : null);
+board.fur = named
+  ? (f) => ((f.brain === 'pattern' || f.brain === 'possessed' || f.mind) && FUR[f.patternName]) || null
+  : (f) => (f.type === 'rabbit' ? knownFur : null);
 let view = { mode: 'play' };
 let sel = null, legal = [];
 // While your finished chase is being drawn out, how many moves of it show.
 let chaseUpto = null;
+// The position on screen while a turn is half done (your move made, theirs
+// not yet), for a named daily's two-step animation.
+let shown = null;
 
 board.redraw = function redraw() {
   const s = now();
   if (view.mode === 'play') {
     const paths = isOver(s) ? [{ play: game, color: ME, upto: chaseUpto ?? undefined }] : null;
-    board.draw({ state: s, track: game.states, sel, legal, paths });
+    board.draw({ state: shown || s, track: game.states, sel, legal, paths });
   } else if (view.mode === 'watch') {
     const st = view.play.states;
     board.draw({ state: st[view.k], track: st.slice(0, view.k + 1), paths: [{ play: view.play, color: view.color, upto: view.k }] });
@@ -88,13 +100,31 @@ const info = (t) => { $('#info').textContent = t; };
 
 function hud() {
   $('#movecount').textContent = now().t;
+  $('#movemax').textContent = `of ${day.rules.maxMoves || 15}`;
   $('#par').textContent = day.par;
+}
+
+const nameOf = (x) => PIECES[x.type]?.name || x.type;
+
+/** What just happened, on a named daily: any level, any number of foes. */
+function whatHappened(a, b) {
+  const bits = [];
+  b.foes.forEach((f, k) => { if (f.taken && !a.foes[k].taken) bits.push(`You took their ${nameOf(f)}.`); });
+  b.foes.forEach((f) => {
+    if (f.ate >= 0 && b.pieces[f.ate].taken && !a.pieces[f.ate].taken) bits.push(`Their ${nameOf(f)} took your ${nameOf(b.pieces[f.ate])}.`);
+  });
+  if (b.hole && !holeOpen(a) && holeOpen(b)) bits.push('The hole is open.');
+  if (b.gone.length > a.gone.length) bits.push('The square you left crumbled away.');
+  if (b.shrunk.length > a.shrunk.length) bits.push('A square fell off the edge.');
+  if (!bits.length) bits.push('Your move.');
+  return bits.join(' ');
 }
 
 function select(i) {
   sel = i;
   legal = i == null ? [] : movesFor(now(), i);
-  if (i == null) info('Numbers mark where the rabbit has been, in order. Tap a piece to light up where it can go.');
+  if (i == null) info(named ? (day.hole && !holeOpen(now()) ? 'Tap a piece to light up where it can go. The hole opens once every rabbit is caught.' : 'Tap a piece to light up where it can go.')
+    : 'Numbers mark where the rabbit has been, in order. Tap a piece to light up where it can go.');
   else {
     const type = now().pieces[i].type;
     info(`${PIECES[type].name}: ${descOf(type, now().day.rules)}${legal.length ? '' : ' It has nowhere to go right now.'}`);
@@ -105,6 +135,7 @@ function select(i) {
 async function play(mv) {
   if (busy || isOver(now())) return;
   busy = true;
+  if (named) return playNamed(mv);
   const a = now(), b = apply(a, mv);
   game.moves.push(mv); game.states.push(b);
   if (!game.practice) { entry.moves = encodeMoves(game.moves, N); save(store); }
@@ -131,6 +162,25 @@ async function play(mv) {
   select(null);
 }
 
+/** A turn on a named daily: your move shown, then theirs. */
+async function playNamed(mv) {
+  const a = now(), mid = playerMove(a, mv), b = respond(mid);
+  game.moves.push(mv); game.states.push(b);
+  if (!game.practice) { entry.moves = encodeMoves(game.moves, N); save(store); }
+  sel = null; legal = [];
+  haptic(b.won ? [20, 40, 30] : b.pieces.some((p, i) => p.taken && !a.pieces[i].taken) ? [40, 30, 40] : 10);
+  hud();
+  if (isOver(b) && !calm()) chaseUpto = 0;
+  shown = mid;
+  await board.animate(a, mid, mv);
+  shown = null;
+  if (!mid.won) await board.animate(mid, b, { p: -1 });
+  busy = false;
+  if (isOver(b)) return finish(true);
+  status(whatHappened(a, b));
+  select(null);
+}
+
 board.el.addEventListener('click', (e) => {
   if (busy || view.mode !== 'play' || isOver(now())) return;
   const c = board.cellAt(e);
@@ -143,12 +193,22 @@ board.el.addEventListener('click', (e) => {
   const i = s.pieces.findIndex((p) => !p.taken && p.x === x && p.y === y);
   if (i >= 0) return select(sel === i ? null : i);
   select(null);
+  if (named) {
+    if (s.hole && s.hole.x === x && s.hole.y === y) return info(HOLE_DESC);
+    if (crumbled(s, x, y)) return info(CRUMBLE_DESC);
+    if (shrunk(s, x, y)) return info(SHRINK_DESC);
+    if (s.day.stumps.has(y * s.day.W + x)) return info(STUMP_DESC);
+    const f = s.foes.find((f) => !f.taken && f.x === x && f.y === y);
+    if (f) info(f.mind ? `Their ${nameOf(f)}, with a ${f.patternName ? f.patternName.toLowerCase() + ' ' : ''}rabbit inside (intelligence ${f.mind.iq}).` : `Their ${nameOf(f)}. ${PIECES[f.type].desc}`);
+    return;
+  }
   if (rabbitOf(s).x === x && rabbitOf(s).y === y) info(`The rabbit. ${rabbitDesc(day.rules)}`);
   else if (crumbled(s, x, y)) info(CRUMBLE_DESC);
   else if (shrunk(s, x, y)) info(SHRINK_DESC);
 });
 
 $('#wait').onclick = () => play({ p: -1, x: 0, y: 0 });
+if (day.rules.wait === false) $('#wait').hidden = true;
 
 // --- The end, and the vine. -----------------------------------------------
 
@@ -157,12 +217,21 @@ function golf(d) {
   return { '-2': 'Eagle', '-1': 'Birdie', 0: 'Par', 1: 'Bogey', 2: 'Double bogey' }[d] ?? `${d} over par`;
 }
 
-const RESULT = {
+// A named daily wins in its own words: what winning was, on that board.
+const WON = { all: 'Cleared in', king: 'King taken in', rabbit: 'Caught in', any: 'Caught in', target: 'Caught in', hole: 'Sunk in', descent: 'Done in' };
+const wonWord = WON[day.goalKind] || 'Won in';
+const RESULT = named ? {
+  caught: (n) => `${wonWord} ${n}`,
+  eaten: () => 'They won',
+  dusk: () => 'Out of moves'
+} : {
   caught: (n) => `Caught in ${n}`,
   eaten: () => 'It ate everything',
   dusk: () => 'It got away'
 };
-const shortResult = (p) => ({ caught: `caught in ${p.score}`, eaten: 'all eaten', dusk: 'got away' }[p.outcome]);
+const shortResult = (p) => (named
+  ? { caught: `${wonWord.toLowerCase()} ${p.score}`, eaten: 'beaten', dusk: 'out of moves' }
+  : { caught: `caught in ${p.score}`, eaten: 'all eaten', dusk: 'got away' })[p.outcome];
 
 function myPlay() {
   const end = real.states[real.states.length - 1];
@@ -201,17 +270,22 @@ async function drawChase() {
 function finish(fresh = false) {
   const end = now(), how = outcome(end), over = end.t - day.par, mine = ++finishes;
   let firstOfKind = false;
+  const firsts = [];
   if (!game.practice && !entry.done) {
     entry.done = true; save(store);
-    logSitting({ game: 'grove-chess', data: { date, number: day.number, outcome: how, moves: end.t, par: day.par } });
-    if (how === 'caught') { firstOfKind = recordCatch(day.patternName); knownFur = FUR[day.patternName] || null; }
+    logSitting({ game: 'grove-chess', data: { date, number: day.number, outcome: how, moves: end.t, par: day.par, ...(named ? { name: day.name } : {}) } });
+    if (named) {
+      // Every rabbit you caught on the way, pattern or mind, joins your collection.
+      end.foes.forEach((f) => { if (f.taken && (f.type === 'rabbit' || f.brain === 'possessed' || f.mind) && FUR[f.patternName] && recordCatch(f.patternName)) firsts.push(f.patternName); });
+    } else if (how === 'caught') { firstOfKind = recordCatch(day.patternName); knownFur = FUR[day.patternName] || null; }
   }
   $('#controls').hidden = true;
   $('#end').hidden = false;
   $('#end-score').textContent = (game.practice ? 'Practice: ' : '') + RESULT[how](end.t);
   $('#end-par').replaceChildren(`Par ${day.par} · `, how === 'caught'
     ? el('span', { class: `golf g${sfx.levelFor(over)}` }, golf(over))
-    : { eaten: 'the rabbit won', dusk: 'dusk fell first' }[how]);
+    : named ? { eaten: 'they took what they needed', dusk: 'the moves ran out' }[how] : { eaten: 'the rabbit won', dusk: 'dusk fell first' }[how]);
+  if (named) return finishNamed(fresh, how, over, firsts);
   const word = FUR_WORD[day.patternName];
   $('#end-pattern').textContent = `It was a ${day.patternName}${word ? `, a ${word} rabbit` : ''}. Its pattern: ${describePattern(day)}, then the same again. Shown the way it started; hitting an edge flips it on that axis. Each hop direction has its own note, so the tune repeats when the pattern does.`;
   $('#end-rabbit').textContent = firstOfKind
@@ -243,6 +317,29 @@ function finish(fresh = false) {
   $('#share-card').hidden = game.practice;
   $('#name').value = store.name || '';
   status({ caught: 'Caught.', eaten: 'The rabbit ate your last piece.', dusk: 'The rabbit slipped into its burrow at dusk.' }[how]);
+  info('');
+  renderVine();
+  redraw();
+}
+
+/** The end of a named daily: the board's name and what it was, then the vine. */
+function finishNamed(fresh, how, over, firsts) {
+  $('#end-pattern-head').textContent = day.name;
+  $('#pattern-pic').hidden = true;
+  const m = day.measure;
+  $('#end-pattern').textContent = day.theme.line +
+    (m ? ` A novice bot wins it ${Math.round(m.winRate * 100)}% of the time, in about ${Math.round(m.winLen)} moves; the solver needs ${day.par}.` : '');
+  $('#end-rabbit').textContent = firsts.length
+    ? `Your first ${firsts.join(' and ')} rabbit${firsts.length > 1 ? 's' : ''}. From now on ${firsts.length > 1 ? 'they wear their' : 'it wears its'} colour, so you will know ${firsts.length > 1 ? 'them' : 'it'} on sight.` : '';
+  showRabbits();
+  if (fresh) {
+    ({ caught: () => sfx.fanfare(sfx.levelFor(over)), dusk: () => sfx.dusk(), eaten: () => sfx.lost() })[how]();
+    for (const n of [$('#end-score'), $('#end-par')]) { n.classList.remove('pop'); void n.offsetWidth; n.classList.add('pop'); }
+    if (!calm()) drawChase();
+  }
+  $('#share-card').hidden = game.practice;
+  $('#name').value = store.name || '';
+  status({ caught: 'Won.', eaten: 'They won this one.', dusk: 'Out of moves.' }[how]);
   info('');
   renderVine();
   redraw();
@@ -332,7 +429,8 @@ $('#share').onclick = async () => {
   const mine = myPlay();
   const branch = parseVine(day, entry.branch).filter((p) => chunkOf(p) !== chunkOf(mine));
   const url = makeLink(location.origin + location.pathname, day, [...branch, mine]);
-  const head = `Hikari Garden, rabbit #${day.number}\n${RESULT[mine.outcome](mine.score)} (par ${day.par})`;
+  const head = named ? `Hikari Garden #${day.number}: ${day.name}\n${RESULT[mine.outcome](mine.score)} (par ${day.par})`
+    : `Hikari Garden, rabbit #${day.number}\n${RESULT[mine.outcome](mine.score)} (par ${day.par})`;
   renderVine();
   if (navigator.share) {
     try { await navigator.share({ text: head, url }); note.textContent = 'Sent.'; return; }
@@ -348,7 +446,7 @@ $('#share').onclick = async () => {
 
 // --- The pieces menu. ------------------------------------------------------
 
-const openSheet = piecesSheet($('#sheet'), $('#sheet-list'), day, {
+const openSheet = piecesSheet($('#sheet'), $('#sheet-list'), day, named ? { when: day.name } : {
   rabbit: day.pattern.length > 1 ? `Today's rabbit repeats its pattern every ${day.pattern.length} hops.` : 'Today’s rabbit makes the same hop every time.'
 });
 $('#pieces-title').onclick = openSheet;
@@ -394,7 +492,13 @@ async function startPlay() {
   keepAwake();
   hud();
   const chips = $('#chips');
-  chips.replaceChildren(el('span', { class: 'pill' }, `${N} × ${N}`));
+  chips.replaceChildren(el('span', { class: 'pill' }, `${day.W || N} × ${day.H || N}`));
+  if (named) {
+    chips.append(el('span', { class: 'pill' }, GOAL_PILL[day.goalKind] || 'Win'));
+    if (day.hole) chips.append(el('span', { class: 'pill' }, `Ball: ${({ ice: 'on ice', putt: 'putting', bounce: 'billiard', hit: 'hit by the pieces', sticky: 'sticky', ghost: 'a ghost' })[day.rules.ballMove || 'ice']}`));
+    if (day.rules.wrap) chips.append(el('span', { class: 'pill' }, 'Magic edges'));
+    if (day.rules.geared) chips.append(el('span', { class: 'pill' }, 'Geared'));
+  }
   if (day.rules.crumble) chips.append(el('span', { class: 'pill' }, 'Crumbling ground'));
   if (day.rules.shrink) chips.append(el('span', { class: 'pill' }, day.rules.shrink === 'spiral' ? 'Shrinking in a spiral' : 'Shrinking ground'));
   if (day.bramble.length) chips.append(el('span', { class: 'pill' }, 'Bramble creeps'));
@@ -404,8 +508,11 @@ async function startPlay() {
   // for practice.
   if (!game.moves.length && !game.practice) {
     busy = true;
-    await playIntro(board, day, { section: $('[data-screen=play]'), goal: { kind: 'rabbit', side: 'foe', title: 'The rabbit',
-      text: 'Catch it. It hops in a hidden pattern that repeats, and its tracks are numbered on the board so you can work it out.' } });
+    await playIntro(board, day, { section: $('[data-screen=play]'), goal: named
+      ? { kind: day.hole ? 'flag' : 'rabbit', side: day.hole ? 'you' : 'foe', title: day.name,
+        text: `${GOAL_PILL[day.goalKind] || 'Win'}, in ${day.rules.maxMoves} moves or fewer. ${day.theme.line}` }
+      : { kind: 'rabbit', side: 'foe', title: 'The rabbit',
+        text: 'Catch it. It hops in a hidden pattern that repeats, and its tracks are numbered on the board so you can work it out.' } });
     busy = false;
   }
   status(game.moves.length ? 'Carrying on where you left off. Your move.' : 'Your move. Tap a piece to see where it can go.');
@@ -414,18 +521,27 @@ async function startPlay() {
 
 // --- Words on the title. ---------------------------------------------------
 
-$('#how-rabbit').textContent = `The rabbit: ${rabbitDesc(day.rules)}`;
+if (named) {
+  $('#how-old').hidden = true;
+  $('#how-named').hidden = false;
+  $('#how-goal').textContent = `Today: win by ${GOAL_TEXT[day.goalKind] || 'the goal above'}, in ${day.rules.maxMoves} moves or fewer.`;
+  $('#dayname').textContent = day.name;
+  $('#daytheme').textContent = day.theme.line;
+} else $('#how-rabbit').textContent = `The rabbit: ${rabbitDesc(day.rules)}`;
 
 {
   const [y, m, d] = date.split('-').map(Number);
   const when = new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
-  $('#daypill').textContent = `Rabbit #${day.number}`;
-  $('#datenote').textContent = date === todayStr() ? `Rabbit #${day.number} · ${when}` : `Rabbit #${day.number} · the board for ${when}`;
+  const tag = named ? `No. ${day.number}` : `Rabbit #${day.number}`;
+  $('#daypill').textContent = tag;
+  $('#datenote').textContent = date === todayStr() ? `${tag} · ${when}` : `${tag} · the board for ${when}`;
   const end = now();
   $('#tapnote').textContent = isOver(end)
     ? 'You have played this one. Tap to see the vine.'
     : real.moves.length ? `You are on move ${end.t}. Tap to carry on.` : 'Tap the board to begin.';
-  const bits = incoming.slice(-3).map((p) => ({ caught: `${p.name} caught it in ${p.score}.`, eaten: `The rabbit ate all of ${p.name}'s pieces.`, dusk: `${p.name} lost it at dusk.` }[p.outcome]));
+  const bits = incoming.slice(-3).map((p) => (named
+    ? { caught: `${p.name} won in ${p.score}.`, eaten: `${p.name} was beaten.`, dusk: `${p.name} ran out of moves.` }
+    : { caught: `${p.name} caught it in ${p.score}.`, eaten: `The rabbit ate all of ${p.name}'s pieces.`, dusk: `${p.name} lost it at dusk.` })[p.outcome]);
   if (bits.length) $('#vinenote').textContent = bits.join(' ') + (isOver(end) ? '' : ' Your turn.');
 }
 
@@ -449,8 +565,13 @@ if (new URLSearchParams(location.search).has('test')) {
   $('#t-date').onchange = (e) => { if (e.target.value) go(e.target.value); };
   $('#t-reset').onclick = () => { delete store.days[date]; save(store); location.reload(); };
   $('#t-next-end').hidden = false;
+  // For automated tests: play a move and see whether the board is busy.
+  window.__daily = { play, busy: () => busy, now, day };
   $('#t-next-end').onclick = () => go(shift(1));
-  $('#t-spoil').textContent = `Fairy piece: ${PIECES[fairyFor(date)].name}. Hand: ${day.pieces.map((p) => PIECES[p.type].name).join(', ')}. ` +
+  if (named) $('#t-spoil').textContent = `${day.name} (${day.theme.id}). ${summary(day.settings)} Par ${day.par}. ` +
+    `Measured: difficulty ${day.measure.difficulty}, skill ceiling ${day.measure.ceiling}, engagement ${day.measure.engagement}, ` +
+    `novice wins ${Math.round(day.measure.winRate * 100)}% in ${day.measure.winLen}. Dealer v4 (stored).`;
+  else $('#t-spoil').textContent = `Fairy piece: ${PIECES[fairyFor(date)].name}. Hand: ${day.pieces.map((p) => PIECES[p.type].name).join(', ')}. ` +
     `Pattern: ${day.patternName} (${describePattern(day)}), ${day.pattern.length} hop${day.pattern.length > 1 ? 's' : ''}. ` +
     `Par ${day.par}. Board ${N} × ${N}. Ground: ${day.ground || (day.rules.crumble ? 'crumble' : 'solid')}. Rabbit eats: ${day.rules.rabbitsEat ?? day.rules.foesCapture ? 'yes' : 'no'}.` +
     (day.version === 1 ? ` Bramble: ${day.bramble.length ? 'yes' : 'no'}. Stumps: ${day.stumps.size}.` : '') +

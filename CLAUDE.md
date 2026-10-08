@@ -22,7 +22,9 @@ release: confirm the live site serves the new files before saying it is live.
 ## Before every merge
 
 - `node play/grove-chess/check-daily.mjs`: run it. It proves the daily
-  boards have not changed. **For now a change to the daily is allowed**
+  boards have not changed, the stored named ones (from 2026-10-09)
+  included. Before stored boards run out, make more with
+  `make-daily.mjs` (see `docs/grove-chess.md`, version 4). **For now a change to the daily is allowed**
   (Timothy, 2026-10-07: "don't worry about messing up the daily board, we
   will hone in on that after we get a solid game loop built"): if it fails,
   say so plainly in the merge and to Timothy, rather than versioning the

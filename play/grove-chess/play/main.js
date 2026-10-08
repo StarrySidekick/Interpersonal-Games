@@ -80,17 +80,35 @@ function find(n = session.n) {
   const hand = session.run ? handSettings(session.run) : null;
   const key = `${n}|${JSON.stringify(hand?.hand || null)}|${JSON.stringify(hand?.handMods || null)}|${(session.run?.jokers || []).join(',')}`;
   if (session.found.has(key)) return session.found.get(key);
+  // A rolled level (Chaos, the daily's way) that finds nothing passing gets
+  // fresh rolls, up to six, before settling for the best it saw: the daily's
+  // bar in particular passes about one roll in twenty.
+  const rolled = M.roll !== 'fixed';
+  const p = (async () => {
+    let last = null;
+    for (let k = 0; k < (rolled ? 6 : 1); k++) {
+      last = await findOnce(n, hand, k);
+      if (last.passed) break;
+    }
+    return last;
+  })();
+  session.found.set(key, p);
+  return p;
+}
+
+function findOnce(n, hand, attempt) {
   const settings = levelSettings(M, { depth: n, hole: n, round: n, hand, veto: catalog.vetoed, invented: catalog.invented },
-    rng(`${modeId}:${session.seed}:${n}`));
+    rng(`${modeId}:${session.seed}:${n}${attempt ? ':' + attempt : ''}`));
   if (session.run?.jokers.includes('overtime') && settings.maxMoves) settings.maxMoves += 5;
   const msg = { settings, seed: session.seed + n * 1000, parMin: settings.parMin, parMax: settings.parMax, maxMs: 15000,
     pool: rabbitPool(settings, myRabbits(), Math.max(1, settings.mine)) };
-  const p = new Promise((resolve) => {
+  if (M.roll !== 'fixed') msg.maxMs = 8000;
+  return new Promise((resolve) => {
     const done = (data) => {
       if (data.type === 'progress') return;
       const pick = data.type === 'done' ? data : data.best;
       resolve({ settings, seed: pick ? pick.seed : msg.seed, par: pick?.par ?? null, measure: pick?.measure || null, autoBest: pick?.setup || null,
-        setups: pick?.setups ? { wins: pick.wins, tried: pick.setups } : null });
+        setups: pick?.setups ? { wins: pick.wins, tried: pick.setups } : null, passed: data.type === 'done' });
     };
     try {
       const w = new Worker(new URL('../lab-worker.js', import.meta.url), { type: 'module' });
@@ -99,8 +117,6 @@ function find(n = session.n) {
       w.postMessage(msg);
     } catch { setTimeout(() => searchLayouts({ ...msg, maxMs: 4000 }, done), 30); }
   });
-  session.found.set(key, p);
-  return p;
 }
 
 /** Rabbits for autochess: your collection, and the ones caught this run. */

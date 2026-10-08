@@ -50,7 +50,7 @@ jump) with letters in front that change it.
 | `p` | must hop over one thing first (the cannon captures with `cpR`) |
 | `g` | grasshopper: over the first thing in its line, landing just beyond |
 | `n` | lame: can be blocked on the way (the xiangqi horse, `nN`) |
-| `q` | circular (the rose, `qN`) |
+| `q` | circular: a leap that curls on round a circle (the rose, `qN`; any plain leap, like `qW`, in an invented piece) |
 | `f` `b` `s` `v` | forward, backward, sideways, forward-and-back only |
 
 `betza.js` reads the notation two ways:

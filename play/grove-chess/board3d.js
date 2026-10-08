@@ -45,7 +45,7 @@ const BIG = 1.25;         // pieces stand a little larger here than on the title
 const FOG = '#1b2620';    // the forest, far off
 const RIM = '#5a3d26';    // the board's wooden base
 const PALE = '#e9e4da';   // a possessed piece whose rabbit you do not know
-const SUIT_COLOUR = { hearts: '#e0445a', swords: '#7f9fc0', stars: '#e8c547', diamonds: '#5fd0d8' }; // run.js SUITS
+const SUIT_COLOUR = { hearts: '#e0445a', swords: '#7f9fc0', stars: '#e8c547', diamonds: '#5fd0d8', spirals: '#f0903a' }; // run.js SUITS
 const LIFT = 10 / 28;     // the flat board's pixels of height, in model units
 
 // --- Colours, as the renderer wants them ('#rrggbb'). ----------------------
