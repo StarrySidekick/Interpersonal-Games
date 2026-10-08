@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script>try{var t=localStorage.getItem('ig.theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1a13">
+<title>Grove Pieces</title>
+<link rel="stylesheet" href="../../../engine/app.css">
+<style>
+  :root {
+    --bg: #0f1a13; --panel: #17251b; --panel-2: #1d2e22; --line: #2b4031;
+    --text: #edf2e6; --dim: #9fb3a0; --accent: #a9d98b; --accent-ink: #13260e;
+  }
+  [hidden] { display: none !important; }
+  .pix { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+  .eyebrow { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin: 0 0 2px; }
+  .tag { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+  .modes { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; margin: 14px 0 0; }
+  .modes a { padding: 8px 14px; border: 1px solid var(--line); border-radius: 999px; color: var(--dim); text-decoration: none; font-size: 15px; }
+  .modes a[aria-current] { color: var(--accent-ink); background: var(--accent); border-color: transparent; }
+
+  .filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 10px; }
+  .filters button { width: auto; min-height: 40px; padding: 6px 12px; font-size: 14px; border-radius: 999px; }
+  .filters button[aria-pressed='true'] { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .pcard { display: grid; grid-template-columns: 44px 1fr; gap: 8px; align-items: center; text-align: left; width: 100%;
+    min-height: 64px; padding: 8px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); color: var(--text); }
+  .pcard canvas { width: 40px; height: 48px; }
+  .pcard b { display: block; font-size: 15px; }
+  .pcard small { color: var(--dim); font-size: 12px; }
+  .pcard.vetoed { opacity: .55; }
+  .pcard.vetoed b::after { content: ' · vetoed'; color: #e3866b; font-weight: 600; font-size: 12px; }
+  .pcard .note-dot { color: var(--accent); }
+
+  dialog#detail { width: min(560px, calc(100vw - 20px)); max-height: 88vh; padding: 0;
+    background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 18px; }
+  dialog#detail::backdrop { background: rgba(4, 10, 6, .7); }
+  .dhead { position: sticky; top: 0; display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    padding: 12px 16px; background: var(--bg); border-bottom: 1px solid var(--line); z-index: 1; }
+  .dhead h2 { margin: 0; }
+  .dhead button { width: auto; min-height: 44px; padding: 8px 16px; }
+  .dbody { padding: 14px 16px 18px; }
+  .show { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: center; margin-bottom: 10px; }
+  .show canvas.model { width: 100%; max-width: 200px; aspect-ratio: 48 / 56; background: #e9e2c8; border-radius: 12px; justify-self: center; }
+  .show canvas.diagram { width: 100%; max-width: 200px; justify-self: center; border-radius: 6px; }
+  .dbody p { font-size: 15px; }
+  .facts { margin: 10px 0; }
+  textarea { font: inherit; width: 100%; min-height: 80px; padding: 12px 14px; background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--line); border-radius: var(--radius); margin: 6px 0 10px; }
+  input.code { font-family: ui-monospace, Menlo, monospace; }
+  .err { color: #e3866b; font-size: 14px; min-height: 20px; margin: 4px 0 8px; }
+  label.f { display: block; font-weight: 600; font-size: 15px; margin: 10px 0 4px; }
+  select { font: inherit; width: 100%; min-height: 48px; padding: 10px 12px; background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--line); border-radius: var(--radius); }
+  .preview { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; margin: 8px 0; }
+  .preview canvas { width: 100%; max-width: 180px; border-radius: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <a class="back" href="../">&larr; Grove Chess</a>
+    <span class="pill">Pieces</span>
+  </div>
+
+  <p class="eyebrow center">Hikari Garden</p>
+  <h1 class="center">The pieces</h1>
+  <p class="dim small center">Every piece in the game: how it moves, how strong it is, where it comes from.
+    Tap one to read it, keep it out of the game, or write how it should change.</p>
+  <nav class="modes" id="modes" aria-label="Ways to play"></nav>
+
+  <div class="filters" id="filters"></div>
+  <div class="cards" id="cards"></div>
+
+  <h2 style="margin-top:24px">Invent a piece</h2>
+  <p class="small dim">Write its moves in Betza notation (W one step straight, F one step diagonally, N a knight&rsquo;s L, D and A two steps;
+    double a letter to slide, so WW is a rook; m moves only, c captures only, f forward only, n can be blocked, p hops a screen, g hops like a grasshopper).
+    It is a real piece once saved: Chaos can deal it.</p>
+  <div class="card">
+    <label class="f" for="inv-name">Name</label>
+    <input type="text" id="inv-name" placeholder="The Heron">
+    <label class="f" for="inv-code">Betza code</label>
+    <input type="text" id="inv-code" class="code" placeholder="FD">
+    <p class="err" id="inv-err"></p>
+    <div class="preview"><div id="inv-diagram"></div><p class="small dim" id="inv-patent"></p></div>
+    <label class="f" for="inv-look">Looks like</label>
+    <select id="inv-look"></select>
+    <label class="f" for="inv-desc">What it is</label>
+    <textarea id="inv-desc" placeholder="A wading bird: one step diagonally, or a long stride straight."></textarea>
+    <button class="primary" id="inv-save">Save the piece</button>
+  </div>
+
+  <h2 style="margin-top:24px">Your notes</h2>
+  <p class="small dim">Vetoes, notes and invented pieces stay in this browser. Copy them out to share, or to paste to Claude to build from.</p>
+  <div class="stack">
+    <button class="quiet" id="copy">Copy everything (for Claude, or a backup)</button>
+    <button class="quiet" id="import-open">Paste notes back in</button>
+  </div>
+  <div id="importbox" hidden>
+    <textarea id="import-text" placeholder="Paste a copied export here"></textarea>
+    <button class="quiet" id="import-go">Bring them in</button>
+  </div>
+  <p class="small dim" id="copynote" style="margin-top:8px"></p>
+</div>
+
+<dialog id="detail">
+  <div class="dhead"><h2 id="d-name"></h2><button class="quiet" id="d-close">Close</button></div>
+  <div class="dbody">
+    <div class="show"><canvas class="model pix" id="d-model" width="48" height="56"></canvas><div id="d-diagram"></div></div>
+    <div class="row" style="margin-bottom:10px"><button class="quiet" id="d-side">Show theirs</button><button class="quiet" id="d-veto">Keep it out of the game</button></div>
+    <p id="d-desc"></p>
+    <div class="facts small dim" id="d-facts"></div>
+    <p class="tag" style="margin:12px 0 2px">History</p>
+    <p id="d-history"></p>
+    <label class="f" for="d-note">How should it change?</label>
+    <textarea id="d-note" placeholder="Notes for a future build: what is wrong with it, what it should do instead."></textarea>
+    <div class="row"><button class="quiet" id="d-chaos">Try it in Chaos</button><button class="danger" id="d-remove" hidden>Delete this invention</button></div>
+  </div>
+</dialog>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>

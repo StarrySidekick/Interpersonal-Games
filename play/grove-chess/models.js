@@ -414,6 +414,10 @@ function shade(hex, k) {
 }
 
 const cache = new Map();
+
+// An invented piece (invented.js) borrows the look of an existing one.
+const LOOKS = new Map();
+export function setLook(kind, base) { if (MODELS[base]) { LOOKS.set(kind, base); for (const k of [...cache.keys()]) if (k.startsWith(kind + ':')) cache.delete(k); } }
 /** One shared Model per kind and side ('you' or 'foe'), and for rabbits per
     fur colour. `glow` is for a piece possessed by a rabbit (theirs, or
     yours in autochess): its plinth band takes the rabbit's colour. Treat it
@@ -429,7 +433,8 @@ export function model(kind, side = 'you', fur = null, glow = null) {
     // The rabbit inside colours the whole plinth: its fur on the band, a
     // darker shade of it underneath.
     const plinthOf = glow ? { band: glow, base: shade(glow, 0.62) } : {};
-    cache.set(key, withPalette({ ...(side === 'foe' ? FOE : side === 'stone' ? STONE : YOU), ...plinthOf }, MODELS[kind]));
+    const build = MODELS[kind] || MODELS[LOOKS.get(kind)] || MODELS.pawn;
+    cache.set(key, withPalette({ ...(side === 'foe' ? FOE : side === 'stone' ? STONE : YOU), ...plinthOf }, build));
   }
   return cache.get(key);
 }

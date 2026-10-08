@@ -1,5 +1,31 @@
 # Grove Chess pieces: patents, strength, and what they look like
 
+## The catalog
+
+`play/grove-chess/pieces/`, in every page's menu (Timothy, 2026-10-08: "a
+section in the main menu to see every piece and what it is, and its
+history"). Every piece, weakest first, with its model (yours or theirs),
+its move diagram, its Betza patent in words, its strength and mobility,
+and a short history (`history.js`, kept to what is well attested).
+
+- **Veto** ("Keep it out of the game"): a vetoed piece is left out of
+  everything dealt, in every mode, unless that would leave nothing. The
+  veto travels inside a level's settings (`veto`), so a level link deals
+  the same pieces on anyone's phone.
+- **Notes** ("How should it change?"): a note per piece, for future builds.
+- **Inventing**: a name, a Betza code (checked as you type, with a live
+  diagram and its patent), the look of an existing piece, and a
+  description. Saved, it is a real piece (`invented.js` makes it from its
+  code): Chaos can deal it, and "Try it in Chaos" sets a level up around
+  it. Its strength is estimated from its moves (mobility on an empty 8 × 8
+  board, about 0.38 of a pawn per square sliding and 0.55 leaping, plus a
+  pawn and a half for pieces that both slide and leap; within about a pawn
+  of the listed strengths of the real pieces).
+- **Copy everything**: vetoes, notes and inventions as readable text with
+  the data at the end, to paste to Claude to build from, or back in with
+  "Paste notes back in". All of it lives in the browser
+  (`ig.grove.catalog.v1`).
+
 Timothy, 2026-10-07: "define different individual patents for pieces in
 order to both understand them and in the future customize them ... does
 the piece slide to its position or hop, can it capture pieces, does it
