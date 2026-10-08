@@ -54,12 +54,17 @@ then upgrades (`run.js`):
 | ♠ Swords | one more step in any direction (Betza `+K`) | Knight of Swords (the old centaur) |
 | ★ Stars | its leaps keep going (a knight becomes a nightrider); a slider gains a knight's jump | Knight of Stars |
 | ♦ Diamonds | only a piece at least as strong can take it | Bishop of Diamonds |
+| @ Spirals | its leaps curl on round a circle, the rose's way (Betza `q`); a piece with no leaps gains the rose's whole move | Knight of Spirals (moves as a rose), Rook of Spirals (rook and rose) |
 | Fuse | two pieces become one with both move sets; it frees a slot | rook + knight = Chancellor, bishop + knight = Archbishop, rook + bishop = Queen |
 | Promotion | a piece becomes the next piece up in strength | |
 | Jokers | rules for the rest of the run: Double Time (two moves to their one), Foresight (see where every rabbit goes next), Recruiter (your first catch each level joins you), Lazy Rabbits (they move every other turn), Overtime (five more moves) | |
 
-Hearts was Timothy's; **swords, stars and diamonds are proposals** (he
-named them, not what they do). A suit shows as the plinth's colour. A
+Hearts was Timothy's; **swords, stars, diamonds and spirals are
+proposals** (he named them, not what they do). Spirals came from history:
+the rose is the fairy piece whose knight jumps curl round a circle, so a
+spiral suit makes a piece's leaps do the same. The strength estimate now
+counts circling squares between a slide and a leap, since each can be
+blocked on the way round (the rose comes out at its known 5.5). A suit shows as the plinth's colour. A
 piece taken is gone for good. Running out of moves falls on with nothing
 found ("Out of moves" can end the run instead). The descent ends when every
 piece is gone. Each level down: more pieces of theirs, sharper rabbits,

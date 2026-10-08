@@ -12,6 +12,9 @@
 //   the old centaur). Stars, its leaps keep going (a knight becomes a
 //   nightrider; a piece that already slides gains a knight's jump).
 //   Diamonds, diamond-hard: only a piece at least as strong can take it.
+//   Spirals (2026-10-08, Timothy named it; what it does is a proposal):
+//   its leaps curl on round a circle, the rose's way (Betza q), so a knight
+//   of spirals is a rose; a piece with no leaps gains the rose's move.
 // - Fusing two pieces into one with both their moves (a rook and a knight
 //   make the chancellor). It frees a slot.
 // - Promotion: a piece becomes the next piece up in strength.
@@ -30,7 +33,8 @@ export const SUITS = {
   hearts: { name: 'Hearts', mark: '♥', colour: '#e0445a', desc: 'A second life: the first time it is taken it loses the heart instead, and whatever took it bounces off.' },
   swords: { name: 'Swords', mark: '♠', colour: '#7f9fc0', desc: 'One more step, in any direction, for close fighting.' },
   stars: { name: 'Stars', mark: '★', colour: '#e8c547', desc: 'Its leaps keep going in a line; a piece that already slides gains a knight’s jump.' },
-  diamonds: { name: 'Diamonds', mark: '♦', colour: '#5fd0d8', desc: 'Diamond-hard: only a piece at least as strong can take it.' }
+  diamonds: { name: 'Diamonds', mark: '♦', colour: '#5fd0d8', desc: 'Diamond-hard: only a piece at least as strong can take it.' },
+  spirals: { name: 'Spirals', mark: '@', colour: '#f0903a', desc: 'Its leaps curl on round a circle, like the rose’s; a piece with no leaps gains the rose’s whole move.' }
 };
 
 export const JOKERS = {
@@ -70,6 +74,13 @@ export function suitBetza(code, suit) {
     if (terms.every((t) => t.ride || t.mods.includes('q'))) return unionBetza(code, 'N');
     return write(terms.map((t) => (!t.mods.includes('q') && ATOM[`${t.jump[0]},${t.jump[1]}`] ? { ...t, ride: true } : t)));
   }
+  if (suit === 'spirals') {
+    // Only leaps that move and capture alike curl; a piece with none gains
+    // the rose's move (qN).
+    const terms = parseBetza(code), curls = (t) => !t.ride && !t.mods && !t.dirs;
+    if (!terms.some(curls)) return unionBetza(code, 'qN');
+    return write(terms.map((t) => (curls(t) ? { ...t, mods: 'q' } : t)));
+  }
   return code;
 }
 
@@ -100,7 +111,7 @@ export function pieceOf(h, made = []) {
     if (!type) {
       const found = made.find((p) => p.betza === code && p.name === name);
       const id = found?.id || newId(name, new Set([...Object.keys(PIECES), ...made.map((p) => p.id)]));
-      if (!found) made.push({ id, name, betza: code, look: bases[0], desc: `${name}: ${code}.` });
+      if (!found) made.push({ id, name, betza: code, look: bases[0], desc: `${name}: ${code}.`, made: true });
       type = id;
     }
   }

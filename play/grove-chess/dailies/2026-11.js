@@ -111,5 +111,37 @@ export default {
    "winLen": 9.4
   },
   "rolls": 4
+ },
+ "2026-11-08": {
+  "name": "The Brass Kettle",
+  "theme": "grove",
+  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsIm1pbkVuZ2FnZSI6NTAsIm1pbkNlaWxpbmciOjYsInNocmlua0V2ZXJ5IjoxLCJzdGF0dWVzIjoxLCJtaW5lIjoyLCJtaW5lUG9vbCI6WyJjaGFuY2VsbG9yIiwicGF3biIsImJpc2hvcCIsInJvc2UiXSwicmFiYml0TWluZCI6InBhdHRlcm4iLCJpcSI6NywidHJhaXRzIjpbImd1YXJkIiwiaHVudGVyIiwicGF0dGVybiJdLCJyYWJiaXRzIjoyLCJwYXR0ZXJucyI6ImxvbmciLCJob3BzIjoyLCJmb2VzIjo0LCJraW5kcyI6MiwiZm9lUG9vbCI6WyJyYWJiaXQiXSwiZm9lUm93cyI6Miwic2tpbGwiOiIwIiwic3R5bGUiOiJmbGVlIiwiaG9sZU1vdmVzIjoic2hvcnQiLCJiYWxsTW92ZSI6ImljZSIsIm1heE1vdmVzIjoxOCwiZmlyc3QiOiJ0aGVtIiwicGFyTWluIjo0fQ",
+  "v": 7,
+  "seed": 354314,
+  "par": 8,
+  "measure": {
+   "difficulty": 3,
+   "ceiling": 0.67,
+   "engagement": 58,
+   "winRate": 0.88,
+   "winLen": 13.3
+  },
+  "rolls": 22
+ },
+ "2026-11-09": {
+  "name": "A Glass Matter of Moths",
+  "theme": "grove",
+  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsIm1pbkVuZ2FnZSI6NTAsIm1pbkNlaWxpbmciOjYsInciOjgsImgiOjQsImdyb3VuZCI6InNwaXJhbCIsInNocmlua0V2ZXJ5IjozLCJzdGF0dWVzIjo0LCJtaW5lIjozLCJtaW5lUG9vbCI6WyJ3YXppciIsImtpbmciLCJmZXJ6Iiwicm9vayJdLCJtaW5lRHVwZXMiOnRydWUsImxpbmV1cCI6ZmFsc2UsIndhaXQiOmZhbHNlLCJpcSI6NCwidHJhaXRzIjpbInBhdHRlcm4iLCJndWFyZCIsIm1lc3N5Iiwic2h5Il0sInJhYmJpdHMiOjIsInBhdHRlcm5zIjoic2hvcnQiLCJmb2VzIjoxLCJmb2VQb29sIjpbImdyYXNzaG9wcGVyIiwicm9zZSIsIm5pZ2h0cmlkZXIiLCJjaGFuY2VsbG9yIl0sImZvZVJvd3MiOjEsInNraWxsIjoiMyIsImJhbGxTdG9wcyI6dHJ1ZSwibWF4TW92ZXMiOjI1LCJwYXJNaW4iOjR9",
+  "v": 7,
+  "seed": 424940,
+  "par": 6,
+  "measure": {
+   "difficulty": 3,
+   "ceiling": 0.79,
+   "engagement": 58,
+   "winRate": 0.75,
+   "winLen": 10.7
+  },
+  "rolls": 2
  }
 };

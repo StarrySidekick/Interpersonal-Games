@@ -111,5 +111,21 @@ export default {
    "winLen": 11.9
   },
   "rolls": 30
+ },
+ "2026-12-08": {
+  "name": "Where the Spindle Argues",
+  "theme": "moth",
+  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsIm1pbkVuZ2FnZSI6NTAsIm1pbkNlaWxpbmciOjYsInciOjcsImgiOjUsInNoYXBlIjoicm91bmQiLCJob2xlcyI6Mywic2hyaW5rRXZlcnkiOjEsInN0YXR1ZXMiOjMsIm1pbmUiOjIsIm1pbmVQb29sIjpbInNxdWlycmVsIiwia25pZ2h0Iiwic2lsdmVyIiwiemVicmEiLCJraW5nIl0sImxpbmV1cCI6ZmFsc2UsIm1pbmVSb3dzIjoxLCJyYWJiaXRNaW5kIjoicGF0dGVybiIsImlxIjo5LCJ0cmFpdHMiOlsibWVzc3kiLCJzaHkiLCJwYXR0ZXJuIiwiZ3VhcmQiXSwicmFiYml0cyI6MSwicGF0dGVybnMiOiJzaG9ydCIsImZvZXMiOjEsImRhcmtCcmFpbiI6InRoaW5rIiwiZm9lUG9vbCI6WyJyYWJiaXQiXSwiZm9lRHVwZXMiOmZhbHNlLCJza2lsbCI6IjAiLCJzdHlsZSI6ImZsZWUiLCJnb2FsIjoibWl4IiwiaG9sZU1vdmVzIjoibWlkIiwiYmFsbE1vdmUiOiJoaXQiLCJtYXhNb3ZlcyI6MjUsInBhck1pbiI6NH0",
+  "v": 7,
+  "seed": 557583,
+  "par": 4,
+  "measure": {
+   "difficulty": 3,
+   "ceiling": 1.22,
+   "engagement": 52,
+   "winRate": 0.79,
+   "winLen": 8.9
+  },
+  "rolls": 26
  }
 };

@@ -25,6 +25,7 @@ const ALL_PATTERNS = [...PATTERNS, ...EXTRA_PATTERNS];
 import { solveLevel, assess, unbalanced, openingCaptures } from './solve.js';
 import { measure, BANDS } from './metrics.js';
 import { cleanInvented, registerInvented } from './invented.js';
+import { SUITS } from './run.js';
 
 export const CLASSIC = Object.keys(PIECES).filter((k) => PIECES[k].kind === 'classic');
 export const FAIRY = Object.keys(PIECES).filter((k) => PIECES[k].kind === 'fairy');
@@ -204,7 +205,7 @@ export function clean(raw) {
     // diamonds, its suit (for its colour).
     if (Array.isArray(raw.handMods)) s.handMods = raw.handMods.filter((m, i) => keep[i]).map((m) => ({
       ...(m?.lives > 1 ? { lives: Math.min(9, m.lives | 0) } : {}), ...(m?.diamond ? { diamond: true } : {}),
-      ...(['hearts', 'swords', 'stars', 'diamonds'].includes(m?.suit) ? { suit: m.suit } : {}) }));
+      ...(SUITS[m?.suit] ? { suit: m.suit } : {}) }));
   }
   // Run rules carried by a level (the descent's jokers).
   if (raw?.movesPerTurn === 2) s.movesPerTurn = 2;

@@ -179,7 +179,7 @@ export function patent(code) {
     const step = Math.max(...t.jump.map(Math.abs)) === 1;
     const how = t.mods.includes('g') || t.mods.includes('p') ? 'hops' : t.mods.includes('q') ? 'circles' : t.ride ? 'slides' : step ? 'steps' : 'leaps';
     travel.add(how);
-    let words = t.mods.includes('q') ? 'knight’s Ls that turn round a circle'
+    let words = t.mods.includes('q') ? (key === '2,1' ? 'knight’s Ls that turn round a circle' : `${ATOM_WORDS[key] || `(${key}) jumps`}, turning round a circle`)
       : t.ride ? RIDE_WORDS[key] || `(${key}) jumps, again and again in a line` : ATOM_WORDS[key] || `a (${key}) jump`;
     if (t.mods.includes('g')) words = `${words.replace('any distance ', '')}, over the first thing in the way, landing just beyond it`;
     if (t.mods.includes('p')) words = `${words}, but over exactly one thing first`;
