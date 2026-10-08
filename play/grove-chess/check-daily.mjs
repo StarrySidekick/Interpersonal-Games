@@ -13,6 +13,11 @@
 // docs/grove-chess.md); then add its fingerprint here. Never edit an old one.
 
 import { createHash } from 'node:crypto';
+import { readdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { dayFromBoard } from './daily4.js';
+import { boardPrint } from './daily-print.mjs';
 import { makeDay, VERSIONS } from './day.js';
 import * as R from './rules.js';
 import { rng } from '../../engine/seed.js';
@@ -67,4 +72,18 @@ for (const { v, from } of VERSIONS) {
     bad++;
   }
 }
+// Version 4 on: boards made ahead of time (make-daily.mjs), each stored
+// with its own fingerprint. Laying each one out again must give the same.
+const dir = join(dirname(fileURLToPath(import.meta.url)), 'dailies');
+let stored = 0, unstamped = 0;
+for (const f of readdirSync(dir).filter((n) => /^\d{4}-\d{2}\.js$/.test(n)).sort()) {
+  const boards = (await import(pathToFileURL(join(dir, f)).href)).default;
+  for (const [date, b] of Object.entries(boards)) {
+    stored++;
+    if (!b.print) { unstamped++; console.log(`${date}: no fingerprint (run make-daily.mjs --stamp)`); bad++; continue; }
+    const got = boardPrint(dayFromBoard(date, b));
+    if (got !== b.print) { console.log(`STORED BOARD ${date} (${b.name}) CHANGED.\n  expected ${b.print}\n  got      ${got}`); bad++; }
+  }
+}
+if (stored && !unstamped) console.log(`Stored boards (v4) checked: ${stored}, each laid out and played 4 times.`);
 if (bad) process.exit(1);

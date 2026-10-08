@@ -44,7 +44,9 @@ export const SCHEMA = [
     { key: 'difficulty', label: 'Difficulty', type: 'choice', def: 'any', options: opts(['any', 'Any'], ['easy', 'Easy (1 to 3)'], ['normal', 'Normal (4 to 6)'], ['hard', 'Hard (7 to 8)'], ['brutal', 'Brutal (9 to 10)']),
       help: 'Measured by a novice bot playing the level two dozen times (metrics.js): how often it loses, and how long the shortest win is. Needs the solver.' },
     { key: 'minEngage', label: 'Engaging, at least', type: 'int', min: 0, max: 90, def: 0, unit: 'of 100',
-      help: 'A first guess at how engaging a level is: choices that matter, pieces used, tension, comebacks. 0 lets anything through.' }
+      help: 'A first guess at how engaging a level is: choices that matter, pieces used, tension, comebacks. 0 lets anything through.' },
+    { key: 'minCeiling', label: 'Skill ceiling, at least', type: 'int', min: 0, max: 30, def: 0, unit: 'tenths',
+      help: 'How much faster an expert wins than a novice: 10 means twice as fast. A high ceiling is easy to win in many moves and hard to win in few. 0 lets anything through.' }
   ] },
   { group: 'Board', fields: [
     { key: 'w', label: 'Width', type: 'int', min: 3, max: 10, def: 6 },
@@ -707,6 +709,7 @@ export function searchLayouts({ settings, seed, parMin, parMax, maxTries = 400, 
       const S = clean(settings), m = measure(level, r), band = BANDS[S.difficulty] || BANDS.any;
       if (!fixed && !why.length && (m.difficulty < band[0] || m.difficulty > band[1])) why.push(m.difficulty < band[0] ? 'it was too easy' : 'it was too hard');
       if (!fixed && !why.length && m.engagement < S.minEngage) why.push('it was not engaging enough');
+      if (!fixed && !why.length && S.minCeiling && (m.ceiling ?? 0) * 10 < S.minCeiling) why.push('its skill ceiling was too low');
       if (fixed || !why.length) return post({ type: 'done', seed: sd, par: r.par, exact: r.exact, line: r.line, tried, balance, why, thrown, measure: m });
       for (const w of why) thrown[w] = (thrown[w] || 0) + 1;
       if (!best || !best.unbalanced) best = { seed: sd, par: r.par, exact: r.exact, line: r.line, balance, why, unbalanced: true };

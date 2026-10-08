@@ -20,6 +20,9 @@
 //   Version 3, from 2026-10-07: what the lab learned. Rabbits do not eat.
 //   The ground is solid, crumbling, shrinking or shrinking in a spiral. And
 //   a board must pass the lab's balance rules (solve.js).
+//   Version 4, from 2026-10-09, is not dealt here: its boards are made ahead
+//   of time and stored (make-daily.mjs, daily4.js). Its dates still deal
+//   version 3 here, which is the fallback for a date with no stored board.
 
 import { rng, shuffled } from '../../engine/seed.js';
 import { PIECES, initialState, allMoves, apply, stateKey, MAX_MOVES, DAILY_RULES } from './rules.js';

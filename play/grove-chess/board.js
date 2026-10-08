@@ -21,7 +21,12 @@ const GROUND = {
   shrink: { light: '#a9c4b8', dark: '#e4ece4' }
 };
 export const groundOf = (day) => (day.rules?.shrink ? 'shrink' : day.rules?.crumble ? 'crumble' : 'solid');
-export const tileColour = (day, x, y) => { const g = GROUND[groundOf(day)]; return (x + y) % 2 === 0 ? g.light : g.dark; };
+// A named daily (version 4) may bring its own colours for solid ground; the
+// other grounds keep theirs, since those colours say what the ground does.
+export const tileColour = (day, x, y) => {
+  const kind = groundOf(day), g = kind === 'solid' && day.theme ? day.theme : GROUND[kind];
+  return (x + y) % 2 === 0 ? g.light : g.dark;
+};
 export const PIT = '#050302'; // what is left where a square fell away: darkness, nothing else
 
 export const C = 28, RIM = 5, TOP = 16;

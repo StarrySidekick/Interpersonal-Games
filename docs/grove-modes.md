@@ -39,8 +39,9 @@ make some new modes easily."
 dealer (`day.js`), because it must be the same on every phone. Its
 settings in the runner (`?mode=daily`) make practice boards the same way:
 any rules at all, as long as the level is balanced and has a high skill
-ceiling (easy to win in many moves, hard in few). Named, themed dailies
-are the next build (below).
+ceiling (easy to win in many moves, hard in few; the "Skill ceiling, at
+least" setting). From 2026-10-09 the daily itself is made that way, ahead
+of time, with a name and a light theme (`docs/grove-chess.md`, version 4).
 
 **The descent.** A roguelite. Four pieces, dealt from "You start with".
 Each level: take every piece of theirs. Finishing finds you a piece (a
@@ -96,6 +97,15 @@ Paths in: mastery, collection, power, customization, social (the daily).
 | Customization | settings per mode | invented pieces, vetoes | Timothy's own modes from the settings | horizontal | written (panel), visual (the catalog) |
 | Social | the daily | | | | (unchanged here) |
 
+The named daily (version 4) moves three paths. Mastery: every board is
+chosen for a high skill ceiling, so par is far below where a first win
+lands, and the ending says how a novice bot did beside your score
+(written, plus the golf word's colour and fanfare). Social: the vine and
+the share text now carry the board's name, a thing to talk about ("did
+you get The Unwilling Mitten under par?"). World: a name and a theme
+each day, light on purpose (written and visual), with no lore behind
+them yet; if the names are liked, a world could grow from them.
+
 Gaps: power resets with every run, so nothing carries between descents
 except the record and the rabbits; the long game
 (`grove-long-game.md`) is where something should. Golf's progression is
@@ -110,9 +120,8 @@ only the scorecard. Autochess has no shop yet (rewards stand in for it).
 
 ## Next
 
-- **Daily v4**: generated ahead of time, named and lightly themed, chosen
-  for a high skill ceiling, from tomorrow's date on (a new dealer version,
-  so every old link still works).
+- Make more named dailies before the stored ones run out (they go to the
+  end of 2026; after that a date falls back to version 3).
 - Calibrate difficulty and engagement against the workshop notebook's
   ratings.
 - An autochess shop, and golf courses with their own character.
