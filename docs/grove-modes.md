@@ -71,22 +71,33 @@ after layout and keeps the first that is winnable, balanced and inside the
 difficulty asked for (a band, or `aim`: within one of a number); if none
 passes in time it keeps the nearest miss.
 
+**Pieces can always take pieces** (Timothy, 2026-10-09: "as a rule
+pieces should always be able to capture other pieces by default, so
+difficulty needs to be based on the idea that there is no situation where
+pieces literally cannot or refuse to capture"). Chaos and the daily
+practice never roll "They can take your pieces" off, future stored
+dailies are made with it on, and in a mode's panel it is not offered (the
+workshop keeps it, for experiments). A rabbit mind still chooses: a Shy
+one may pass up a capture to stay safe, as personality, not inability.
+
 **What makes a level hard** was measured, depth 1 of the descent, six
-layouts each: with their pieces able to take yours, the novice won 21 to
-67% (difficulty 3 to 6), mostly by losing its royal King; with that off
-it won every time (difficulty 1). Fewer enemies or duller rabbits barely
-moved it.
+layouts each: the novice mostly loses by giving up its royal King, so
+captures are most of difficulty. With captures always on, the floor is
+difficulty 2 (the novice wins about 80 to 90%): difficulty 1 needs about
+95%, which only came from switching their captures off, and that is no
+longer allowed. What still makes a start easy is clumsy rabbits: with the
+first levels' minds Messy rather than Aggressive, six layouts of six
+measured 2. Fewer enemies or duller rabbits barely moved it.
 
 **The descent climbs by difficulty.** "First level's difficulty" (1 by
-default) is what depth 1 aims at; each level after aims higher by the
-"It gets harder" step (gently 0.35, steadily 0.6, steeply 1). "A gentle
-first level" (on) means their pieces cannot take yours on depth 1. The
-board stays 6 by 6 ("The board grows", off). More enemies, sharper
-rabbits, stronger pieces and longer pars still climb, more slowly, so
-boards near the aim turn up often enough. Measured, steadily: depth 1
-difficulty 1, depth 2 2, depth 3 3, depth 5 2 to 4, depth 8 5 to 7,
-depth 12 7 to 8. Depth 8 is the soft spot (it aims at 5) and is worth
-tuning against play. Later, roguelite unlocks could skip the easy start.
+default, so the first level aims at 1 to 2 and lands on 2) is what depth
+1 aims at; each level after aims higher by the "It gets harder" step
+(gently 0.35, steadily 0.6, steeply 1). The board stays 6 by 6 ("The
+board grows", off). More enemies, sharper rabbits, stronger pieces and
+longer pars still climb, more slowly, so boards near the aim turn up
+often enough. Depth 8 is the soft spot (it aims at 5, and measured 5 to
+7) and is worth tuning against play. Later, roguelite unlocks could skip
+the easy start.
 
 **The daily** already sits just above the descent's start: its maker
 keeps a board only at difficulty 3 to 6, with a novice winning at least

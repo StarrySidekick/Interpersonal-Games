@@ -69,8 +69,6 @@ export const RUN_SCHEMA = [
       help: 'For a descent. The first level is found at this difficulty (measured: a novice bot plays it two dozen times), and every level after aims a little higher, as fast as "It gets harder" says.' },
     { key: 'ramp', label: 'It gets harder', type: 'choice', def: 'steady', options: opts(['gentle', 'Gently'], ['steady', 'Steadily'], ['steep', 'Steeply']),
       help: 'Each level down, or each round: a higher difficulty aimed at (gently 0.35 a level, steadily 0.6, steeply 1), more pieces of theirs and sharper rabbits.' },
-    { key: 'gentleStart', label: 'A gentle first level', type: 'bool', def: true,
-      help: 'For a descent. On the first level their pieces cannot take yours, so it is about learning to hunt their King; from the second level on they can.' },
     { key: 'boardGrows', label: 'The board grows', type: 'bool', def: false,
       help: 'For a descent. Off: every level is the board size set below (6 by 6). On: a row and a column more every few levels, up to 8 by 8.' },
     { key: 'carry', label: 'What you find carries over', type: 'bool', def: true,
@@ -182,7 +180,7 @@ const SHOWN = {
   // The session.
   startPieces: runIs('descent', 'rounds'), maxPieces: runIs('descent', 'rounds'), startPool: runIs('descent', 'rounds'),
   rewards: runIs('descent', 'rounds'), jokers: runIs('descent', 'rounds'), findPool: runIs('descent', 'rounds'), ramp: runIs('descent', 'rounds'),
-  carry: runIs('descent'), startDifficulty: runIs('descent'), gentleStart: runIs('descent'), boardGrows: runIs('descent'), outOfMoves: runIs('descent'),
+  carry: runIs('descent'), startDifficulty: runIs('descent'), boardGrows: runIs('descent'), outOfMoves: runIs('descent'),
   shop: runIs('rounds'), lives: runIs('rounds'),
   courseName: runIs('course'), courseHoles: (S) => S.run === 'course' && S.courseName === 'mixed', balls: (S) => S.run === 'course' && S.courseName === 'mixed',
   // How you play: autochess's own.
@@ -191,7 +189,9 @@ const SHOWN = {
   difficulty: (S) => S.run !== 'descent', aim: (S) => S.run !== 'descent',
   // Your side: a run brings its own hand.
   mine: (S) => !['descent', 'rounds'].includes(S.run), minePool: (S) => !['descent', 'rounds'].includes(S.run), mineDupes: (S) => !['descent', 'rounds'].includes(S.run),
-  royal: (S) => S.run !== 'course', dealKing: (S) => S.run !== 'course' && S.royal, showdown: (S) => S.run !== 'course',
+  royal: (S) => S.run !== 'course',
+  // Pieces can always take pieces: a setting for the workshop only.
+  foesCapture: (S) => S.run == null, dealKing: (S) => S.run !== 'course' && S.royal, showdown: (S) => S.run !== 'course',
   // Settings that only matter when another one is on.
   shrinkEvery: (S) => S.ground === 'shrink' || S.ground === 'spiral',
   iq: (S) => S.rabbitMind === 'mind', traits: (S) => S.rabbitMind === 'mind',
@@ -234,6 +234,8 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
     const fairy = FAIRY.filter((k) => !veto.includes(k));
     S = { ...crazy(rand, [...fairy, 'rabbit']), difficulty: M.difficulty, aim: M.aim, minEngage: M.minEngage, balance: 'on', solve: true };
     S.mode = 'hand'; // autochess is its own mode
+    // Pieces can always take pieces (Timothy, 2026-10-09): never rolled off.
+    S.foesCapture = true;
     // Chaos rolls everything but how you win: that is the mode's own
     // (by default, take their King and keep yours, with the showdown).
     if (M.roll === 'chaos') Object.assign(S, { goal: M.goal, royal: M.royal, showdown: M.showdown, w: M.w, h: M.h });
@@ -249,7 +251,6 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
       // settings below climb with it, more slowly, so boards near the aim
       // turn up often enough for the tester to find one.
       aim: Math.min(10, Math.round(M.startDifficulty + d * AIM_STEP[M.ramp])),
-      ...(M.gentleStart && depth === 1 ? { foesCapture: false } : {}),
       w: M.boardGrows ? Math.min(8, M.w + Math.floor(d * k / 3)) : M.w, h: M.boardGrows ? Math.min(8, M.h + Math.floor(d * k / 3)) : M.h,
       foes: Math.min(7, M.foes + Math.floor(d * k / 4)), iq: Math.min(10, M.iq + Math.floor(d * k * 0.35)),
       kinds: Math.min(4, M.kinds + Math.floor(d * k / 3)),
@@ -258,7 +259,9 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
       shape: d * k < 3 ? M.shape : pick([M.shape, M.shape, 'diamond', 'round', 'cross', 'cheese']),
       statues: Math.min(4, M.statues + Math.floor(d * k / 3)),
       parMin: Math.min(8, M.parMin + Math.floor(d * k / 6)), parMax: Math.min(14, M.parMax + Math.floor(d * k / 3)),
-      traits: d * k < 2 ? ['aggressive', 'messy'] : M.traits
+      // The first levels' rabbits are clumsy, not aggressive: that, not
+      // switching their captures off, is what makes the start easy.
+      traits: d * k < 2 ? ['messy'] : M.traits
     });
   }
   if (M.run === 'rounds') {

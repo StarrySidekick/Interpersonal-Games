@@ -55,6 +55,7 @@ function dailyRoll(rand) {
   while (S.w * S.h > 36) { if (S.w >= S.h) S.w--; else S.h--; }
   S.maxMoves = Math.max(18, Math.min(30, S.maxMoves || 25));
   S.mode = 'hand';
+  S.foesCapture = true; // pieces can always take pieces (Timothy, 2026-10-09)
   S.difficulty = 'any'; // checked here instead, with the daily's own band
   return clean(S);
 }
