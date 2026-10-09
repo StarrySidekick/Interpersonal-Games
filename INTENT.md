@@ -177,6 +177,17 @@ And later on 2026-10-07:
 - **New boards: magic (Pac-Man edges) and geared (turns every turn).**
   Built as Chaos settings, with **statues** in place of stumps.
 
+## 2026-10-08, later: the suits are his, and four updates
+
+From Timothy, choosing what each suit does and asking for all four open
+items in `docs/grove-modes.md`:
+
+- **Swords is cleave, Stars moves twice, Diamonds is treasure, Spirals
+  swaps.** Built as rules the piece carries (`rules.js`, `s.bonus`).
+- **Carry-over between runs.** Built: the roster and three waystones.
+- **An autochess shop.** Built: acorns, priced stock, new stock.
+- **Golf courses with character.** Built: five courses, opened in order.
+
 ## 2026-10-08: modes are collections of settings
 
 From Timothy. What became of each note:

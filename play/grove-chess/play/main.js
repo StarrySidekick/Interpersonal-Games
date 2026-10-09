@@ -22,8 +22,11 @@ import { startFall } from '../fall.js';
 import { fillMenu } from '../menu.js';
 import { buildForm, FORM_CSS } from '../form.js';
 import { loadCatalog, registerInvented } from '../invented.js';
-import { MODES, modeSettings, saveModeSettings, resetModeSettings, cleanMode, PANEL, levelSettings } from '../modes.js';
-import { newRun, rewardsFor, applyReward, cardText, handSettings, afterLevel, pieceOf, SUITS, JOKERS } from '../run.js';
+import { MODES, modeSettings, saveModeSettings, resetModeSettings, cleanMode, PANEL, levelSettings, COURSES, COURSE_ORDER, holesOf } from '../modes.js';
+import {
+  newRun, rewardsFor, applyReward, cardText, handSettings, afterLevel, pieceOf, SUITS, JOKERS,
+  WAYSTONES, litWaystones, newlyLit, startChoices, keepsakeCards, acornsFor, priceOf, shopStock
+} from '../run.js';
 import { setupPanel, setupState, playOut } from '../autosetup.js';
 import { describeMeasure } from '../metrics.js';
 
@@ -51,8 +54,30 @@ const records = loadRecords();
 const mine = () => (records[modeId] = records[modeId] || { played: 0, best: null });
 function saveRecords() { if (test) return; try { localStorage.setItem(REC, JSON.stringify(records)); } catch { /* blocked */ } }
 
+// --- What carries between descents: the roster of pieces found. ------------
+
+const ROSTER = 'ig.grove.roster.v1';
+function loadRoster() { try { const r = JSON.parse(localStorage.getItem(ROSTER)); if (r && r.version === 1 && Array.isArray(r.found)) return r; } catch { /* blocked */ } return { version: 1, found: [] }; }
+const roster = loadRoster();
+const carries = () => M.run === 'descent' && M.carry && !test;
+function addToRoster(type) {
+  if (!carries() || roster.found.includes(type) || !PIECES[type]) return;
+  roster.found.push(type);
+  try { localStorage.setItem(ROSTER, JSON.stringify(roster)); } catch { /* blocked */ }
+}
+const deepest = () => records.descent?.best || 0;
+
+// --- Golf: which courses are open. ------------------------------------------
+
+const courseRec = (id) => ((mine().courses = mine().courses || {})[id] = mine().courses[id] || { played: 0, best: null });
+const courseOpen = (id) => { const k = COURSE_ORDER.indexOf(id); return k <= 0 || !!records.golf?.courses?.[COURSE_ORDER[k - 1]]?.played; };
+
 function recordsLine() {
   const r = records[modeId];
+  if (M.run === 'course' && COURSES[M.courseName]) {
+    const c = r?.courses?.[M.courseName];
+    return c?.played ? `${COURSES[M.courseName].name}: best ${c.best > 0 ? '+' : ''}${c.best} against par. Played ${c.played}.` : `${COURSES[M.courseName].name}: not played yet.`;
+  }
   if (!r?.played) return test ? 'A test run: nothing is kept.' : '';
   if (M.run === 'descent') return `Deepest: depth ${r.best}. Descents: ${r.played}.`;
   if (M.run === 'course') return r.best != null ? `Best course: ${r.best > 0 ? '+' : ''}${r.best} against par. Courses played: ${r.played}.` : `Courses played: ${r.played}.`;
@@ -69,8 +94,11 @@ let session = null;
 function newSession() {
   const seed = 1 + Math.floor(Math.random() * 1e9), rand = rng(`start:${seed}`);
   const pool = M.startPool.filter((k) => !catalog.vetoed.includes(k));
-  const start = Array.from({ length: M.startPieces }, () => (pool.length ? pool : M.startPool)[Math.floor(rand() * (pool.length || M.startPool.length))]);
-  session = { seed, n: 1, found: new Map(), seen: new Set(), strokes: [], lives: M.lives, wins: 0, caught: [] };
+  // The "another piece" waystone deals one more, as far as the hand holds.
+  const extra = carries() && litWaystones(deepest()).some((w) => w.id === 'extra') ? 1 : 0;
+  const count = Math.min(M.maxPieces, M.startPieces + extra);
+  const start = Array.from({ length: count }, () => (pool.length ? pool : M.startPool)[Math.floor(rand() * (pool.length || M.startPool.length))]);
+  session = { seed, n: 1, found: new Map(), seen: new Set(), strokes: [], lives: M.lives, wins: 0, caught: [], acorns: 0, deepestBefore: deepest() };
   if (M.run === 'descent' || M.run === 'rounds') session.run = newRun(start, M.maxPieces);
 }
 
@@ -200,6 +228,8 @@ async function startLevel() {
   const chips = $('#chips');
   chips.replaceChildren(el('span', { class: 'pill' }, `${level.W} × ${level.H}`));
   if (M.run === 'rounds') chips.append(el('span', { class: 'pill lifeline' }, '♥'.repeat(session.lives)));
+  if (M.run === 'rounds' && M.shop) chips.append(el('span', { class: 'pill' }, `${session.acorns} acorn${session.acorns === 1 ? '' : 's'}`));
+  if (M.run === 'course' && COURSES[M.courseName]) chips.append(el('span', { class: 'pill' }, COURSES[M.courseName].name));
   if (M.run === 'course') chips.append(el('span', { class: 'pill' }, `Ball: ${({ ice: 'on ice', putt: 'putting', bounce: 'billiard', hit: 'hit by the pieces', sticky: 'sticky', ghost: 'a ghost' })[level.rules.ballMove || 'ice']}`));
   if (level.rules.crumble) chips.append(el('span', { class: 'pill' }, 'Crumbling'));
   if (level.rules.shrink) chips.append(el('span', { class: 'pill' }, 'Shrinking'));
@@ -223,11 +253,22 @@ async function startLevel() {
   select(null);
 }
 
+/** What a turn a suit left open says. */
+function bonusLine(s) {
+  const p = s.pieces[s.bonus.p], name = nameOf(p);
+  return s.bonus.why === 'swords' ? `Swords: your ${name} can take again. Take one, or end the turn.`
+    : `Stars: your ${name} moves again. Move it, or end the turn.`;
+}
+
 function select(i) {
   sel = i;
+  $('#wait').textContent = now().bonus ? 'End turn' : 'Wait a turn';
   legal = i == null ? [] : movesFor(now(), i);
   if (i == null) info(level.hole ? (holeOpen(now()) ? 'Tap a piece to see where it can go. The hole is open.' : 'Tap a piece to see where it can go. The hole opens once every rabbit is caught.') : 'Tap a piece to light up where it can go.');
-  else { const type = now().pieces[i].type; info(`${nameOf({ type })}: ${descOf(type, now().day.rules)}${legal.length ? '' : ' It has nowhere to go right now.'}`); }
+  else {
+    const p = now().pieces[i], type = p.type, suit = p.suit ? ` ${SUITS[p.suit].mark} ${SUITS[p.suit].desc}` : '';
+    info(`${nameOf({ type })}: ${descOf(type, now().day.rules)}${suit}${legal.length ? '' : ' It has nowhere to go right now.'}`);
+  }
   draw();
 }
 
@@ -249,6 +290,7 @@ function whatHappened(a, b) {
   });
   if (b.hole && !holeOpen(a) && holeOpen(b)) bits.push('The hole is open.');
   if (b.shrunk.length > a.shrunk.length) bits.push('A square fell off the edge.');
+  if ((b.treasure || 0) > (a.treasure || 0)) bits.push('♦ Treasure: another pick when this level is done.');
   if (!bits.length) bits.push('Your move.');
   return bits.join(' ');
 }
@@ -268,9 +310,11 @@ async function play(mv) {
   noteCatches(a, b);
   haptic(b.won ? [20, 40, 30] : b.pieces.some((p, i) => p.taken && !a.pieces[i].taken) ? [40, 30, 40] : 10);
   hud();
-  if (!b.won) await board.animate(mid, b, { p: -1 });
+  if (!b.won && !b.bonus) await board.animate(mid, b, { p: -1 });
   busy = false;
   if (isOver(b)) return levelOver(b);
+  // A suit left the turn open (Swords, Stars): the same piece goes again.
+  if (b.bonus) { haptic([12, 30, 12]); sfx.gain(); status(bonusLine(b)); return select(b.bonus.p); }
   status(whatHappened(a, b));
   select(null);
 }
@@ -339,17 +383,20 @@ async function levelOver(end) {
     session.strokes.push({ hole: session.n, par, strokes: won ? end.t : (level.rules.maxMoves || 15) + 2, sunk: won });
     status(won ? `Sunk in ${end.t}.` : 'Picked up.');
     await sleep(1200);
-    if (session.n >= M.courseHoles) return courseOver();
+    if (session.n >= holesOf(M)) return courseOver();
     session.n++;
     return between({ note: `Hole ${session.n}`, sub: won ? (par ? `${end.t - par > 0 ? '+' : ''}${end.t - par} on that hole.` : '') : 'Picked up on that one.' });
   }
   if (M.run === 'rounds') {
     if (won) session.wins++; else session.lives--;
-    status(won ? 'Round won.' : `Round lost. ${session.lives} ${session.lives === 1 ? 'life' : 'lives'} left.`);
+    const earned = M.shop ? acornsFor(won, end.foes.filter((f) => f.taken).length) : 0;
+    session.acorns += earned;
+    status((won ? 'Round won.' : `Round lost. ${session.lives} ${session.lives === 1 ? 'life' : 'lives'} left.`) + (earned ? ` ${earned} acorns.` : ''));
     await sleep(1400);
     if (session.lives <= 0) return runOver('Out of lives.');
     session.n++;
-    return between({ note: `Round ${session.n}`, rewards: won && M.rewards });
+    if (M.shop) return between({ note: `Round ${session.n}`, shop: true });
+    return between({ note: `Round ${session.n}`, rewards: won && M.rewards, extra: won ? end.treasure || 0 : 0 });
   }
   // A descent.
   const allGone = end.pieces.every((p) => p.taken);
@@ -361,20 +408,28 @@ async function levelOver(end) {
   if (won && session.run.jokers.includes('recruiter') && session.firstCatch && PIECES[session.firstCatch]?.kind !== 'quarry'
     && ['classic', 'fairy'].includes(PIECES[session.firstCatch]?.kind) && session.run.hand.length < session.run.maxPieces) {
     session.run.hand.push({ base: session.firstCatch }); recruited = session.firstCatch;
+    addToRoster(recruited);
   }
   session.firstCatch = null;
   session.n++; session.run.depth = session.n;
+  // A waystone lit by going deeper than ever: said, sounded and felt.
+  const before = deepest();
   if (!test) { const r = mine(); r.best = Math.max(r.best || 0, session.n); saveRecords(); }
+  const lit = carries() ? newlyLit(before, deepest()) : [];
   status(won ? 'The floor gives way.' : 'Out of moves: the floor gives way anyway.');
   if (!calm()) { await sleep(400); if (board.collapse) await board.collapse(); }
-  return between({ note: `Depth ${session.n}`, sub: (won ? '' : 'Nothing found on the way down this time. ') + (recruited ? `Your first catch, the ${PIECES[recruited].name.toLowerCase()}, comes with you.` : ''), rewards: won && M.rewards, fall: true });
+  if (lit.length) { sfx.fanfare(3); haptic([30, 40, 30, 40, 60]); }
+  const sub = (won ? '' : 'Nothing found on the way down this time. ')
+    + (recruited ? `Your first catch, the ${PIECES[recruited].name.toLowerCase()}, comes with you. ` : '')
+    + lit.map((w) => `A waystone is lit at depth ${w.depth}: ${w.text}`).join(' ');
+  return between({ note: `Depth ${session.n}`, sub, rewards: won && M.rewards, extra: won ? end.treasure || 0 : 0, fall: true });
 }
 
 // --- Between levels: the fall, and what you find. -------------------------------
 
 let fall = null;
 
-async function between({ note, sub = '', rewards = false, fall: falling = false }) {
+async function between({ note, sub = '', rewards = false, extra = 0, shop: shopping = false, fall: falling = false }) {
   show('between');
   $('#betweennote').textContent = note;
   $('#betweensub').textContent = sub;
@@ -382,7 +437,11 @@ async function between({ note, sub = '', rewards = false, fall: falling = false 
   const kinds = session.run ? session.run.hand.map((h) => pieceOf(h, session.run.made).type) : [];
   fall = falling && !calm() && kinds.length ? startFall($('#fallcv'), kinds) : null;
   $('#fallcv').hidden = !fall;
-  if (rewards && session.run) await reward();
+  if (rewards && session.run) {
+    // Diamonds' treasure: a pick more for each piece it took, two at most.
+    for (let k = 0; k <= Math.min(2, extra); k++) await reward({ k, note: k ? '♦ Treasure: another pick.' : null });
+  }
+  if (shopping && session.run) await shop();
   const t0 = performance.now();
   const slow = setTimeout(() => { $('#betweensub').textContent = 'Finding the next one…'; }, 1500);
   const found = await find(session.n);
@@ -400,8 +459,8 @@ async function between({ note, sub = '', rewards = false, fall: falling = false 
 }
 
 /** Offer the rewards for a finished level; resolves once one is taken. */
-function reward() {
-  const run = session.run, cards = rewardsFor(run, rng(`reward:${session.seed}:${session.n}`), catalog.vetoed)
+function reward({ k = 0, note = null, cards: given = null } = {}) {
+  const run = session.run, cards = (given || rewardsFor(run, rng(`reward:${session.seed}:${session.n}${k ? ':' + k : ''}`), catalog.vetoed))
     .filter((c) => c.kind !== 'joker' || M.jokers)
     .filter((c) => c.kind !== 'piece' || M.findPool.includes(c.type));
   if (!cards.length) return Promise.resolve();
@@ -413,7 +472,7 @@ function reward() {
       haptic(14); sfx.gain();
       box.hidden = true;
       const need = card.kind === 'fuse' ? 2 : card.kind === 'suit' || card.kind === 'promote' ? 1 : 0;
-      if (!need) { applyReward(run, card, [], catalog.vetoed); if (card.kind === 'piece') fall?.add(card.type); return done(); }
+      if (!need) { applyReward(run, card, [], catalog.vetoed); if (card.kind === 'piece') { fall?.add(card.type); addToRoster(card.type); } return done(); }
       // Pick the piece (or two) it is for.
       const picked = [];
       $('#pickbox').hidden = false;
@@ -431,7 +490,8 @@ function reward() {
       paint();
       $('#pickdone').onclick = () => { applyReward(run, card, picked, catalog.vetoed); done(); };
     };
-    box.replaceChildren(el('p', { class: 'center' }, run.hand.length < run.maxPieces ? 'Something is down here with you. Take one of them.' : 'Your hand is full. Take an upgrade.'),
+    const head = note || (given ? 'A keepsake, from the waystones. Take one.' : run.hand.length < run.maxPieces ? 'Something is down here with you. Take one of them.' : 'Your hand is full. Take an upgrade.');
+    box.replaceChildren(el('p', { class: 'center' }, head),
       ...cards.map((c) => {
         const t = cardText(c), cv = el('canvas', { class: 'model', width: 30, height: 36 });
         if (c.kind === 'piece') cv.getContext('2d').drawImage(sprite(c.type, 'you'), 0, 0);
@@ -441,6 +501,68 @@ function reward() {
       }),
       el('button', { class: 'quiet', onclick: done }, 'Take nothing'));
     box.hidden = false;
+  });
+}
+
+/** Pick the piece (or two) a card is for, then apply it. */
+function pickFor(card, run) {
+  const need = card.kind === 'fuse' ? 2 : card.kind === 'suit' || card.kind === 'promote' ? 1 : 0;
+  if (!need) { applyReward(run, card, [], catalog.vetoed); return Promise.resolve(true); }
+  return new Promise((resolve) => {
+    const picked = [];
+    $('#pickbox').hidden = false;
+    $('#picktext').textContent = card.kind === 'fuse' ? 'Choose two pieces to fuse into one.' : card.kind === 'promote' ? 'Choose a piece to promote.' : `Choose a piece to give ${SUITS[card.suit].name} to.`;
+    const paint = () => {
+      handRow($('#pickhand'), { picked, pick: (i) => {
+        if (card.kind === 'suit' && run.hand[i].suit) return;
+        const at = picked.indexOf(i);
+        if (at >= 0) picked.splice(at, 1); else { picked.push(i); if (picked.length > need) picked.shift(); }
+        paint();
+      } });
+      $('#pickdone').disabled = picked.length !== need;
+    };
+    paint();
+    $('#pickdone').onclick = () => { applyReward(run, card, picked, catalog.vetoed); $('#pickbox').hidden = true; resolve(true); };
+  });
+}
+
+/** The autochess shop: acorns for pieces and upgrades, until Done. */
+function shop() {
+  const run = session.run, box = $('#offer');
+  let roll = 0, stock = null;
+  const restock = () => { stock = shopStock(run, rng(`shop:${session.seed}:${session.n}:${roll}`), { veto: catalog.vetoed, findPool: M.findPool, jokers: M.jokers }); };
+  restock();
+  $('[data-screen=between]').classList.add('offering');
+  return new Promise((resolve) => {
+    const paint = () => {
+      box.hidden = false;
+      const full = run.hand.length >= run.maxPieces;
+      box.replaceChildren(
+        el('p', { class: 'center' }, el('b', {}, `${session.acorns} acorn${session.acorns === 1 ? '' : 's'}`), ' to spend. What you do not spend is kept for later rounds.'),
+        el('div', { class: 'handrow', id: 'shophand' }),
+        ...stock.map((c, i) => {
+          const t = cardText(c), price = priceOf(c), cv = el('canvas', { class: 'model', width: 30, height: 36 });
+          if (c.kind === 'piece') cv.getContext('2d').drawImage(sprite(c.type, 'you'), 0, 0);
+          const cant = price > session.acorns || (c.kind === 'piece' && full);
+          return el('button', { class: 'offercard', disabled: cant, style: cant ? 'opacity:.5' : '', onclick: async () => {
+            if (cant) return;
+            haptic(14); sfx.gain();
+            session.acorns -= price;
+            stock.splice(i, 1);
+            box.hidden = true;
+            await pickFor(c, run);
+            paint();
+          } },
+          el('div', {}, c.kind === 'piece' ? cv : el('div', { style: `font-size:40px;text-align:center;color:${c.suit ? SUITS[c.suit].colour : 'var(--accent)'}` }, c.suit ? SUITS[c.suit].mark : c.kind === 'fuse' ? '✦' : c.kind === 'promote' ? '▲' : '❀'),
+            el('p', { class: 'center small', style: 'margin:6px 0 0' }, `${price} acorns`)),
+          el('div', {}, el('span', { class: 'tag' }, t.tag), el('h3', {}, t.title), el('p', {}, t.text.replace(' Choose a piece to give it to.', ''))));
+        }),
+        el('div', { class: 'row' },
+          el('button', { class: 'quiet', disabled: session.acorns < 1, onclick: () => { if (session.acorns < 1) return; session.acorns--; roll++; restock(); paint(); } }, 'New stock (1 acorn)'),
+          el('button', { class: 'primary', onclick: () => { box.hidden = true; $('[data-screen=between]').classList.remove('offering'); session.found.clear(); resolve(); } }, 'Done')));
+      handRow($('#shophand'));
+    };
+    paint();
   });
 }
 
@@ -458,15 +580,26 @@ function singleOver(end) {
 
 function courseOver() {
   const total = session.strokes.reduce((a, s) => a + s.strokes, 0), totalPar = session.strokes.reduce((a, s) => a + (s.par || s.strokes), 0);
-  const r = mine(); r.played++; const vs = total - totalPar; if (r.best == null || vs < r.best) r.best = vs; saveRecords();
+  const r = mine(); r.played++; const vs = total - totalPar; if (r.best == null || vs < r.best) r.best = vs;
+  // A named course keeps its own best, and finishing it opens the next.
+  const C = COURSES[M.courseName];
+  let opened = null;
+  if (C && !test) {
+    const next = COURSE_ORDER[COURSE_ORDER.indexOf(M.courseName) + 1];
+    const was = next && courseOpen(next);
+    const c = courseRec(M.courseName); c.played++; if (c.best == null || vs < c.best) c.best = vs;
+    if (next && !was) opened = COURSES[next];
+  }
+  saveRecords();
   show('over');
-  $('#overeyebrow').textContent = 'The course';
+  $('#overeyebrow').textContent = C ? C.name : 'The course';
   $('#overbig').textContent = `${total} strokes`;
   $('#overwhy').textContent = `${vs > 0 ? '+' : ''}${vs} against par ${totalPar}.`;
   $('#overbody').replaceChildren(el('table', { class: 'score' },
     el('tr', {}, el('th', {}, 'Hole'), el('th', {}, 'Par'), el('th', {}, 'Strokes'), el('th', {}, '')),
     ...session.strokes.map((s) => el('tr', {}, el('td', {}, String(s.hole)), el('td', {}, String(s.par ?? '-')), el('td', {}, String(s.strokes)),
       el('td', {}, !s.sunk ? 'picked up' : s.par ? golf(s.strokes - s.par) : '')))));
+  if (opened) { sfx.fanfare(3); haptic([30, 40, 60]); $('#overbody').append(el('p', { class: 'center' }, el('b', {}, `${opened.name} is open.`), ' ', opened.blurb)); }
   $('#again').textContent = 'Play the course again';
 }
 
@@ -512,9 +645,19 @@ async function prepareTitle() {
   $('#records').textContent = recordsLine();
   $('#testnote').hidden = !test;
   if (test) $('#testnote').textContent = 'Settings from Chaos: a test run. Nothing is kept.';
-  handRow($('#titlehand'));
+  titleHand();
+  waystoneList();
+  courseList();
+  await previewFirst();
+}
+
+let previewTicket = 0;
+/** Find the first level and turn it on the title. Again after a swap. */
+async function previewFirst() {
   $('#begin').disabled = true; $('#begin').textContent = 'Finding the first level…';
+  const ticket = ++previewTicket;
   const f = await find(1);
+  if (ticket !== previewTicket) return; // a newer hand asked since
   const first = makeLevel(f.settings, f.seed);
   pframe = sceneFrame(first, pitch, pscale);
   pv.width = pframe.w; pv.height = pframe.h;
@@ -522,6 +665,62 @@ async function prepareTitle() {
   pmesh = scene(first, initialState(first), furOf);
   $('#begin').disabled = false;
   $('#begin').textContent = { descent: 'Descend', course: 'Tee off', rounds: 'Begin', single: 'Play' }[M.run];
+}
+
+/** The hand on the title. With carrying on, tap a piece to swap it for any
+    piece you have found. */
+let swapping = null;
+function titleHand() {
+  const box = $('#titlechoices');
+  box.replaceChildren(); box.hidden = true;
+  if (!carries()) { handRow($('#titlehand')); $('#handnote').hidden = true; return; }
+  const choices = startChoices(M.startPool, roster.found, catalog.vetoed);
+  $('#handnote').hidden = false;
+  $('#handnote').textContent = roster.found.length ? `Tap a piece to swap it. Your roster: ${choices.length} pieces.` : 'Pieces you find on the way down join your roster, to start with next time.';
+  if (!roster.found.length) { handRow($('#titlehand')); return; }
+  handRow($('#titlehand'), { picked: swapping == null ? [] : [swapping], pick: (i) => {
+    swapping = swapping === i ? null : i;
+    titleHand();
+    if (swapping == null) return;
+    box.hidden = false;
+    for (const type of choices) {
+      const cv = el('canvas', { class: 'pix', width: 30, height: 36 });
+      cv.getContext('2d').drawImage(sprite(type, 'you'), 0, 0);
+      box.append(el('button', { class: 'handcell', onclick: () => {
+        session.run.hand[swapping] = { base: type };
+        swapping = null; haptic(10);
+        titleHand(); previewFirst();
+      } }, cv, el('span', {}, PIECES[type].name)));
+    }
+  } });
+}
+
+/** The waystones, lit and not yet. */
+function waystoneList() {
+  const box = $('#waystones');
+  box.replaceChildren();
+  box.hidden = !carries();
+  if (box.hidden) return;
+  for (const w of WAYSTONES) {
+    const lit = deepest() >= w.depth;
+    box.append(el('div', { class: `waystone${lit ? ' lit' : ''}` }, el('span', { class: 'stone', 'aria-hidden': 'true' }, lit ? '◆' : '◇'),
+      el('span', {}, el('b', {}, `Depth ${w.depth}: ${w.name}. `), lit ? w.text : `Reach depth ${w.depth} to light it.`)));
+  }
+}
+
+/** Golf: the courses, open ones pressable. */
+function courseList() {
+  const box = $('#courses');
+  box.replaceChildren();
+  box.hidden = M.run !== 'course';
+  if (box.hidden) return;
+  COURSE_ORDER.forEach((id, k) => {
+    const C = COURSES[id], open = courseOpen(id) || test, c = records.golf?.courses?.[id];
+    const line = !open ? `Finish ${COURSES[COURSE_ORDER[k - 1]].name} to open it.` : c?.played ? `Best ${c.best > 0 ? '+' : ''}${c.best}. ${C.holes} holes.` : C.blurb;
+    box.append(el('button', { class: `coursecard${M.courseName === id ? ' on' : ''}`, disabled: !open, 'aria-pressed': String(M.courseName === id),
+      onclick: () => { if (!open) return; M = cleanMode({ ...M, courseName: id }); if (!test) saveModeSettings(modeId, M); haptic(10); prepareTitle(); } },
+    el('b', {}, open ? C.name : `${C.name} (shut)`), el('span', { class: 'small dim' }, line)));
+  });
 }
 
 let formBuilt = false, updateForm = null;
@@ -539,7 +738,20 @@ $('#opensettings').onclick = openSettings;
 $('#oversettings').onclick = openSettings;
 $('#closesettings').onclick = () => prepareTitle();
 $('#resetsettings').onclick = () => { resetModeSettings(modeId); M = modeSettings(modeId); updateForm?.(); };
-$('#begin').onclick = () => { haptic(12); startLevel(); };
+$('#begin').onclick = async () => {
+  haptic(12);
+  // Keepsakes from the waystones: upgrades of your choice before the first level.
+  const n = carries() ? litWaystones(deepest()).filter((w) => w.id.startsWith('keepsake')).length : 0;
+  if (n && session.run) {
+    show('between');
+    $('#betweennote').textContent = 'The waystones';
+    $('#betweensub').textContent = n > 1 ? 'Two keepsakes for this descent.' : 'A keepsake for this descent.';
+    $('#fallcv').hidden = true; $('#betweennext').hidden = true;
+    for (let k = 0; k < n; k++) await reward({ cards: keepsakeCards(session.run, rng(`keep:${session.seed}:${k}`), catalog.vetoed, M.jokers) });
+    session.found.clear();
+  }
+  startLevel();
+};
 $('#again').onclick = () => { if (M.run === 'single') { session.n++; return startLevel(); } prepareTitle(); };
 $('#titlepieces').onclick = async () => {
   const f = await find(1), L = makeLevel(f.settings, f.seed);

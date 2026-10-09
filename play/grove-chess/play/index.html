@@ -83,6 +83,18 @@
   .handcell.picked { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
   .handcell button { all: unset; }
   .suit { font-weight: 800; }
+  /* What carries between descents, and golf's courses. */
+  .handrow button.handcell { font: inherit; color: var(--text); cursor: pointer; min-height: 0; width: auto; }
+  .waystones { display: grid; gap: 6px; margin: 4px 0 12px; }
+  .waystone { display: flex; gap: 10px; align-items: baseline; font-size: 14px; color: var(--dim); }
+  .waystone .stone { font-size: 18px; color: var(--line); }
+  .waystone.lit { color: var(--text); }
+  .waystone.lit .stone { color: #5fd0d8; text-shadow: 0 0 8px #5fd0d8; }
+  .courses { display: grid; gap: 6px; margin: 4px 0 12px; }
+  .coursecard { display: grid; gap: 2px; text-align: left; width: 100%; min-height: 0; padding: 10px 12px; font: inherit; color: var(--text);
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
+  .coursecard.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .coursecard:disabled { opacity: .5; }
   .card .row button { min-height: 44px; }
   table.score { width: 100%; border-collapse: collapse; font-size: 15px; margin: 8px 0 14px; }
   table.score th, table.score td { padding: 6px 4px; border-bottom: 1px solid var(--line); text-align: center; }
@@ -121,7 +133,11 @@
     </div>
     <canvas id="preview" class="pix" aria-label="The first level, turning"></canvas>
     <p class="records" id="records"></p>
+    <div id="courses" class="courses" hidden></div>
     <div class="handrow" id="titlehand"></div>
+    <p class="small dim center" id="handnote" hidden></p>
+    <div class="handrow" id="titlechoices" hidden></div>
+    <div id="waystones" class="waystones" hidden></div>
     <div class="stack"><button class="primary" id="begin" disabled>Finding the first level…</button></div>
     <div class="row" style="margin-top:10px">
       <button class="quiet" id="opensettings">Settings</button>

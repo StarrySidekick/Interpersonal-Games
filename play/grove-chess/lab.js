@@ -201,11 +201,10 @@ export function clean(raw) {
     const keep = raw.hand.map((k) => !!PIECES[k]);
     s.hand = raw.hand.filter((k, i) => keep[i]);
     s.mine = s.hand.length;
-    // What the descent has done to each piece in the hand: hearts (lives),
-    // diamonds, its suit (for its colour).
+    // What the descent has done to each piece in the hand: hearts (lives)
+    // and its suit (a rule it carries, and its colour).
     if (Array.isArray(raw.handMods)) s.handMods = raw.handMods.filter((m, i) => keep[i]).map((m) => ({
-      ...(m?.lives > 1 ? { lives: Math.min(9, m.lives | 0) } : {}), ...(m?.diamond ? { diamond: true } : {}),
-      ...(SUITS[m?.suit] ? { suit: m.suit } : {}) }));
+      ...(m?.lives > 1 ? { lives: Math.min(9, m.lives | 0) } : {}), ...(SUITS[m?.suit] ? { suit: m.suit } : {}) }));
   }
   // Run rules carried by a level (the descent's jokers).
   if (raw?.movesPerTurn === 2) s.movesPerTurn = 2;

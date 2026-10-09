@@ -561,7 +561,8 @@ export function initialState(day) {
 
 export function clone(s) {
   return { day: s.day, t: s.t, pieces: s.pieces.map((p) => ({ ...p })), foes: s.foes.map((f) => ({ ...f })),
-    hole: s.hole ? { ...s.hole } : null, gone: s.gone.slice(), shrunk: s.shrunk ? s.shrunk.slice() : [], won: s.won, sunk: s.sunk };
+    hole: s.hole ? { ...s.hole } : null, gone: s.gone.slice(), shrunk: s.shrunk ? s.shrunk.slice() : [], won: s.won, sunk: s.sunk,
+    bonus: s.bonus || null, treasure: s.treasure || 0 };
 }
 
 const youLook = (s) => (x, y) => look(s, x, y, 'you');
@@ -592,8 +593,39 @@ function pieceMoves(s, p, side) {
 export function movesFor(s, i) {
   const p = s.pieces[i];
   if (s.won || p.taken) return [];
-  const ms = pieceMoves(s, p, 'you');
-  return s.day.rules.ballMove === 'hit' ? ms.filter((m) => hitOk(s, p, m)) : ms;
+  // A turn left open by a suit (below): only that piece moves, and after a
+  // Swords capture only to take again.
+  if (s.bonus && s.bonus.p !== i) return [];
+  let ms = pieceMoves(s, p, 'you');
+  if (s.day.rules.ballMove === 'hit') ms = ms.filter((m) => hitOk(s, p, m));
+  if (s.bonus?.cap) return ms.filter((m) => onFoe(s, m));
+  // Spirals: it may trade squares with any other piece of yours.
+  if (p.suit === 'spirals') {
+    s.pieces.forEach((q, k) => { if (k !== i && !q.taken && q.type !== 'ball') ms.push({ x: q.x, y: q.y, cap: false, swap: true }); });
+  }
+  return ms;
+}
+
+const onFoe = (s, m) => s.foes.some((f) => !f.taken && f.x === m.x && f.y === m.y);
+
+/*
+ * The descent's suits that are rules, not moves (Timothy, 2026-10-08):
+ * Swords cleaves (after it takes a piece it may take again, the same turn),
+ * Stars moves twice (once a level, its first move is followed by another),
+ * Spirals swaps (movesFor, above), and Diamonds is treasure (each capture it
+ * makes is counted, and the run turns the count into reward picks).
+ *
+ * A turn left open is `s.bonus = { p, cap, why }`: the next move must be that
+ * piece's, or waiting, which ends the turn. While it is open they do not
+ * reply and the move count does not tick (respond(), apply()), so every
+ * caller that plays a move then a reply (the page, the solver, the
+ * measures) handles it unchanged.
+ */
+function openBonus(n, i, took, wasBonus) {
+  const p = n.pieces[i];
+  if (n.won || p.taken || lost(n)) return;
+  if (p.suit === 'swords' && took && pieceMoves(n, p, 'you').some((m) => onFoe(n, m))) { n.bonus = { p: i, cap: true, why: 'swords' }; return; }
+  if (p.suit === 'stars' && !p.starUsed && !wasBonus) { p.starUsed = true; n.bonus = { p: i, cap: false, why: 'stars' }; }
 }
 
 /** Where a thinking foe can go. */
@@ -638,6 +670,11 @@ export function firstCaptures(s) {
     no move at all you must pass, whatever the rules say about waiting. */
 export function allMoves(s) {
   const out = [];
+  if (s.bonus) {
+    // Waiting ends a turn a suit left open.
+    for (const m of movesFor(s, s.bonus.p)) out.push({ p: s.bonus.p, ...m });
+    return [{ p: -1, x: 0, y: 0, cap: false }, ...out];
+  }
   s.pieces.forEach((_, i) => { for (const m of movesFor(s, i)) out.push({ p: i, ...m }); });
   return s.day.rules.wait || !out.length ? [{ p: -1, x: 0, y: 0, cap: false }, ...out] : out;
 }
@@ -645,7 +682,7 @@ export function allMoves(s) {
 const canMove = (s) => s.pieces.some((_, i) => movesFor(s, i).length);
 
 export function isLegal(s, mv) {
-  if (mv.p === -1) return !s.won && (s.day.rules.wait || !canMove(s));
+  if (mv.p === -1) return !s.won && (!!s.bonus || s.day.rules.wait || !canMove(s));
   if (mv.p < 0 || mv.p >= s.pieces.length || s.pieces[mv.p].taken) return false;
   return movesFor(s, mv.p).some((m) => m.x === mv.x && m.y === mv.y);
 }
@@ -674,12 +711,10 @@ function landFoe(s, f, x, y) {
   f.wounded = -1;
   if (f.ate >= 0) {
     const p = s.pieces[f.ate];
-    // Upgrades from the descent (2026-10-08). Diamonds: only a piece at
-    // least as strong can take it. Hearts: a second life; the first
+    // Hearts, from the descent (2026-10-08): a second life; the first
     // capture costs the heart instead, and the attacker bounces off.
-    const weaker = p.diamond && (PIECES[f.type].strength ?? 3) < (PIECES[p.type].strength ?? 3);
-    if (weaker || (p.lives || 1) > 1) {
-      if (!weaker) { p.lives--; f.wounded = f.ate; }
+    if ((p.lives || 1) > 1) {
+      p.lives--; f.wounded = f.ate;
       f.ate = -1; f.from = [f.x, f.y]; f.blocked = true;
       return;
     }
@@ -966,6 +1001,9 @@ function knock(s, b, fx, fy) {
     of theirs there is caught, and the game may be won. Mutates. */
 function landMine(n, i, x, y) {
   const p = n.pieces[i];
+  // Spirals: landing on a piece of yours trades squares with it.
+  const mate = n.pieces.find((q, k) => k !== i && !q.taken && q.type !== 'ball' && q.x === x && q.y === y);
+  if (mate) { mate.x = p.x; mate.y = p.y; p.x = x; p.y = y; return null; }
   const hit = hitBall(n, x, y);
   if (hit && hit !== p) knock(n, hit, p.x, p.y);
   // Crumbling ground: the square you leave falls away behind you.
@@ -973,18 +1011,21 @@ function landMine(n, i, x, y) {
   p.x = x; p.y = y;
   const f = n.foes.find((f) => !f.taken && f.x === x && f.y === y);
   if (f) f.taken = true;
+  if (f && p.suit === 'diamonds') n.treasure = (n.treasure || 0) + 1;
   if (f && goalMet(n)) n.won = true;
   if (p.type === 'ball' && n.hole && p.x === n.hole.x && p.y === n.hole.y && holeOpen(n)) n.won = n.sunk = true;
   // Catching the last rabbit opens the hole; a ball already resting on
   // the shut hole drops straight in.
   const b = f && n.day.rules.goal === 'descent' && holeOpen(n) && n.pieces.find((q) => q.type === 'ball' && !q.taken);
   if (b && n.hole && b.x === n.hole.x && b.y === n.hole.y) n.won = n.sunk = true;
+  return f || null;
 }
 
 /** Only your move, with no reply yet. Returns a new state. */
 export function playerMove(s, mv) {
-  const n = clone(s);
-  if (mv.p >= 0) landMine(n, mv.p, mv.x, mv.y);
+  const n = clone(s), was = n.bonus;
+  n.bonus = null;
+  if (mv.p >= 0) openBonus(n, mv.p, landMine(n, mv.p, mv.x, mv.y), was);
   return n;
 }
 
@@ -1158,6 +1199,7 @@ function theyMove(s) {
 
 export function apply(s, mv) {
   const n = playerMove(s, mv);
+  if (n.bonus) return n;
   if (!n.won && theyMove(n)) foesAct(n);
   n.t++;
   afterMove(n);
@@ -1169,6 +1211,7 @@ export function apply(s, mv) {
     before they finish thinking. */
 export function respond(n) {
   const c = clone(n);
+  if (c.bonus) return c;
   if (!c.won && theyMove(c)) foesAct(c);
   c.t++;
   afterMove(c);
@@ -1197,7 +1240,8 @@ export function replay(day, moves) {
 
 export function stateKey(s) {
   let k = '';
-  for (const p of s.pieces) k += p.taken ? '--' : p.x + ',' + p.y + (p.lives > 1 ? 'L' + p.lives : '') + ';';
+  for (const p of s.pieces) k += p.taken ? '--' : p.x + ',' + p.y + (p.lives > 1 ? 'L' + p.lives : '') + (p.starUsed ? '*' : '') + ';';
+  if (s.bonus) k += `|b${s.bonus.p}${s.bonus.cap ? 'c' : ''}`;
   k += '|';
   for (const f of s.foes) k += f.taken ? '--' : f.x + ',' + f.y + ',' + f.i + (f.mx > 0 ? '+' : '-') + (f.my > 0 ? '+' : '-') + (f.idle ? 'i' + f.idle : '') + ';';
   if (s.hole) k += `|h${s.hole.x},${s.hole.y},${s.hole.i}${s.hole.mx > 0 ? '+' : '-'}${s.hole.my > 0 ? '+' : '-'}`;
