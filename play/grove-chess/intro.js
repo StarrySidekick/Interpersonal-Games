@@ -66,11 +66,17 @@ export async function playIntro(board, level, { goal = null, section = null, see
   cleanup.push(() => section?.classList.remove('intro-on'));
 
   try {
-    // 1. The board falls from above the screen, slams, shakes, settles.
+    // 1. The board is built: on the 3D board the middle square drops in and
+    // slams, then the rest follow it in a spiral (2026-10-09). The flat
+    // board still falls as one, from above the screen.
     board.hidePieces = true;
     board.landing = null;
     board.redraw();
     board.el.scrollIntoView({ block: 'center' });
+    if (board.assemble) {
+      setTimeout(() => { if (!skipped) dust(board.el); }, 520); // as the middle square lands
+      await board.assemble(() => skipped);
+    } else {
     board.el.style.transformOrigin = '50% 100%';
     await track(board.el.animate(
       [{ transform: 'translateY(-115vh)' }, { transform: 'translateY(0)' }],
@@ -89,6 +95,7 @@ export async function playIntro(board, level, { goal = null, section = null, see
         { transform: 'translate(2px, 0)', offset: 0.86 },
         { transform: 'none' }
       ], { duration: 560, easing: 'ease-out' })).finished.catch(() => {});
+    }
     }
 
     // 1b. Rabbits come in out of the fog and possess their pieces (only on

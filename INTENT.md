@@ -177,6 +177,18 @@ And later on 2026-10-07:
 - **New boards: magic (Pac-Man edges) and geared (turns every turn).**
   Built as Chaos settings, with **statues** in place of stumps.
 
+## 2026-10-09, later: a descent that starts easy
+
+From Timothy, built (`docs/grove-modes.md`): a Spirits suit (moves
+through things); 6 by 6 boards; balance and measures that work with the
+King; the descent starting very easy at a fixed difficulty and getting
+harder, with the daily a little harder than its start, approachable and
+with a high skill ceiling; promotion replaced by claiming captured pieces
+and combining them with yours (what a combination gives is a proposal);
+piece power measured where the piece plays; pieces that must hop to
+capture off by default; each mode's settings only its own; the board
+built and taken away in a spiral from the middle.
+
 ## 2026-10-09: kings, and an end to stalemates
 
 From Timothy: stalemates happen; something should change when only two

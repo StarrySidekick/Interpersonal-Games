@@ -16,12 +16,22 @@ import { setLook } from './models.js';
 const KEY = 'ig.grove.catalog.v1';
 
 /** The catalog's notes: { vetoed: [type], notes: { type: text }, invented: [piece] }. */
+/** Off until a mode gives them a use (2026-10-09): pieces that cannot take
+    anything without something to hop over, which on a small board with few
+    pieces is seldom there. Measured by power.js (needsScreen); a test checks
+    the two agree. Turned off once, as vetoes: let one back in from the
+    catalog and it stays in. */
+export const DEFAULT_OFF = ['cannon', 'grasshopper'];
+
 export function loadCatalog() {
+  let c = null;
   try {
     const s = JSON.parse(localStorage.getItem(KEY));
-    if (s && s.version === 1) return { vetoed: [], notes: {}, invented: [], ...s };
+    if (s && s.version === 1) c = { vetoed: [], notes: {}, invented: [], ...s };
   } catch { /* storage blocked */ }
-  return { version: 1, vetoed: [], notes: {}, invented: [] };
+  c = c || { version: 1, vetoed: [], notes: {}, invented: [] };
+  if (!c.offDefaults) { c.vetoed = [...new Set([...c.vetoed, ...DEFAULT_OFF])]; c.offDefaults = 1; saveCatalog(c); }
+  return c;
 }
 
 export function saveCatalog(c) {

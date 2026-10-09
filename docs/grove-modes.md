@@ -59,6 +59,77 @@ something as well, like the king in chess. let make each side have a king."
   (`check-daily.mjs` passes: the rules object only carries `showdown`
   when it is on).
 
+## How difficulty is measured, and how the descent climbs (2026-10-09)
+
+**The measure** (`metrics.js`). A novice bot plays a level 24 times: it
+takes a win it can see, usually grabs a capture, and otherwise picks
+among its three best-looking moves with some luck. Difficulty 1 to 10 is
+65% how often it loses, 35% how long the expert's shortest win (par) is
+against the move limit. Skill ceiling is how many times longer the novice
+takes than par. The tester (`searchLayouts` in `lab.js`) deals layout
+after layout and keeps the first that is winnable, balanced and inside the
+difficulty asked for (a band, or `aim`: within one of a number); if none
+passes in time it keeps the nearest miss.
+
+**What makes a level hard** was measured, depth 1 of the descent, six
+layouts each: with their pieces able to take yours, the novice won 21 to
+67% (difficulty 3 to 6), mostly by losing its royal King; with that off
+it won every time (difficulty 1). Fewer enemies or duller rabbits barely
+moved it.
+
+**The descent climbs by difficulty.** "First level's difficulty" (1 by
+default) is what depth 1 aims at; each level after aims higher by the
+"It gets harder" step (gently 0.35, steadily 0.6, steeply 1). "A gentle
+first level" (on) means their pieces cannot take yours on depth 1. The
+board stays 6 by 6 ("The board grows", off). More enemies, sharper
+rabbits, stronger pieces and longer pars still climb, more slowly, so
+boards near the aim turn up often enough. Measured, steadily: depth 1
+difficulty 1, depth 2 2, depth 3 3, depth 5 2 to 4, depth 8 5 to 7,
+depth 12 7 to 8. Depth 8 is the soft spot (it aims at 5) and is worth
+tuning against play. Later, roguelite unlocks could skip the easy start.
+
+**The daily** already sits just above the descent's start: its maker
+keeps a board only at difficulty 3 to 6, with a novice winning at least
+half its games and a high skill ceiling (approachable, hard to do
+perfectly). The practice daily aims at 4. Stored dailies are unchanged.
+
+**Balance with the King.** When one capture wins, most pieces never catch
+anything, so a piece also has a job if it moves in the winning line
+(`unbalanced`, opt-in `oneCapture`, so the shipped daily dealers judge as
+they did).
+
+## Piece power in context (2026-10-09)
+
+`power.js` measures each piece by its own move code on the board it plays
+on (6 by 6), from 240 spots among a level's worth of pieces: reach
+(squares it can move to) and threat (pieces of theirs it could take).
+Power is reach plus four times threat, scaled so the queen is 9. The
+catalog sorts and shows it; the descent's offers and the shop's prices use
+it. On 6 by 6 the king (4.5) is worth more than a bishop (3.5) or a
+knight (3.25). **Pieces that cannot take without something to hop over**
+(cannon, grasshopper) are off by default, as catalog vetoes applied once:
+the cannon moves well but threatens 0.17 pieces on average, like a zebra.
+
+## More suits, claiming, and settings per mode (2026-10-09)
+
+- **✧ Spirits**: passes through pieces, statues and stumps as if they were
+  not there, and lands as usual (`pieceMoves` in `rules.js`).
+- **Promotion is gone**, because "the next piece up" was often no upgrade
+  (a rook to a cannon). In its place, **claiming**: every piece of theirs
+  you take on a level is claimed, and after the level you may combine
+  one with a piece of yours. The same kind makes a veteran (a heart more,
+  up to three lives); another kind fuses (their rook on your knight is a
+  chancellor); a royal King only takes its own kind. A proposal: what a
+  combination gives is open.
+- **Settings per mode**: each mode's panel shows only what that mode uses
+  (no autochess or golf settings in the descent), and a setting shows only
+  when another makes it matter (`settingShown` in `modes.js`). In the
+  descent, settings that climb say "(first level, then climbs)".
+- **The board is built in a spiral**: the middle square drops in and
+  slams, then the rest follow it round and out (`assemble` in
+  `board3d.js`). **The floor goes the same way**, the middle first, each
+  square falling down and away, statues with them (`collapse`).
+
 ## The modes
 
 **The daily.** One board a day, the same for everyone. Its own page and

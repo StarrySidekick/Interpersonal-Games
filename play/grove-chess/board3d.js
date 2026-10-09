@@ -37,6 +37,7 @@ import { model } from './models.js';
 import { Board, tileColour, PIT, TRACK, tweenPos, wraps } from './board.js';
 import { onBoard, brambleCount, holeOpen, nextShrink, statueKind } from './rules.js';
 import * as sfx from './sounds.js';
+import { haptic } from '../../engine/ui.js';
 
 const T = 10;             // one square, in model units
 const STAND = 0.6;        // the angle the pieces are seen from, in radians above level
@@ -311,6 +312,7 @@ export class Board3D extends Board {
     }
     if (!fallen) {
       // 2. Marks on the surface (not once the floor starts to go).
+      if (this.tw?.assemble && at < this.tw.assemble.end) return this.redrawSoon?.();
       if (!this.tw?.collapse) this.marks(g, v, s);
       // 3. Everything standing up. This picture has gaps, so it goes onto a
       // canvas of its own first, which is then laid over the top.
@@ -340,7 +342,7 @@ export class Board3D extends Board {
     // A square falling, the floor going, the cover opening: drawn afresh
     // while they play, and only then.
     const playing = (a) => a && at >= a.t0 - 20 && at <= a.t0 + a.dur + 20;
-    if (playing(tw?.vanish) || playing(tw?.crumble) || tw?.collapse) return null;
+    if (playing(tw?.vanish) || playing(tw?.crumble) || tw?.collapse || (tw?.assemble && at < tw.assemble.end + 40)) return null;
     // (The same condition squares() shades the next square to fall by.)
     const shrinkNext = v.track && this.day.rules.shrink && !tw && (s.t + 1) % (this.day.rules.shrinkEvery || 2) === 0 ? nextShrink(s) : -1;
     // (Which animations are under way matters too: a finished one still
@@ -355,7 +357,7 @@ export class Board3D extends Board {
   squares(m, s, v, at) {
     const day = this.day, W = day.W, H = day.H, tw = this.tw;
     const off = new Set(s.shrunk || []), gone = new Set(s.gone || []);
-    const vanish = tw?.vanish, fall = tw?.crumble, collapse = tw?.collapse;
+    const vanish = tw?.vanish, fall = tw?.crumble, collapse = tw?.collapse, assemble = tw?.assemble && at < tw.assemble.end ? tw.assemble : null;
     const here = (x, y) => onBoard(day, x, y) && (!off.has(y * W + x) || (vanish?.sq === y * W + x && at < vanish.t0 + vanish.dur));
     const solid = (x, y) => here(x, y) && !gone.has(y * W + x);
     const lit = new Map();
@@ -364,7 +366,7 @@ export class Board3D extends Board {
     // On shrinking ground, the square that falls next is shaded.
     let shade = -1;
     if (v.track && day.rules.shrink && !tw && (s.t + 1) % (day.rules.shrinkEvery || 2) === 0) shade = nextShrink(s) ?? -1;
-    const slab = !day.holes.size && !off.size && !collapse;
+    const slab = !day.holes.size && !off.size && !collapse && !assemble;
     if (slab) m.addBox((-W * T) / 2 - 3, -4, (-H * T) / 2 - 3, (W * T) / 2 + 3, -1, (H * T) / 2 + 3, RIM, 2, 1 << 3);
     for (let y = 0; y < H; y++)
       for (let x = 0; x < W; x++) {
@@ -379,10 +381,18 @@ export class Board3D extends Board {
           const k = Math.max(0, Math.min(1, (at - collapse.t0 - collapse.delay(x, y)) / 900));
           drop = k * k * 180; dark = Math.min(0.95, k * 1.2);
         }
+        // Being built: not there yet, then dropping in from above (a
+        // negative drop: up, toward you, so bigger), the middle first.
+        if (assemble) {
+          const e = at - assemble.t0 - assemble.delay(x, y);
+          if (e < 0) continue;
+          const k = Math.min(1, e / assemble.dur(x, y));
+          drop = -(1 - k) * (1 - k) * 160;
+        }
         const crumbling = fall?.sq === sq && at < fall.t0 + fall.dur;
         if (crumbling && at >= fall.t0) { const k = (at - fall.t0) / fall.dur; drop = Math.max(drop, k * k * 12); dark = Math.max(dark, k * 0.85); }
         // Seen from above, falling away reads as shrinking into the dark.
-        const away = 1 / (1 + drop / 22), r = (T / 2) * size * away, rim = 3 * away;
+        const away = drop >= 0 ? 1 / (1 + drop / 22) : 1 - drop / 320, r = (T / 2) * size * away, rim = 3 * away;
         if (!slab) m.addBox(X - r - rim, -4 - drop, Z - r - rim, X + r + rim, -1 - drop, Z + r + rim, dim(RIM, dark), 2, 1 << 3);
         if (gone.has(sq) && !crumbling) { m.addBox(X - r, -1.04, Z - r, X + r, -0.98, Z + r, PIT, 2); continue; }
         let col = tileColour(day, x, y);
@@ -550,7 +560,11 @@ export class Board3D extends Board {
       }
       for (const t of tris) m.tris.push(t);
     };
-    for (const sq of day.stumps) stand(model(statueKind(day, sq), 'stone'), sq % day.W, Math.floor(sq / day.W), 0, 400); // statues
+    // Statues, falling with their squares when the floor goes.
+    for (const sq of day.stumps) {
+      const x = sq % day.W, y = Math.floor(sq / day.W), c = tw?.collapse;
+      stand(model(statueKind(day, sq), 'stone'), x, y, 0, 400, c ? { s: away(at - c.t0 - c.delay(x, y)) } : {});
+    }
     for (let i = 0; i < brambleCount(day, s.t); i++) stand(model('bramble'), day.bramble[i] % day.W, Math.floor(day.bramble[i] / day.W), 0, 401 + i);
     const collapse = tw?.collapse;
     if (s.hole && !collapse) {
@@ -745,14 +759,31 @@ export class Board3D extends Board {
     await this.runUntil(end + 250);
   }
 
+  /** The board is built (Timothy, 2026-10-09): the middle square drops in
+      from above and lands with a slam, then the rest follow it in a spiral
+      out from the middle, round and round. Resolves once the last is down. */
+  async assemble(stop = () => false) {
+    const order = spiralOrder(this.day.W, this.day.H), n = order.size, t0 = performance.now();
+    const first = 520, step = Math.min(70, 1100 / Math.max(1, n - 1));
+    const delay = (x, y) => { const i = order.get(y * this.day.W + x) ?? 0; return i ? first + (i - 1) * step : 0; };
+    const dur = (x, y) => (order.get(y * this.day.W + x) ? 300 : first);
+    const end = t0 + first + (n - 1) * step + 320;
+    this.tw = { poofs: [], foes: {}, tumbles: [], leaves: [], assemble: { t0, delay, dur, end } };
+    setTimeout(() => { if (!stop()) { haptic(35); sfx.slam(); } }, first);
+    for (let i = 1; i < n; i += 3) setTimeout(() => { if (!stop()) sfx.drop(i % 6); }, first + (i - 1) * step + 280);
+    this.runUntil(end);
+    while (performance.now() < end && !stop()) await new Promise((r) => setTimeout(r, 60));
+    this.tw = null;
+    this.redraw();
+  }
+
+  /** The floor gives way: the bizarro build. The middle square drops away
+      first, then the rest after it in the same spiral out from the middle,
+      falling down and away into the dark. Resolves when they are gone. */
   async collapse() {
-    const s = this.shown, hx = s?.hole?.x ?? this.day.W / 2, hy = s?.hole?.y ?? this.day.H / 2;
-    const t0 = performance.now(), rand = rng(`collapse:${t0}`), jitter = new Map();
-    const delay = (x, y) => {
-      const sq = y * this.day.W + x;
-      if (!jitter.has(sq)) jitter.set(sq, rand() * 140);
-      return Math.hypot(x - hx, y - hy) * 90 + jitter.get(sq);
-    };
+    const order = spiralOrder(this.day.W, this.day.H), n = Math.max(1, order.size);
+    const t0 = performance.now(), step = 1100 / n;
+    const delay = (x, y) => (order.get(y * this.day.W + x) ?? 0) * step;
     this.tw = { poofs: [], foes: {}, tumbles: [], leaves: [], collapse: { t0, delay } };
     this.fallAt = t0 + 2050;
     sfx.collapse();
@@ -769,4 +800,19 @@ const away = (ms) => (ms <= 0 ? 1 : Math.max(0.02, 1 / (1 + ((ms / 1000) ** 2) *
 /** The board for a page: 3D, unless the address says ?flat. */
 export function makeBoard(canvas, day) {
   return new URLSearchParams(location.search).has('flat') ? new Board(canvas, day) : new Board3D(canvas, day);
+}
+
+/** Every square's turn in a spiral out from the middle one: the middle
+    first, then ring by ring, clockwise from the top. A map of square to
+    its place in the order. */
+export function spiralOrder(W, H) {
+  const cx = Math.floor((W - 1) / 2), cy = Math.floor((H - 1) / 2), all = [];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const ring = Math.max(Math.abs(x - cx), Math.abs(y - cy));
+    // Clockwise from straight up (toward their side), 0 to 2 pi.
+    const ang = (Math.atan2(x - cx, -(y - cy)) + 2 * Math.PI) % (2 * Math.PI);
+    all.push({ sq: y * W + x, ring, ang });
+  }
+  all.sort((a, b) => a.ring - b.ring || a.ang - b.ang);
+  return new Map(all.map((c, i) => [c.sq, i]));
 }

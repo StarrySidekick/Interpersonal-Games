@@ -143,7 +143,7 @@ export function assess(level, res, { deadline = Infinity, budget = 20000 } = {})
   s0.foes.forEach((_, k) => { for (const m of foeMovesFor(s0, k)) if (m.cap) hit.add(m.y * level.W + m.x); });
   const attacked = s0.pieces.filter((p) => hit.has(p.y * level.W + p.x)).length;
   const end = states[states.length - 1], lost = end.pieces.filter((p) => p.taken).length;
-  return { pieces, rabbits, attacked, lost, opening: openingCaptures(level) };
+  return { pieces, rabbits, attacked, lost, opening: openingCaptures(level), goal: level.rules.goal };
 }
 
 /** How many pieces on each side could capture on the first move. */
@@ -166,11 +166,16 @@ export const CIRCUMSTANTIAL = ['grasshopper', 'cannon', 'pawn', 'mao'];
  *            line, or the level is worse without it).
  *   'strict' every piece has a job, not only the strange ones.
  */
-export function unbalanced(a, level = 'on') {
+export function unbalanced(a, level = 'on', { oneCapture = false } = {}) {
   if (level === 'off' || !a) return [];
   const why = [];
   const name = (p) => PIECES[p.type].name;
-  const job = (p) => p.catches || p.needed;
+  // When one capture wins (take their King, a marked one, any one), most
+  // pieces never catch anything, so a piece also has a job if it moves in
+  // the winning line: it cleared a way, guarded, or chased.
+  // (Opt-in, `oneCapture`, so the shipped daily dealers judge as they did.)
+  const one = oneCapture && ['target', 'any'].includes(a.goal);
+  const job = (p) => p.catches || p.needed || (one && p.moves > 0);
   // No piece, on either side, can capture on its first move (Timothy,
   // 2026-10-07): the opening is for moving, not for trading.
   if (a.opening?.yours) why.push(`${a.opening.yours > 1 ? `${a.opening.yours} of your pieces` : 'one of your pieces'} could capture on the first move`);
