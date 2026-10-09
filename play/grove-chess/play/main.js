@@ -22,10 +22,11 @@ import { startFall } from '../fall.js';
 import { fillMenu } from '../menu.js';
 import { buildForm, FORM_CSS } from '../form.js';
 import { loadCatalog, registerInvented } from '../invented.js';
-import { MODES, modeSettings, saveModeSettings, resetModeSettings, cleanMode, PANEL, levelSettings, COURSES, COURSE_ORDER, holesOf } from '../modes.js';
+import { MODES, modeSettings, saveModeSettings, resetModeSettings, cleanMode, PANEL, levelSettings, COURSES, COURSE_ORDER, holesOf, settingShown, settingNote } from '../modes.js';
 import {
   newRun, rewardsFor, applyReward, cardText, handSettings, afterLevel, pieceOf, SUITS, JOKERS,
-  WAYSTONES, litWaystones, newlyLit, startChoices, keepsakeCards, acornsFor, priceOf, shopStock
+  WAYSTONES, litWaystones, newlyLit, startChoices, keepsakeCards, acornsFor, priceOf, shopStock,
+  canCombine, applyCombine, combineText
 } from '../run.js';
 import { setupPanel, setupState, playOut } from '../autosetup.js';
 import { describeMeasure } from '../metrics.js';
@@ -100,7 +101,7 @@ function newSession() {
   const start = Array.from({ length: count }, () => (pool.length ? pool : M.startPool)[Math.floor(rand() * (pool.length || M.startPool.length))]);
   // A royal King is dealt first, and kept (kingLocked, below).
   if (M.royal && M.run === 'descent' && !start.includes('king')) start[0] = 'king';
-  session = { seed, n: 1, found: new Map(), seen: new Set(), strokes: [], lives: M.lives, wins: 0, caught: [], acorns: 0, deepestBefore: deepest() };
+  session = { seed, n: 1, found: new Map(), seen: new Set(), strokes: [], lives: M.lives, wins: 0, caught: [], claimed: [], acorns: 0, deepestBefore: deepest() };
   if (M.run === 'descent' || M.run === 'rounds') session.run = newRun(start, M.maxPieces);
 }
 
@@ -222,6 +223,7 @@ function goalCard() {
 async function startLevel() {
   const found = await find(session.n);
   level = makeLevel(found.settings, found.seed);
+  session.claimed = [];
   par = found.par; measured = found.measure; autoBest = found.autoBest; setups = found.setups;
   game = { states: [initialState(level)], moves: [] };
   board = makeBoard($('#board'), level);
@@ -286,6 +288,8 @@ function noteCatches(a, b) {
     if (f.patternName && FUR[f.patternName]) { session.caught.push(f.patternName); if (!test) recordCatch(f.patternName); }
   });
   b.foes.forEach((f, k) => { if (f.taken && !a.foes[k].taken && !session.firstCatch) session.firstCatch = f.type; });
+  // Claimed: every piece of theirs taken this level, to combine with yours after it.
+  b.foes.forEach((f, k) => { if (f.taken && !a.foes[k].taken && ['classic', 'fairy'].includes(PIECES[f.type]?.kind)) session.claimed.push(f.type); });
 }
 
 function whatHappened(a, b) {
@@ -437,14 +441,14 @@ async function levelOver(end) {
   const sub = (won ? '' : 'Nothing found on the way down this time. ')
     + (recruited ? `Your first catch, the ${PIECES[recruited].name.toLowerCase()}, comes with you. ` : '')
     + lit.map((w) => `A waystone is lit at depth ${w.depth}: ${w.text}`).join(' ');
-  return between({ note: `Depth ${session.n}`, sub, rewards: won && M.rewards, extra: won ? end.treasure || 0 : 0, fall: true });
+  return between({ note: `Depth ${session.n}`, sub, rewards: won && M.rewards, extra: won ? end.treasure || 0 : 0, combine: won, fall: true });
 }
 
 // --- Between levels: the fall, and what you find. -------------------------------
 
 let fall = null;
 
-async function between({ note, sub = '', rewards = false, extra = 0, shop: shopping = false, fall: falling = false }) {
+async function between({ note, sub = '', rewards = false, extra = 0, combine = false, shop: shopping = false, fall: falling = false }) {
   show('between');
   $('#betweennote').textContent = note;
   $('#betweensub').textContent = sub;
@@ -457,6 +461,7 @@ async function between({ note, sub = '', rewards = false, extra = 0, shop: shopp
     for (let k = 0; k <= Math.min(2, extra); k++) await reward({ k, note: k ? '♦ Treasure: another pick.' : null });
   }
   if (shopping && session.run) await shop();
+  if (combine && session.run && session.claimed?.length) await combineStep();
   const t0 = performance.now();
   const slow = setTimeout(() => { $('#betweensub').textContent = 'Finding the next one…'; }, 1500);
   const found = await find(session.n);
@@ -516,6 +521,37 @@ function reward({ k = 0, note = null, cards: given = null } = {}) {
           el('div', {}, el('span', { class: 'tag' }, t.tag), el('h3', {}, t.title), el('p', {}, t.text)));
       }),
       el('button', { class: 'quiet', onclick: done }, 'Take nothing'));
+    box.hidden = false;
+  });
+}
+
+/** Combine one claimed piece of theirs with one of yours, or neither. */
+function combineStep() {
+  const run = session.run, box = $('#offer');
+  const claimed = [...new Set(session.claimed)].filter((t) => run.hand.some((h) => canCombine(h, t, M.royal)));
+  if (!claimed.length) return Promise.resolve();
+  $('[data-screen=between]').classList.add('offering');
+  return new Promise((resolve) => {
+    const done = () => { box.hidden = true; $('#pickbox').hidden = true; $('[data-screen=between]').classList.remove('offering'); session.found.clear(); resolve(); };
+    box.replaceChildren(el('p', { class: 'center' }, 'You claimed these. Combine one with a piece of yours: the same kind makes a veteran with a heart more; another kind fuses into one with both their moves.'),
+      ...claimed.map((type) => {
+        const cv = el('canvas', { class: 'model', width: 30, height: 36 });
+        cv.getContext('2d').drawImage(sprite(type, 'foe'), 0, 0);
+        return el('button', { class: 'offercard', onclick: () => {
+          haptic(12);
+          box.hidden = true;
+          $('#pickbox').hidden = false;
+          let picked = null;
+          const paint = () => {
+            $('#picktext').textContent = picked == null ? `Choose a piece of yours for their ${PIECES[type].name}.` : combineText(run.hand[picked], type, run.made);
+            handRow($('#pickhand'), { picked: picked == null ? [] : [picked], pick: (i) => { if (!canCombine(run.hand[i], type, M.royal)) return; picked = i; paint(); } });
+            $('#pickdone').disabled = picked == null;
+          };
+          paint();
+          $('#pickdone').onclick = () => { sfx.gain(); applyCombine(run, picked, type); done(); };
+        } }, el('div', {}, cv), el('div', {}, el('span', { class: 'tag' }, 'Claimed'), el('h3', {}, `Their ${PIECES[type].name}`), el('p', {}, PIECES[type].desc)));
+      }),
+      el('button', { class: 'quiet', onclick: done }, 'Keep my pieces as they are'));
     box.hidden = false;
   });
 }
@@ -748,7 +784,7 @@ function openSettings() {
   if (!formBuilt) {
     formBuilt = true;
     updateForm = buildForm($('#form'), PANEL, () => M, (k, v) => { M = cleanMode({ ...M, [k]: v }); if (!test) saveModeSettings(modeId, M); updateForm(); },
-      (g) => g === 'The mode' || g === 'Difficulty');
+      (g) => g === 'The mode' || g === 'Difficulty', { show: settingShown, note: settingNote });
   } else updateForm();
 }
 

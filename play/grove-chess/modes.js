@@ -61,12 +61,18 @@ export const RUN_SCHEMA = [
     { key: 'maxPieces', label: 'Most pieces you can carry', type: 'int', min: 1, max: 8, def: 6 },
     { key: 'startPool', label: 'You start with', type: 'pieces', def: ['knight', 'bishop', 'rook', 'king'], help: 'Dealt from these.' },
     { key: 'rewards', label: 'Finishing a level finds you something', type: 'bool', def: true,
-      help: 'A new piece while you have room; once your hand is full, an upgrade: a suit, fusing two pieces, a promotion, or a joker.' },
+      help: 'A new piece while you have room; once your hand is full, an upgrade: a suit, fusing two pieces, or a joker. Pieces of theirs you take are claimed, and can be combined with yours after the level.' },
     { key: 'jokers', label: 'Jokers can turn up', type: 'bool', def: true, help: 'Rules for the rest of a run: Double Time, Foresight, Recruiter, Lazy Rabbits, Overtime.' },
     { key: 'findPool', label: 'Pieces you can find', type: 'pieces', def: ['king', 'knight', 'bishop', 'rook', 'queen', 'wazir', 'ferz', 'alfil', 'dabbaba', 'mao', 'zebra', 'camel', 'grasshopper', 'cannon', 'silver', 'lance', 'squirrel', 'rose', 'nightrider', 'archbishop', 'chancellor'],
       help: 'What a run offers when it finds a piece. Pieces vetoed in the catalog are left out anyway.' },
+    { key: 'startDifficulty', label: 'First level\u2019s difficulty', type: 'int', min: 1, max: 10, def: 1, unit: 'of 10',
+      help: 'For a descent. The first level is found at this difficulty (measured: a novice bot plays it two dozen times), and every level after aims a little higher, as fast as "It gets harder" says.' },
     { key: 'ramp', label: 'It gets harder', type: 'choice', def: 'steady', options: opts(['gentle', 'Gently'], ['steady', 'Steadily'], ['steep', 'Steeply']),
-      help: 'Each level down, or each round: more pieces of theirs, sharper rabbits, bigger boards.' },
+      help: 'Each level down, or each round: a higher difficulty aimed at (gently 0.35 a level, steadily 0.6, steeply 1), more pieces of theirs and sharper rabbits.' },
+    { key: 'gentleStart', label: 'A gentle first level', type: 'bool', def: true,
+      help: 'For a descent. On the first level their pieces cannot take yours, so it is about learning to hunt their King; from the second level on they can.' },
+    { key: 'boardGrows', label: 'The board grows', type: 'bool', def: false,
+      help: 'For a descent. Off: every level is the board size set below (6 by 6). On: a row and a column more every few levels, up to 8 by 8.' },
     { key: 'carry', label: 'What you find carries over', type: 'bool', def: true,
       help: 'For a descent. Every piece you find joins your roster, and you can start a later descent with any of them. Going deeper lights waystones for good: at depth 4 every descent starts with an upgrade, at depth 7 with one more piece, at depth 10 with two upgrades.' },
     { key: 'shop', label: 'Spend acorns in a shop', type: 'bool', def: false,
@@ -108,7 +114,7 @@ export function cleanMode(raw = {}) {
 export const MODES = {
   daily: {
     name: 'The daily', blurb: 'One board a day, the same for everyone: easy to win in a lot of moves, hard to win in a few.',
-    settings: { run: 'single', roll: 'daily', difficulty: 'normal', minEngage: 50, goal: 'all', royal: false, showdown: false, maxMoves: 20 }
+    settings: { run: 'single', roll: 'daily', difficulty: 'normal', aim: 4, minEngage: 50, goal: 'all', royal: false, showdown: false, maxMoves: 20 }
   },
   descent: {
     name: 'The descent', blurb: 'Four pieces, your King among them, down and down. Take their King to fall to the next level, where you find another piece, up to six; then upgrades. A piece taken is gone for good, and if they take your King the descent is over.',
@@ -165,12 +171,52 @@ export function saveModeSettings(id, settings) {
 
 export function resetModeSettings(id) { const all = loadAll(); delete all[id]; try { localStorage.setItem(KEY, JSON.stringify(all)); } catch { /* storage blocked */ } }
 
+// --- Which settings a mode's panel shows (2026-10-09). -----------------------
+// Timothy: "settings for each mode should be relevant to that mode, with some
+// sort of nesting philosophy... there shouldn't be autochess options in the
+// descent mode." The mode is `run`; each rule says when a setting matters.
+
+const runIs = (...r) => (S) => r.includes(S.run);
+const hasBall = (S) => ['hole', 'descent', 'mix'].includes(S.goal);
+const SHOWN = {
+  // The session.
+  startPieces: runIs('descent', 'rounds'), maxPieces: runIs('descent', 'rounds'), startPool: runIs('descent', 'rounds'),
+  rewards: runIs('descent', 'rounds'), jokers: runIs('descent', 'rounds'), findPool: runIs('descent', 'rounds'), ramp: runIs('descent', 'rounds'),
+  carry: runIs('descent'), startDifficulty: runIs('descent'), gentleStart: runIs('descent'), boardGrows: runIs('descent'), outOfMoves: runIs('descent'),
+  shop: runIs('rounds'), lives: runIs('rounds'),
+  courseName: runIs('course'), courseHoles: (S) => S.run === 'course' && S.courseName === 'mixed', balls: (S) => S.run === 'course' && S.courseName === 'mixed',
+  // How you play: autochess's own.
+  mode: runIs('rounds'), autoPool: runIs('rounds'),
+  // Difficulty: the descent aims for its own, level by level.
+  difficulty: (S) => S.run !== 'descent', aim: (S) => S.run !== 'descent',
+  // Your side: a run brings its own hand.
+  mine: (S) => !['descent', 'rounds'].includes(S.run), minePool: (S) => !['descent', 'rounds'].includes(S.run), mineDupes: (S) => !['descent', 'rounds'].includes(S.run),
+  royal: (S) => S.run !== 'course', dealKing: (S) => S.run !== 'course' && S.royal, showdown: (S) => S.run !== 'course',
+  // Settings that only matter when another one is on.
+  shrinkEvery: (S) => S.ground === 'shrink' || S.ground === 'spiral',
+  iq: (S) => S.rabbitMind === 'mind', traits: (S) => S.rabbitMind === 'mind',
+  kinds: (S) => S.darkBrain === 'possessed', skill: (S) => S.darkBrain === 'think', style: (S) => S.darkBrain === 'think',
+  goal: (S) => S.run !== 'course',
+  holeMoves: hasBall, ballMove: (S) => hasBall(S) && !(S.run === 'course' && S.courseName !== 'mixed'), ballCaptures: hasBall, ballStops: hasBall
+};
+
+/** Does this setting matter for these settings (the mode included)? */
+// With no mode (the workshop), only the rules between settings apply.
+const DEPENDS = ['shrinkEvery', 'iq', 'traits', 'kinds', 'skill', 'style', 'holeMoves', 'ballMove', 'ballCaptures', 'ballStops', 'dealKing'];
+export const settingShown = (key, S) => (!SHOWN[key] ? true : S.run == null && !DEPENDS.includes(key) ? true : SHOWN[key](S));
+
+/** Settings the descent raises level by level: their value is the first level's. */
+const CLIMBS = ['foes', 'iq', 'kinds', 'statues', 'foePool', 'parMin', 'parMax', 'traits', 'w', 'h'];
+export const settingNote = (key, S) => (S.run === 'descent' && CLIMBS.includes(key) && (key !== 'w' && key !== 'h' || S.boardGrows) ? ' (first level, then climbs)' : '');
+
 /** Every setting a mode's panel shows: the run's, then the level's. */
 export const PANEL = [...RUN_SCHEMA, ...SCHEMA];
 
 // --- The settings for the next level. ---------------------------------------
 
 const RAMP = { gentle: 0.6, steady: 1, steep: 1.6 };
+/** How much higher each descent level aims, in difficulty points. */
+const AIM_STEP = { gentle: 0.35, steady: 0.6, steep: 1 };
 
 /**
  * A level's settings, from a mode's settings `M` and where the run is: `at`
@@ -186,11 +232,11 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
   // Rolled at random: everything but the difficulty and the pieces allowed.
   if (M.roll === 'chaos' || M.roll === 'daily') {
     const fairy = FAIRY.filter((k) => !veto.includes(k));
-    S = { ...crazy(rand, [...fairy, 'rabbit']), difficulty: M.difficulty, minEngage: M.minEngage, balance: 'on', solve: true };
+    S = { ...crazy(rand, [...fairy, 'rabbit']), difficulty: M.difficulty, aim: M.aim, minEngage: M.minEngage, balance: 'on', solve: true };
     S.mode = 'hand'; // autochess is its own mode
     // Chaos rolls everything but how you win: that is the mode's own
     // (by default, take their King and keep yours, with the showdown).
-    if (M.roll === 'chaos') Object.assign(S, { goal: M.goal, royal: M.royal, showdown: M.showdown });
+    if (M.roll === 'chaos') Object.assign(S, { goal: M.goal, royal: M.royal, showdown: M.showdown, w: M.w, h: M.h });
     if (M.roll === 'daily') Object.assign(S, { maxMoves: Math.max(S.maxMoves || 20, 18), parMin: 4, parMax: 10, minCeiling: 6 });
   }
 
@@ -198,14 +244,20 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
   if (M.run === 'descent') {
     const d = depth - 1;
     Object.assign(S, {
-      w: Math.min(8, M.w + Math.floor(d * k / 3)), h: Math.min(8, M.h + Math.floor(d * k / 3)),
-      foes: Math.min(7, M.foes + Math.floor(d * k / 2)), iq: Math.min(10, M.iq + Math.floor(d * k * 0.7)),
+      // How hard a level is, measured, is the thing that climbs (2026-10-09):
+      // the first level is very easy, then each aims a little higher. The
+      // settings below climb with it, more slowly, so boards near the aim
+      // turn up often enough for the tester to find one.
+      aim: Math.min(10, Math.round(M.startDifficulty + d * AIM_STEP[M.ramp])),
+      ...(M.gentleStart && depth === 1 ? { foesCapture: false } : {}),
+      w: M.boardGrows ? Math.min(8, M.w + Math.floor(d * k / 3)) : M.w, h: M.boardGrows ? Math.min(8, M.h + Math.floor(d * k / 3)) : M.h,
+      foes: Math.min(7, M.foes + Math.floor(d * k / 4)), iq: Math.min(10, M.iq + Math.floor(d * k * 0.35)),
       kinds: Math.min(4, M.kinds + Math.floor(d * k / 3)),
-      foePool: d * k < 2 ? M.foePool : d * k < 4 ? [...M.foePool, 'knight', 'bishop'] : d * k < 7 ? [...M.foePool, 'knight', 'bishop', 'rook', 'camel'] : [...M.foePool, 'rook', 'bishop', 'knight', 'queen', 'archbishop', 'cannon'],
+      foePool: d * k < 3 ? M.foePool : d * k < 7 ? [...M.foePool, 'knight', 'bishop'] : d * k < 11 ? [...M.foePool, 'knight', 'bishop', 'rook', 'camel'] : [...M.foePool, 'rook', 'bishop', 'knight', 'queen', 'archbishop'],
       ground: d * k < 2 ? M.ground : pick([M.ground, M.ground, 'crumble', 'shrink', 'spiral']),
       shape: d * k < 3 ? M.shape : pick([M.shape, M.shape, 'diamond', 'round', 'cross', 'cheese']),
       statues: Math.min(4, M.statues + Math.floor(d * k / 3)),
-      parMin: Math.min(8, M.parMin + Math.floor(d * k / 3)), parMax: Math.min(14, M.parMax + Math.floor(d * k / 3)),
+      parMin: Math.min(8, M.parMin + Math.floor(d * k / 6)), parMax: Math.min(14, M.parMax + Math.floor(d * k / 3)),
       traits: d * k < 2 ? ['aggressive', 'messy'] : M.traits
     });
   }

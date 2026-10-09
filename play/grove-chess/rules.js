@@ -580,7 +580,22 @@ function sight(s, p, side) {
 
 /** Piece p's moves, from `side`, folded back onto a magic board. */
 function pieceMoves(s, p, side) {
-  const ms = PIECES[p.type].moves(sight(s, p, side), p, side === 'you' ? 1 : -1, s.day);
+  let ms = PIECES[p.type].moves(sight(s, p, side), p, side === 'you' ? 1 : -1, s.day);
+  // Spirits (a suit, 2026-10-09): it passes through pieces, statues and
+  // stumps as if they were not there, and lands as usual: on an empty
+  // square, or taking a piece of theirs. Its own moves, read on a board
+  // with nothing on it, are where it can go; what is really there decides
+  // whether it may land.
+  if (p.suit === 'spirits') {
+    const real = sight(s, p, side), clear = (x, y) => (real(x, y) === OFF ? OFF : EMPTY);
+    const seen = new Set(ms.map((m) => m.y * s.day.W + m.x));
+    for (const m of PIECES[p.type].moves(clear, p, side === 'you' ? 1 : -1, s.day)) {
+      const c = real(m.x, m.y), k = m.y * s.day.W + m.x;
+      if (seen.has(k) || !(c === EMPTY || c === BRAMBLE || c === ENEMY || c === HIDDEN)) continue;
+      seen.add(k);
+      ms.push({ x: m.x, y: m.y, cap: c === ENEMY || c === HIDDEN });
+    }
+  }
   if (!s.day.rules.wrap) return ms;
   const out = new Map();
   for (const m of ms) {

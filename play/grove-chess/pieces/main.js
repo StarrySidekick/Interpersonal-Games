@@ -1,6 +1,7 @@
 // The pieces catalog: every piece, its moves, strength and history; your
 // vetoes and notes on each; pieces you invent; and a way to copy it all out.
 
+import { powers } from '../power.js';
 import { $, el, themeToggle } from '../../../engine/ui.js';
 import { soundToggle } from '../../../engine/sound.js';
 import { Mesh, makeTarget, render } from '../../../engine/lowpoly.js';
@@ -13,6 +14,10 @@ import { betzaMoves, patent, mobility } from '../betza.js';
 import { loadCatalog, saveCatalog, registerInvented, betzaError, estimateStrength, newId } from '../invented.js';
 import { encodeLevel, defaults, clean } from '../lab.js';
 import { fillMenu } from '../menu.js';
+
+/** Power in context: on a 6 by 6 board, as levels are (power.js). Measured once. */
+const PW = () => powers(6, 6);
+const powerOf = (k) => PW()[k]?.power ?? PIECES[k]?.strength ?? 0;
 
 const cat = loadCatalog();
 registerInvented(cat.invented);
@@ -41,12 +46,12 @@ function paintFilters() {
 }
 
 function paintCards() {
-  const keys = list().filter(shown).sort((a, b) => (PIECES[a].strength ?? 0) - (PIECES[b].strength ?? 0));
+  const keys = list().filter(shown).sort((a, b) => powerOf(a) - powerOf(b));
   $('#cards').replaceChildren(...keys.map((k) => {
     const P = PIECES[k], cv = el('canvas', { class: 'pix', width: 30, height: 36 });
     cv.getContext('2d').drawImage(sprite(k, k === 'rabbit' ? 'foe' : 'you'), 0, 0);
     return el('button', { class: `pcard${cat.vetoed.includes(k) ? ' vetoed' : ''}`, onclick: () => open(k) }, cv,
-      el('span', {}, el('b', {}, P.name), el('small', {}, `${P.invented ? 'Invented' : KIND[P.kind]}${P.strength ? ` · ${P.strength}` : ''}${P.betza ? ` · ${P.betza}` : ''}`),
+      el('span', {}, el('b', {}, P.name), el('small', {}, `${P.invented ? 'Invented' : KIND[P.kind]}${PW()[k] ? ` · power ${PW()[k].power}` : ''}${PW()[k]?.screen ? ' · needs a screen' : ''}${P.betza ? ` · ${P.betza}` : ''}`),
         cat.notes[k] ? el('small', { class: 'note-dot' }, ' · noted') : null));
   }));
   if (!keys.length) $('#cards').append(el('p', { class: 'small dim' }, 'Nothing here yet.'));
@@ -73,7 +78,8 @@ function open(k) {
   $('#d-desc').textContent = descOf(k, { ballMove: 'putt' });
   const mob = P.betza ? mobility(P.moves, 8).toFixed(1) : null;
   $('#d-facts').replaceChildren(
-    el('p', { style: 'margin:0 0 4px' }, `${P.invented ? 'Invented' : KIND[P.kind]}${P.strength ? ` · strength about ${P.strength} pawns${P.invented ? ' (estimated from its moves)' : ''}` : ''}${mob ? ` · reaches ${mob} squares on an empty 8 × 8 board, on average` : ''}.`),
+    el('p', { style: 'margin:0 0 4px' }, `${P.invented ? 'Invented' : KIND[P.kind]}${P.strength ? ` · strength about ${P.strength} pawns on an empty 8 × 8 board${P.invented ? ' (estimated from its moves)' : ''}` : ''}${mob ? `, where it reaches ${mob} squares on average` : ''}.`),
+    PW()[k] ? el('p', { style: 'margin:0 0 4px' }, `Power ${PW()[k].power} on a 6 × 6 board, as levels are (the queen is 9): it reaches ${PW()[k].reach.toFixed(1)} squares and threatens ${PW()[k].threat.toFixed(2)} pieces of theirs, on average, among a level's worth of pieces.${PW()[k].screen ? ' It cannot take anything without something to hop over, so it is off by default until a mode gives it a use.' : ''}`) : null,
     ...patentLines(k).slice(0, 1).map((l) => el('p', { style: 'margin:0 0 4px' }, l)),
     P.origin ? el('p', { style: 'margin:0' }, P.origin) : null);
   $('#d-history').textContent = HISTORY[k] || (P.invented ? P.desc : 'No history written yet.');

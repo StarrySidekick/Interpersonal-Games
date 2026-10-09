@@ -12,7 +12,9 @@
 //   piece it may take again, the same turn. Stars, it moves twice: once a
 //   level, its first move is followed by another. Diamonds, treasure: each
 //   piece it takes adds a pick when the level is done. Spirals, swap: it
-//   may trade squares with any other piece of yours, as its move.
+//   may trade squares with any other piece of yours, as its move. Spirits
+//   (2026-10-09), passes through: it moves through pieces, statues and
+//   stumps as if they were not there, even if it is not a piece that hops.
 //   (Before that, swords, stars and spirals rewrote the piece's Betza and
 //   diamonds made it hard to take; those were proposals and are gone.)
 // - Fusing two pieces into one with both their moves (a rook and a knight
@@ -28,13 +30,15 @@
 import { PIECES } from './rules.js';
 import { parseBetza, betzaMoves } from './betza.js';
 import { registerInvented, newId, estimateStrength } from './invented.js';
+import { powerOf } from './power.js';
 
 export const SUITS = {
   hearts: { name: 'Hearts', mark: '♥', colour: '#e0445a', desc: 'A second life: the first time it is taken it loses the heart instead, and whatever took it bounces off.' },
   swords: { name: 'Swords', mark: '♠', colour: '#7f9fc0', desc: 'Cleave: after it takes a piece, it may take another the same turn, and another after that.' },
   stars: { name: 'Stars', mark: '★', colour: '#e8c547', desc: 'Moves twice: once a level, its first move is followed straight away by a second.' },
   diamonds: { name: 'Diamonds', mark: '♦', colour: '#5fd0d8', desc: 'Treasure: each piece it takes adds another pick when the level is done (two at most).' },
-  spirals: { name: 'Spirals', mark: '@', colour: '#f0903a', desc: 'Swap: as its move, it can trade squares with any other piece of yours.' }
+  spirals: { name: 'Spirals', mark: '@', colour: '#f0903a', desc: 'Swap: as its move, it can trade squares with any other piece of yours.' },
+  spirits: { name: 'Spirits', mark: '✧', colour: '#b9a7ff', desc: 'Passes through: it moves through pieces, statues and stumps as if they were not there, and lands as usual.' }
 };
 
 export const JOKERS = {
@@ -133,11 +137,13 @@ export function promotion(base, veto = []) {
 export function rewardsFor(run, rand, veto = []) {
   const pick = (a) => a[Math.floor(rand() * a.length)];
   if (run.hand.length < run.maxPieces) {
+    // Matched by power on the board the descent plays on (power.js), not
+    // by a strength measured on an empty 8 by 8 board.
     const all = findable(veto), cap = 2.5 + run.depth * 0.6;
-    const fairy = all.filter((k) => PIECES[k].kind === 'fairy' && PIECES[k].strength <= cap);
+    const fairy = all.filter((k) => PIECES[k].kind === 'fairy' && powerOf(k) <= cap);
     const f = pick(fairy.length ? fairy : all);
     const classic = all.filter((k) => PIECES[k].kind === 'classic' && k !== 'pawn');
-    const gap = (k) => Math.abs(PIECES[k].strength - PIECES[f].strength);
+    const gap = (k) => Math.abs(powerOf(k) - powerOf(f));
     const best = Math.min(...classic.map(gap));
     return [{ kind: 'piece', type: pick(classic.filter((k) => gap(k) <= best + 0.75)) }, { kind: 'piece', type: f }];
   }
@@ -145,7 +151,9 @@ export function rewardsFor(run, rand, veto = []) {
   const suitless = run.hand.filter((h) => !h.suit);
   if (suitless.length) cards.push({ kind: 'suit', suit: pick(Object.keys(SUITS)) });
   if (run.hand.length >= 2) cards.push({ kind: 'fuse' });
-  if (run.hand.some((h) => !h.fused && promotion(h.base, veto))) cards.push({ kind: 'promote' });
+  // Promotion is no longer offered (2026-10-09): the next piece up in
+  // strength was often no upgrade where it plays (a rook to a cannon).
+  // Claiming and combining (below) took its place.
   const jokers = Object.keys(JOKERS).filter((j) => !run.jokers.includes(j));
   if (jokers.length) cards.push({ kind: 'joker', joker: pick(jokers) });
   // Three at most, the dice choosing which if there are more.
@@ -247,13 +255,12 @@ export function startChoices(startPool, roster = [], veto = []) {
   return [...new Set([...startPool, ...roster])].filter((k) => PIECES[k] && !veto.includes(k));
 }
 
-/** Upgrade cards for a keepsake: a suit, a promotion, a joker, as the hand
+/** Upgrade cards for a keepsake: a suit or two, and a joker, as the hand
     allows. Never a piece (the hand is dealt already) and never fusing (it
     would undo the deal). */
 export function keepsakeCards(run, rand, veto = [], jokers = true) {
   const pick = (a) => a[Math.floor(rand() * a.length)];
   const cards = [{ kind: 'suit', suit: pick(Object.keys(SUITS)) }];
-  if (run.hand.some((h) => !h.fused && promotion(h.base, veto))) cards.push({ kind: 'promote' });
   const free = Object.keys(JOKERS).filter((j) => !run.jokers.includes(j));
   if (jokers && free.length) cards.push({ kind: 'joker', joker: pick(free) });
   // A second suit, different from the first, if there is room for one.
@@ -271,18 +278,18 @@ export const acornsFor = (won, taken = 0) => (won ? 3 : 1) + taken;
 
 /** What a card costs in the shop. */
 export function priceOf(card) {
-  if (card.kind === 'piece') return Math.max(2, Math.round(PIECES[card.type].strength ?? 3));
+  if (card.kind === 'piece') return Math.max(2, Math.round(powerOf(card.type)));
   return { suit: 4, promote: 4, fuse: 3, joker: 5 }[card.kind] ?? 3;
 }
 
-/** The shop's shelf: two pieces (if there is room), a suit, fusing, a
-    promotion and a joker, as the hand and the settings allow. */
+/** The shop's shelf: two pieces (if there is room), a suit, fusing and a
+    joker, as the hand and the settings allow. */
 export function shopStock(run, rand, { veto = [], findPool = null, jokers = false } = {}) {
   const pick = (a) => a[Math.floor(rand() * a.length)];
   const out = [];
   if (run.hand.length < run.maxPieces) {
     const all = findable(veto).filter((k) => !findPool || findPool.includes(k)), cap = 3 + run.depth * 0.5;
-    const near = all.filter((k) => (PIECES[k].strength ?? 3) <= cap);
+    const near = all.filter((k) => powerOf(k) <= cap);
     const pool = near.length >= 2 ? near : all;
     const a = pick(pool), b = pick(pool.filter((k) => k !== a)) || a;
     out.push({ kind: 'piece', type: a });
@@ -290,8 +297,43 @@ export function shopStock(run, rand, { veto = [], findPool = null, jokers = fals
   }
   if (run.hand.some((h) => !h.suit)) out.push({ kind: 'suit', suit: pick(Object.keys(SUITS)) });
   if (run.hand.length >= 2) out.push({ kind: 'fuse' });
-  if (run.hand.some((h) => !h.fused && promotion(h.base, veto))) out.push({ kind: 'promote' });
   const free = Object.keys(JOKERS).filter((j) => !run.jokers.includes(j));
   if (jokers && free.length) out.push({ kind: 'joker', joker: pick(free) });
   return out;
+}
+
+// --- Claiming and combining (2026-10-09). -----------------------------------
+// Timothy: "when you capture pieces, you actually claim their corresponding
+// rabbit or piece, and then you can use that piece to combine with a piece
+// you already have." What a combination gives is a proposal:
+// - the same kind (their bishop on your bishop): a veteran, one heart more
+//   (a life), up to three;
+// - another kind: the two fuse, your piece gaining every move of theirs
+//   (their rook on your knight makes a chancellor);
+// - your royal King only takes its own kind, so it is never fused away.
+// Pieces claimed on a level and not used are gone when the next one starts.
+
+/** Can a claimed piece go onto hand piece h? */
+export function canCombine(h, type, royal = false) {
+  if (!h || !PIECES[type]) return false;
+  const bases = h.fused || [h.base];
+  if (bases.length === 1 && h.base === type) return (h.lives || 1) < 3;
+  if (royal && h.base === 'king' && !h.fused) return false;
+  return bases.length < 3 && !bases.includes(type);
+}
+
+/** Combine claimed piece `type` onto hand piece `i`. Mutates the run. */
+export function applyCombine(run, i, type) {
+  const h = run.hand[i], bases = h.fused || [h.base];
+  if (bases.length === 1 && h.base === type) { h.lives = Math.min(3, (h.lives || 1) + 1); return 'veteran'; }
+  run.hand[i] = { ...h, base: bases[0], fused: [...bases, type] };
+  return 'fused';
+}
+
+/** Plain words for combining claimed `type` onto hand piece h. */
+export function combineText(h, type, made = []) {
+  const bases = h.fused || [h.base];
+  if (bases.length === 1 && h.base === type) return `Your ${PIECES[type].name} becomes a veteran: one heart more (${(h.lives || 1) + 1} lives).`;
+  const after = pieceOf({ ...h, fused: [...bases, type] }, made.slice());
+  return `Your ${pieceOf(h, made.slice()).name} gains every move of their ${PIECES[type].name}, and becomes the ${after.name}.`;
 }

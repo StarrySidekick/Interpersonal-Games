@@ -2,6 +2,7 @@
 // have the solver check the level, see it turn, play it, rate it. In
 // autochess you set up your pieces and the game plays itself.
 
+import { settingShown } from '../modes.js';
 import { $, el, show, haptic, keepAwake, themeToggle } from '../../../engine/ui.js';
 import { soundToggle } from '../../../engine/sound.js';
 import * as sfx from '../sounds.js';
@@ -59,7 +60,7 @@ function remember() {
 let updaters = [];
 
 function buildFormHere() {
-  const update = buildForm($('#settings'), SCHEMA, () => settings, set, (g) => g === 'Board' || g === 'How you play');
+  const update = buildForm($('#settings'), SCHEMA, () => settings, set, (g) => g === 'Board' || g === 'How you play', { show: settingShown });
   updaters = [update];
 }
 

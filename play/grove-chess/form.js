@@ -13,11 +13,16 @@ import { sprite } from './board.js';
  * which groups start open. Returns `update()`, which repaints every control
  * from get() (call it after the settings change from outside).
  */
-export function buildForm(root, groups, get, set, open = () => false) {
+export function buildForm(root, groups, get, set, open = () => false, { show = () => true, note = () => '' } = {}) {
+  // `show(key, settings)` hides what does not apply (a mode's own settings
+  // only, and a setting only when another one makes it matter); `note`
+  // adds words to a label (the descent's "first level, then climbs").
   const updaters = [];
 
   function field(f) {
-    const label = el('div', { class: 'flabel' }, f.label, f.help ? el('span', { class: 'fhelp' }, f.help) : null);
+    const extra = el('span', { class: 'fnote' });
+    const label = el('div', { class: 'flabel' }, f.label, extra, f.help ? el('span', { class: 'fhelp' }, f.help) : null);
+    updaters.push(() => { extra.textContent = note(f.key, get()) || ''; });
     let ctrl;
     if (f.type === 'int') {
       const val = el('span', { class: 'fval' });
@@ -55,10 +60,16 @@ export function buildForm(root, groups, get, set, open = () => false) {
       ctrl = el('div', { class: 'chips' }, ...btns);
       updaters.push(() => btns.forEach((b, i) => b.setAttribute('aria-pressed', String(get()[f.key].includes(kinds[i])))));
     }
-    return el('div', { class: `field${['pieces', 'choice', 'multi'].includes(f.type) ? ' wide' : ''}` }, label, ctrl);
+    const row = el('div', { class: `field${['pieces', 'choice', 'multi'].includes(f.type) ? ' wide' : ''}` }, label, ctrl);
+    updaters.push(() => { row.hidden = !show(f.key, get()); });
+    return row;
   }
 
-  for (const g of groups) root.append(el('details', { class: 'group', open: open(g.group) }, el('summary', {}, g.group), ...g.fields.map(field)));
+  for (const g of groups) {
+    const box = el('details', { class: 'group', open: open(g.group) }, el('summary', {}, g.group), ...g.fields.map(field));
+    updaters.push(() => { box.hidden = !g.fields.some((f) => show(f.key, get())); });
+    root.append(box);
+  }
   const update = () => updaters.forEach((u) => u());
   update();
   return update;
@@ -71,6 +82,7 @@ export const FORM_CSS = `
   .field { display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
   .field.wide { grid-template-columns: 1fr; }
   .flabel { font-size: 15px; font-weight: 600; }
+  .fnote { font-weight: 400; color: var(--accent); }
   .fhelp { display: block; font-size: 13px; font-weight: 400; color: var(--dim); }
   .stepper { display: flex; align-items: center; gap: 6px; }
   .stepper button, .seg button, .tog, .chip { width: auto; min-height: 44px; padding: 8px 12px; font-size: 15px; border-radius: 12px; }

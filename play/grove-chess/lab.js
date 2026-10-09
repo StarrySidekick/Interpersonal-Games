@@ -44,6 +44,8 @@ export const SCHEMA = [
   { group: 'Difficulty', fields: [
     { key: 'difficulty', label: 'Difficulty', type: 'choice', def: 'any', options: opts(['any', 'Any'], ['easy', 'Easy (1 to 3)'], ['normal', 'Normal (4 to 6)'], ['hard', 'Hard (7 to 8)'], ['brutal', 'Brutal (9 to 10)']),
       help: 'Measured by a novice bot playing the level two dozen times (metrics.js): how often it loses, and how long the shortest win is. Needs the solver.' },
+    { key: 'aim', label: 'Aim for difficulty', type: 'int', min: 0, max: 10, def: 0, unit: 'of 10',
+      help: 'A number in place of a band: the level must measure within one of it (1 aims at 1 to 2). 0 uses the band above. The descent sets this itself, level by level.' },
     { key: 'minEngage', label: 'Engaging, at least', type: 'int', min: 0, max: 90, def: 0, unit: 'of 100',
       help: 'A first guess at how engaging a level is: choices that matter, pieces used, tension, comebacks. 0 lets anything through.' },
     { key: 'minCeiling', label: 'Skill ceiling, at least', type: 'int', min: 0, max: 30, def: 0, unit: 'tenths',
@@ -693,6 +695,12 @@ export function searchAuto(level, pool, { deadline = Date.now() + 1500, maxTries
  * solves exactly the seed given. Used by lab-worker.js on a background
  * thread, and directly by the page when workers are not available.
  */
+/** The difficulty a level must measure: an aim, or a band. */
+export function bandOf(S) {
+  if (S.aim > 0) return [Math.max(1, S.aim - 1), Math.min(10, S.aim + 1)];
+  return BANDS[S.difficulty] || BANDS.any;
+}
+
 export function searchLayouts({ settings, seed, parMin, parMax, maxTries = 400, maxMs = 15000, fixed = false, pool }, post) {
   if (clean(settings).mode === 'auto') return searchAutoLayouts({ settings, seed, parMin, maxMs, fixed, pool }, post);
   const t0 = Date.now(), rules = clean(settings).balance;
@@ -714,15 +722,19 @@ export function searchLayouts({ settings, seed, parMin, parMax, maxTries = 400, 
     if (r.par && (fixed || r.par >= parMin)) {
       // Winnable at the right length. Now: is it balanced?
       const balance = assess(level, r, { deadline: t0 + maxMs });
-      const why = unbalanced(balance, rules);
+      const why = unbalanced(balance, rules, { oneCapture: true });
       // Then: is it as hard, and as engaging, as asked?
-      const S = clean(settings), m = measure(level, r), band = BANDS[S.difficulty] || BANDS.any;
+      const S = clean(settings), m = measure(level, r), band = bandOf(S);
       if (!fixed && !why.length && (m.difficulty < band[0] || m.difficulty > band[1])) why.push(m.difficulty < band[0] ? 'it was too easy' : 'it was too hard');
       if (!fixed && !why.length && m.engagement < S.minEngage) why.push('it was not engaging enough');
       if (!fixed && !why.length && S.minCeiling && (m.ceiling ?? 0) * 10 < S.minCeiling) why.push('its skill ceiling was too low');
       if (fixed || !why.length) return post({ type: 'done', seed: sd, par: r.par, exact: r.exact, line: r.line, tried, balance, why, thrown, measure: m });
       for (const w of why) thrown[w] = (thrown[w] || 0) + 1;
-      if (!best || !best.unbalanced) best = { seed: sd, par: r.par, exact: r.exact, line: r.line, balance, why, unbalanced: true };
+      // Nothing may pass, so keep the nearest miss: balanced before
+      // unbalanced, then the closest to the difficulty asked for.
+      const off = (m.difficulty < band[0] ? band[0] - m.difficulty : m.difficulty > band[1] ? m.difficulty - band[1] : 0)
+        + (unbalanced(balance, rules, { oneCapture: true }).length ? 20 : 0);
+      if (!best || best.off == null || off < best.off) best = { seed: sd, par: r.par, exact: r.exact, line: r.line, balance, why, unbalanced: true, off, measure: m };
     } else if (r.par && (!best || (!best.unbalanced && r.par > best.par))) {
       // Winnable but too easy: keep the hardest of those, in case nothing passes.
       best = { seed: sd, par: r.par, exact: r.exact, line: r.line };
