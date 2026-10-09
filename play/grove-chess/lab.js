@@ -111,7 +111,9 @@ export const SCHEMA = [
     { key: 'skill', label: 'Thinking skill', type: 'choice', def: '2', options: opts(
       ['0', 'Random'], ['1', 'Greedy'], ['2', 'Two ahead'], ['3', 'Three ahead']), help: 'For pieces of theirs that think, and thinking rabbits.' },
     { key: 'style', label: 'Mood', type: 'choice', def: 'balanced', options: opts(['flee', 'Flee'], ['balanced', 'Balanced'], ['hunt', 'Hunt']) },
-    { key: 'foesCapture', label: 'They can take your pieces', type: 'bool', def: true }
+    { key: 'foesCapture', label: 'They can take your pieces', type: 'bool', def: true },
+    { key: 'oneMove', label: 'They move one piece a turn', type: 'bool', def: true,
+      help: 'Like you. A piece that can take one of yours goes; otherwise their pieces take turns, in order. Off: every piece of theirs moves every turn. Loose rabbits always hop.' }
   ] },
   { group: 'Winning', fields: [
     { key: 'goal', label: 'How you win', type: 'choice', def: 'king', options: opts(
@@ -142,7 +144,7 @@ export const SCHEMA = [
 ];
 
 const FIELDS = SCHEMA.flatMap((g) => g.fields);
-export const SETTINGS_VERSION = 9;
+export const SETTINGS_VERSION = 10;
 export const defaults = () => ({ ...Object.fromEntries(FIELDS.map((f) => [f.key, Array.isArray(f.def) ? [...f.def] : f.def])), v: SETTINGS_VERSION });
 
 /** How each earlier version's defaults differ from today's. Settings saved
@@ -151,11 +153,13 @@ export const defaults = () => ({ ...Object.fromEntries(FIELDS.map((f) => [f.key,
 // Version 9 (2026-10-09): pieces start on the first row, theirs and yours,
 // when they are not lined up (Timothy: "pieces should start on the first
 // row by default").
-const V9 = { mineRows: 2, foeRows: 3 };
+const V10 = { oneMove: false };
+const V9 = { mineRows: 2, foeRows: 3, ...V10 };
 // Version 8 (2026-10-09): each side has a King. Take theirs, keep yours
 // (goal 'king', royal), and two left brings on the showdown.
 const V8 = { goal: 'descent', royal: false, showdown: false, dealKing: false, ...V9 };
 const BEFORE = {
+  9: { ...V10 },
   8: { ...V9 },
   7: { ...V8 },
   6: { ...V8, rabbitMind: 'pattern' },
@@ -173,7 +177,7 @@ const defaultsFor = (v) => ({ ...defaults(), ...JSON.parse(JSON.stringify(BEFORE
     meaning: crumbling was a switch, there was no separate rabbit count, and
     rabbits ate whenever their side could take your pieces. */
 export function clean(raw) {
-  const v = [2, 3, 4, 5, 6, 7, 8, 9].includes(raw?.v) ? raw.v : 1, legacy = v === 1;
+  const v = [2, 3, 4, 5, 6, 7, 8, 9, 10].includes(raw?.v) ? raw.v : 1, legacy = v === 1;
   // Pieces invented in the catalog travel with the settings (so a link, or
   // the solver's background thread, knows them), and are made real first.
   const invented = cleanInvented(raw?.invented);
@@ -516,7 +520,7 @@ export function makeLevel(settings, seed) {
     foes: foes.filter((f) => f.x !== undefined),
     goalKind: goal, hole,
     rules: { goal: ['king', 'rabbit', 'target'].includes(goal) ? 'target' : goal, maxMoves: S.maxMoves, wait: S.wait,
-      foesCapture: S.foesCapture, rabbitsEat: S.rabbitsEat, royal: S.royal, ...(S.showdown ? { showdown: true } : {}), first: S.first, ballStops: S.ballStops, ballMove: S.ballMove,
+      foesCapture: S.foesCapture, rabbitsEat: S.rabbitsEat, royal: S.royal, ...(S.showdown ? { showdown: true } : {}), ...(S.oneMove ? { oneMove: true } : {}), first: S.first, ballStops: S.ballStops, ballMove: S.ballMove,
       ...(S.ballCaptures ? { ballCaptures: true } : {}),
       ...(S.magic !== 'none' ? { wrap: S.magic } : {}),
       ...(S.geared ? { geared: true } : {}),
@@ -587,7 +591,7 @@ export function decodeLevel(hash) {
     // A link is read against the defaults of the version it was made in
     // (no v at all: before version 2).
     const v = +p.get('v');
-    if ([2, 3, 4, 5, 6, 7, 8, 9].includes(v)) diff.v = v; else delete diff.v;
+    if ([2, 3, 4, 5, 6, 7, 8, 9, 10].includes(v)) diff.v = v; else delete diff.v;
     return { settings: clean(diff), seed: Math.abs(parseInt(p.get('seed'), 10)) || 1, par: par > 0 ? par : null };
   } catch { return null; }
 }
