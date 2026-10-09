@@ -10,7 +10,7 @@ import { rng } from '../../../engine/seed.js';
 import * as sfx from '../sounds.js';
 import {
   PIECES, descOf, CRUMBLE_DESC, SHRINK_DESC, STUMP_DESC, HOLE_DESC, movesFor, playerMove, respond, isOver, outcome, initialState,
-  allMoves, holeOpen, crumbled, shrunk, apply
+  allMoves, holeOpen, crumbled, shrunk, apply, showdown
 } from '../rules.js';
 import { scene, sceneFrame, sprite } from '../board.js';
 import { piecesSheet } from '../sheet.js';
@@ -98,6 +98,8 @@ function newSession() {
   const extra = carries() && litWaystones(deepest()).some((w) => w.id === 'extra') ? 1 : 0;
   const count = Math.min(M.maxPieces, M.startPieces + extra);
   const start = Array.from({ length: count }, () => (pool.length ? pool : M.startPool)[Math.floor(rand() * (pool.length || M.startPool.length))]);
+  // A royal King is dealt first, and kept (kingLocked, below).
+  if (M.royal && M.run === 'descent' && !start.includes('king')) start[0] = 'king';
   session = { seed, n: 1, found: new Map(), seen: new Set(), strokes: [], lives: M.lives, wins: 0, caught: [], acorns: 0, deepestBefore: deepest() };
   if (M.run === 'descent' || M.run === 'rounds') session.run = newRun(start, M.maxPieces);
 }
@@ -154,6 +156,10 @@ function myRabbits() {
   return out;
 }
 
+/** Your royal King cannot be fused, promoted or swapped away: it is the
+    thing you protect. */
+const kingLocked = (h) => M.royal && M.run === 'descent' && h.base === 'king' && !h.fused;
+
 const furOf = (f) => ((f.brain === 'pattern' || f.brain === 'possessed' || f.mind) && FUR[f.patternName]) || null;
 const levelWord = () => ({ descent: 'Depth', course: 'Hole', rounds: 'Round', single: 'Level' })[M.run];
 
@@ -204,7 +210,8 @@ function goalCard() {
   if (session.seen.has('goal')) return null;
   session.seen.add('goal');
   const text = {
-    descent: 'Take every piece of theirs to fall to the next level, where you find something. A piece of yours that is taken is gone for good; when they are all gone, so is the descent.',
+    descent: M.goal === 'king' ? 'Take their King to fall to the next level, where you find something. Keep yours: if they take your King, the descent is over. Any other piece of yours that is taken is gone for good.'
+      : 'Take every piece of theirs to fall to the next level, where you find something. A piece of yours that is taken is gone for good; when they are all gone, so is the descent.',
     course: 'Sink the ball in the hole in as few strokes as you can. Each hole has its own ball; the pieces sheet says how it rolls.',
     rounds: 'Put rabbits in your pieces and let them fight. Win the round to grow your side; a lost round costs a life.',
     single: 'One level. Win it how it says above.'
@@ -316,6 +323,12 @@ async function play(mv) {
   // A suit left the turn open (Swords, Stars): the same piece goes again.
   if (b.bonus) { haptic([12, 30, 12]); sfx.gain(); status(bonusLine(b)); return select(b.bonus.p); }
   status(whatHappened(a, b));
+  // The showdown: two left, and the board starts closing in.
+  if (showdown(b) && !showdown(a)) {
+    haptic([20, 60, 20, 60, 20]); sfx.dusk?.();
+    status('Two left. The board closes in.');
+    $('#chips').append(el('span', { class: 'pill' }, 'Showdown'));
+  }
   select(null);
 }
 
@@ -400,7 +413,9 @@ async function levelOver(end) {
   }
   // A descent.
   const allGone = end.pieces.every((p) => p.taken);
+  const kingGone = level.rules.royal && end.pieces.some((p) => p.taken && p.type === 'king');
   afterLevel(session.run, end);
+  if (kingGone) { status('They took your King.'); await sleep(1600); return runOver('They took your King.'); }
   if (allGone) { status('They took everything.'); await sleep(1600); return runOver('Every piece you had is gone.'); }
   if (!won && M.outOfMoves === 'end') { status('Out of moves.'); await sleep(1600); return runOver('You ran out of moves.'); }
   // Recruiter: the first piece you took joins you, if there is room.
@@ -481,6 +496,7 @@ function reward({ k = 0, note = null, cards: given = null } = {}) {
         handRow($('#pickhand'), { picked, pick: (i) => {
           const h = run.hand[i];
           if (card.kind === 'suit' && h.suit) return;
+          if ((card.kind === 'fuse' || card.kind === 'promote') && kingLocked(h)) return;
           const at = picked.indexOf(i);
           if (at >= 0) picked.splice(at, 1); else { picked.push(i); if (picked.length > need) picked.shift(); }
           paint();
@@ -515,6 +531,7 @@ function pickFor(card, run) {
     const paint = () => {
       handRow($('#pickhand'), { picked, pick: (i) => {
         if (card.kind === 'suit' && run.hand[i].suit) return;
+        if ((card.kind === 'fuse' || card.kind === 'promote') && kingLocked(run.hand[i])) return;
         const at = picked.indexOf(i);
         if (at >= 0) picked.splice(at, 1); else { picked.push(i); if (picked.length > need) picked.shift(); }
         paint();
@@ -679,6 +696,7 @@ function titleHand() {
   $('#handnote').textContent = roster.found.length ? `Tap a piece to swap it. Your roster: ${choices.length} pieces.` : 'Pieces you find on the way down join your roster, to start with next time.';
   if (!roster.found.length) { handRow($('#titlehand')); return; }
   handRow($('#titlehand'), { picked: swapping == null ? [] : [swapping], pick: (i) => {
+    if (kingLocked(session.run.hand[i])) { $('#handnote').textContent = 'Your King stays: it is the piece you protect.'; return; }
     swapping = swapping === i ? null : i;
     titleHand();
     if (swapping == null) return;

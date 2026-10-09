@@ -74,7 +74,8 @@ export const SCHEMA = [
     { key: 'lineup', label: 'Line up like chess', type: 'bool', def: true,
       help: 'Your pieces start in a line along the bottom edge, theirs along the top. Off: scattered within the rows below.' },
     { key: 'mineRows', label: 'Start within the bottom', type: 'int', min: 1, max: 5, def: 2, unit: 'rows', help: 'When not lined up.' },
-    { key: 'royal', label: 'Your King is royal', type: 'bool', def: false, help: 'Lose the King, lose the game.' },
+    { key: 'royal', label: 'Your King is royal', type: 'bool', def: true, help: 'Lose the King, lose the game.' },
+    { key: 'dealKing', label: 'Always dealt a King', type: 'bool', def: true, help: 'With a royal King: if the deal has none, your first piece becomes one.' },
     { key: 'wait', label: 'Waiting allowed', type: 'bool', def: true }
   ] },
   { group: 'Rabbits', fields: [
@@ -111,7 +112,7 @@ export const SCHEMA = [
     { key: 'foesCapture', label: 'They can take your pieces', type: 'bool', def: true }
   ] },
   { group: 'Winning', fields: [
-    { key: 'goal', label: 'How you win', type: 'choice', def: 'descent', options: opts(
+    { key: 'goal', label: 'How you win', type: 'choice', def: 'king', options: opts(
       ['descent', 'Catch them, then the ball'], ['all', 'Capture them all'], ['king', 'Take their King'], ['rabbit', 'Catch the rabbit'],
       ['any', 'Catch any one'], ['target', 'A marked one'], ['hole', 'Sink the ball'], ['mix', 'Mix it up']),
       help: 'Catch them, then the ball: the hole stays shut until every possessed piece and loose rabbit is caught, then sink the ball in it. King and rabbit make sure they have one. Sink the ball gives you a ball and a moving hole. Mix picks capture, King or rabbit per layout.' },
@@ -125,6 +126,8 @@ export const SCHEMA = [
       help: 'On: rolling or sliding into one of their pieces, the ball takes it and stops there. Off: it stops short, and never takes anything.' },
     { key: 'ballStops', label: 'Ball must stop on the hole', type: 'bool', def: false,
       help: 'Off: it drops in when it rolls over the hole. On: it has to come to rest there.' },
+    { key: 'showdown', label: 'Two left: the board closes in', type: 'bool', def: true,
+      help: 'Once only one piece of yours and one of theirs are left, the edge falls away every move, round and inward, until they meet. A square with a piece on it never falls.' },
     { key: 'maxMoves', label: 'Move limit', type: 'int', min: 0, max: 60, def: 20, help: '0 means no limit.' },
     { key: 'first', label: 'First move', type: 'choice', def: 'you', options: opts(['you', 'You'], ['them', 'Them']) },
     { key: 'solve', label: 'Only deal winnable levels', type: 'bool', def: true,
@@ -137,19 +140,23 @@ export const SCHEMA = [
 ];
 
 const FIELDS = SCHEMA.flatMap((g) => g.fields);
-export const SETTINGS_VERSION = 7;
+export const SETTINGS_VERSION = 8;
 export const defaults = () => ({ ...Object.fromEntries(FIELDS.map((f) => [f.key, Array.isArray(f.def) ? [...f.def] : f.def])), v: SETTINGS_VERSION });
 
 /** How each earlier version's defaults differ from today's. Settings saved
     then (links and notebook entries) only stored what differed from their
     own defaults, so they are read against them. */
+// Version 8 (2026-10-09): each side has a King. Take theirs, keep yours
+// (goal 'king', royal), and two left brings on the showdown.
+const V8 = { goal: 'descent', royal: false, showdown: false, dealKing: false };
 const BEFORE = {
-  6: { rabbitMind: 'pattern' },
-  5: { rabbitMind: 'pattern', ballCaptures: false, statues: 0 },
-  4: { rabbitMind: 'pattern', lineup: false, ballCaptures: false, statues: 0 },
-  3: { rabbitMind: 'pattern', ballMove: 'ice', lineup: false, ballCaptures: false, statues: 0 },
-  2: { rabbitMind: 'pattern', lineup: false, ballCaptures: false, statues: 0, rabbits: 1, foes: 2, patterns: 'daily', darkBrain: 'think', kinds: 1, foePool: ['king', 'knight', 'bishop', 'pawn'], ballMove: 'ice' },
-  1: { rabbitMind: 'pattern', lineup: false, ballCaptures: false, statues: 0, rabbits: 0, foes: 3, patterns: 'daily', darkBrain: 'think', kinds: 1, foePool: ['king', 'knight', 'bishop', 'pawn'],
+  7: { ...V8 },
+  6: { ...V8, rabbitMind: 'pattern' },
+  5: { ...V8, rabbitMind: 'pattern', ballCaptures: false, statues: 0 },
+  4: { ...V8, rabbitMind: 'pattern', lineup: false, ballCaptures: false, statues: 0 },
+  3: { ...V8, rabbitMind: 'pattern', ballMove: 'ice', lineup: false, ballCaptures: false, statues: 0 },
+  2: { ...V8, rabbitMind: 'pattern', lineup: false, ballCaptures: false, statues: 0, rabbits: 1, foes: 2, patterns: 'daily', darkBrain: 'think', kinds: 1, foePool: ['king', 'knight', 'bishop', 'pawn'], ballMove: 'ice' },
+  1: { ...V8, rabbitMind: 'pattern', lineup: false, ballCaptures: false, statues: 0, rabbits: 0, foes: 3, patterns: 'daily', darkBrain: 'think', kinds: 1, foePool: ['king', 'knight', 'bishop', 'pawn'],
     ground: 'solid', goal: 'king', balance: 'off', ballMove: 'ice' }
 };
 const defaultsFor = (v) => ({ ...defaults(), ...JSON.parse(JSON.stringify(BEFORE[v] || {})) });
@@ -159,7 +166,7 @@ const defaultsFor = (v) => ({ ...defaults(), ...JSON.parse(JSON.stringify(BEFORE
     meaning: crumbling was a switch, there was no separate rabbit count, and
     rabbits ate whenever their side could take your pieces. */
 export function clean(raw) {
-  const v = [2, 3, 4, 5, 6, 7].includes(raw?.v) ? raw.v : 1, legacy = v === 1;
+  const v = [2, 3, 4, 5, 6, 7, 8].includes(raw?.v) ? raw.v : 1, legacy = v === 1;
   // Pieces invented in the catalog travel with the settings (so a link, or
   // the solver's background thread, knows them), and are made real first.
   const invented = cleanInvented(raw?.invented);
@@ -386,6 +393,9 @@ export function makeLevel(settings, seed) {
 
   const bottom = rows.slice(0, S.mineRows), top = rows.slice(-S.foeRows);
   const myTypes = S.hand ? S.hand.slice() : deal(S.minePool, S.mine, S.mineDupes);
+  // A royal King has to be there to protect. (A run's hand brings its own:
+  // the descent deals one and keeps it.)
+  if (S.royal && S.dealKing && !S.hand && myTypes.length && !myTypes.includes('king') && S.goal !== 'hole') myTypes[0] = 'king';
   const mySpots = S.lineup ? lineUp(rows, myTypes.length) : null;
   const pieces = myTypes.map((type, i) => ({ type, ...(S.lineup ? mySpots[i] : place(bottom)), ...(S.handMods?.[i] || {}) }));
 
@@ -499,7 +509,7 @@ export function makeLevel(settings, seed) {
     foes: foes.filter((f) => f.x !== undefined),
     goalKind: goal, hole,
     rules: { goal: ['king', 'rabbit', 'target'].includes(goal) ? 'target' : goal, maxMoves: S.maxMoves, wait: S.wait,
-      foesCapture: S.foesCapture, rabbitsEat: S.rabbitsEat, royal: S.royal, first: S.first, ballStops: S.ballStops, ballMove: S.ballMove,
+      foesCapture: S.foesCapture, rabbitsEat: S.rabbitsEat, royal: S.royal, ...(S.showdown ? { showdown: true } : {}), first: S.first, ballStops: S.ballStops, ballMove: S.ballMove,
       ...(S.ballCaptures ? { ballCaptures: true } : {}),
       ...(S.magic !== 'none' ? { wrap: S.magic } : {}),
       ...(S.geared ? { geared: true } : {}),
@@ -570,7 +580,7 @@ export function decodeLevel(hash) {
     // A link is read against the defaults of the version it was made in
     // (no v at all: before version 2).
     const v = +p.get('v');
-    if ([2, 3, 4, 5, 6, 7].includes(v)) diff.v = v; else delete diff.v;
+    if ([2, 3, 4, 5, 6, 7, 8].includes(v)) diff.v = v; else delete diff.v;
     return { settings: clean(diff), seed: Math.abs(parseInt(p.get('seed'), 10)) || 1, par: par > 0 ? par : null };
   } catch { return null; }
 }

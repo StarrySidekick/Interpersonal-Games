@@ -33,6 +33,32 @@ make some new modes easily."
   notebook of ratings. "Play as a descent" runs its settings in the
   runner as a test that keeps nothing.
 
+## Kings, and the showdown (2026-10-09)
+
+Timothy: "stalemates happen, and maybe something should change when there
+are only two pieces left on the board... the default mode should be just
+capture one thing instead of all pieces... you also need to be protecting
+something as well, like the king in chess. let make each side have a king."
+
+- **Each side has a King.** The level defaults are now "Take their King"
+  (`goal: 'king'`) and "Your King is royal" (`royal`: lose it, lose the
+  level), with "Always dealt a King" (`dealKing`) making sure yours is
+  there. The Descent, Chaos (which rolls everything but how you win) and
+  the workshop use them. The Daily, Golf and Autochess keep their old
+  goals on purpose.
+- **In the Descent** your King is dealt first, cannot be fused, promoted
+  or swapped away on the title, and if it is taken the descent is over.
+- **The showdown** (`showdown`, "Two left: the board closes in"): once one
+  piece of yours and one of theirs are all that is left, the edge falls
+  away every move, round and inward (the shrinking ground's spiral). A
+  square with a piece on it never falls, so the board closes in round the
+  two until one can reach the other. It is announced in words, a buzz, a
+  sound and a chip.
+- Settings are version 8. Links and stored boards from version 7 and
+  before read these three as off, so every old board lays out as it did
+  (`check-daily.mjs` passes: the rules object only carries `showdown`
+  when it is on).
+
 ## The modes
 
 **The daily.** One board a day, the same for everyone. Its own page and

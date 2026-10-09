@@ -177,6 +177,15 @@ And later on 2026-10-07:
 - **New boards: magic (Pac-Man edges) and geared (turns every turn).**
   Built as Chaos settings, with **statues** in place of stumps.
 
+## 2026-10-09: kings, and an end to stalemates
+
+From Timothy: stalemates happen; something should change when only two
+pieces are left; the default should be capturing one thing, not all of
+them; and you should be protecting something, like the King in chess, so
+each side has a King. He chose: the board closes in when two are left,
+and kings for the Descent, Chaos and the workshop (not the Daily). Built
+(`docs/grove-modes.md`, "Kings, and the showdown").
+
 ## 2026-10-08, later: the suits are his, and four updates
 
 From Timothy, choosing what each suit does and asking for all four open
