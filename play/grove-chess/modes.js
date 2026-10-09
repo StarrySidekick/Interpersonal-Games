@@ -239,6 +239,9 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
     // Chaos rolls everything but how you win: that is the mode's own
     // (by default, take their King and keep yours, with the showdown).
     if (M.roll === 'chaos') Object.assign(S, { goal: M.goal, royal: M.royal, showdown: M.showdown, w: M.w, h: M.h });
+    // Where pieces start is the mode's too, in Chaos and the daily practice:
+    // lined up or not, within how many rows, and who moves first.
+    Object.assign(S, { lineup: M.lineup, mineRows: M.mineRows, foeRows: M.foeRows, first: M.first });
     if (M.roll === 'daily') Object.assign(S, { maxMoves: Math.max(S.maxMoves || 20, 18), parMin: 4, parMax: 10, minCeiling: 6 });
   }
 

@@ -109,6 +109,19 @@ anything, so a piece also has a job if it moves in the winning line
 (`unbalanced`, opt-in `oneCapture`, so the shipped daily dealers judge as
 they did).
 
+## Where pieces start (2026-10-09)
+
+Timothy: "pieces should start on the first row by default." Lined up (the
+default) they always did in the descent; scattered, "Start within the
+top/bottom" now defaults to 1 row each (settings version 9; older links
+and stored dailies keep 3 and 2). Chaos and the daily practice used to
+re-roll where pieces start (lined up or not, 1 to 3 rows, who moves
+first), ignoring the panel; they now keep the mode's. A piece still starts
+off the first row only when it cannot be there: a shaped board whose top
+row has fewer squares than there are pieces (a diamond's has two), all
+four edges joined (the top row then touches yours, so their line starts
+halfway, or every level would open with captures), or Mirror.
+
 ## Piece power in context (2026-10-09)
 
 `power.js` measures each piece by its own move code on the board it plays
