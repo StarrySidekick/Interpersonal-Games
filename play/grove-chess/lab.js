@@ -75,7 +75,7 @@ export const SCHEMA = [
     { key: 'mineDupes', label: 'Repeats allowed', type: 'bool', def: false },
     { key: 'lineup', label: 'Line up like chess', type: 'bool', def: true,
       help: 'Your pieces start in a line along the bottom edge, theirs along the top. Off: scattered within the rows below.' },
-    { key: 'mineRows', label: 'Start within the bottom', type: 'int', min: 1, max: 5, def: 2, unit: 'rows', help: 'When not lined up.' },
+    { key: 'mineRows', label: 'Start within the bottom', type: 'int', min: 1, max: 5, def: 1, unit: 'rows', help: 'When not lined up.' },
     { key: 'royal', label: 'Your King is royal', type: 'bool', def: true, help: 'Lose the King, lose the game.' },
     { key: 'dealKing', label: 'Always dealt a King', type: 'bool', def: true, help: 'With a royal King: if the deal has none, your first piece becomes one.' },
     { key: 'wait', label: 'Waiting allowed', type: 'bool', def: true }
@@ -107,7 +107,7 @@ export const SCHEMA = [
     { key: 'foePool', label: 'Dealt from', type: 'pieces', rabbit: true, def: ['king', 'knight', 'bishop', 'rook'] },
     { key: 'foeDupes', label: 'Repeats allowed', type: 'bool', def: true },
     { key: 'mirror', label: 'Mirror your pieces instead', type: 'bool', def: false, help: 'They get a copy of your hand, facing you, like chess.' },
-    { key: 'foeRows', label: 'Start within the top', type: 'int', min: 1, max: 5, def: 3, unit: 'rows', help: 'Loose rabbits and the hole start up there too, lined up or not.' },
+    { key: 'foeRows', label: 'Start within the top', type: 'int', min: 1, max: 5, def: 1, unit: 'rows', help: 'Loose rabbits and the hole start up there too, lined up or not.' },
     { key: 'skill', label: 'Thinking skill', type: 'choice', def: '2', options: opts(
       ['0', 'Random'], ['1', 'Greedy'], ['2', 'Two ahead'], ['3', 'Three ahead']), help: 'For pieces of theirs that think, and thinking rabbits.' },
     { key: 'style', label: 'Mood', type: 'choice', def: 'balanced', options: opts(['flee', 'Flee'], ['balanced', 'Balanced'], ['hunt', 'Hunt']) },
@@ -142,16 +142,21 @@ export const SCHEMA = [
 ];
 
 const FIELDS = SCHEMA.flatMap((g) => g.fields);
-export const SETTINGS_VERSION = 8;
+export const SETTINGS_VERSION = 9;
 export const defaults = () => ({ ...Object.fromEntries(FIELDS.map((f) => [f.key, Array.isArray(f.def) ? [...f.def] : f.def])), v: SETTINGS_VERSION });
 
 /** How each earlier version's defaults differ from today's. Settings saved
     then (links and notebook entries) only stored what differed from their
     own defaults, so they are read against them. */
+// Version 9 (2026-10-09): pieces start on the first row, theirs and yours,
+// when they are not lined up (Timothy: "pieces should start on the first
+// row by default").
+const V9 = { mineRows: 2, foeRows: 3 };
 // Version 8 (2026-10-09): each side has a King. Take theirs, keep yours
 // (goal 'king', royal), and two left brings on the showdown.
-const V8 = { goal: 'descent', royal: false, showdown: false, dealKing: false };
+const V8 = { goal: 'descent', royal: false, showdown: false, dealKing: false, ...V9 };
 const BEFORE = {
+  8: { ...V9 },
   7: { ...V8 },
   6: { ...V8, rabbitMind: 'pattern' },
   5: { ...V8, rabbitMind: 'pattern', ballCaptures: false, statues: 0 },
@@ -168,7 +173,7 @@ const defaultsFor = (v) => ({ ...defaults(), ...JSON.parse(JSON.stringify(BEFORE
     meaning: crumbling was a switch, there was no separate rabbit count, and
     rabbits ate whenever their side could take your pieces. */
 export function clean(raw) {
-  const v = [2, 3, 4, 5, 6, 7, 8].includes(raw?.v) ? raw.v : 1, legacy = v === 1;
+  const v = [2, 3, 4, 5, 6, 7, 8, 9].includes(raw?.v) ? raw.v : 1, legacy = v === 1;
   // Pieces invented in the catalog travel with the settings (so a link, or
   // the solver's background thread, knows them), and are made real first.
   const invented = cleanInvented(raw?.invented);
@@ -582,7 +587,7 @@ export function decodeLevel(hash) {
     // A link is read against the defaults of the version it was made in
     // (no v at all: before version 2).
     const v = +p.get('v');
-    if ([2, 3, 4, 5, 6, 7, 8].includes(v)) diff.v = v; else delete diff.v;
+    if ([2, 3, 4, 5, 6, 7, 8, 9].includes(v)) diff.v = v; else delete diff.v;
     return { settings: clean(diff), seed: Math.abs(parseInt(p.get('seed'), 10)) || 1, par: par > 0 ? par : null };
   } catch { return null; }
 }
