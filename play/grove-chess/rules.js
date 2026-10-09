@@ -1091,7 +1091,8 @@ export const autoApply = (s) => respond(autoMove(s));
 function shrinkInfo(day) {
   if (day._shrink) return day._shrink;
   const W = day.W, H = day.H, order = new Map();
-  if (day.rules.shrink !== 'spiral') {
+  // A showdown with no shrinking ground of its own closes in as a spiral.
+  if ((day.rules.shrink || 'spiral') !== 'spiral') {
     const rand = rng(`shrink:${day.shrinkKey ?? ''}`), all = [];
     for (let k = 0; k < W * H; k++) all.push(k);
     for (let i = all.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [all[i], all[j]] = [all[j], all[i]]; }
@@ -1175,13 +1176,29 @@ function shrinkStep(s) {
     moves the edge falls away. Mutates. */
 function afterMove(n) {
   const r = n.day.rules;
-  if (r.shrink && !n.won && !lost(n) && n.t % (r.shrinkEvery || 2) === 0) shrinkStep(n);
+  if (n.won || lost(n)) return;
+  if (r.shrink && n.t % (r.shrinkEvery || 2) === 0) shrinkStep(n);
+  else if (showdown(n)) shrinkStep(n);
+}
+
+/**
+ * The showdown (Timothy, 2026-10-09: "stalemates happen, and maybe
+ * something should change when there are only two pieces left"). With
+ * rules.showdown on, once only two pieces are left on the board, one of
+ * yours and one of theirs, the edge falls away every move, round and
+ * inward. A square with a piece on it never falls, so the board closes in
+ * round them until they meet.
+ */
+export function showdown(s) {
+  if (!s.day.rules.showdown) return false;
+  const mine = s.pieces.filter((p) => !p.taken && p.type !== 'ball').length, theirs = s.foes.filter((f) => !f.taken).length;
+  return mine === 1 && theirs === 1;
 }
 
 /** The square that will fall next if the edge fell now, for drawing it
     faintly ahead of time. Null when nothing would. */
 export function nextShrink(s) {
-  if (!s.day.rules.shrink) return null;
+  if (!s.day.rules.shrink && !showdown(s)) return null;
   const c = clone(s);
   shrinkStep(c);
   return c.shrunk.length > s.shrunk.length ? c.shrunk[c.shrunk.length - 1] : null;

@@ -108,13 +108,13 @@ export function cleanMode(raw = {}) {
 export const MODES = {
   daily: {
     name: 'The daily', blurb: 'One board a day, the same for everyone: easy to win in a lot of moves, hard to win in a few.',
-    settings: { run: 'single', roll: 'daily', difficulty: 'normal', minEngage: 50, goal: 'all', maxMoves: 20 }
+    settings: { run: 'single', roll: 'daily', difficulty: 'normal', minEngage: 50, goal: 'all', royal: false, showdown: false, maxMoves: 20 }
   },
   descent: {
-    name: 'The descent', blurb: 'Four pieces, down and down. Each level you finish finds you another, up to six; then upgrades. A piece taken is gone for good, and the descent ends when they are all gone.',
+    name: 'The descent', blurb: 'Four pieces, your King among them, down and down. Take their King to fall to the next level, where you find another piece, up to six; then upgrades. A piece taken is gone for good, and if they take your King the descent is over.',
     settings: {
       run: 'descent', roll: 'fixed', startPieces: 4, maxPieces: 6, rewards: true, jokers: true, ramp: 'steady', outOfMoves: 'fall',
-      goal: 'all', w: 6, h: 6, foes: 2, foePool: ['king', 'wazir', 'ferz', 'knight'], darkBrain: 'possessed', rabbitMind: 'mind', iq: 3, kinds: 1,
+      goal: 'king', royal: true, showdown: true, w: 6, h: 6, foes: 2, foePool: ['king', 'wazir', 'ferz', 'knight'], darkBrain: 'possessed', rabbitMind: 'mind', iq: 3, kinds: 1,
       foesCapture: true, statues: 1, maxMoves: 20, lineup: true, parMin: 3, parMax: 10, difficulty: 'any'
     }
   },
@@ -125,7 +125,7 @@ export const MODES = {
   golf: {
     name: 'Golf', blurb: 'A course of holes. Your pieces are the walls, the ramps and, with some balls, the clubs; sink the ball in as few strokes as you can.',
     settings: {
-      run: 'course', roll: 'fixed', courseName: 'meadow', courseHoles: 9, goal: 'hole', foes: 0, rabbits: 1, rabbitsEat: false, rabbitMind: 'mind', traits: ['messy', 'shy', 'guard'], iq: 4,
+      run: 'course', roll: 'fixed', courseName: 'meadow', courseHoles: 9, goal: 'hole', royal: false, showdown: false, foes: 0, rabbits: 1, rabbitsEat: false, rabbitMind: 'mind', traits: ['messy', 'shy', 'guard'], iq: 4,
       mine: 3, minePool: ['rook', 'bishop', 'knight', 'king', 'wazir', 'ferz', 'grasshopper'], statues: 2, ballCaptures: false, holeMoves: 'still',
       maxMoves: 15, parMin: 3, parMax: 9, w: 6, h: 6, lineup: false, mineRows: 2, foeRows: 3, difficulty: 'any'
     }
@@ -134,7 +134,7 @@ export const MODES = {
     name: 'Autochess', blurb: 'Put rabbits in your pieces and let them fight. Win rounds to grow your side; lose three and it is over.',
     settings: {
       run: 'rounds', roll: 'fixed', mode: 'auto', autoPool: 'all', lives: 3, startPieces: 3, maxPieces: 6, rewards: true, shop: true, jokers: false,
-      goal: 'all', foes: 2, foePool: ['king', 'knight', 'bishop', 'wazir'], darkBrain: 'possessed', rabbitMind: 'mind', iq: 4, kinds: 2,
+      goal: 'all', royal: false, showdown: false, foes: 2, foePool: ['king', 'knight', 'bishop', 'wazir'], darkBrain: 'possessed', rabbitMind: 'mind', iq: 4, kinds: 2,
       maxMoves: 20, lineup: true, statues: 1, difficulty: 'any'
     }
   }
@@ -188,6 +188,9 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
     const fairy = FAIRY.filter((k) => !veto.includes(k));
     S = { ...crazy(rand, [...fairy, 'rabbit']), difficulty: M.difficulty, minEngage: M.minEngage, balance: 'on', solve: true };
     S.mode = 'hand'; // autochess is its own mode
+    // Chaos rolls everything but how you win: that is the mode's own
+    // (by default, take their King and keep yours, with the showdown).
+    if (M.roll === 'chaos') Object.assign(S, { goal: M.goal, royal: M.royal, showdown: M.showdown });
     if (M.roll === 'daily') Object.assign(S, { maxMoves: Math.max(S.maxMoves || 20, 18), parMin: 4, parMax: 10, minCeiling: 6 });
   }
 
