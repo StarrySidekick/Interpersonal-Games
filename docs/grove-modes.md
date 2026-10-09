@@ -109,6 +109,19 @@ anything, so a piece also has a job if it moves in the winning line
 (`unbalanced`, opt-in `oneCapture`, so the shipped daily dealers judge as
 they did).
 
+## They move one piece a turn (2026-10-09)
+
+Timothy: "the opposing team should only be able to move one piece a turn
+like we can." A side that thinks always made one move; a side moved by
+rabbits (minds or patterns) moved every piece every turn. Now
+(`oneMove`, "They move one piece a turn", on; settings version 10, so old
+links and the shipped dailies keep the old rule): if one of their pieces
+would take one of yours this turn, that one moves; otherwise their pieces
+take turns, in order (`oneFoeActs` in `rules.js`). Loose rabbits are not
+their side and still hop every turn; autochess keeps every piece moving,
+since yours do too. Measured after: the descent's climb tracks its aim
+better than before (depth 8 measured 4 to 6, aiming at 5; it was 5 to 7).
+
 ## Where pieces start (2026-10-09)
 
 Timothy: "pieces should start on the first row by default." Lined up (the

@@ -137,7 +137,7 @@ export const MODES = {
   autochess: {
     name: 'Autochess', blurb: 'Put rabbits in your pieces and let them fight. Win rounds to grow your side; lose three and it is over.',
     settings: {
-      run: 'rounds', roll: 'fixed', mode: 'auto', autoPool: 'all', lives: 3, startPieces: 3, maxPieces: 6, rewards: true, shop: true, jokers: false,
+      run: 'rounds', roll: 'fixed', mode: 'auto', autoPool: 'all', oneMove: false, lives: 3, startPieces: 3, maxPieces: 6, rewards: true, shop: true, jokers: false,
       goal: 'all', royal: false, showdown: false, foes: 2, foePool: ['king', 'knight', 'bishop', 'wazir'], darkBrain: 'possessed', rabbitMind: 'mind', iq: 4, kinds: 2,
       maxMoves: 20, lineup: true, statues: 1, difficulty: 'any'
     }

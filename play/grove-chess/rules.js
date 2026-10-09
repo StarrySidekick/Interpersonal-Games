@@ -562,7 +562,7 @@ export function initialState(day) {
 export function clone(s) {
   return { day: s.day, t: s.t, pieces: s.pieces.map((p) => ({ ...p })), foes: s.foes.map((f) => ({ ...f })),
     hole: s.hole ? { ...s.hole } : null, gone: s.gone.slice(), shrunk: s.shrunk ? s.shrunk.slice() : [], won: s.won, sunk: s.sunk,
-    bonus: s.bonus || null, treasure: s.treasure || 0 };
+    bonus: s.bonus || null, treasure: s.treasure || 0, ft: s.ft || 0 };
 }
 
 const youLook = (s) => (x, y) => look(s, x, y, 'you');
@@ -948,8 +948,47 @@ function holeHop(s) {
     pattern foe hops, then the hole moves. Mutates. */
 function foesAct(s) {
   for (const f of s.foes) { f.from = [f.x, f.y]; f.ate = -1; f.blocked = false; }
+  if (s.day.rules.oneMove) return oneFoeActs(s);
   if (s.foes.some((f) => !f.taken && f.brain === 'ai')) foeMove(s, think(s));
   if (!lost(s)) patternHops(s);
+  if (s.hole?.pattern && !lost(s)) holeHop(s);
+}
+
+/** One piece of theirs takes its step (its rabbit's mind, or its pattern). */
+function foeStep(s, k) {
+  const f = s.foes[k];
+  if (f.mind) mindStep(s, f, k, 'foe');
+  else if (f.brain === 'possessed') possessedStep(s, f);
+}
+
+/**
+ * Their turn, one piece at a time (Timothy, 2026-10-09: "the opposing team
+ * should only be able to move one piece a turn like we can"). A side that
+ * thinks makes its one best move, as it always did. A side moved by
+ * rabbits: if one of its pieces would take one of yours this turn, that
+ * one moves; otherwise they take turns, in order, so you can tell who goes
+ * next. Loose rabbits are not their side: they still hop every turn.
+ */
+function oneFoeActs(s) {
+  for (const f of s.foes) f.wounded = -1;
+  if (s.foes.some((f) => !f.taken && f.brain === 'ai')) foeMove(s, think(s));
+  else {
+    const side = s.foes.map((f, k) => k).filter((k) => !s.foes[k].taken && s.foes[k].type !== 'rabbit' && (s.foes[k].mind || s.foes[k].brain === 'possessed'));
+    if (side.length) {
+      const before = (c) => c.pieces.filter((p) => p.taken).length + c.foes.filter((f) => f.wounded >= 0).length;
+      const takes = side.find((k) => { const c = clone(s); foeStep(c, k); return before(c) > before(s); });
+      const k = takes ?? side[(s.ft || 0) % side.length];
+      foeStep(s, k);
+      s.ft = (s.ft || 0) + 1;
+    }
+  }
+  // Loose rabbits, as before.
+  s.foes.forEach((f, k) => {
+    if (f.taken || f.type !== 'rabbit' || lost(s)) return;
+    if (f.mind) mindStep(s, f, k, 'foe');
+    else if (f.brain === 'pattern') for (let h = 0; h < (f.hops || 1) && !lost(s); h++) hop(s, f);
+    else if (f.brain === 'possessed') possessedStep(s, f);
+  });
   if (s.hole?.pattern && !lost(s)) holeHop(s);
 }
 
@@ -1274,6 +1313,7 @@ export function stateKey(s) {
   let k = '';
   for (const p of s.pieces) k += p.taken ? '--' : p.x + ',' + p.y + (p.lives > 1 ? 'L' + p.lives : '') + (p.starUsed ? '*' : '') + ';';
   if (s.bonus) k += `|b${s.bonus.p}${s.bonus.cap ? 'c' : ''}`;
+  if (s.day.rules.oneMove) k += `|f${s.ft || 0}`; // whose turn it is on their side
   k += '|';
   for (const f of s.foes) k += f.taken ? '--' : f.x + ',' + f.y + ',' + f.i + (f.mx > 0 ? '+' : '-') + (f.my > 0 ? '+' : '-') + (f.idle ? 'i' + f.idle : '') + ';';
   if (s.hole) k += `|h${s.hole.x},${s.hole.y},${s.hole.i}${s.hole.mx > 0 ? '+' : '-'}${s.hole.my > 0 ? '+' : '-'}`;
