@@ -1,156 +1,207 @@
 // Daily boards for 2026-12, made by make-daily.mjs. A shipped board never changes.
 export default {
  "2026-12-01": {
-  "name": "Where the Marrow Listens",
-  "theme": "grove",
-  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsIm1pbkVuZ2FnZSI6NTAsIm1pbkNlaWxpbmciOjYsInciOjUsImgiOjUsInNoYXBlIjoiaG91cmdsYXNzIiwiaG9sZXMiOjQsImdyb3VuZCI6ImNydW1ibGUiLCJzaHJpbmtFdmVyeSI6MywibWFnaWMiOiJhbGwiLCJnZWFyZWQiOnRydWUsIm1pbmUiOjIsIm1pbmVQb29sIjpbInF1ZWVuIiwiYW1hem9uIl0sIm1pbmVSb3dzIjoxLCJyb3lhbCI6dHJ1ZSwiaXEiOjIsInRyYWl0cyI6WyJhZ2dyZXNzaXZlIl0sInJhYmJpdHMiOjIsInJhYmJpdEJyYWluIjoiYWkiLCJwYXR0ZXJucyI6ImRhaWx5IiwiaG9wcyI6MiwiZm9lcyI6MiwiZm9lUG9vbCI6WyJrbmlnaHQiLCJ6ZWJyYSIsImRhYmJhYmEiXSwiZm9lUm93cyI6Miwic2tpbGwiOiIxIiwiZ29hbCI6ImhvbGUiLCJtYXhNb3ZlcyI6MzAsInBhck1pbiI6NH0",
-  "v": 7,
-  "seed": 127462,
-  "par": 4,
+  "name": "The Bishop of Nowhere’s Choir",
+  "theme": "lichen",
+  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsImFpbSI6NCwibWluRW5nYWdlIjo1MCwibWluQ2VpbGluZyI6NiwidyI6NSwic3RhdHVlcyI6MSwibWluZSI6NSwibWluZVBvb2wiOlsia25pZ2h0IiwiYmlzaG9wIiwicm9vayIsInF1ZWVuIiwiZWxlcGhhbnQiLCJ0aWdlciJdLCJtaW5lRHVwZXMiOnRydWUsImlxIjo2LCJ0cmFpdHMiOlsibWVzc3kiLCJodW50ZXIiLCJndWFyZCJdLCJwYXR0ZXJucyI6ImxvbmciLCJmb2VzIjo1LCJraW5kcyI6MiwiZm9lUG9vbCI6WyJraW5nIiwicGF3biIsImtuaWdodCIsImJpc2hvcCIsInJvb2siLCJlbGVwaGFudCJdLCJzdHlsZSI6Imh1bnQiLCJtYXhNb3ZlcyI6MjUsInBhck1pbiI6NH0",
+  "v": 12,
+  "seed": 63465,
+  "par": 3,
   "measure": {
    "difficulty": 3,
-   "ceiling": 0.91,
-   "engagement": 79,
-   "winRate": 0.67,
-   "winLen": 7.6
+   "ceiling": 0.73,
+   "engagement": 62,
+   "winRate": 0.71,
+   "winLen": 5.2
   },
-  "rolls": 10,
-  "print": "16325ec4a47ec025"
+  "rolls": 8,
+  "print": "1ec18a531920afe6"
  },
  "2026-12-02": {
-  "name": "A Whispering Matter of Hats",
-  "theme": "grove",
-  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsIm1pbkVuZ2FnZSI6NTAsIm1pbkNlaWxpbmciOjYsInNocmlua0V2ZXJ5IjoxLCJzdGF0dWVzIjowLCJtaW5lIjozLCJtaW5lUG9vbCI6WyJyb29rIiwiYXJjaGJpc2hvcCIsImtpbmciLCJjYW5ub24iLCJ3YXppciJdLCJsaW5ldXAiOmZhbHNlLCJpcSI6NCwidHJhaXRzIjpbImh1bnRlciIsIm1lc3N5IiwiZ3VhcmQiLCJzaHkiXSwicmFiYml0cyI6MiwiZGFya0JyYWluIjoidGhpbmsiLCJmb2VQb29sIjpbInJhYmJpdCJdLCJmb2VEdXBlcyI6ZmFsc2UsIm1pcnJvciI6dHJ1ZSwic2tpbGwiOiIwIiwic3R5bGUiOiJodW50IiwiZ29hbCI6ImFsbCIsImJhbGxNb3ZlIjoiaGl0IiwibWF4TW92ZXMiOjE4LCJwYXJNaW4iOjR9",
-  "v": 7,
-  "seed": 355867,
-  "par": 6,
-  "measure": {
-   "difficulty": 4,
-   "ceiling": 1.16,
-   "engagement": 68,
-   "winRate": 0.67,
-   "winLen": 12.9
-  },
-  "rolls": 7,
-  "print": "9e61180659bc1118"
- },
- "2026-12-03": {
-  "name": "The Sugared Eel",
-  "theme": "tea",
-  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsIm1pbkVuZ2FnZSI6NTAsIm1pbkNlaWxpbmciOjYsInciOjQsImgiOjQsImhvbGVzIjo0LCJzaHJpbmtFdmVyeSI6MywibWluZSI6MiwibWluZVBvb2wiOlsiY2Fubm9uIiwic2lsdmVyIiwicGF3biIsImFtYXpvbiJdLCJpcSI6NiwidHJhaXRzIjpbImh1bnRlciIsInBhdHRlcm4iXSwicmFiYml0cyI6MiwicmFiYml0QnJhaW4iOiJhaSIsInBhdHRlcm5zIjoid2lsZCIsInJhYmJpdHNFYXQiOnRydWUsImZvZXMiOjQsImtpbmRzIjoyLCJmb2VQb29sIjpbImFyY2hiaXNob3AiLCJsYW5jZSJdLCJmb2VEdXBlcyI6ZmFsc2UsImZvZVJvd3MiOjEsInNraWxsIjoiMCIsInN0eWxlIjoiZmxlZSIsImZvZXNDYXB0dXJlIjpmYWxzZSwiaG9sZU1vdmVzIjoic3RpbGwiLCJwYXJNaW4iOjR9",
-  "v": 7,
-  "seed": 359409,
-  "par": 8,
-  "measure": {
-   "difficulty": 5,
-   "ceiling": 0.78,
-   "engagement": 83,
-   "winRate": 0.58,
-   "winLen": 14.2
-  },
-  "rolls": 16,
-  "print": "e71f1813a1e6e5e4"
- },
- "2026-12-04": {
-  "name": "Where the Sundial Hums",
-  "theme": "coral",
-  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsIm1pbkVuZ2FnZSI6NTAsIm1pbkNlaWxpbmciOjYsInNoYXBlIjoicm91bmQiLCJncm91bmQiOiJzcGlyYWwiLCJzaHJpbmtFdmVyeSI6MSwic3RhdHVlcyI6MSwibWluZSI6MiwibWluZVBvb2wiOlsiZGFiYmFiYSIsImtuaWdodCIsImJpc2hvcCIsIndhemlyIiwibmlnaHRyaWRlciIsImFsZmlsIl0sIm1pbmVSb3dzIjoxLCJpcSI6OCwidHJhaXRzIjpbInBhdHRlcm4iLCJodW50ZXIiLCJndWFyZCJdLCJwYXR0ZXJucyI6ImxvbmciLCJyYWJiaXRzRWF0Ijp0cnVlLCJmb2VzIjoyLCJmb2VQb29sIjpbInJhYmJpdCJdLCJmb2VEdXBlcyI6ZmFsc2UsIm1pcnJvciI6dHJ1ZSwiZm9lUm93cyI6Miwic2tpbGwiOiIwIiwic3R5bGUiOiJmbGVlIiwibWF4TW92ZXMiOjMwLCJwYXJNaW4iOjR9",
-  "v": 7,
-  "seed": 540256,
-  "par": 6,
-  "measure": {
-   "difficulty": 4,
-   "ceiling": 0.62,
-   "engagement": 61,
-   "winRate": 0.58,
-   "winLen": 9.7
-  },
-  "rolls": 32,
-  "print": "b0480c5a75a39b84"
- },
- "2026-12-05": {
-  "name": "Sundial of Five Buttons",
-  "theme": "ash",
-  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsIm1pbkVuZ2FnZSI6NTAsIm1pbkNlaWxpbmciOjYsImdyb3VuZCI6ImNydW1ibGUiLCJzdGF0dWVzIjozLCJtaW5lIjoyLCJtaW5lUG9vbCI6WyJwYXduIiwia2luZyIsInJvb2siXSwibWluZUR1cGVzIjp0cnVlLCJtaW5lUm93cyI6MSwiaXEiOjcsInRyYWl0cyI6WyJhZ2dyZXNzaXZlIiwiaHVudGVyIiwibWVzc3kiLCJwYXR0ZXJuIl0sInJhYmJpdHMiOjIsInJhYmJpdEJyYWluIjoiYWkiLCJwYXR0ZXJucyI6IndpbGQiLCJmb2VzIjoxLCJkYXJrQnJhaW4iOiJ0aGluayIsImZvZVBvb2wiOlsiZGFiYmFiYSIsImtuaWdodCIsInBhd24iLCJjaGFuY2VsbG9yIl0sImZvZVJvd3MiOjEsInNraWxsIjoiMCIsImdvYWwiOiJraW5nIiwiaG9sZU1vdmVzIjoic3RpbGwiLCJiYWxsTW92ZSI6ImJvdW5jZSIsIm1heE1vdmVzIjoyNSwicGFyTWluIjo0fQ",
-  "v": 7,
-  "seed": 868478,
-  "par": 5,
-  "measure": {
-   "difficulty": 3,
-   "ceiling": 0.77,
-   "engagement": 53,
-   "winRate": 0.83,
-   "winLen": 8.8
-  },
-  "rolls": 13,
-  "print": "4592197f6a84aa0b"
- },
- "2026-12-06": {
-  "name": "Aunt Wobble’s Spindle",
-  "theme": "lichen",
-  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsIm1pbkVuZ2FnZSI6NTAsIm1pbkNlaWxpbmciOjYsInNocmlua0V2ZXJ5IjozLCJtYWdpYyI6InNpZGVzIiwic3RhdHVlcyI6MywibWluZSI6MywibWluZVBvb2wiOlsiYW1hem9uIiwiemVicmEiLCJtYW8iLCJjYW5ub24iLCJkYWJiYWJhIiwicGF3biJdLCJtaW5lRHVwZXMiOnRydWUsIm1pbmVSb3dzIjoxLCJ3YWl0IjpmYWxzZSwiaXEiOjIsInRyYWl0cyI6WyJwYXR0ZXJuIl0sInJhYmJpdHMiOjIsInBhdHRlcm5zIjoiZGFpbHkiLCJmb2VzIjoyLCJkYXJrQnJhaW4iOiJ0aGluayIsImZvZVBvb2wiOlsiY2hhbmNlbGxvciIsImdyYXNzaG9wcGVyIl0sInNraWxsIjoiMCIsInN0eWxlIjoiaHVudCIsImJhbGxTdG9wcyI6dHJ1ZSwibWF4TW92ZXMiOjE4LCJwYXJNaW4iOjR9",
-  "v": 7,
-  "seed": 196062,
-  "par": 5,
+  "name": "Eel of Three Socks",
+  "theme": "moth",
+  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsImFpbSI6NCwibWluRW5nYWdlIjo1MCwibWluQ2VpbGluZyI6NiwidyI6NSwiZ3JvdW5kIjoic2hyaW5rIiwic2hyaW5rRXZlcnkiOjEsInN0YXR1ZXMiOjQsIm1pbmUiOjUsIm1pbmVQb29sIjpbImtuaWdodCIsImJpc2hvcCIsInJvb2siLCJxdWVlbiIsImFyY2hiaXNob3AiLCJlbGVwaGFudCJdLCJtaW5lRHVwZXMiOnRydWUsInJhYmJpdE1pbmQiOiJwYXR0ZXJuIiwiaXEiOjYsInRyYWl0cyI6WyJodW50ZXIiLCJhZ2dyZXNzaXZlIiwibWVzc3kiXSwicmFiYml0QnJhaW4iOiJhaSIsInBhdHRlcm5zIjoibWlkIiwicmFiYml0c0VhdCI6dHJ1ZSwiZm9lcyI6NSwiZGFya0JyYWluIjoidGhpbmsiLCJraW5kcyI6MywiZm9lUG9vbCI6WyJraW5nIiwicGF3biIsImtuaWdodCIsImJpc2hvcCIsInJvb2siLCJhcmNoYmlzaG9wIl0sInNraWxsIjoiMCIsImhvbGVNb3ZlcyI6InN0aWxsIiwiYmFsbE1vdmUiOiJoaXQiLCJwYXJNaW4iOjR9",
+  "v": 12,
+  "seed": 471235,
+  "par": 3,
   "measure": {
    "difficulty": 3,
    "ceiling": 1.19,
-   "engagement": 62,
+   "engagement": 54,
    "winRate": 0.75,
-   "winLen": 10.9
+   "winLen": 6.6
   },
-  "rolls": 25,
-  "print": "900c69ed4a0c2d8a"
+  "rolls": 7,
+  "print": "542136b6e2819acc"
  },
- "2026-12-07": {
-  "name": "A Hollow Matter of Clocks",
-  "theme": "ash",
-  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsIm1pbkVuZ2FnZSI6NTAsIm1pbkNlaWxpbmciOjYsImhvbGVzIjo0LCJncm91bmQiOiJzaHJpbmsiLCJtYWdpYyI6InNpZGVzIiwic3RhdHVlcyI6MywibWluZSI6MiwibWluZVBvb2wiOlsicm9vayIsIm5pZ2h0cmlkZXIiLCJhbWF6b24iLCJncmFzc2hvcHBlciJdLCJtaW5lUm93cyI6MSwiaXEiOjksInRyYWl0cyI6WyJwYXR0ZXJuIiwiaHVudGVyIiwiZ3VhcmQiXSwicmFiYml0QnJhaW4iOiJhaSIsInJhYmJpdHNFYXQiOnRydWUsImZvZXMiOjQsImZvZVBvb2wiOlsiYmlzaG9wIiwiZmVyeiIsInJvb2siLCJjYW5ub24iXSwiZm9lRHVwZXMiOmZhbHNlLCJmb2VSb3dzIjoxLCJza2lsbCI6IjEiLCJzdHlsZSI6Imh1bnQiLCJmb2VzQ2FwdHVyZSI6ZmFsc2UsImdvYWwiOiJraW5nIiwiaG9sZU1vdmVzIjoic2hvcnQiLCJiYWxsTW92ZSI6ImljZSIsInBhck1pbiI6NH0",
-  "v": 7,
-  "seed": 587805,
-  "par": 4,
+ "2026-12-03": {
+  "name": "Where the Lantern Argues",
+  "theme": "tea",
+  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsImFpbSI6NCwibWluRW5nYWdlIjo1MCwibWluQ2VpbGluZyI6NiwidyI6NSwiZ3JvdW5kIjoiY3J1bWJsZSIsInNocmlua0V2ZXJ5IjozLCJtYWdpYyI6InNpZGVzIiwic3RhdHVlcyI6MywibWluZSI6NSwibWluZVBvb2wiOlsia25pZ2h0IiwiYmlzaG9wIiwicm9vayIsInF1ZWVuIiwiemVicmEiLCJ3b29keSJdLCJtaW5lRHVwZXMiOnRydWUsImlxIjo0LCJ0cmFpdHMiOlsibWVzc3kiLCJhZ2dyZXNzaXZlIiwicGF0dGVybiIsImd1YXJkIl0sInBhdHRlcm5zIjoic2hvcnQiLCJmb2VzIjo1LCJmb2VQb29sIjpbImtpbmciLCJwYXduIiwia25pZ2h0IiwiYmlzaG9wIiwicm9vayIsInplYnJhIl0sInNraWxsIjoiMSIsImhvbGVNb3ZlcyI6Im1pZCIsImJhbGxNb3ZlIjoiaGl0IiwibWF4TW92ZXMiOjI1LCJwYXJNaW4iOjR9",
+  "v": 12,
+  "seed": 747608,
+  "par": 3,
+  "measure": {
+   "difficulty": 3,
+   "ceiling": 0.77,
+   "engagement": 57,
+   "winRate": 0.67,
+   "winLen": 5.3
+  },
+  "rolls": 6,
+  "print": "e60a96975abe03d5"
+ },
+ "2026-12-04": {
+  "name": "A Patient Matter of Puddles",
+  "theme": "moth",
+  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsImFpbSI6NCwibWluRW5nYWdlIjo1MCwibWluQ2VpbGluZyI6NiwiZ3JvdW5kIjoic2hyaW5rIiwic2hyaW5rRXZlcnkiOjEsInN0YXR1ZXMiOjAsIm1pbmUiOjYsIm1pbmVQb29sIjpbImtuaWdodCIsImJpc2hvcCIsInJvb2siLCJxdWVlbiIsImNhbWVsIiwiYXJjaGJpc2hvcCJdLCJtaW5lRHVwZXMiOnRydWUsInRyYWl0cyI6WyJodW50ZXIiXSwicmFiYml0QnJhaW4iOiJhaSIsImZvZXMiOjYsImtpbmRzIjoyLCJmb2VQb29sIjpbImtpbmciLCJwYXduIiwia25pZ2h0IiwiYmlzaG9wIiwicm9vayIsImNhbWVsIl0sInNraWxsIjoiMSIsInN0eWxlIjoiaHVudCIsImhvbGVNb3ZlcyI6InN0aWxsIiwiYmFsbE1vdmUiOiJoaXQiLCJiYWxsU3RvcHMiOnRydWUsInBhck1pbiI6NH0",
+  "v": 12,
+  "seed": 537474,
+  "par": 3,
+  "measure": {
+   "difficulty": 3,
+   "ceiling": 1.08,
+   "engagement": 60,
+   "winRate": 0.67,
+   "winLen": 6.3
+  },
+  "rolls": 2,
+  "print": "58ef0c888df71b2f"
+ },
+ "2026-12-05": {
+  "name": "Nobody’s Orchard",
+  "theme": "tea",
+  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsImFpbSI6NCwibWluRW5nYWdlIjo1MCwibWluQ2VpbGluZyI6NiwidyI6NSwibWluZSI6NSwibWluZVBvb2wiOlsia25pZ2h0IiwiYmlzaG9wIiwicm9vayIsInF1ZWVuIiwiZ3Jhc3Nob3BwZXIiLCJlbGVwaGFudCJdLCJtaW5lRHVwZXMiOnRydWUsImlxIjozLCJ0cmFpdHMiOlsiZ3VhcmQiXSwicmFiYml0QnJhaW4iOiJhaSIsInBhdHRlcm5zIjoibG9uZyIsImZvZXMiOjUsImtpbmRzIjoyLCJmb2VQb29sIjpbImtpbmciLCJwYXduIiwia25pZ2h0IiwiYmlzaG9wIiwicm9vayIsImdyYXNzaG9wcGVyIl0sInN0eWxlIjoiZmxlZSIsImJhbGxNb3ZlIjoiaGl0IiwibWF4TW92ZXMiOjE4LCJwYXJNaW4iOjR9",
+  "v": 12,
+  "seed": 100053,
+  "par": 3,
   "measure": {
    "difficulty": 4,
-   "ceiling": 1.96,
-   "engagement": 51,
-   "winRate": 0.58,
-   "winLen": 11.9
+   "ceiling": 0.82,
+   "engagement": 56,
+   "winRate": 0.54,
+   "winLen": 5.5
   },
-  "rolls": 30,
-  "print": "93d7897ac1aef305"
+  "rolls": 1,
+  "print": "2905b0b03fdf904f"
+ },
+ "2026-12-06": {
+  "name": "Where the Lantern Sulks",
+  "theme": "plum",
+  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsImFpbSI6NCwibWluRW5nYWdlIjo1MCwibWluQ2VpbGluZyI6NiwidyI6NSwiZ3JvdW5kIjoic3BpcmFsIiwibWluZSI6NSwibWluZVBvb2wiOlsia25pZ2h0IiwiYmlzaG9wIiwicm9vayIsInF1ZWVuIiwic3F1aXJyZWwiLCJ2YW8iXSwibWluZUR1cGVzIjp0cnVlLCJyYWJiaXRNaW5kIjoicGF0dGVybiIsImlxIjoyLCJ0cmFpdHMiOlsiYWdncmVzc2l2ZSIsIm1lc3N5IiwiZ3VhcmQiLCJodW50ZXIiXSwicGF0dGVybnMiOiJ3aWxkIiwiZm9lcyI6NSwiZm9lUG9vbCI6WyJraW5nIiwicGF3biIsImtuaWdodCIsImJpc2hvcCIsInJvb2siLCJzcXVpcnJlbCJdLCJza2lsbCI6IjAiLCJiYWxsTW92ZSI6ImhpdCIsIm1heE1vdmVzIjoxOCwicGFyTWluIjo0fQ",
+  "v": 12,
+  "seed": 717776,
+  "par": 4,
+  "measure": {
+   "difficulty": 3,
+   "ceiling": 0.73,
+   "engagement": 62,
+   "winRate": 0.83,
+   "winLen": 6.9
+  },
+  "rolls": 25,
+  "print": "7b91855d14d906f8"
+ },
+ "2026-12-07": {
+  "name": "Where the Ladder Sulks",
+  "theme": "grove",
+  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsImFpbSI6NCwibWluRW5nYWdlIjo1MCwibWluQ2VpbGluZyI6NiwiZ3JvdW5kIjoic2hyaW5rIiwic3RhdHVlcyI6MCwibWluZSI6NiwibWluZVBvb2wiOlsia25pZ2h0IiwiYmlzaG9wIiwicm9vayIsInF1ZWVuIiwiZ3Jhc3Nob3BwZXIiLCJ6ZWJyYSJdLCJtaW5lRHVwZXMiOnRydWUsImlxIjo5LCJ0cmFpdHMiOlsibWVzc3kiLCJwYXR0ZXJuIiwic2h5IiwiaHVudGVyIl0sImhvcHMiOjIsInJhYmJpdHNFYXQiOnRydWUsImZvZXMiOjYsImtpbmRzIjoyLCJmb2VQb29sIjpbImtpbmciLCJwYXduIiwia25pZ2h0IiwiYmlzaG9wIiwicm9vayIsImdyYXNzaG9wcGVyIl0sInN0eWxlIjoiaHVudCIsImhvbGVNb3ZlcyI6InN0aWxsIiwibWF4TW92ZXMiOjMwLCJwYXJNaW4iOjR9",
+  "v": 12,
+  "seed": 772466,
+  "par": 3,
+  "measure": {
+   "difficulty": 4,
+   "ceiling": 0.69,
+   "engagement": 68,
+   "winRate": 0.5,
+   "winLen": 5.1
+  },
+  "rolls": 6,
+  "print": "6335c23b2188ee63"
  },
  "2026-12-08": {
-  "name": "Where the Spindle Argues",
-  "theme": "moth",
-  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsIm1pbkVuZ2FnZSI6NTAsIm1pbkNlaWxpbmciOjYsInciOjcsImgiOjUsInNoYXBlIjoicm91bmQiLCJob2xlcyI6Mywic2hyaW5rRXZlcnkiOjEsInN0YXR1ZXMiOjMsIm1pbmUiOjIsIm1pbmVQb29sIjpbInNxdWlycmVsIiwia25pZ2h0Iiwic2lsdmVyIiwiemVicmEiLCJraW5nIl0sImxpbmV1cCI6ZmFsc2UsIm1pbmVSb3dzIjoxLCJyYWJiaXRNaW5kIjoicGF0dGVybiIsImlxIjo5LCJ0cmFpdHMiOlsibWVzc3kiLCJzaHkiLCJwYXR0ZXJuIiwiZ3VhcmQiXSwicmFiYml0cyI6MSwicGF0dGVybnMiOiJzaG9ydCIsImZvZXMiOjEsImRhcmtCcmFpbiI6InRoaW5rIiwiZm9lUG9vbCI6WyJyYWJiaXQiXSwiZm9lRHVwZXMiOmZhbHNlLCJza2lsbCI6IjAiLCJzdHlsZSI6ImZsZWUiLCJnb2FsIjoibWl4IiwiaG9sZU1vdmVzIjoibWlkIiwiYmFsbE1vdmUiOiJoaXQiLCJtYXhNb3ZlcyI6MjUsInBhck1pbiI6NH0",
-  "v": 7,
-  "seed": 557583,
-  "par": 4,
-  "measure": {
-   "difficulty": 3,
-   "ceiling": 1.22,
-   "engagement": 52,
-   "winRate": 0.79,
-   "winLen": 8.9
-  },
-  "rolls": 26,
-  "print": "5e638e6881cdc5d2"
- },
- "2026-12-09": {
-  "name": "The Mayor’s Doorknob",
+  "name": "Where the Choir Waits",
   "theme": "dusk",
-  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsIm1pbkVuZ2FnZSI6NTAsIm1pbkNlaWxpbmciOjYsInciOjQsImgiOjgsInNoYXBlIjoic3RhaXJzIiwiaG9sZXMiOjQsImdyb3VuZCI6InNwaXJhbCIsInN0YXR1ZXMiOjAsIm1pbmUiOjIsIm1pbmVQb29sIjpbInplYnJhIiwic2lsdmVyIiwiYWxmaWwiLCJjYW5ub24iXSwibWluZVJvd3MiOjEsInJveWFsIjp0cnVlLCJ3YWl0IjpmYWxzZSwiaXEiOjksInRyYWl0cyI6WyJtZXNzeSIsInNoeSIsImd1YXJkIl0sInJhYmJpdHMiOjEsInBhdHRlcm5zIjoic2hvcnQiLCJkYXJrQnJhaW4iOiJ0aGluayIsImtpbmRzIjoyLCJmb2VQb29sIjpbInJhYmJpdCJdLCJmb2VEdXBlcyI6ZmFsc2UsIm1pcnJvciI6dHJ1ZSwiZm9lUm93cyI6MSwiaG9sZU1vdmVzIjoic3RpbGwiLCJwYXJNaW4iOjR9",
-  "v": 7,
-  "seed": 42563,
-  "par": 4,
+  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsImFpbSI6NCwibWluRW5nYWdlIjo1MCwibWluQ2VpbGluZyI6NiwiZ3JvdW5kIjoiY3J1bWJsZSIsIm1pbmUiOjYsIm1pbmVQb29sIjpbImtuaWdodCIsImJpc2hvcCIsInJvb2siLCJxdWVlbiIsImtpcmluIiwicm9zZSJdLCJtaW5lRHVwZXMiOnRydWUsImlxIjo4LCJ0cmFpdHMiOlsiZ3VhcmQiLCJhZ2dyZXNzaXZlIiwicGF0dGVybiIsInNoeSJdLCJyYWJiaXRCcmFpbiI6ImFpIiwiaG9wcyI6MywiZm9lcyI6NiwiZm9lUG9vbCI6WyJraW5nIiwicGF3biIsImtuaWdodCIsImJpc2hvcCIsInJvb2siLCJraXJpbiJdLCJza2lsbCI6IjMiLCJob2xlTW92ZXMiOiJzdGlsbCIsImJhbGxNb3ZlIjoiYm91bmNlIiwiYmFsbFN0b3BzIjp0cnVlLCJtYXhNb3ZlcyI6MTgsInBhck1pbiI6NH0",
+  "v": 12,
+  "seed": 50574,
+  "par": 3,
+  "measure": {
+   "difficulty": 4,
+   "ceiling": 0.69,
+   "engagement": 66,
+   "winRate": 0.5,
+   "winLen": 5.1
+  },
+  "rolls": 3,
+  "print": "a0b304979ca9e21a"
+ },
+ "2026-12-17": {
+  "name": "Doorknob of Three Keys",
+  "theme": "coral",
+  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsImFpbSI6NCwibWluRW5nYWdlIjo1MCwibWluQ2VpbGluZyI6NiwidyI6NSwiZ3JvdW5kIjoic3BpcmFsIiwic2hyaW5rRXZlcnkiOjEsInN0YXR1ZXMiOjMsIm1pbmUiOjUsIm1pbmVQb29sIjpbImtuaWdodCIsImJpc2hvcCIsInJvb2siLCJxdWVlbiIsInRocmVlbGVhcGVyIiwiZWxlcGhhbnQiXSwibWluZUR1cGVzIjp0cnVlLCJyYWJiaXRNaW5kIjoicGF0dGVybiIsImlxIjozLCJ0cmFpdHMiOlsiZ3VhcmQiLCJtZXNzeSIsInBhdHRlcm4iXSwicmFiYml0QnJhaW4iOiJhaSIsInBhdHRlcm5zIjoiZGFpbHkiLCJyYWJiaXRzRWF0Ijp0cnVlLCJmb2VzIjo1LCJraW5kcyI6MywiZm9lUG9vbCI6WyJraW5nIiwicGF3biIsImtuaWdodCIsImJpc2hvcCIsInJvb2siLCJ0aHJlZWxlYXBlciJdLCJza2lsbCI6IjEiLCJzdHlsZSI6ImZsZWUiLCJob2xlTW92ZXMiOiJtaWQiLCJiYWxsU3RvcHMiOnRydWUsIm1heE1vdmVzIjoxOCwicGFyTWluIjo0fQ",
+  "v": 12,
+  "seed": 873449,
+  "par": 5,
   "measure": {
    "difficulty": 3,
-   "ceiling": 1.57,
-   "engagement": 53,
-   "winRate": 0.71,
-   "winLen": 10.3
+   "ceiling": 1.15,
+   "engagement": 73,
+   "winRate": 0.88,
+   "winLen": 10.8
   },
-  "rolls": 28,
-  "print": "df1a36d179b590e5"
+  "rolls": 5,
+  "print": "583fd41861aefb42"
+ },
+ "2026-12-18": {
+  "name": "Hatstand of Eleven Bells",
+  "theme": "plum",
+  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsImFpbSI6NCwibWluRW5nYWdlIjo1MCwibWluQ2VpbGluZyI6NiwidyI6NSwiZ3JvdW5kIjoic3BpcmFsIiwic2hyaW5rRXZlcnkiOjMsInN0YXR1ZXMiOjQsIm1pbmUiOjUsIm1pbmVQb29sIjpbImtuaWdodCIsImJpc2hvcCIsInJvb2siLCJxdWVlbiIsImFyY2hiaXNob3AiLCJyb3NlIl0sIm1pbmVEdXBlcyI6dHJ1ZSwicmFiYml0TWluZCI6InBhdHRlcm4iLCJpcSI6MywidHJhaXRzIjpbInNoeSIsImh1bnRlciIsImFnZ3Jlc3NpdmUiXSwicGF0dGVybnMiOiJsb25nIiwicmFiYml0c0VhdCI6dHJ1ZSwiZm9lcyI6NSwiZm9lUG9vbCI6WyJraW5nIiwicGF3biIsImtuaWdodCIsImJpc2hvcCIsInJvb2siLCJhcmNoYmlzaG9wIl0sInNraWxsIjoiMCIsInN0eWxlIjoiZmxlZSIsImhvbGVNb3ZlcyI6InN0aWxsIiwiYmFsbE1vdmUiOiJoaXQiLCJiYWxsU3RvcHMiOnRydWUsIm1heE1vdmVzIjozMCwicGFyTWluIjo0fQ",
+  "v": 12,
+  "seed": 148569,
+  "par": 5,
+  "measure": {
+   "difficulty": 3,
+   "ceiling": 1.02,
+   "engagement": 71,
+   "winRate": 0.67,
+   "winLen": 10.1
+  },
+  "rolls": 13,
+  "print": "9f485b43fca84040"
+ },
+ "2026-12-19": {
+  "name": "The Lodger’s Meadow",
+  "theme": "honey",
+  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsImFpbSI6NCwibWluRW5nYWdlIjo1MCwibWluQ2VpbGluZyI6NiwidyI6NSwiZ3JvdW5kIjoic3BpcmFsIiwic2hyaW5rRXZlcnkiOjEsIm1hZ2ljIjoic2lkZXMiLCJzdGF0dWVzIjo0LCJtaW5lIjo1LCJtaW5lUG9vbCI6WyJrbmlnaHQiLCJiaXNob3AiLCJyb29rIiwicXVlZW4iLCJjaGFuY2VsbG9yIiwiYXJjaGJpc2hvcCJdLCJtaW5lRHVwZXMiOnRydWUsImlxIjo5LCJ0cmFpdHMiOlsiaHVudGVyIiwic2h5IiwicGF0dGVybiJdLCJyYWJiaXRCcmFpbiI6ImFpIiwicGF0dGVybnMiOiJtaWQiLCJmb2VzIjo1LCJraW5kcyI6MiwiZm9lUG9vbCI6WyJraW5nIiwicGF3biIsImtuaWdodCIsImJpc2hvcCIsInJvb2siLCJjaGFuY2VsbG9yIl0sImJhbGxNb3ZlIjoiaWNlIiwibWF4TW92ZXMiOjE4LCJwYXJNaW4iOjR9",
+  "v": 12,
+  "seed": 60184,
+  "par": 3,
+  "measure": {
+   "difficulty": 4,
+   "ceiling": 0.74,
+   "engagement": 61,
+   "winRate": 0.58,
+   "winLen": 5.2
+  },
+  "rolls": 12,
+  "print": "d28d3599fb03099d"
+ },
+ "2026-12-20": {
+  "name": "Where the Wheelbarrow Forgets",
+  "theme": "rust",
+  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsImFpbSI6NCwibWluRW5nYWdlIjo1MCwibWluQ2VpbGluZyI6NiwiZ3JvdW5kIjoic2hyaW5rIiwic3RhdHVlcyI6NCwibWluZSI6NiwibWluZVBvb2wiOlsia25pZ2h0IiwiYmlzaG9wIiwicm9vayIsInF1ZWVuIiwiYW1hem9uIiwidGhyZWVsZWFwZXIiXSwibWluZUR1cGVzIjp0cnVlLCJpcSI6NywidHJhaXRzIjpbImd1YXJkIiwiYWdncmVzc2l2ZSJdLCJwYXR0ZXJucyI6IndpbGQiLCJob3BzIjoyLCJ0cmFja3MiOmZhbHNlLCJmb2VzIjo2LCJraW5kcyI6MiwiZm9lUG9vbCI6WyJraW5nIiwicGF3biIsImtuaWdodCIsImJpc2hvcCIsInJvb2siLCJhbWF6b24iXSwic3R5bGUiOiJmbGVlIiwiYmFsbE1vdmUiOiJpY2UiLCJiYWxsU3RvcHMiOnRydWUsIm1heE1vdmVzIjoxOCwicGFyTWluIjo0fQ",
+  "v": 12,
+  "seed": 823290,
+  "par": 3,
+  "measure": {
+   "difficulty": 4,
+   "ceiling": 0.77,
+   "engagement": 63,
+   "winRate": 0.54,
+   "winLen": 5.3
+  },
+  "rolls": 18,
+  "print": "43f051beef8eb7e9"
  }
 };
