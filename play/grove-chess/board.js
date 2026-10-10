@@ -9,8 +9,9 @@ import { Mesh, Model, snapshot } from '../../engine/lowpoly.js';
 import { model } from './models.js';
 import { brambleCount, onBoard, movesFor, holeOpen, nextShrink, PIECES, statueKind } from './rules.js';
 import * as sfx from './sounds.js';
+import { LOOK } from './config.js';
 
-const GREEN = '#b9dc9b', CREAM = '#f6efd7';
+const GREEN = LOOK.tileLight, CREAM = LOOK.tileDark; // config.js
 
 // Each kind of ground has its own look, so you can tell at a glance what the
 // board will do: solid is green and cream; crumbling is dry, cracked earth;
@@ -428,7 +429,7 @@ export class Board {
       if (tw?.mine?.[i]) ({ x, y } = tweenPos(tw.mine[i], at));
       let lift = 0;
       if (this.landing) { lift = this.landing(i, at); if (lift === null) return; }
-      things.push({ img: sprite(p.type), x, y, lift });
+      things.push({ img: sprite(p.type, p.side || 'you'), x, y, lift }); // (a demo of their piece sets side)
     });
     const marked = day.rules.goal === 'target' && day.foes.length > 1;
     s.foes.forEach((f, k) => {
@@ -745,12 +746,13 @@ export function scene(day, s = null, fur = () => null) {
   const gone = new Set(s?.gone || []), off = new Set(s?.shrunk || []);
   const here = (x, y) => onBoard(day, x, y) && !off.has(y * W + x), tile = (x, y) => here(x, y) && !gone.has(y * W + x);
   const slab = !day.holes.size && !off.size;
-  if (slab) m.addBox(-hw - 3, -4, -hh - 3, hw + 3, -1, hh + 3, '#5a3d26', 0, 1 << 3);
+  const R = LOOK.rimWidth;
+  if (slab && R > 0) m.addBox(-hw - R, -4, -hh - R, hw + R, -1, hh + R, LOOK.rim, 0, 1 << 3);
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       if (!here(x, y)) continue;
       // An odd-shaped board gets a base under each square instead of one slab.
-      if (!slab) m.addBox(x0(x) - 2, -4, z0(y) - 2, x0(x) + T + 2, -1, z0(y) + T + 2, '#5a3d26', 0, 1 << 3);
+      if (!slab && R > 0) m.addBox(x0(x) - R, -4, z0(y) - R, x0(x) + T + R, -1, z0(y) + T + R, LOOK.rim, 0, 1 << 3);
       if (!tile(x, y)) { m.addBox(x0(x), -1, z0(y), x0(x) + T, -0.9, z0(y) + T, PIT, 0, 1 << 3); continue; }
       // Hide the sides between neighbouring tiles; only the outer ones show.
       const skip = (1 << 3) | (tile(x + 1, y) ? 1 : 0) | (tile(x - 1, y) ? 2 : 0) |

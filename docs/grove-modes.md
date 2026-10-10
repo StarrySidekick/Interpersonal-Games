@@ -167,6 +167,83 @@ the cannon moves well but threatens 0.17 pieces on average, like a zebra.
   `board3d.js`). **The floor goes the same way**, the middle first, each
   square falling down and away, statues with them (`collapse`).
 
+## A batch from Timothy (2026-10-10)
+
+Each note, and what became of it. Settings are version 11: links and
+stored boards from version 10 and before read the new settings as they
+were (waiting on, their pieces free to stay put, no layout step), and
+`check-daily.mjs` passes.
+
+- **"Decent mode should give no upgrade when starting."** New run setting
+  "Waystones give upgrades at the start" (`keepsakes`), off. The depth 4
+  and 10 waystones still light, and say on the title that their upgrade is
+  off in the settings. The depth 7 waystone (one more piece) is unchanged.
+- **"The beginning of the descent should not really have any fairy
+  pieces in it, including on the enemy side."** New run setting "Fairy
+  pieces from depth" (`fairyFrom`), 4. Above it their pool keeps only
+  classic pieces (`classicUntil` in `modes.js`; the descent now starts
+  from king, pawn, knight and bishop, where it had wazir and ferz), and
+  what you find is two classic pieces (never a second King, which with a
+  royal King would be a second way to lose). From that depth on, the
+  wazir and ferz join their pool and finds are a classic and a fairy piece
+  as before.
+- **"If there's a new piece on the enemy side, it should also be
+  explained in the intro."** The opening now has a card for each kind of
+  theirs the first time it turns up, with the same demonstration as
+  yours, in their colour. A piece that moves the same for either side
+  shares one card (seeing your King, you are not shown theirs); one with a
+  forward (pawn, lance, the generals) has its own, moving down the board.
+- **"Nobody, including enemies, should be able to wait."** "Waiting
+  allowed" is off by default, and the "Wait a turn" button only shows when
+  it is allowed, when a suit left the turn open ("End turn"), or when
+  nothing can move ("Pass"). Their side: new setting "They may stay put"
+  (`foesWait`), off, which puts `foesMust` in the rules. With it, when
+  they move one piece a turn, the one whose turn it is moves even if its
+  rabbit would rather stay (a pause in a pattern, or no move its way: it
+  takes the move nearest where the rabbit pointed); if it has no move at
+  all, the next in order goes. Chaos still draws the dice for waiting, so
+  its other rolls are unchanged, but no longer lets you wait.
+- **The brown borders were too thick, and framed each square while
+  falling.** The rim is 1.2 tenths of a square, was 3 (`LOOK.rimWidth` in
+  `config.js`), and squares that are dropping in, falling or crumbling
+  have no rim of their own: the board assembles and collapses as bare
+  squares. Still, a shaped board keeps its outline.
+- **"Statues should be a unique model."** A standing stone with a spiral
+  cut in its face, moss at its foot, no plinth (it is not a piece), in
+  three shapes (`statue` in `models.js`).
+- **"Lay out your pieces when you start, in the first two rows."** New
+  level setting "Lay out your pieces first" (`arrange`), on (not in
+  autochess, which has its own setup). After the opening: tap a piece,
+  then a lit square in your first two rows, or another of yours to swap.
+  A square is lit only if nothing on either side could take on its first
+  move, the same balance rule the dealt layout keeps, so you cannot set up
+  a first-move win. If anything moved, par is worked out again for your
+  layout (one and a half seconds at most; if the solver runs out, the
+  level plays without a par).
+- **More fairy pieces, smaller and stranger, with their real records, to
+  be rethemed.** Thirteen new pieces and the settings console: both in
+  `docs/grove-pieces.md`.
+
+**The settings console.** An artifact,
+[Grove Chess Console](https://claude.ai/artifact/QDAPuPSH368u2TroPQ2QCf):
+every piece (record, name, words, in or out, notes), every mode's settings
+at its preset, and the look. What Timothy changes is saved in the
+artifact's database (`console/changes`). To push it: ask Claude to
+"apply the Grove Chess Console"; Claude reads that document and writes
+`play/grove-chess/config.js`, which the game reads at load (names and
+words in `rules.js`, presets in `modes.js`, off and on in the catalog,
+colours and the rim in `board.js`, `board3d.js` and `models.js`). The
+console's own source is `tools/settings-console/` (rebuild it after the
+game changes: `console-data.mjs`, `sprites.mjs`, `build.mjs`).
+
+Paths moved: mastery (a gentler, readable start: classic pieces first,
+their pieces explained, no waiting to stall with; the layout step adds a
+decision before move one), customization (the layout, and Timothy's own
+customization of the whole game through the console), collection
+(thirteen more pieces to find past depth 4). Notated: the intro cards
+(visual, written), the lit squares while laying out (visual), the drop
+sound and buzz on a placed piece (audial, touch).
+
 ## The modes
 
 **The daily.** One board a day, the same for everyone. Its own page and
@@ -211,7 +288,8 @@ bigger boards, stranger ground, as fast as "It gets harder" says. No hole,
 no ball: those are golf's now.
 
 **What carries between descents** (setting "What you find carries over",
-on by default). Every piece a descent finds joins **the roster**
+on by default; the keepsakes only with "Waystones give upgrades at the
+start", off since 2026-10-10). Every piece a descent finds joins **the roster**
 (`ig.grove.roster.v1`): tap a piece of the dealt hand on the title to swap
 it for any piece on it. **Waystones** are lit for good by the deepest
 depth reached, shown on the title as lit or not, and announced with a

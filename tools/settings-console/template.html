@@ -1,0 +1,453 @@
+<title>Grove Chess Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: a workbench. A sticky bar with the tabs and the save state, then one
+   column of rows you scan and open; the board preview sits beside the look
+   controls on wide screens and under them on a phone. */
+:root {
+  --bg: #efe6cf;        /* the game's deep cream */
+  --panel: #f8f2e2;
+  --sunk: #e4d8bb;
+  --line: #d2c39f;
+  --fg: #2b2418;
+  --dim: #6f6450;
+  --moss: #3f7a30;      /* yours */
+  --moss-ink: #f4f9ec;
+  --plum: #6c4795;      /* theirs */
+  --rim: #5a3d26;
+  --warn: #b0532f;
+  --display: 'Bricolage Grotesque', ui-rounded, system-ui, sans-serif;
+  --body: ui-rounded, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --r: 12px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #10150f; --panel: #171e16; --sunk: #0c100b; --line: #2b3628; --fg: #e6ecdf; --dim: #94a08c;
+  --moss: #86d9a8; --moss-ink: #062514; --plum: #b99ae0; --rim: #a57a52; --warn: #e2796f; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #10150f; --panel: #171e16; --sunk: #0c100b; --line: #2b3628; --fg: #e6ecdf; --dim: #94a08c;
+  --moss: #86d9a8; --moss-ink: #062514; --plum: #b99ae0; --rim: #a57a52; --warn: #e2796f; color-scheme: dark }
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.5 var(--body); padding: 0 16px 48px; }
+.wrap { max-width: 980px; margin: 0 auto; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
+h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 19px; font-weight: 700; }
+h3 { font-size: 15px; font-weight: 500; }
+.dim { color: var(--dim); }
+.small { font-size: 13px; }
+code, .mono { font-family: var(--mono); font-size: 12.5px; }
+.label { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim); font-weight: 600; }
+
+header { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); margin: 0 -16px; padding: 12px 16px 0; border-bottom: 1px solid var(--line); }
+.top { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; }
+.state { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; color: var(--dim); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+.dot.ok { background: var(--moss); } .dot.busy { background: #d9a43a; } .dot.bad { background: var(--warn); }
+nav { display: flex; gap: 4px; overflow-x: auto; margin-top: 10px; }
+nav button { font: 600 14px var(--body); color: var(--dim); background: none; border: 0; border-bottom: 3px solid transparent; padding: 8px 12px 9px; cursor: pointer; white-space: nowrap; }
+nav button[aria-selected="true"] { color: var(--fg); border-color: var(--moss); }
+nav .n { font: 12px var(--mono); color: var(--moss); margin-left: 4px; }
+
+main { padding-block: 18px; display: grid; gap: 16px; }
+button, select, input, textarea { font: inherit; color: inherit; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid var(--moss); outline-offset: 2px; }
+.btn { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; cursor: pointer; font-weight: 600; font-size: 13px; }
+.btn.primary { background: var(--moss); color: var(--moss-ink); border-color: var(--moss); }
+.btn.quiet { background: none; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px; font-size: 13px; background: none; cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+input[type=text], input[type=number], input[type=search], select, textarea { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; width: 100%; min-width: 0; }
+textarea { resize: vertical; min-height: 64px; }
+.intro { display: grid; gap: 6px; max-width: 68ch; }
+
+/* Pieces */
+.tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.tools input[type=search] { flex: 1 1 200px; width: auto; }
+.list { display: grid; gap: 6px; }
+details.piece { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); }
+details.piece[open] { border-color: var(--dim); }
+details.piece > summary { list-style: none; display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 8px 12px; cursor: pointer; }
+summary::-webkit-details-marker { display: none; }
+.sprite { width: 40px; height: 48px; image-rendering: pixelated; object-fit: contain; }
+.who { min-width: 0; display: grid; gap: 1px; }
+.who b { font-family: var(--display); font-weight: 500; font-size: 16px; }
+.who .rec { font-size: 12.5px; color: var(--dim); overflow-wrap: anywhere; }
+.meta { display: flex; gap: 10px; align-items: center; }
+.power { display: grid; gap: 3px; justify-items: end; font: 12px var(--mono); color: var(--dim); font-variant-numeric: tabular-nums; }
+.bar { width: 64px; height: 5px; background: var(--sunk); border-radius: 3px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--moss); }
+.tag { font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; padding: 2px 7px; border-radius: 5px; border: 1px solid var(--line); color: var(--dim); }
+.tag.off { color: var(--warn); border-color: var(--warn); }
+.tag.new { color: var(--plum); border-color: var(--plum); }
+.tag.changed { color: var(--moss); border-color: var(--moss); }
+.edit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; padding: 4px 14px 14px; border-top: 1px dashed var(--line); }
+.edit .field { display: grid; gap: 4px; align-content: start; }
+.edit .wide { grid-column: 1 / -1; }
+.facts { display: grid; gap: 6px; font-size: 13.5px; color: var(--dim); }
+.facts p { margin: 0; }
+.pair { display: flex; gap: 8px; align-items: center; }
+.pair img { width: 34px; height: 41px; image-rendering: pixelated; }
+.switch { display: inline-flex; gap: 8px; align-items: center; cursor: pointer; font-size: 14px; }
+.switch input { width: 18px; height: 18px; accent-color: var(--moss); }
+
+/* Modes */
+.group { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 4px 14px; }
+.group > h3 { padding: 10px 0 6px; }
+.row { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 6px 16px; padding: 10px 0; border-top: 1px solid var(--line); align-items: start; }
+.row:first-of-type { border-top: 0; }
+.row .what { display: grid; gap: 2px; min-width: 0; }
+.row .what b { font-weight: 600; }
+.row .help { font-size: 12.5px; color: var(--dim); }
+.row .ctl { display: grid; gap: 4px; min-width: 0; }
+.row .was { font-size: 12px; color: var(--dim); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.row.changed .what b::after { content: ' \2022'; color: var(--moss); }
+.row .reset { background: none; border: 0; color: var(--moss); cursor: pointer; font-size: 12px; padding: 0; text-decoration: underline; }
+.pick { display: flex; flex-wrap: wrap; gap: 4px; }
+.pick label { display: inline-flex; gap: 4px; align-items: center; border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; font-size: 12.5px; cursor: pointer; }
+.pick label:has(input:checked) { border-color: var(--moss); color: var(--fg); background: color-mix(in srgb, var(--moss) 14%, transparent); }
+.pick input { accent-color: var(--moss); margin: 0; }
+
+/* Look */
+.look { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+.look .group { padding-bottom: 8px; }
+.look canvas { width: 100%; max-width: 300px; aspect-ratio: 300 / 330; border-radius: var(--r); border: 1px solid var(--line); background: #1b2620; }
+input[type=color] { width: 44px; height: 32px; border: 1px solid var(--line); border-radius: 8px; padding: 2px; background: var(--panel); }
+
+/* Hand over */
+pre.file { background: var(--sunk); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; overflow-x: auto; font: 12.5px/1.55 var(--mono); max-height: 460px; }
+.summary { margin: 0; padding-left: 18px; display: grid; gap: 3px; }
+.empty { padding: 18px; border: 1px dashed var(--line); border-radius: var(--r); color: var(--dim); }
+.note { border-left: 3px solid var(--moss); padding: 6px 12px; background: var(--panel); border-radius: 0 8px 8px 0; }
+
+@media (max-width: 640px) {
+  .edit, .row, .look { grid-template-columns: minmax(0, 1fr); }
+  .bar { width: 44px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="top">
+      <h1>Grove Chess Console</h1>
+      <span class="state" id="state"><span class="dot" id="dot"></span><span id="statetext">Connecting…</span></span>
+    </div>
+    <nav role="tablist">
+      <button role="tab" id="t-pieces" aria-selected="true" data-tab="pieces">Pieces</button>
+      <button role="tab" id="t-modes" aria-selected="false" data-tab="modes">Modes</button>
+      <button role="tab" id="t-look" aria-selected="false" data-tab="look">Look</button>
+      <button role="tab" id="t-hand" aria-selected="false" data-tab="hand">Hand over<span class="n" id="count"></span></button>
+    </nav>
+  </header>
+
+  <main id="pieces" data-panel="pieces">
+    <div class="intro">
+      <p class="dim" style="margin:0">Every piece in the game, weakest first by power on the 6 × 6 board (the queen is 9). The record is the real fairy chess piece and its Betza notation; the name and words are what the game shows, and yours to change. Turn a piece off to keep it out of every deal.</p>
+    </div>
+    <div class="tools">
+      <input type="search" id="q" placeholder="Find a piece or a Betza code" aria-label="Find a piece">
+      <div class="chips" id="filters"></div>
+    </div>
+    <div class="list" id="plist"></div>
+  </main>
+
+  <main id="modes" data-panel="modes" hidden>
+    <div class="intro"><p class="dim" style="margin:0">A mode is a collection of settings. Each mode below shows only the settings it uses, at its preset. Change one and it is marked; the game takes it as that mode's new preset.</p></div>
+    <div class="chips" id="modechips"></div>
+    <p id="modeblurb" class="dim" style="margin:0"></p>
+    <div id="modegroups" style="display:grid;gap:12px"></div>
+  </main>
+
+  <main id="look" data-panel="look" hidden>
+    <div class="intro"><p class="dim" style="margin:0">Colours and sizes on the board. The sketch beside the controls is rough; the game draws the real thing.</p></div>
+    <div class="look">
+      <div class="group" id="lookgroup"><h3>The board and the pieces</h3></div>
+      <canvas id="preview" width="300" height="330" aria-label="A rough sketch of the board with these colours"></canvas>
+    </div>
+  </main>
+
+  <main id="hand" data-panel="hand" hidden>
+    <div class="intro">
+      <h2>Putting this in the game</h2>
+      <p class="note" style="margin:0">Your changes are saved here as you make them. To push them, tell Claude: <b>apply the Grove Chess Console</b>. Claude reads them from this page, writes <code>play/grove-chess/config.js</code>, tests and ships it. Or copy the file below and paste it in yourself.</p>
+    </div>
+    <div id="changelist"></div>
+    <div class="tools"><button class="btn primary" id="copy" type="button">Copy config.js</button><span class="small dim" id="copied" aria-live="polite"></span><button class="btn quiet" id="clearall" type="button">Clear every change…</button><span id="confirmbox" hidden><button class="btn" id="clearyes" type="button" style="border-color:var(--warn);color:var(--warn)">Yes, clear them</button> <button class="btn quiet" id="clearno" type="button">Keep them</button></span></div>
+    <pre class="file" id="file" tabindex="0"></pre>
+  </main>
+</div>
+
+<script>
+const DATA = /*DATA*/;
+const SPRITES = /*SPRITES*/;
+const NEW = ['gold', 'copper', 'leopard', 'tiger', 'kirin', 'phoenix', 'elephant', 'woody', 'alibaba', 'threeleaper', 'tripper', 'frog', 'vao'];
+const P = Object.fromEntries(DATA.pieces.map((p) => [p.id, p]));
+const LOOK_FIELDS = [
+  { key: 'tileLight', label: 'Light squares', type: 'color' }, { key: 'tileDark', label: 'Other squares', type: 'color' },
+  { key: 'rim', label: 'Rim', type: 'color' }, { key: 'rimWidth', label: 'Rim width', type: 'range', min: 0, max: 3, step: 0.1, help: 'In tenths of a square. It was 3, now 1.2.' },
+  { key: 'you', label: 'Your pieces', type: 'color' }, { key: 'foe', label: 'Their pieces', type: 'color' },
+  { key: 'statue', label: 'Statues', type: 'color' }, { key: 'fog', label: 'The forest round the board', type: 'color' }
+];
+
+// --- State: only what differs from the game as shipped. ---------------------
+let C = { pieces: {}, modes: {}, look: {} };
+const clone = (o) => JSON.parse(JSON.stringify(o));
+const el = (tag, attrs = {}, ...kids) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v == null || v === false) continue;
+    if (k.startsWith('on')) e.addEventListener(k.slice(2), v); else if (k === 'text') e.textContent = v; else e.setAttribute(k, v === true ? '' : v);
+  }
+  for (const k of kids.flat()) if (k != null) e.append(k);
+  return e;
+};
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+function prune() {
+  for (const [id, o] of Object.entries(C.pieces)) { for (const k of Object.keys(o)) if (o[k] === '' || o[k] == null || o[k] === false) delete o[k]; if (!Object.keys(o).length) delete C.pieces[id]; }
+  for (const [id, o] of Object.entries(C.modes)) { for (const k of Object.keys(o)) if (same(o[k], DATA.modes[id].values[k])) delete o[k]; if (!Object.keys(o).length) delete C.modes[id]; }
+  for (const k of Object.keys(C.look)) if (same(C.look[k], DATA.look[k])) delete C.look[k];
+}
+const changeCount = () => Object.keys(C.pieces).length + Object.values(C.modes).reduce((n, o) => n + Object.keys(o).length, 0) + Object.keys(C.look).length;
+
+// --- Saving: the artifact's db, or this browser if that is not there. --------
+let db = null, ref = null, canWrite = true, saving = false, again = false, timer = null;
+function setState(kind, text) { document.getElementById('dot').className = 'dot ' + kind; document.getElementById('statetext').textContent = text; }
+function changed() {
+  prune(); paintCount(); paintHand();
+  clearTimeout(timer); timer = setTimeout(save, 700);
+  setState('busy', 'Saving…');
+}
+async function save() {
+  if (!canWrite) return setState('bad', 'Read only: changes are not kept');
+  if (saving) { again = true; return; }
+  saving = true;
+  const body = { ...clone(C), updated: new Date().toISOString() };
+  try {
+    if (ref) await ref.set(body);
+    else { try { localStorage.setItem('grove-console', JSON.stringify(body)); } catch { /* blocked */ } }
+    setState('ok', ref ? 'Saved' : 'Saved in this browser only');
+  } catch (e) {
+    if (e?.code === 'invalid_argument') { canWrite = false; setState('bad', 'Read only: you cannot change these'); }
+    else setState('bad', 'Not saved. Change something again to retry.');
+  }
+  saving = false;
+  if (again) { again = false; save(); }
+}
+async function connect() {
+  try { const s = JSON.parse(localStorage.getItem('grove-console')); if (s) load(s); } catch { /* none */ }
+  db = await window.claude?.use?.('db');
+  if (!db) { setState('ok', 'Saving in this browser only'); return; }
+  const user = await window.claude.use('user');
+  if (user && user.canEdit && user.canEdit() === false) { canWrite = false; }
+  ref = db.doc('console/changes');
+  let first = true;
+  ref.onSnapshot((snap) => {
+    if (snap.metadata.hasPendingWrites) return;
+    if (snap.exists) { load(snap.data()); paintAll(); }
+    if (first) { first = false; setState(canWrite ? 'ok' : 'bad', canWrite ? (snap.exists ? 'Saved' : 'Nothing changed yet') : 'Read only'); }
+  }, () => setState('bad', 'Lost the connection: reload to keep saving'));
+}
+function load(s) { C = { pieces: clone(s.pieces || {}), modes: clone(s.modes || {}), look: clone(s.look || {}) }; }
+
+// --- Tabs. --------------------------------------------------------------------
+document.querySelectorAll('nav button').forEach((b) => b.addEventListener('click', () => show(b.dataset.tab)));
+function show(tab) {
+  document.querySelectorAll('nav button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
+  document.querySelectorAll('[data-panel]').forEach((m) => { m.hidden = m.dataset.panel !== tab; });
+  try { localStorage.setItem('grove-console-tab', tab); } catch { /* blocked */ }
+  if (tab === 'look') drawPreview();
+}
+function paintCount() { const n = changeCount(); document.getElementById('count').textContent = n ? String(n) : ''; }
+
+// --- Pieces. ------------------------------------------------------------------
+let filter = 'all';
+const FILTERS = [['all', 'All'], ['classic', 'Classic'], ['fairy', 'Fairy'], ['new', 'New'], ['changed', 'Changed'], ['off', 'Off']];
+const isOff = (id) => (C.pieces[id]?.off ?? null) !== null ? !!C.pieces[id].off : P[id].offByDefault;
+function paintFilters() {
+  const box = document.getElementById('filters');
+  box.replaceChildren(...FILTERS.map(([k, label]) => el('button', { class: 'chip', type: 'button', 'aria-pressed': String(filter === k), onclick: () => { filter = k; paintFilters(); paintPieces(); } }, label)));
+}
+function paintPieces() {
+  const q = document.getElementById('q').value.trim().toLowerCase();
+  const maxP = Math.max(...DATA.pieces.map((p) => p.power || 0));
+  const open = new Set([...document.querySelectorAll('details.piece[open]')].map((d) => d.dataset.id));
+  const rows = DATA.pieces.filter((p) => {
+    const c = C.pieces[p.id];
+    if (filter === 'classic' && p.kind !== 'classic') return false;
+    if (filter === 'fairy' && p.kind !== 'fairy') return false;
+    if (filter === 'new' && !NEW.includes(p.id)) return false;
+    if (filter === 'changed' && !c) return false;
+    if (filter === 'off' && !isOff(p.id)) return false;
+    if (q && ![p.id, p.record, c?.name || '', p.betza].some((s) => String(s).toLowerCase().includes(q))) return false;
+    return true;
+  }).map((p) => pieceRow(p, maxP, open.has(p.id)));
+  document.getElementById('plist').replaceChildren(...(rows.length ? rows : [el('p', { class: 'empty' }, 'No piece matches. Clear the search or pick another filter.')]));
+}
+function pieceRow(p, maxP, isOpen) {
+  const c = C.pieces[p.id] || {};
+  const name = c.name || p.record, off = isOff(p.id);
+  const set = (k, v) => { C.pieces[p.id] = { ...(C.pieces[p.id] || {}), [k]: v }; changed(); };
+  const offBox = el('input', { type: 'checkbox', id: `in-${p.id}`, checked: !off, onchange: (e) => {
+    // Only a change from how it ships is kept: in by default, or off by default.
+    const wantOff = !e.target.checked;
+    const o = { ...(C.pieces[p.id] || {}) };
+    if (wantOff === p.offByDefault) delete o.off; else o.off = wantOff ? true : 'in';
+    C.pieces[p.id] = o; changed(); paintPieces();
+  } });
+  const d = el('details', { class: 'piece', 'data-id': p.id, open: isOpen },
+    el('summary', {},
+      el('img', { class: 'sprite', src: SPRITES[p.id]?.you, alt: '' }),
+      el('div', { class: 'who' }, el('b', {}, name), el('span', { class: 'rec' }, c.name ? `${p.record} · ` : '', el('span', { class: 'mono' }, p.betza))),
+      el('div', { class: 'meta' },
+        NEW.includes(p.id) ? el('span', { class: 'tag new' }, 'New') : null,
+        C.pieces[p.id] ? el('span', { class: 'tag changed' }, 'Changed') : null,
+        off ? el('span', { class: 'tag off' }, 'Off') : null,
+        el('span', { class: 'power', title: 'Power on the 6 × 6 board' }, (p.power ?? 0).toFixed(2), el('span', { class: 'bar' }, el('i', { style: `width:${Math.round(100 * (p.power || 0) / maxP)}%` }))))),
+    el('div', { class: 'edit' },
+      el('div', { class: 'field' }, el('label', { class: 'label', for: `nm-${p.id}` }, 'Name in the game'),
+        el('input', { type: 'text', id: `nm-${p.id}`, value: c.name || '', placeholder: p.record, onchange: (e) => set('name', e.target.value.trim()) })),
+      el('div', { class: 'field' }, el('span', { class: 'label' }, 'In the game'),
+        el('label', { class: 'switch', for: `in-${p.id}` }, offBox, off ? 'Off: dealt nowhere' : 'In: can be dealt')),
+      el('div', { class: 'field wide' }, el('label', { class: 'label', for: `ds-${p.id}` }, 'What the game says it does'),
+        el('textarea', { id: `ds-${p.id}`, placeholder: p.desc, onchange: (e) => set('desc', e.target.value.trim()) }, c.desc || '')),
+      el('div', { class: 'field wide' }, el('label', { class: 'label', for: `nt-${p.id}` }, 'Notes and theme ideas'),
+        el('textarea', { id: `nt-${p.id}`, placeholder: 'Anything for the next build: a theme, a model, a rule change.', onchange: (e) => set('note', e.target.value.trim()) }, c.note || '')),
+      el('div', { class: 'facts wide' },
+        el('div', { class: 'pair' }, el('img', { src: SPRITES[p.id]?.you, alt: 'Yours' }), el('img', { src: SPRITES[p.id]?.foe, alt: 'Theirs' }),
+          el('span', { class: 'small' }, `Record: the ${p.record} (${p.kind}), `, el('code', {}, p.betza), `. Strength about ${p.strength} pawns on 8 × 8; power ${p.power} on 6 × 6.`)),
+        p.patent ? el('p', {}, p.patent) : null,
+        p.origin ? el('p', {}, p.origin) : null,
+        p.history ? el('p', {}, p.history) : null)));
+  return d;
+}
+document.getElementById('q').addEventListener('input', paintPieces);
+
+// --- Modes. -------------------------------------------------------------------
+let mode = 'descent';
+const FIELD = Object.fromEntries(DATA.groups.flatMap((g) => g.fields.map((f) => [f.key, f])));
+const pieceName = (id) => C.pieces[id]?.name || P[id]?.record || id;
+function show1(v, f) {
+  if (f.type === 'bool') return v ? 'On' : 'Off';
+  if (f.type === 'choice') return f.options.find((o) => o.v === v)?.label ?? String(v);
+  if (f.type === 'multi') return (v || []).map((x) => f.options.find((o) => o.v === x)?.label ?? x).join(', ');
+  if (f.type === 'pieces') return (v || []).map((x) => (x === 'rabbit' ? 'Rabbit' : pieceName(x))).join(', ');
+  return `${v}${f.unit ? ' ' + f.unit : ''}`;
+}
+function paintModes() {
+  document.getElementById('modechips').replaceChildren(...Object.entries(DATA.modes).map(([id, m]) =>
+    el('button', { class: 'chip', type: 'button', 'aria-pressed': String(id === mode), onclick: () => { mode = id; paintModes(); } }, m.name,
+      C.modes[id] ? el('span', { class: 'mono', style: 'margin-left:5px' }, String(Object.keys(C.modes[id]).length)) : null)));
+  const M = DATA.modes[mode];
+  document.getElementById('modeblurb').textContent = M.blurb;
+  const groups = DATA.groups.map((g) => {
+    const keys = g.fields.map((f) => f.key).filter((k) => M.shown.includes(k));
+    if (!keys.length) return null;
+    return el('section', { class: 'group' }, el('h3', {}, g.group), ...keys.map((k) => settingRow(FIELD[k], M)));
+  }).filter(Boolean);
+  document.getElementById('modegroups').replaceChildren(...groups);
+}
+function settingRow(f, M) {
+  const base = M.values[f.key], over = C.modes[mode]?.[f.key], v = over !== undefined ? over : base, isChanged = over !== undefined;
+  const put = (val) => { C.modes[mode] = { ...(C.modes[mode] || {}), [f.key]: val }; changed(); paintModes(); };
+  const id = `m-${mode}-${f.key}`;
+  let ctl;
+  if (f.type === 'bool') ctl = el('label', { class: 'switch', for: id }, el('input', { type: 'checkbox', id, checked: !!v, onchange: (e) => put(e.target.checked) }), v ? 'On' : 'Off');
+  else if (f.type === 'int') ctl = el('input', { type: 'number', id, min: f.min, max: f.max, value: v, onchange: (e) => { const n = Math.max(f.min, Math.min(f.max, Math.round(+e.target.value))); if (Number.isFinite(n)) put(n); } });
+  else if (f.type === 'choice') ctl = el('select', { id, onchange: (e) => put(e.target.value) }, ...f.options.map((o) => el('option', { value: o.v, selected: o.v === v }, o.label)));
+  else {
+    const opts = f.type === 'multi' ? f.options : [...DATA.pieces.map((p) => ({ v: p.id, label: pieceName(p.id) })), ...(f.key === 'foePool' ? [{ v: 'rabbit', label: 'Rabbit' }] : [])];
+    const now = new Set(v || []);
+    ctl = el('div', { class: 'pick', id }, ...opts.map((o) => el('label', {}, el('input', { type: 'checkbox', checked: now.has(o.v), onchange: (e) => {
+      const next = new Set(now); if (e.target.checked) next.add(o.v); else next.delete(o.v);
+      if (!next.size) { e.target.checked = true; return; }
+      put(opts.map((x) => x.v).filter((x) => next.has(x)));
+    } }), o.label)));
+  }
+  return el('div', { class: `row${isChanged ? ' changed' : ''}` },
+    el('div', { class: 'what' }, el('b', {}, f.label), f.help ? el('span', { class: 'help' }, f.help) : null),
+    el('div', { class: 'ctl' }, ctl, el('div', { class: 'was' }, isChanged ? el('span', {}, `Preset: ${show1(base, f)}`) : null,
+      isChanged ? el('button', { class: 'reset', type: 'button', onclick: () => { delete C.modes[mode][f.key]; changed(); paintModes(); } }, 'Back to the preset') : null)));
+}
+
+// --- Look. ----------------------------------------------------------------------
+const lookOf = () => ({ ...DATA.look, ...C.look });
+function paintLook() {
+  const L = lookOf(), box = document.getElementById('lookgroup');
+  box.replaceChildren(el('h3', {}, 'The board and the pieces'), ...LOOK_FIELDS.map((f) => {
+    const id = `l-${f.key}`, isChanged = C.look[f.key] !== undefined;
+    const put = (val) => { C.look[f.key] = val; changed(); paintLook(); drawPreview(); };
+    const ctl = f.type === 'color'
+      ? el('div', { class: 'pair' }, el('input', { type: 'color', id, value: L[f.key], oninput: (e) => { C.look[f.key] = e.target.value; drawPreview(); }, onchange: (e) => put(e.target.value) }), el('code', {}, L[f.key]))
+      : el('div', { class: 'pair' }, el('input', { type: 'range', id, min: f.min, max: f.max, step: f.step, value: L[f.key], style: 'flex:1', oninput: (e) => { C.look[f.key] = +e.target.value; drawPreview(); }, onchange: (e) => put(+e.target.value) }), el('code', {}, (+L[f.key]).toFixed(1)));
+    return el('div', { class: `row${isChanged ? ' changed' : ''}` },
+      el('div', { class: 'what' }, el('label', { for: id }, el('b', {}, f.label)), f.help ? el('span', { class: 'help' }, f.help) : null),
+      el('div', { class: 'ctl' }, ctl, isChanged ? el('div', { class: 'was' }, el('span', {}, `Was ${f.type === 'color' ? DATA.look[f.key] : DATA.look[f.key].toFixed(1)}`),
+        el('button', { class: 'reset', type: 'button', onclick: () => { delete C.look[f.key]; changed(); paintLook(); drawPreview(); } }, 'Put it back')) : null));
+  }));
+}
+function drawPreview() {
+  const cv = document.getElementById('preview'), g = cv.getContext('2d'), L = lookOf();
+  const N = 6, sq = 40, rim = (L.rimWidth / 10) * sq, ox = (300 - N * sq) / 2, oy = 34;
+  g.fillStyle = L.fog; g.fillRect(0, 0, 300, 330);
+  g.fillStyle = L.rim; g.fillRect(ox - rim, oy - rim, N * sq + rim * 2, N * sq + rim * 2);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { g.fillStyle = (x + y) % 2 ? L.tileDark : L.tileLight; g.fillRect(ox + x * sq, oy + y * sq, sq, sq); }
+  const disc = (x, y, col) => { g.fillStyle = col; g.beginPath(); g.ellipse(ox + x * sq + sq / 2, oy + y * sq + sq * 0.62, sq * 0.3, sq * 0.16, 0, 0, Math.PI * 2); g.fill();
+    g.fillRect(ox + x * sq + sq * 0.36, oy + y * sq + sq * 0.15, sq * 0.28, sq * 0.45); g.beginPath(); g.arc(ox + x * sq + sq / 2, oy + y * sq + sq * 0.16, sq * 0.15, 0, Math.PI * 2); g.fill(); };
+  [1, 2, 3, 4].forEach((x) => disc(x, 5, L.you));
+  [2, 3].forEach((x) => disc(x, 0, L.foe));
+  g.fillStyle = L.statue; g.fillRect(ox + 3 * sq + sq * 0.3, oy + 2 * sq + sq * 0.05, sq * 0.4, sq * 0.8);
+  g.fillStyle = 'rgba(0,0,0,.35)'; g.font = '600 12px system-ui'; g.fillText('Rough sketch', 10, 320);
+}
+
+// --- Hand over. -------------------------------------------------------------------
+function fileText() {
+  const out = { pieces: {}, modes: clone(C.modes), look: clone(C.look) };
+  for (const [id, o] of Object.entries(C.pieces)) {
+    const x = {};
+    if (o.name) x.name = o.name;
+    if (o.desc) x.desc = o.desc;
+    if (o.off === true) x.off = true;
+    if (o.off === 'in') x.on = true;
+    if (o.note) x.note = o.note;
+    if (Object.keys(x).length) out.pieces[id] = x;
+  }
+  const body = JSON.stringify(out, null, 2).replace(/"([a-zA-Z_][a-zA-Z0-9_]*)":/g, '$1:');
+  return DATA.template.replace('/*CONFIG*/', `export const CONFIG = ${body};`);
+}
+function paintHand() {
+  const items = [];
+  for (const [id, o] of Object.entries(C.pieces)) {
+    const bits = [];
+    if (o.name) bits.push(`called ${o.name}`);
+    if (o.desc) bits.push('new words');
+    if (o.off === true) bits.push('off');
+    if (o.off === 'in') bits.push('back in');
+    if (o.note) bits.push('a note');
+    items.push(`${P[id].record}: ${bits.join(', ')}`);
+  }
+  for (const [id, o] of Object.entries(C.modes)) for (const [k, v] of Object.entries(o)) items.push(`${DATA.modes[id].name}, ${FIELD[k]?.label || k}: ${show1(v, FIELD[k] || {})}`);
+  for (const [k, v] of Object.entries(C.look)) items.push(`Look, ${LOOK_FIELDS.find((f) => f.key === k)?.label || k}: ${v}`);
+  document.getElementById('changelist').replaceChildren(items.length
+    ? el('div', { style: 'display:grid;gap:6px' }, el('span', { class: 'label' }, `${items.length} change${items.length === 1 ? '' : 's'}`), el('ul', { class: 'summary' }, ...items.map((t) => el('li', {}, t))))
+    : el('p', { class: 'empty' }, 'No changes yet. Rename a piece, turn one off, or change a mode’s setting, and it shows up here.'));
+  document.getElementById('file').textContent = fileText();
+}
+document.getElementById('copy').addEventListener('click', async () => {
+  const t = fileText(), msg = document.getElementById('copied');
+  try { await navigator.clipboard.writeText(t); msg.textContent = 'Copied.'; }
+  catch { const r = document.createRange(); r.selectNodeContents(document.getElementById('file')); getSelection().removeAllRanges(); getSelection().addRange(r); msg.textContent = 'Selected: copy it with your keyboard or menu.'; }
+});
+document.getElementById('clearall').addEventListener('click', () => { document.getElementById('confirmbox').hidden = false; });
+document.getElementById('clearno').addEventListener('click', () => { document.getElementById('confirmbox').hidden = true; });
+document.getElementById('clearyes').addEventListener('click', () => { C = { pieces: {}, modes: {}, look: {} }; document.getElementById('confirmbox').hidden = true; changed(); paintAll(); });
+
+function paintAll() { paintFilters(); paintPieces(); paintModes(); paintLook(); paintCount(); paintHand(); drawPreview(); }
+paintAll();
+try { const t = localStorage.getItem('grove-console-tab'); if (t) show(t); } catch { /* blocked */ }
+connect();
+</script>

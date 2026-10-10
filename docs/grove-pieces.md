@@ -161,9 +161,11 @@ piece, not the forest theming of the game." The audit:
 | Rose | a rose | kept | Named for the flower its circling path draws. |
 | Archbishop | a mitre with ears | kept | Capablanca's bishop-knight. |
 
-**Statues** (2026-10-07) are any classic piece's shape in grey stone,
-`STONE` in `models.js`, on a stone plinth: no side's colour, since they
-belong to nobody.
+**Statues** were any classic piece's shape in grey stone (2026-10-07).
+Since 2026-10-10 (Timothy: "statues should be a unique model, not like a
+gray version of another model") a statue is a standing stone of its own:
+a spiral cut in its face, moss at its foot, no plinth, in one of three
+shapes (`statue` in `models.js`). Its colour is `LOOK.statue`.
 
 **Colour** (Timothy: "enemy pieces should be purple, and friendly pieces
 should be green for now, just clearly distinguish them. The rabbit inside
@@ -172,3 +174,38 @@ colour: green for yours, purple for theirs, fairy pieces included (they
 used to keep their own animal colours). The plinth is the rabbit's: a piece
 with a rabbit inside stands on its rabbit's colour, and one without stands
 on plain stone. One palette in `models.js` (`YOU` and `FOE`) does it all.
+
+## Smaller and stranger pieces, and records (2026-10-10)
+
+Timothy: "more fairy chess pieces that represent smaller kinds of move
+sets and various things that might be even more unconventional ... the
+record of what the actual fairy chess piece is, but then we're going to
+retheme it ourselves." Thirteen, all from their Betza notation alone
+(`betza-check.mjs` now covers 37 pieces), none in the daily's pinned list:
+
+| Piece | Betza | Strength | From |
+|---|---|---|---|
+| Gold general | `WfF` | 3 | shogi |
+| Copper general | `vWfF` | 2 | chu shogi |
+| Ferocious leopard | `FvW` | 2¾ | chu shogi |
+| Blind tiger | `FsbW` | 2¾ | chu shogi |
+| Kirin | `FD` | 2½ | chu shogi |
+| Phoenix | `WA` | 2¾ | chu shogi |
+| Elephant | `FA` | 2¼ | modern variants |
+| Woody rook | `WD` | 2¾ | Betza's Chess with Different Armies |
+| Alibaba | `AD` | 2½ | fairy chess catalogues |
+| Threeleaper | `H` | 1¼ | the (3,0) leaper |
+| Tripper | `G` | 1 | the (3,3) leaper |
+| Frog | `FH` | 2¼ | fairy chess catalogues |
+| Vao | `mBcpB` | 2½ | xiangqi variants; off by default, like the cannon (it needs a screen) |
+
+Each has its own model (the shogi ones are wedges with their own marks)
+and a history in `history.js`. Strengths are estimates; power on 6 by 6
+is measured as for every piece.
+
+**Records.** Every piece keeps `record`, its real fairy chess name, set
+before anything renames it. The name the game shows, and the words for
+what it does, can be changed in `config.js` (the settings console,
+`docs/grove-modes.md`); the catalog then says "In fairy chess: the
+Ferocious leopard (FvW)." No piece is renamed yet: that is Timothy's to
+decide in the console.

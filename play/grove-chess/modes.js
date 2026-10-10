@@ -18,6 +18,7 @@
 
 import { clean, defaults as levelDefaults, crazy, SCHEMA, FAIRY } from './lab.js';
 import { PIECES } from './rules.js';
+import { CONFIG } from './config.js';
 
 const opts = (...pairs) => pairs.map(([v, label]) => ({ v, label }));
 
@@ -63,7 +64,8 @@ export const RUN_SCHEMA = [
     { key: 'rewards', label: 'Finishing a level finds you something', type: 'bool', def: true,
       help: 'A new piece while you have room; once your hand is full, an upgrade: a suit, fusing two pieces, or a joker. Pieces of theirs you take are claimed, and can be combined with yours after the level.' },
     { key: 'jokers', label: 'Jokers can turn up', type: 'bool', def: true, help: 'Rules for the rest of a run: Double Time, Foresight, Recruiter, Lazy Rabbits, Overtime.' },
-    { key: 'findPool', label: 'Pieces you can find', type: 'pieces', def: ['king', 'knight', 'bishop', 'rook', 'queen', 'wazir', 'ferz', 'alfil', 'dabbaba', 'mao', 'zebra', 'camel', 'grasshopper', 'cannon', 'silver', 'lance', 'squirrel', 'rose', 'nightrider', 'archbishop', 'chancellor'],
+    { key: 'findPool', label: 'Pieces you can find', type: 'pieces', def: ['king', 'knight', 'bishop', 'rook', 'queen', 'wazir', 'ferz', 'alfil', 'dabbaba', 'mao', 'zebra', 'camel', 'grasshopper', 'cannon', 'silver', 'lance', 'squirrel', 'rose', 'nightrider', 'archbishop', 'chancellor',
+      'gold', 'copper', 'leopard', 'tiger', 'kirin', 'phoenix', 'elephant', 'woody', 'alibaba', 'threeleaper', 'tripper', 'frog', 'vao'],
       help: 'What a run offers when it finds a piece. Pieces vetoed in the catalog are left out anyway.' },
     { key: 'startDifficulty', label: 'First level\u2019s difficulty', type: 'int', min: 1, max: 10, def: 1, unit: 'of 10',
       help: 'For a descent. The first level is found at this difficulty (measured: a novice bot plays it two dozen times), and every level after aims a little higher, as fast as "It gets harder" says.' },
@@ -73,6 +75,10 @@ export const RUN_SCHEMA = [
       help: 'For a descent. Off: every level is the board size set below (6 by 6). On: a row and a column more every few levels, up to 8 by 8.' },
     { key: 'carry', label: 'What you find carries over', type: 'bool', def: true,
       help: 'For a descent. Every piece you find joins your roster, and you can start a later descent with any of them. Going deeper lights waystones for good: at depth 4 every descent starts with an upgrade, at depth 7 with one more piece, at depth 10 with two upgrades.' },
+    { key: 'keepsakes', label: 'Waystones give upgrades at the start', type: 'bool', def: false,
+      help: 'For a descent. Off (Timothy, 2026-10-10: "decent mode should give no upgrade when starting"): every descent starts with only its pieces. On: the waystones at depth 4 and 10 each give an upgrade of your choice before the first level.' },
+    { key: 'fairyFrom', label: 'Fairy pieces from depth', type: 'int', min: 1, max: 20, def: 4,
+      help: 'For a descent. Above this depth only classic pieces turn up, on either side and among what you find, so a new player first meets pieces whose moves they know (Timothy, 2026-10-10). 1: fairy pieces from the start.' },
     { key: 'shop', label: 'Spend acorns in a shop', type: 'bool', def: false,
       help: 'For autochess rounds. Each round earns acorns (three for a win, one for a loss, one per piece of theirs taken), spent between rounds on pieces and upgrades in place of a free pick.' },
     { key: 'outOfMoves', label: 'Out of moves', type: 'choice', def: 'fall', options: opts(['fall', 'Fall on, with nothing found'], ['end', 'Ends the run']),
@@ -118,7 +124,7 @@ export const MODES = {
     name: 'The descent', blurb: 'Four pieces, your King among them, down and down. Take their King to fall to the next level, where you find another piece, up to six; then upgrades. A piece taken is gone for good, and if they take your King the descent is over.',
     settings: {
       run: 'descent', roll: 'fixed', startPieces: 4, maxPieces: 6, rewards: true, jokers: true, ramp: 'steady', outOfMoves: 'fall',
-      goal: 'king', royal: true, showdown: true, w: 6, h: 6, foes: 2, foePool: ['king', 'wazir', 'ferz', 'knight'], darkBrain: 'possessed', rabbitMind: 'mind', iq: 3, kinds: 1,
+      goal: 'king', royal: true, showdown: true, w: 6, h: 6, foes: 2, foePool: ['king', 'pawn', 'knight', 'bishop'], darkBrain: 'possessed', rabbitMind: 'mind', iq: 3, kinds: 1,
       foesCapture: true, statues: 1, maxMoves: 20, lineup: true, parMin: 3, parMax: 10, difficulty: 'any'
     }
   },
@@ -143,6 +149,9 @@ export const MODES = {
     }
   }
 };
+
+// Timothy's changes to the presets, from config.js (the settings console).
+for (const [id, over] of Object.entries(CONFIG.modes || {})) if (MODES[id] && over) Object.assign(MODES[id].settings, over);
 
 /** A mode's preset, as full settings. */
 export const modeDefaults = (id) => cleanMode({ ...levelDefaults(), ...(MODES[id]?.settings || {}) });
@@ -180,7 +189,7 @@ const SHOWN = {
   // The session.
   startPieces: runIs('descent', 'rounds'), maxPieces: runIs('descent', 'rounds'), startPool: runIs('descent', 'rounds'),
   rewards: runIs('descent', 'rounds'), jokers: runIs('descent', 'rounds'), findPool: runIs('descent', 'rounds'), ramp: runIs('descent', 'rounds'),
-  carry: runIs('descent'), startDifficulty: runIs('descent'), boardGrows: runIs('descent'), outOfMoves: runIs('descent'),
+  carry: runIs('descent'), keepsakes: (S) => S.run === 'descent' && S.carry, fairyFrom: runIs('descent'), startDifficulty: runIs('descent'), boardGrows: runIs('descent'), outOfMoves: runIs('descent'),
   shop: runIs('rounds'), lives: runIs('rounds'),
   courseName: runIs('course'), courseHoles: (S) => S.run === 'course' && S.courseName === 'mixed', balls: (S) => S.run === 'course' && S.courseName === 'mixed',
   // How you play: autochess's own.
@@ -188,6 +197,7 @@ const SHOWN = {
   // Difficulty: the descent aims for its own, level by level.
   difficulty: (S) => S.run !== 'descent', aim: (S) => S.run !== 'descent',
   // Your side: a run brings its own hand.
+  arrange: (S) => S.run !== 'rounds',
   mine: (S) => !['descent', 'rounds'].includes(S.run), minePool: (S) => !['descent', 'rounds'].includes(S.run), mineDupes: (S) => !['descent', 'rounds'].includes(S.run),
   royal: (S) => S.run !== 'course',
   // Pieces can always take pieces: a setting for the workshop only.
@@ -215,6 +225,14 @@ export const PANEL = [...RUN_SCHEMA, ...SCHEMA];
 // --- The settings for the next level. ---------------------------------------
 
 const RAMP = { gentle: 0.6, steady: 1, steep: 1.6 };
+
+/** A foe pool with no fairy pieces while `early`; otherwise with `more`
+    added. Never empty: the King stays. */
+function classicUntil(early, pool, more = []) {
+  const all = [...new Set(early ? pool : [...pool, ...more])];
+  const out = early ? all.filter((k) => PIECES[k]?.kind !== 'fairy') : all;
+  return out.length ? out : ['king'];
+}
 /** How much higher each descent level aims, in difficulty points. */
 const AIM_STEP = { gentle: 0.35, steady: 0.6, steep: 1 };
 
@@ -257,7 +275,11 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
       w: M.boardGrows ? Math.min(8, M.w + Math.floor(d * k / 3)) : M.w, h: M.boardGrows ? Math.min(8, M.h + Math.floor(d * k / 3)) : M.h,
       foes: Math.min(7, M.foes + Math.floor(d * k / 4)), iq: Math.min(10, M.iq + Math.floor(d * k * 0.35)),
       kinds: Math.min(4, M.kinds + Math.floor(d * k / 3)),
-      foePool: d * k < 3 ? M.foePool : d * k < 7 ? [...M.foePool, 'knight', 'bishop'] : d * k < 11 ? [...M.foePool, 'knight', 'bishop', 'rook', 'camel'] : [...M.foePool, 'rook', 'bishop', 'knight', 'queen', 'archbishop'],
+      // Fairy pieces only from "Fairy pieces from depth" on: before it,
+      // theirs are all classic (2026-10-10). After it, the small ones
+      // that used to start the descent (wazir, ferz) come back in.
+      foePool: classicUntil(depth < M.fairyFrom, d * k < 3 ? M.foePool : d * k < 7 ? [...M.foePool, 'knight', 'bishop'] : d * k < 11 ? [...M.foePool, 'knight', 'bishop', 'rook', 'camel'] : [...M.foePool, 'rook', 'bishop', 'knight', 'queen', 'archbishop'],
+        ['wazir', 'ferz']),
       ground: d * k < 2 ? M.ground : pick([M.ground, M.ground, 'crumble', 'shrink', 'spiral']),
       shape: d * k < 3 ? M.shape : pick([M.shape, M.shape, 'diamond', 'round', 'cross', 'cheese']),
       statues: Math.min(4, M.statues + Math.floor(d * k / 3)),

@@ -12,6 +12,20 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
+## 2026-10-10: a batch of descent notes, and a settings console
+
+From Timothy: no upgrade at the start of a descent, no fairy pieces early
+on either side, their new pieces explained in the opening, nobody waits,
+a thinner rim, statues of their own, laying out your pieces, and more
+small fairy pieces with their real records so he can retheme them. All
+built; what each became is in `docs/grove-modes.md` ("A batch from
+Timothy"). He also asked for an artifact holding every setting, so he has
+granular control without opening the game: the
+[Grove Chess Console](https://claude.ai/artifact/QDAPuPSH368u2TroPQ2QCf).
+His changes there go into the game when he asks Claude to apply them
+(`play/grove-chess/config.js`). **Theming the pieces' names is his, in the
+console; do not rename pieces on his behalf.**
+
 ## 2026-10-06: hone in on what is actually fun
 
 Recorded from Timothy's own description. **The goal right now is to make

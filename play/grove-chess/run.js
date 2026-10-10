@@ -134,8 +134,19 @@ export function promotion(base, veto = []) {
  * find, a classic one and a fairy one of about the same strength, both
  * stronger the deeper you are. With a full hand: three upgrade cards.
  */
-export function rewardsFor(run, rand, veto = []) {
+export function rewardsFor(run, rand, veto = [], fairy = true) {
   const pick = (a) => a[Math.floor(rand() * a.length)];
+  if (run.hand.length < run.maxPieces && !fairy) {
+    // Too early for fairy pieces (the descent's "Fairy pieces from depth"):
+    // two classic pieces, as strong as the depth allows. Never a King: with
+    // a royal King, a second one would be a second way to lose.
+    const cap = 3.5 + run.depth * 0.8;
+    const classic = findable(veto).filter((k) => PIECES[k].kind === 'classic' && !['pawn', 'king'].includes(k));
+    const near = classic.filter((k) => powerOf(k) <= cap);
+    const pool = near.length >= 2 ? near : classic;
+    const a = pick(pool), b = pick(pool.filter((k) => k !== a)) || a;
+    return [{ kind: 'piece', type: a }, ...(b !== a ? [{ kind: 'piece', type: b }] : [])];
+  }
   if (run.hand.length < run.maxPieces) {
     // Matched by power on the board the descent plays on (power.js), not
     // by a strength measured on an empty 8 by 8 board.
