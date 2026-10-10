@@ -10,8 +10,9 @@ import { rng } from '../../../engine/seed.js';
 import * as sfx from '../sounds.js';
 import {
   PIECES, descOf, CRUMBLE_DESC, SHRINK_DESC, STUMP_DESC, HOLE_DESC, movesFor, playerMove, respond, isOver, outcome, initialState,
-  allMoves, holeOpen, crumbled, shrunk, apply, showdown
+  allMoves, holeOpen, crumbled, shrunk, apply, showdown, firstCaptures, onBoard
 } from '../rules.js';
+import { solveLevel } from '../solve.js';
 import { scene, sceneFrame, sprite } from '../board.js';
 import { piecesSheet } from '../sheet.js';
 import { playIntro } from '../intro.js';
@@ -252,14 +253,106 @@ async function startLevel() {
   hud();
   handRow($('#playhand'));
   $('#setup').hidden = true;
+  $('#arrange').hidden = true; arranging = null;
   $('#controls').hidden = true;
   busy = true;
   await playIntro(board, level, { section: $('[data-screen=play]'), seen: session.seen, goal: goalCard() });
   busy = false;
   if (isAuto()) return setUp();
+  if (level.settings.arrange && level.pieces.length) await arrange();
   $('#controls').hidden = false;
   status(`${levelWord()} ${session.n}. ${GOAL_PILL[level.goalKind] || ''}.`);
   select(null);
+}
+
+// --- Laying out your pieces (2026-10-10). --------------------------------------
+// Timothy: "you should be able to lay out your pieces when you start on the
+// board where you want them in the first two rows." Before the first move:
+// tap a piece, then a square in your first two rows (or another piece of
+// yours, to swap). A square is offered only if, with the piece there,
+// nothing on either side could take on its first move, the same balance
+// rule the dealt layout keeps. Par was found for the dealt layout, so if
+// anything moved it is worked out again.
+
+let arranging = null;
+
+/** Your first two rows' squares that are free to stand on. */
+function homeSquares() {
+  const rows = [...new Set(Array.from({ length: level.H }, (_, y) => y).filter((y) => Array.from({ length: level.W }, (_, x) => x).some((x) => onBoard(level, x, y))))].slice(0, 2);
+  const out = [];
+  for (const y of rows) for (let x = 0; x < level.W; x++) {
+    if (!onBoard(level, x, y) || level.stumps.has(y * level.W + x)) continue;
+    if (level.foes.some((f) => f.x === x && f.y === y) || (level.hole && level.hole.x === x && level.hole.y === y)) continue;
+    out.push({ x, y });
+  }
+  return out;
+}
+
+/** The layout with piece i at (x, y), swapping with whoever stands there. */
+function placed(spots, i, x, y) {
+  const out = spots.map((p) => ({ ...p })), j = out.findIndex((p, k) => k !== i && p.x === x && p.y === y);
+  if (j >= 0) { out[j].x = out[i].x; out[j].y = out[i].y; }
+  out[i].x = x; out[i].y = y;
+  return out;
+}
+
+/** Does this layout let anything take on its first move? Then not allowed. */
+function clashes(spots) {
+  const was = level.pieces.map((p) => ({ x: p.x, y: p.y }));
+  spots.forEach((p, i) => { level.pieces[i].x = p.x; level.pieces[i].y = p.y; });
+  const { yours, theirs } = firstCaptures(initialState(level));
+  was.forEach((p, i) => { level.pieces[i].x = p.x; level.pieces[i].y = p.y; });
+  return yours.length || theirs.length ? { yours, theirs } : null;
+}
+
+function arrange() {
+  const dealt = level.pieces.map((p) => ({ x: p.x, y: p.y })), home = homeSquares();
+  let spots = dealt.map((p) => ({ ...p })), picked = null;
+  const paint = () => {
+    spots.forEach((p, i) => { level.pieces[i].x = p.x; level.pieces[i].y = p.y; });
+    game.states = [initialState(level)];
+    const lit = picked == null ? [] : home.filter((q) => !(spots[picked].x === q.x && spots[picked].y === q.y) && !clashes(placed(spots, picked, q.x, q.y)))
+      .map((q) => ({ ...q, cap: false }));
+    sel = picked; legal = lit;
+    board.draw({ state: now(), track: game.states, sel, legal });
+  };
+  $('#controls').hidden = true;
+  $('#arrange').hidden = false;
+  status('Lay out your pieces.');
+  info('Tap a piece of yours, then where it should start.');
+  paint();
+  return new Promise((resolve) => {
+    arranging = (c) => {
+      const i = spots.findIndex((p) => p.x === c.x && p.y === c.y);
+      if (picked != null && legal.some((m) => m.x === c.x && m.y === c.y)) {
+        spots = placed(spots, picked, c.x, c.y); picked = null; haptic(8); sfx.drop?.(0);
+        info('Tap a piece of yours, then where it should start.');
+      } else if (i >= 0) {
+        picked = picked === i ? null : i;
+        if (picked != null) info(`${nameOf(level.pieces[i])}: ${descOf(level.pieces[i].type, level.rules)} The lit squares are where it may start.`);
+      } else if (picked != null && home.some((q) => q.x === c.x && q.y === c.y)) {
+        const why = clashes(placed(spots, picked, c.x, c.y));
+        info(why?.yours.length ? 'Not there: something of yours could take one of theirs on its first move.' : 'Not there: one of theirs could take one of yours on its first move.');
+        return;
+      } else { picked = null; info('Only your first two rows. Tap a piece of yours.'); }
+      paint();
+    };
+    $('#arrangereset').onclick = () => { spots = dealt.map((p) => ({ ...p })); picked = null; paint(); };
+    $('#arrangepieces').onclick = () => openSheet?.();
+    $('#arrangego').onclick = async () => {
+      arranging = null; sel = null; legal = [];
+      $('#arrange').hidden = true;
+      if (spots.some((p, i) => p.x !== dealt[i].x || p.y !== dealt[i].y) && par != null) {
+        status('Working out par for your layout…');
+        await sleep(30);
+        const r = solveLevel(level, { deadline: Date.now() + 1500 });
+        par = r.par;
+        hud();
+      }
+      game.states = [initialState(level)];
+      resolve();
+    };
+  });
 }
 
 /** What a turn a suit left open says. */
@@ -271,7 +364,11 @@ function bonusLine(s) {
 
 function select(i) {
   sel = i;
-  $('#wait').textContent = now().bonus ? 'End turn' : 'Wait a turn';
+  // Waiting is off by default (2026-10-10): the button shows only when it
+  // is allowed, when a suit left the turn open, or when nothing can move.
+  const passOk = allMoves(now()).some((m) => m.p === -1);
+  $('#wait').hidden = !passOk;
+  $('#wait').textContent = now().bonus ? 'End turn' : now().day.rules.wait ? 'Wait a turn' : 'Pass (nothing can move)';
   legal = i == null ? [] : movesFor(now(), i);
   if (i == null) info(level.hole ? (holeOpen(now()) ? 'Tap a piece to see where it can go. The hole is open.' : 'Tap a piece to see where it can go. The hole opens once every rabbit is caught.') : 'Tap a piece to light up where it can go.');
   else {
@@ -340,6 +437,7 @@ $('#board').addEventListener('click', (e) => {
   if (!board || busy || isOver(now())) return;
   const c = board.cellAt(e);
   if (!c) return;
+  if (arranging) return arranging(c);
   if (isAuto()) { if (!$('#setup').hidden) panel?.pickAt(c.x, c.y); return; }
   const { x, y } = c, s = now();
   if (sel != null) { const m = legal.find((m) => m.x === x && m.y === y); if (m) return play({ p: sel, x, y }); }
@@ -440,7 +538,7 @@ async function levelOver(end) {
   if (lit.length) { sfx.fanfare(3); haptic([30, 40, 30, 40, 60]); }
   const sub = (won ? '' : 'Nothing found on the way down this time. ')
     + (recruited ? `Your first catch, the ${PIECES[recruited].name.toLowerCase()}, comes with you. ` : '')
-    + lit.map((w) => `A waystone is lit at depth ${w.depth}: ${w.text}`).join(' ');
+    + lit.map((w) => `A waystone is lit at depth ${w.depth}: ${w.text}${w.id.startsWith('keepsake') && !M.keepsakes ? ' (Off for now: "Waystones give upgrades at the start" in the settings.)' : ''}`).join(' ');
   return between({ note: `Depth ${session.n}`, sub, rewards: won && M.rewards, extra: won ? end.treasure || 0 : 0, combine: won, fall: true });
 }
 
@@ -480,7 +578,8 @@ async function between({ note, sub = '', rewards = false, extra = 0, combine = f
 
 /** Offer the rewards for a finished level; resolves once one is taken. */
 function reward({ k = 0, note = null, cards: given = null } = {}) {
-  const run = session.run, cards = (given || rewardsFor(run, rng(`reward:${session.seed}:${session.n}${k ? ':' + k : ''}`), catalog.vetoed))
+  const fairy = M.run !== 'descent' || session.n >= M.fairyFrom;
+  const run = session.run, cards = (given || rewardsFor(run, rng(`reward:${session.seed}:${session.n}${k ? ':' + k : ''}`), catalog.vetoed, fairy))
     .filter((c) => c.kind !== 'joker' || M.jokers)
     .filter((c) => c.kind !== 'piece' || M.findPool.includes(c.type));
   if (!cards.length) return Promise.resolve();
@@ -756,9 +855,10 @@ function waystoneList() {
   box.hidden = !carries();
   if (box.hidden) return;
   for (const w of WAYSTONES) {
-    const lit = deepest() >= w.depth;
+    const lit = deepest() >= w.depth, idle = w.id.startsWith('keepsake') && !M.keepsakes;
     box.append(el('div', { class: `waystone${lit ? ' lit' : ''}` }, el('span', { class: 'stone', 'aria-hidden': 'true' }, lit ? '◆' : '◇'),
-      el('span', {}, el('b', {}, `Depth ${w.depth}: ${w.name}. `), lit ? w.text : `Reach depth ${w.depth} to light it.`)));
+      el('span', {}, el('b', {}, `Depth ${w.depth}: ${w.name}. `), lit ? w.text : `Reach depth ${w.depth} to light it.`,
+        idle ? ' (Off in this mode\u2019s settings: "Waystones give upgrades at the start".)' : '')));
   }
 }
 
@@ -795,7 +895,7 @@ $('#resetsettings').onclick = () => { resetModeSettings(modeId); M = modeSetting
 $('#begin').onclick = async () => {
   haptic(12);
   // Keepsakes from the waystones: upgrades of your choice before the first level.
-  const n = carries() ? litWaystones(deepest()).filter((w) => w.id.startsWith('keepsake')).length : 0;
+  const n = carries() && M.keepsakes ? litWaystones(deepest()).filter((w) => w.id.startsWith('keepsake')).length : 0;
   if (n && session.run) {
     show('between');
     $('#betweennote').textContent = 'The waystones';
@@ -821,4 +921,4 @@ prepareTitle();
 requestAnimationFrame(previewFrame);
 
 // For automated tests: read-only access, and a way to move.
-window.__play = { now: () => (game ? now() : null), level: () => level, session: () => session, settings: () => M, play: (mv) => play(mv), par: () => par };
+window.__play = { now: () => (game ? now() : null), level: () => level, board: () => board, session: () => session, settings: () => M, play: (mv) => play(mv), par: () => par };

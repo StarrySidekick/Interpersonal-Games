@@ -12,6 +12,7 @@
 import { PIECES } from './rules.js';
 import { betzaMoves, parseBetza, mobility } from './betza.js';
 import { setLook } from './models.js';
+import { CONFIG } from './config.js';
 
 const KEY = 'ig.grove.catalog.v1';
 
@@ -22,6 +23,9 @@ const KEY = 'ig.grove.catalog.v1';
     the two agree. Turned off once, as vetoes: let one back in from the
     catalog and it stays in. */
 export const DEFAULT_OFF = ['cannon', 'grasshopper'];
+// Each later step is applied once, on top: the vao (2026-10-10) needs a
+// screen like the cannon. Then any piece config.js turns off, once each.
+const OFF_STEPS = [DEFAULT_OFF, ['vao']];
 
 export function loadCatalog() {
   let c = null;
@@ -30,7 +34,17 @@ export function loadCatalog() {
     if (s && s.version === 1) c = { vetoed: [], notes: {}, invented: [], ...s };
   } catch { /* storage blocked */ }
   c = c || { version: 1, vetoed: [], notes: {}, invented: [] };
-  if (!c.offDefaults) { c.vetoed = [...new Set([...c.vetoed, ...DEFAULT_OFF])]; c.offDefaults = 1; saveCatalog(c); }
+  const step = c.offDefaults || 0, cfgOff = Object.keys(CONFIG.pieces || {}).filter((k) => CONFIG.pieces[k]?.off);
+  const newlyOff = cfgOff.filter((k) => !(c.configOff || []).includes(k));
+  // And any config.js lets back in (`on`: a piece off by default, wanted in).
+  const newlyOn = Object.keys(CONFIG.pieces || {}).filter((k) => CONFIG.pieces[k]?.on && !(c.configOn || []).includes(k));
+  if (step < OFF_STEPS.length || newlyOff.length || newlyOn.length) {
+    c.vetoed = [...new Set([...c.vetoed, ...OFF_STEPS.slice(step).flat(), ...newlyOff])].filter((k) => !newlyOn.includes(k));
+    c.offDefaults = OFF_STEPS.length;
+    c.configOff = [...new Set([...(c.configOff || []), ...newlyOff])];
+    c.configOn = [...new Set([...(c.configOn || []), ...newlyOn])];
+    saveCatalog(c);
+  }
   return c;
 }
 

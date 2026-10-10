@@ -34,6 +34,7 @@
 import { Mesh, Model, makeTarget, render } from '../../engine/lowpoly.js';
 import { rng } from '../../engine/seed.js';
 import { model } from './models.js';
+import { LOOK } from './config.js';
 import { Board, tileColour, PIT, TRACK, tweenPos, wraps } from './board.js';
 import { onBoard, brambleCount, holeOpen, nextShrink, statueKind } from './rules.js';
 import * as sfx from './sounds.js';
@@ -43,8 +44,7 @@ const T = 10;             // one square, in model units
 const STAND = 0.6;        // the angle the pieces are seen from, in radians above level
 const TURN = -0.35;       // and a slight turn, so they read as solid
 const BIG = 1.25;         // pieces stand a little larger here than on the title
-const FOG = '#1b2620';    // the forest, far off
-const RIM = '#5a3d26';    // the board's wooden base
+const FOG = LOOK.fog;      // the forest, far off (config.js)
 const PALE = '#e9e4da';   // a possessed piece whose rabbit you do not know
 const SUIT_COLOUR = { hearts: '#e0445a', swords: '#7f9fc0', stars: '#e8c547', diamonds: '#5fd0d8', spirals: '#f0903a' }; // run.js SUITS
 const LIFT = 10 / 28;     // the flat board's pixels of height, in model units
@@ -367,7 +367,10 @@ export class Board3D extends Board {
     let shade = -1;
     if (v.track && day.rules.shrink && !tw && (s.t + 1) % (day.rules.shrinkEvery || 2) === 0) shade = nextShrink(s) ?? -1;
     const slab = !day.holes.size && !off.size && !collapse && !assemble;
-    if (slab) m.addBox((-W * T) / 2 - 3, -4, (-H * T) / 2 - 3, (W * T) / 2 + 3, -1, (H * T) / 2 + 3, RIM, 2, 1 << 3);
+    // The wooden rim: a thin band round the board (Timothy, 2026-10-10: the
+    // brown borders were "way too thick"). Width from LOOK (config.js).
+    const R = LOOK.rimWidth;
+    if (slab && R > 0) m.addBox((-W * T) / 2 - R, -4, (-H * T) / 2 - R, (W * T) / 2 + R, -1, (H * T) / 2 + R, LOOK.rim, 2, 1 << 3);
     for (let y = 0; y < H; y++)
       for (let x = 0; x < W; x++) {
         if (!here(x, y)) continue;
@@ -392,8 +395,12 @@ export class Board3D extends Board {
         const crumbling = fall?.sq === sq && at < fall.t0 + fall.dur;
         if (crumbling && at >= fall.t0) { const k = (at - fall.t0) / fall.dur; drop = Math.max(drop, k * k * 12); dark = Math.max(dark, k * 0.85); }
         // Seen from above, falling away reads as shrinking into the dark.
-        const away = drop >= 0 ? 1 / (1 + drop / 22) : 1 - drop / 320, r = (T / 2) * size * away, rim = 3 * away;
-        if (!slab) m.addBox(X - r - rim, -4 - drop, Z - r - rim, X + r + rim, -1 - drop, Z + r + rim, dim(RIM, dark), 2, 1 << 3);
+        const away = drop >= 0 ? 1 / (1 + drop / 22) : 1 - drop / 320, r = (T / 2) * size * away, rim = R * away;
+        // A shaped board standing still: each square's rim overlaps its
+        // neighbours', so only the outline shows. While squares are moving
+        // (built, falling, crumbling) none, so no square has a frame of
+        // its own.
+        if (!slab && R > 0 && !drop && !collapse && !assemble) m.addBox(X - r - rim, -4, Z - r - rim, X + r + rim, -1, Z + r + rim, LOOK.rim, 2, 1 << 3);
         if (gone.has(sq) && !crumbling) { m.addBox(X - r, -1.04, Z - r, X + r, -0.98, Z + r, PIT, 2); continue; }
         let col = tileColour(day, x, y);
         const L = lit.get(sq);

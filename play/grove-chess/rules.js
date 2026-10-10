@@ -23,6 +23,7 @@
 import { think } from './ai.js';
 import { rng } from '../../engine/seed.js';
 import { betzaMoves } from './betza.js';
+import { CONFIG } from './config.js';
 
 const ORTH = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const DIAG = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
@@ -475,6 +476,64 @@ export const PIECES = {
     origin: 'The kyōsha, "incense chariot", of shogi.',
     moves: betzaMoves('fR') },
 
+  // --- Added 2026-10-10, made from their Betza notation alone. Smaller and
+  // stranger move sets (Timothy: "more fairy chess pieces that represent
+  // smaller kinds of move sets ... even more unconventional"). Each keeps
+  // its real fairy chess name as its record; the name the game shows can
+  // be changed in config.js (the settings console).
+  gold: { name: 'Gold general', kind: 'fairy', tier: 0, value: 3, betza: 'WfF', strength: 3,
+    desc: 'Steps one square straight in any direction, or one square diagonally forward. It cannot step diagonally back.',
+    origin: 'From shogi, Japanese chess.',
+    moves: betzaMoves('WfF') },
+  copper: { name: 'Copper general', kind: 'fairy', tier: 0, value: 2, betza: 'vWfF', strength: 2,
+    desc: 'Steps one square straight forward or straight back, or one square diagonally forward. Never sideways.',
+    origin: 'From chu shogi, the larger shogi of medieval Japan.',
+    moves: betzaMoves('vWfF') },
+  leopard: { name: 'Ferocious leopard', kind: 'fairy', tier: 0, value: 2.75, betza: 'FvW', strength: 2.75,
+    desc: 'Steps one square in any direction but sideways.',
+    origin: 'From chu shogi.',
+    moves: betzaMoves('FvW') },
+  tiger: { name: 'Blind tiger', kind: 'fairy', tier: 0, value: 2.75, betza: 'FsbW', strength: 2.75,
+    desc: 'Steps one square in any direction but straight forward.',
+    origin: 'From chu shogi, where it cannot see what is in front of it.',
+    moves: betzaMoves('FsbW') },
+  kirin: { name: 'Kirin', kind: 'fairy', tier: 0, value: 2.5, betza: 'FD', strength: 2.5,
+    desc: 'Steps one square diagonally, or leaps exactly two squares straight, over anything.',
+    origin: 'From chu shogi, named for the kirin, a beast of East Asian legend.',
+    moves: betzaMoves('FD') },
+  phoenix: { name: 'Phoenix', kind: 'fairy', tier: 0, value: 2.75, betza: 'WA', strength: 2.75,
+    desc: 'Steps one square straight, or leaps exactly two squares diagonally, over anything.',
+    origin: 'From chu shogi.',
+    moves: betzaMoves('WA') },
+  elephant: { name: 'Elephant', kind: 'fairy', tier: 0, value: 2.25, betza: 'FA', strength: 2.25,
+    desc: 'Goes one or two squares diagonally, leaping over anything on the way.',
+    origin: 'The ferz and alfil together, the elephant of several modern variants (sometimes called the modern elephant).',
+    moves: betzaMoves('FA') },
+  woody: { name: 'Woody rook', kind: 'fairy', tier: 0, value: 2.75, betza: 'WD', strength: 2.75,
+    desc: 'Steps one square straight, or leaps exactly two squares straight, over anything. A rook that cannot go far.',
+    origin: 'The wazir and dabbaba together, a short-range rook from Ralph Betza\u2019s Chess with Different Armies.',
+    moves: betzaMoves('WD') },
+  alibaba: { name: 'Alibaba', kind: 'fairy', tier: 0, value: 2.5, betza: 'AD', strength: 2.5,
+    desc: 'Leaps exactly two squares in any of the eight directions, over anything, and never anywhere nearer.',
+    origin: 'The alfil and dabbaba together, named in fairy chess catalogues.',
+    moves: betzaMoves('AD') },
+  threeleaper: { name: 'Threeleaper', kind: 'fairy', tier: 0, value: 1.25, betza: 'H', strength: 1.25,
+    desc: 'Leaps exactly three squares up, down, left or right, over anything.',
+    origin: 'A plain leaper of fairy chess problems, the (3,0) jump.',
+    moves: betzaMoves('H') },
+  tripper: { name: 'Tripper', kind: 'fairy', tier: 0, value: 1, betza: 'G', strength: 1,
+    desc: 'Leaps exactly three squares diagonally, over anything.',
+    origin: 'A plain leaper of fairy chess problems, the (3,3) jump.',
+    moves: betzaMoves('G') },
+  frog: { name: 'Frog', kind: 'fairy', tier: 0, value: 2.25, betza: 'FH', strength: 2.25,
+    desc: 'Steps one square diagonally, or leaps exactly three squares straight, over anything.',
+    origin: 'The ferz and threeleaper together, named in fairy chess catalogues.',
+    moves: betzaMoves('FH') },
+  vao: { name: 'Vao', kind: 'fairy', tier: 1, value: 2.5, betza: 'mBcpB', strength: 2.5,
+    desc: 'Slides like a bishop, but can only catch by jumping exactly one thing on the way.',
+    origin: 'The cannon (pao) of xiangqi turned diagonal, from 20th-century variants.',
+    moves: betzaMoves('mBcpB') },
+
   // Only ever on their side. When it thinks (the AI brain) it moves like a
   // king; when it follows a pattern, the pattern decides.
   // Only ever yours, and only on ball-and-hole levels.
@@ -487,13 +546,22 @@ export const PIECES = {
     moves: (L, p) => leap(L, p, ALL8) }
 };
 
+// Every piece's record: its real name, kept when the game calls it
+// something else. Then Timothy's names and words from config.js.
+for (const k of Object.keys(PIECES)) PIECES[k].record = PIECES[k].name;
+for (const [k, o] of Object.entries(CONFIG.pieces || {})) {
+  if (!PIECES[k] || !o) continue;
+  if (typeof o.name === 'string' && o.name.trim()) PIECES[k].name = o.name.trim();
+  if (typeof o.desc === 'string' && o.desc.trim()) PIECES[k].desc = o.desc.trim();
+}
+
 export const RABBIT_DESC = 'Hops in a fixed pattern that repeats. If it lands on one of your pieces, it eats it. It bounces off the edges, and if it cannot land where it is hopping, it waits a turn. Watch its tracks.';
 export const RABBIT_GENTLE_DESC = 'Hops in a fixed pattern that repeats. It bounces off the edges, and if it cannot land where it is hopping (one of your pieces is in the way, say), it waits a turn. It does not eat. Watch its tracks.';
 /** The rabbit's description for a level's rules: does it eat or not? */
 export const rabbitDesc = (rules) => ((rules.rabbitsEat ?? rules.foesCapture) ? RABBIT_DESC : RABBIT_GENTLE_DESC);
 export const RABBIT_AI_DESC = 'Thinks for itself and steps one square in any direction, like a king. It eats what it lands on.';
 export const BRAMBLE_DESC = 'Creeps across the board. Nothing can enter it and nothing slides through it. Anything caught inside is safe until it leaves.';
-export const STUMP_DESC = 'A statue: a piece in grey stone, older than the board. It never moves and nothing can take it. Sliders stop at it, leapers jump over it, and pieces that hop (the grasshopper, the cannon) can hop over it.';
+export const STUMP_DESC = 'A statue: a standing stone with a spiral cut in it, older than the board. It never moves and nothing can take it. Sliders stop at it, leapers jump over it, and pieces that hop (the grasshopper, the cannon) can hop over it.';
 
 /** The kind of piece a statue on square sq is a statue of. (The rules call
     statues stumps: they were tree stumps until 2026-10-07, and rule for
@@ -775,12 +843,15 @@ function before(a, b) {
  * way it waits. Like a rabbit, a step that would leave the board flips the
  * pattern on that axis from then on. Mutates.
  */
-function possessedStep(s, f) {
+function possessedStep(s, f, force = false) {
   const raw = f.pattern[f.i];
   f.i = (f.i + 1) % f.pattern.length;
   f.from = [f.x, f.y]; f.ate = -1; f.blocked = false; f.rested = false;
-  if (!raw[0] && !raw[1]) { f.rested = true; return; }
-  const [dx, dy] = patternStep(s, f, raw);
+  if (!raw[0] && !raw[1] && !force) { f.rested = true; return; }
+  // Made to move (foesMust): a pause or a blocked way still moves, by the
+  // move that heads most nearly where the step points (a pause: the
+  // shortest move there is).
+  const [dx, dy] = raw[0] || raw[1] ? patternStep(s, f, raw) : [0, 0];
   const [tx, ty] = fold(s.day, f.x + dx, f.y + dy), take = canTake(s.day.rules, f);
   let best = null, bk = null;
   for (const m of pieceMoves(s, f, 'foe')) {
@@ -788,8 +859,9 @@ function possessedStep(s, f) {
     if (ball ? !hitOk(s, f, m) : m.cap && !take) continue;
     // (On a magic board, distances go the short way round.)
     const mx = delta(s.day, m.x - f.x, 'x'), my = delta(s.day, m.y - f.y, 'y');
-    if (mx * dx + my * dy <= 0) continue; // not this way
-    const key = [delta(s.day, m.x - tx, 'x') ** 2 + delta(s.day, m.y - ty, 'y') ** 2, mx * mx + my * my, m.y, m.x];
+    const off = mx * dx + my * dy <= 0;
+    if (off && !force) continue; // not this way
+    const key = [off ? 1 : 0, delta(s.day, m.x - tx, 'x') ** 2 + delta(s.day, m.y - ty, 'y') ** 2, mx * mx + my * my, m.y, m.x];
     if (!bk || before(key, bk)) { best = m; bk = key; }
   }
   if (!best) { f.blocked = true; return; }
@@ -868,7 +940,7 @@ function reachOf(s, who) {
  * One rabbit-minded piece's turn: `f` is s.foes[k] (side 'foe') or
  * s.pieces[k] (side 'you', autochess). Mutates.
  */
-function mindStep(s, f, k, side) {
+function mindStep(s, f, k, side, force = false) {
   const day = s.day, W = day.W, H = day.H, T = TRAITS[f.mind.trait] || TRAITS.aggressive;
   const iq = Math.max(1, Math.min(10, f.mind.iq || 5));
   const other = side === 'foe' ? 'you' : 'foe';
@@ -918,7 +990,8 @@ function mindStep(s, f, k, side) {
   };
 
   // Staying put gets less appealing the longer it has stayed: restless.
-  let best = { x: f.x, y: f.y, cap: false, v: score(f.x, f.y, false) - 0.8 - 1.2 * (f.idle || 0) };
+  // Made to move (foesMust): staying put is not on the list.
+  let best = force ? { x: f.x, y: f.y, cap: false, v: -Infinity } : { x: f.x, y: f.y, cap: false, v: score(f.x, f.y, false) - 0.8 - 1.2 * (f.idle || 0) };
   for (const m of pieceMoves(s, f, side)) {
     const ball = m.cap && hitBall(s, m.x, m.y);
     if (ball ? !hitOk(s, f, m) : m.cap && !take) continue;
@@ -955,11 +1028,15 @@ function foesAct(s) {
 }
 
 /** One piece of theirs takes its step (its rabbit's mind, or its pattern). */
-function foeStep(s, k) {
+function foeStep(s, k, force = false) {
   const f = s.foes[k];
-  if (f.mind) mindStep(s, f, k, 'foe');
-  else if (f.brain === 'possessed') possessedStep(s, f);
+  if (f.mind) mindStep(s, f, k, 'foe', force);
+  else if (f.brain === 'possessed') possessedStep(s, f, force);
 }
+
+/** Did foe k do something on its step from a to b: move, or try a capture
+    that bounced off a heart? */
+const acted = (a, b, k) => b.foes[k].x !== a.foes[k].x || b.foes[k].y !== a.foes[k].y || b.foes[k].wounded >= 0;
 
 /**
  * Their turn, one piece at a time (Timothy, 2026-10-09: "the opposing team
@@ -977,8 +1054,19 @@ function oneFoeActs(s) {
     if (side.length) {
       const before = (c) => c.pieces.filter((p) => p.taken).length + c.foes.filter((f) => f.wounded >= 0).length;
       const takes = side.find((k) => { const c = clone(s); foeStep(c, k); return before(c) > before(s); });
-      const k = takes ?? side[(s.ft || 0) % side.length];
-      foeStep(s, k);
+      let k = takes ?? side[(s.ft || 0) % side.length], force = false;
+      // Nobody waits (foesMust, 2026-10-10): if the one whose turn it is
+      // would stay put, it moves anyway; if it cannot move at all, the next
+      // in order goes. A side with no move anywhere passes.
+      if (s.day.rules.foesMust && takes === undefined) {
+        const tryStep = (j, f) => { const c = clone(s); foeStep(c, j, f); return acted(s, c, j); };
+        if (!tryStep(k, false)) {
+          const order = side.map((_, n) => side[((s.ft || 0) + n) % side.length]);
+          const j = order.find((q) => tryStep(q, true));
+          if (j !== undefined) { k = j; force = !tryStep(j, false); }
+        }
+      }
+      foeStep(s, k, force);
       s.ft = (s.ft || 0) + 1;
     }
   }

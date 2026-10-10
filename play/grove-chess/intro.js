@@ -9,7 +9,7 @@
 import { el, haptic } from '../../engine/ui.js';
 import { Mesh, makeTarget, render } from '../../engine/lowpoly.js';
 import { model } from './models.js';
-import { PIECES, descOf, CRUMBLE_DESC, SHRINK_DESC, movesFor, playerMove } from './rules.js';
+import { PIECES, descOf, CRUMBLE_DESC, SHRINK_DESC, movesFor, playerMove, look } from './rules.js';
 import { Board, demoBoard } from './board.js';
 import * as sfx from './sounds.js';
 
@@ -39,6 +39,9 @@ function style() {
 }
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Does a piece have a forward (Betza f or b), so theirs moves differently? */
+const sided = (k) => /[fb]/.test(PIECES[k]?.betza || '');
 
 /**
  * Play the opening on `board` (a Board already showing the level). `goal` is
@@ -109,6 +112,16 @@ export async function playIntro(board, level, { goal = null, section = null, see
     const kinds = [...new Set(level.pieces.map((p) => p.type))].filter(fresh);
     const cards = kinds.map((k, i) => ({ kind: k, side: 'you', eyebrow: `Your pieces · ${i + 1} of ${kinds.length}`,
       title: PIECES[k].name, text: descOf(k, level.rules), demo: true, rules: level.rules }));
+    // Their pieces, the first time each kind turns up (Timothy, 2026-10-10:
+    // "if there's a new piece on the enemy side, it should also be
+    // explained in the intro"). A piece that moves the same either way
+    // shares its card with yours; one with a forward (a pawn, a lance) has
+    // its own, since theirs goes down the board.
+    const theirs = [...new Set(level.foes.map((f) => f.type))].filter((k) => PIECES[k] && !['rabbit', 'ball'].includes(k))
+      .filter((k) => fresh(sided(k) ? 'foe:' + k : k));
+    theirs.forEach((k, i) => cards.push({ kind: k, side: 'foe', eyebrow: `Their pieces · ${i + 1} of ${theirs.length}`,
+      title: `Their ${PIECES[k].name}`, text: descOf(k, level.rules) + (sided(k) ? ' Their forward is down the board, toward you.' : ''),
+      demo: true, rules: level.rules }));
     if (level.rules.crumble && fresh('ground:crumble')) cards.push({ kind: 'crumble', side: 'you', eyebrow: 'The ground', title: 'Crumbling ground',
       text: CRUMBLE_DESC, demo: 'crumble' });
     if (level.rules.shrink && fresh('ground:' + level.rules.shrink)) cards.push({ kind: 'shrink', side: 'you', eyebrow: 'The ground',
@@ -189,7 +202,7 @@ async function card(c, setAdvance, track, isSkipped) {
     { duration: 280, easing: 'cubic-bezier(.2,.8,.2,1)' }));
 
   const stop = () => done || isSkipped();
-  const demo = c.demo === 'crumble' ? showCrumble(demoCanvas, stop) : c.demo ? showMoves(demoCanvas, c.kind, stop, c.rules) : Promise.resolve();
+  const demo = c.demo === 'crumble' ? showCrumble(demoCanvas, stop) : c.demo ? showMoves(demoCanvas, c.kind, stop, c.rules, c.side === 'foe') : Promise.resolve();
   await Promise.race([hold, Promise.all([demo, wait(c.demo ? 0 : 2200)])]);
   done = true;
 
@@ -206,11 +219,14 @@ async function card(c, setAdvance, track, isSkipped) {
  * light up one by one, then it makes a move for real (taking something, if
  * that is how the piece works) and steps back, twice.
  */
-async function showMoves(canvas, kind, stop, rules = {}) {
+async function showMoves(canvas, kind, stop, rules = {}, foe = false) {
   const { day, s } = demoBoard(kind, { rules: { ballMove: rules.ballMove } });
+  // Their piece: drawn in their colour, and moving with their forward
+  // (down the board).
+  if (foe) s.pieces[0].side = 'foe';
   const board = new Board(canvas, day);
   board.celebrate = false; // a demo catch is a demonstration, not a win
-  const moves = movesFor(s, 0);
+  const moves = foe ? PIECES[kind].moves((x, y) => look(s, x, y, 'you'), s.pieces[0], -1, day) : movesFor(s, 0);
   let shown = [], state = s;
   board.redraw = () => board.draw({ state, legal: shown, sel: 0 });
   board.redraw();

@@ -81,7 +81,9 @@ function open(k) {
     el('p', { style: 'margin:0 0 4px' }, `${P.invented ? 'Invented' : KIND[P.kind]}${P.strength ? ` · strength about ${P.strength} pawns on an empty 8 × 8 board${P.invented ? ' (estimated from its moves)' : ''}` : ''}${mob ? `, where it reaches ${mob} squares on average` : ''}.`),
     PW()[k] ? el('p', { style: 'margin:0 0 4px' }, `Power ${PW()[k].power} on a 6 × 6 board, as levels are (the queen is 9): it reaches ${PW()[k].reach.toFixed(1)} squares and threatens ${PW()[k].threat.toFixed(2)} pieces of theirs, on average, among a level's worth of pieces.${PW()[k].screen ? ' It cannot take anything without something to hop over, so it is off by default until a mode gives it a use.' : ''}`) : null,
     ...patentLines(k).slice(0, 1).map((l) => el('p', { style: 'margin:0 0 4px' }, l)),
-    P.origin ? el('p', { style: 'margin:0' }, P.origin) : null);
+    P.origin ? el('p', { style: 'margin:0' }, P.origin) : null,
+    // Its record: the real name, when the game calls it something else (config.js).
+    P.record && P.record !== P.name ? el('p', { style: 'margin:4px 0 0' }, `In fairy chess: the ${P.record} (${P.betza}).`) : null);
   $('#d-history').textContent = HISTORY[k] || (P.invented ? P.desc : 'No history written yet.');
   $('#d-note').value = cat.notes[k] || '';
   paintVeto();

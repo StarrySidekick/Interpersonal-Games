@@ -3,6 +3,7 @@
 // engine/lowpoly.js for the shapes and how they are drawn.
 
 import { Model } from '../../engine/lowpoly.js';
+import { LOOK, LOOK_DEFAULTS } from './config.js';
 
 // The palette every model is built from. Since 2026-10-07 (Timothy: "enemy
 // pieces should be purple, and friendly pieces should be green for now,
@@ -17,7 +18,16 @@ const P = {
   gold: '#e3bd57', cream: '#f4ecd6', iron: '#5f6570',
   eye: '#231a16', pink: '#f0a3b2'
 };
-const YOU = { ...P };
+/** Colour a moved k of the way to colour b. */
+function blend(a, b, k) {
+  const A = parseInt(a.slice(1), 16), B = parseInt(b.slice(1), 16);
+  const ch = (n, sh) => Math.round(((n >> sh) & 255) + ((((B >> sh) & 255) - ((n >> sh) & 255)) * k)).toString(16).padStart(2, '0');
+  return `#${ch(A, 16)}${ch(A, 8)}${ch(A, 0)}`;
+}
+/** A body colour and its light and dark, for a colour set in config.js. */
+const body = (c) => ({ wood: c, woodLight: blend(c, '#ffffff', 0.22), woodDark: blend(c, '#000000', 0.42) });
+
+const YOU = { ...P, ...(LOOK.you !== LOOK_DEFAULTS.you ? body(LOOK.you) : {}) };
 
 /** Every piece stands on a plinth, so a strange animal still reads as a
     piece. Its colour is the rabbit's inside it, or stone. */
@@ -280,7 +290,89 @@ const MODELS = {
   lance: () => shogi((m) => { // a lance, the incense chariot: a wedge marked with a spear
     m.box(0, 4.0, 0.75, 0.3, 4.4, 0.12, P.cream);
     m.box(0, 6.5, 0.75, 0.9, 0.9, 0.12, P.cream, { rz: Math.PI / 4 });
-  })
+  }),
+
+  // --- Added 2026-10-10: smaller and stranger move sets. The shogi and chu
+  // shogi generals and beasts are wedges like the silver general's, each
+  // with its own mark; the rest are named for what they are.
+  gold: () => shogi((m) => { // the gold general: a gold diamond over a bar
+    m.box(0, 5.2, 0.75, 1.4, 1.4, 0.12, P.gold, { rz: Math.PI / 4 });
+    m.box(0, 3.4, 0.75, 2.2, 0.4, 0.12, P.gold);
+  }),
+  copper: () => shogi((m) => { // the copper general: a copper chevron and post
+    m.box(0, 3.8, 0.75, 0.35, 2.6, 0.12, '#c47a45');
+    m.box(-0.55, 5.6, 0.75, 0.35, 1.5, 0.12, '#c47a45', { rz: -0.7 });
+    m.box(0.55, 5.6, 0.75, 0.35, 1.5, 0.12, '#c47a45', { rz: 0.7 });
+  }),
+  leopard: () => shogi((m) => { // the ferocious leopard: spots
+    for (const [x, y] of [[-0.8, 3.0], [0.7, 3.6], [-0.3, 4.8], [0.6, 5.9], [-0.7, 6.3]]) m.box(x, y, 0.75, 0.55, 0.55, 0.12, P.gold, { rz: 0.4 });
+  }),
+  tiger: () => shogi((m) => { // the blind tiger: stripes
+    for (const y of [2.8, 4.0, 5.2]) m.box(0, y, 0.75, 2.6, 0.35, 0.12, '#d9822b', { rz: 0.25 });
+  }),
+  kirin() { // the kirin of chu shogi: a wedge with a horn
+    const m = shogi((q) => { q.box(0, 4.2, 0.75, 1.6, 1.6, 0.12, P.cream, { rz: Math.PI / 4 }); });
+    m.cone(0, 9.8, 0.1, 0.45, 2.0, P.gold, { seg: 5 });
+    return m;
+  },
+  phoenix: () => shogi((m) => { // the phoenix of chu shogi: a flame
+    m.box(0, 4.6, 0.75, 1.0, 2.6, 0.12, '#e0603a', { rz: Math.PI / 4 });
+    m.box(0, 5.6, 0.8, 0.6, 1.6, 0.12, P.gold, { rz: Math.PI / 4 });
+  }),
+  elephant() { // the elephant (ferz and alfil) of modern variants: an elephant with a howdah
+    const m = MODELS.alfil();
+    m.box(0, 8.0, -0.6, 2.4, 1.3, 2.4, P.gold);
+    m.box(0, 8.9, -0.6, 3.0, 0.3, 3.0, P.woodDark);
+    return m;
+  },
+  woody() { // the woody rook: a short wooden tower
+    const m = plinth(new Model());
+    m.lathe([[2.7, 1.5], [2.3, 2.6], [2.3, 5.6], [2.9, 6.2], [2.9, 7.0]], [P.wood, P.woodLight, P.wood, P.wood]);
+    for (let k = 0; k < 4; k++) {
+      const a = (k / 4) * Math.PI * 2;
+      m.box(Math.cos(a) * 2.1, 7.6, Math.sin(a) * 2.1, 1.3, 1.2, 1.3, P.woodDark, { ry: -a });
+    }
+    return m;
+  },
+  alibaba() { // the alibaba: a great jar, lid on
+    const m = plinth(new Model());
+    m.lathe([[1.8, 1.5], [2.9, 3.4], [3.0, 5.2], [2.2, 7.0], [1.3, 7.6], [1.6, 8.0]], [P.wood, P.wood, P.woodLight, P.wood, P.wood]);
+    m.lathe([[1.7, 8.0], [1.2, 8.6], [0, 8.8]], P.gold, { seg: 8 });
+    m.lathe([[3.05, 4.4], [3.05, 4.8]], P.moss, { seg: 10 });
+    return m;
+  },
+  threeleaper() { // the threeleaper: a post with three rings, three squares at a leap
+    const m = plinth(new Model());
+    m.lathe([[0.6, 1.5], [0.6, 9.5]], P.woodDark, { seg: 6 });
+    for (const y of [3.4, 5.6, 7.8]) m.lathe([[2.0, y], [2.0, y + 0.7]], P.wood, { seg: 10 });
+    m.ball(0, 10.0, 0, 0.8, P.gold, { seg: 6, rings: 4 });
+    return m;
+  },
+  tripper() { // the tripper: the same, its rings tipped, as it leaps on the diagonal
+    const m = plinth(new Model());
+    m.lathe([[0.6, 1.5], [0.6, 9.5]], P.woodDark, { seg: 6 });
+    for (const y of [3.4, 5.6, 7.8]) m.lathe([[2.0, -0.35], [2.0, 0.35]], P.wood, { seg: 10, at: [0, y, 0], rot: { rz: 0.5, rx: 0.3 } });
+    m.ball(0, 10.0, 0, 0.8, P.gold, { seg: 6, rings: 4 });
+    return m;
+  },
+  frog() { // the frog: a frog
+    const m = plinth(new Model());
+    m.ellipsoid(0, 3.4, -0.2, 2.6, 1.8, 2.8, P.wood);        // body
+    m.ellipsoid(0, 4.6, 1.6, 1.9, 1.3, 1.6, P.woodLight);    // head
+    for (const sx of [1, -1]) {
+      m.ball(sx * 1.1, 5.9, 1.9, 0.75, P.cream, { seg: 6, rings: 4 }); // eyes
+      m.ball(sx * 1.25, 6.0, 2.5, 0.35, P.eye, { seg: 5, rings: 3 });
+      m.ellipsoid(sx * 2.4, 2.2, -1.4, 0.9, 0.7, 1.8, P.woodDark); // back legs
+      m.ellipsoid(sx * 1.6, 2.0, 2.2, 0.5, 0.6, 0.7, P.woodDark);  // front feet
+    }
+    return m;
+  },
+  vao() { // the vao: the cannon's diagonal twin, a cross on its carriage
+    const m = MODELS.cannon();
+    m.box(0, 3.9, 2.25, 2.4, 0.3, 0.12, P.gold, { rz: Math.PI / 4 });
+    m.box(0, 3.9, 2.25, 2.4, 0.3, 0.12, P.gold, { rz: -Math.PI / 4 });
+    return m;
+  }
 };
 
 /** A shogi piece: a five-sided wooden wedge that leans back, its point
@@ -394,12 +486,44 @@ MODELS.shrink = () => {
 // Their pieces: the same shapes in purple, so nothing of theirs looks like
 // anything of yours. The builders read the palette when they run, so
 // swapping it for the length of one build is enough.
-const FOE = { wood: '#6c4795', woodLight: '#9170bd', woodDark: '#3b2558', moss: '#e3d3f2', leaf: '#f1e7fa' };
+const FOE = { wood: '#6c4795', woodLight: '#9170bd', woodDark: '#3b2558', moss: '#e3d3f2', leaf: '#f1e7fa',
+  ...(LOOK.foe !== LOOK_DEFAULTS.foe ? body(LOOK.foe) : {}) };
 
-// Statues: any piece's shape in weathered grey stone, on a stone plinth,
-// with no colour of either side (2026-10-07; they were stumps before).
-const STONE = { wood: '#8e918c', woodLight: '#adb0aa', woodDark: '#62665f', moss: '#a3a69f', leaf: '#b8bbb4',
-  band: '#7b7f78', base: '#555a53', gold: '#9da09a', cream: '#c4c6bf' };
+// Statues (2026-10-07; they were stumps before) were any classic piece's
+// shape in grey stone. Timothy, 2026-10-10: "statues should be a unique
+// model, not like a gray version of another model." So a statue is now a
+// standing stone of its own: no plinth (it is not a piece), a spiral cut in
+// its face (the grove's motif), moss at its foot. The kind a level gave it
+// (rules.js statueKind) picks one of three shapes, so a board's stones are
+// not all alike.
+const STONE = { stone: LOOK.statue, stoneLight: blend(LOOK.statue, '#ffffff', 0.18), stoneDark: blend(LOOK.statue, '#000000', 0.32),
+  cut: blend(LOOK.statue, '#000000', 0.55), moss: '#5d7a45', mossLight: '#7c9a5a' };
+const STATUE_SHAPE = { pawn: 0, king: 0, rook: 1, queen: 1, knight: 2, bishop: 2 };
+
+function statue(kind) {
+  const m = new Model(), S = STONE, v = STATUE_SHAPE[kind] ?? 0;
+  // Rough footing: a few low rocks, half sunk.
+  m.ellipsoid(0, 0.4, 0, 3.6, 0.9, 3.2, S.stoneDark, { seg: 7, rings: 3 });
+  m.ellipsoid(-2.4, 0.5, 1.6, 1.1, 0.8, 1.0, S.stoneDark, { seg: 5, rings: 3 });
+  // The stone itself, leaning a little, its top worn round.
+  const [w, h, d, lean] = [[3.6, 9.0, 2.2, 0.08], [4.4, 6.4, 2.8, -0.05], [2.8, 10.6, 2.0, 0.12]][v];
+  m.group({ t: [0, 0.6, 0], rz: lean }, () => {
+    m.box(0, h / 2, 0, w, h, d, S.stone);
+    m.box(0, h / 2, -d * 0.18, w * 1.04, h * 0.96, d * 0.7, S.stoneDark); // its weathered back
+    m.ellipsoid(0, h, 0, w / 2, 1.2, d / 2, S.stoneLight, { seg: 8, rings: 3 });
+    if (v === 1) m.box(w * 0.18, h * 0.62, 0, 0.25, h * 0.5, d * 1.02, S.cut, { rz: 0.5 }); // a crack
+    // The spiral, cut into the face that looks at you.
+    const cx = 0, cy = h * 0.58, turns = 2.2, n = 22, r0 = Math.min(w, h) * 0.34;
+    for (let i = 0; i < n; i++) {
+      const t = i / (n - 1), a = t * turns * Math.PI * 2, r = 0.25 + t * r0;
+      m.box(cx + Math.cos(a) * r, cy + Math.sin(a) * r, d / 2 + 0.02, 0.42, 0.42, 0.12, S.cut);
+    }
+  });
+  // Moss at its foot, on the side away from the light.
+  m.ellipsoid(1.4, 1.0, 1.0, 1.4, 0.7, 1.0, S.moss, { seg: 6, rings: 3 });
+  m.ellipsoid(-1.0, 0.9, 1.3, 0.9, 0.5, 0.7, S.mossLight, { seg: 5, rings: 3 });
+  return m;
+}
 
 function withPalette(over, build) {
   const saved = { ...P };
@@ -429,12 +553,13 @@ export function model(kind, side = 'you', fur = null, glow = null) {
     return cache.get(key);
   }
   const key = `${kind}:${side}:${glow || ''}`;
+  if (side === 'stone') { if (!cache.has(key)) cache.set(key, statue(kind)); return cache.get(key); }
   if (!cache.has(key)) {
     // The rabbit inside colours the whole plinth: its fur on the band, a
     // darker shade of it underneath.
     const plinthOf = glow ? { band: glow, base: shade(glow, 0.62) } : {};
     const build = MODELS[kind] || MODELS[LOOKS.get(kind)] || MODELS.pawn;
-    cache.set(key, withPalette({ ...(side === 'foe' ? FOE : side === 'stone' ? STONE : YOU), ...plinthOf }, build));
+    cache.set(key, withPalette({ ...(side === 'foe' ? FOE : YOU), ...plinthOf }, build));
   }
   return cache.get(key);
 }

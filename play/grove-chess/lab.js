@@ -67,7 +67,7 @@ export const SCHEMA = [
     { key: 'geared', label: 'Geared', type: 'bool', def: false,
       help: 'After every turn the board turns a quarter turn clockwise, with everything on it. Your pieces turn with it, so they move as ever; the rabbits\u2019 patterns do not, so a rabbit that hops up the screen goes a different way across the board each turn. Square boards only.' },
     { key: 'statues', label: 'Statues', type: 'int', min: 0, max: 8, def: 2,
-      help: 'Pieces in grey stone, standing in the middle of the board. They never move and nothing can take them. Sliders stop at them, leapers jump them, and the grasshopper and the cannon can hop over them.' }
+      help: 'Standing stones, each with a spiral cut in it, in the middle of the board. They never move and nothing can take them. Sliders stop at them, leapers jump them, and the grasshopper and the cannon can hop over them.' }
   ] },
   { group: 'Your side', fields: [
     { key: 'mine', label: 'Pieces', type: 'int', min: 1, max: 8, def: 4 },
@@ -76,9 +76,12 @@ export const SCHEMA = [
     { key: 'lineup', label: 'Line up like chess', type: 'bool', def: true,
       help: 'Your pieces start in a line along the bottom edge, theirs along the top. Off: scattered within the rows below.' },
     { key: 'mineRows', label: 'Start within the bottom', type: 'int', min: 1, max: 5, def: 1, unit: 'rows', help: 'When not lined up.' },
+    { key: 'arrange', label: 'Lay out your pieces first', type: 'bool', def: true,
+      help: 'Before the first move, put your pieces where you like in your first two rows (Timothy, 2026-10-10). Nowhere that lets either side take a piece on its first move. Par is worked out again for your layout.' },
     { key: 'royal', label: 'Your King is royal', type: 'bool', def: true, help: 'Lose the King, lose the game.' },
     { key: 'dealKing', label: 'Always dealt a King', type: 'bool', def: true, help: 'With a royal King: if the deal has none, your first piece becomes one.' },
-    { key: 'wait', label: 'Waiting allowed', type: 'bool', def: true }
+    { key: 'wait', label: 'Waiting allowed', type: 'bool', def: false,
+      help: 'Off: you must move a piece every turn (Timothy, 2026-10-10). A side with no move at all still passes.' }
   ] },
   { group: 'Rabbits', fields: [
     { key: 'rabbitMind', label: 'Rabbits move by', type: 'choice', def: 'mind', options: opts(['mind', 'A mind of their own'], ['pattern', 'A fixed pattern']),
@@ -113,7 +116,9 @@ export const SCHEMA = [
     { key: 'style', label: 'Mood', type: 'choice', def: 'balanced', options: opts(['flee', 'Flee'], ['balanced', 'Balanced'], ['hunt', 'Hunt']) },
     { key: 'foesCapture', label: 'They can take your pieces', type: 'bool', def: true },
     { key: 'oneMove', label: 'They move one piece a turn', type: 'bool', def: true,
-      help: 'Like you. A piece that can take one of yours goes; otherwise their pieces take turns, in order. Off: every piece of theirs moves every turn. Loose rabbits always hop.' }
+      help: 'Like you. A piece that can take one of yours goes; otherwise their pieces take turns, in order. Off: every piece of theirs moves every turn. Loose rabbits always hop.' },
+    { key: 'foesWait', label: 'They may stay put', type: 'bool', def: false,
+      help: 'Off: when they move one piece a turn, a piece of theirs always moves; if the one whose turn it is would rather stay, it moves anyway, and if it cannot, the next one goes. On: a rabbit may choose to stay where it is.' }
   ] },
   { group: 'Winning', fields: [
     { key: 'goal', label: 'How you win', type: 'choice', def: 'king', options: opts(
@@ -144,7 +149,7 @@ export const SCHEMA = [
 ];
 
 const FIELDS = SCHEMA.flatMap((g) => g.fields);
-export const SETTINGS_VERSION = 10;
+export const SETTINGS_VERSION = 11;
 export const defaults = () => ({ ...Object.fromEntries(FIELDS.map((f) => [f.key, Array.isArray(f.def) ? [...f.def] : f.def])), v: SETTINGS_VERSION });
 
 /** How each earlier version's defaults differ from today's. Settings saved
@@ -153,12 +158,17 @@ export const defaults = () => ({ ...Object.fromEntries(FIELDS.map((f) => [f.key,
 // Version 9 (2026-10-09): pieces start on the first row, theirs and yours,
 // when they are not lined up (Timothy: "pieces should start on the first
 // row by default").
-const V10 = { oneMove: false };
+// Version 11 (2026-10-10): nobody waits. You must move a piece every turn,
+// and so must they (Timothy: "by default, nobody, including enemies, should
+// be able to wait instead of moving").
+const V11 = { wait: true, foesWait: true, arrange: false };
+const V10 = { oneMove: false, ...V11 };
 const V9 = { mineRows: 2, foeRows: 3, ...V10 };
 // Version 8 (2026-10-09): each side has a King. Take theirs, keep yours
 // (goal 'king', royal), and two left brings on the showdown.
 const V8 = { goal: 'descent', royal: false, showdown: false, dealKing: false, ...V9 };
 const BEFORE = {
+  10: { ...V11 },
   9: { ...V10 },
   8: { ...V9 },
   7: { ...V8 },
@@ -177,7 +187,7 @@ const defaultsFor = (v) => ({ ...defaults(), ...JSON.parse(JSON.stringify(BEFORE
     meaning: crumbling was a switch, there was no separate rabbit count, and
     rabbits ate whenever their side could take your pieces. */
 export function clean(raw) {
-  const v = [2, 3, 4, 5, 6, 7, 8, 9, 10].includes(raw?.v) ? raw.v : 1, legacy = v === 1;
+  const v = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11].includes(raw?.v) ? raw.v : 1, legacy = v === 1;
   // Pieces invented in the catalog travel with the settings (so a link, or
   // the solver's background thread, knows them), and are made real first.
   const invented = cleanInvented(raw?.invented);
@@ -256,7 +266,7 @@ export function crazy(rand = Math.random, allowed = [...FAIRY, 'rabbit']) {
     rabbitMind: rand() < 0.8 ? 'mind' : 'pattern', iq: int(2, 9), traits: some(Object.keys(TRAITS), 1, 4),
     mine, minePool: some(ALL, 2, 6), mineDupes: rand() < 0.3, mineRows: int(1, 2), lineup: rand() < 0.8,
     mode: rand() < 0.15 ? 'auto' : 'hand', autoPool: 'all',
-    royal: rand() < 0.2, wait: rand() < 0.8,
+    royal: rand() < 0.2, wait: (rand(), false), // still drawn, so the rolls after it are the same
     foes: int(1, 4),
     foePool: rabbitOk && rand() < 0.4 ? ['rabbit'] : some(rabbitOk ? ['rabbit', ...ALL] : ALL, 1, 4),
     foeDupes: rand() < 0.6, mirror: rand() < 0.12, foeRows: int(1, 3),
@@ -520,7 +530,7 @@ export function makeLevel(settings, seed) {
     foes: foes.filter((f) => f.x !== undefined),
     goalKind: goal, hole,
     rules: { goal: ['king', 'rabbit', 'target'].includes(goal) ? 'target' : goal, maxMoves: S.maxMoves, wait: S.wait,
-      foesCapture: S.foesCapture, rabbitsEat: S.rabbitsEat, royal: S.royal, ...(S.showdown ? { showdown: true } : {}), ...(S.oneMove ? { oneMove: true } : {}), first: S.first, ballStops: S.ballStops, ballMove: S.ballMove,
+      foesCapture: S.foesCapture, rabbitsEat: S.rabbitsEat, royal: S.royal, ...(S.showdown ? { showdown: true } : {}), ...(S.oneMove ? { oneMove: true } : {}), ...(S.oneMove && !S.foesWait ? { foesMust: true } : {}), first: S.first, ballStops: S.ballStops, ballMove: S.ballMove,
       ...(S.ballCaptures ? { ballCaptures: true } : {}),
       ...(S.magic !== 'none' ? { wrap: S.magic } : {}),
       ...(S.geared ? { geared: true } : {}),

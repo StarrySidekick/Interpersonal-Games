@@ -28,6 +28,20 @@ export const HISTORY = {
   silver: 'A silver general of shogi, Japanese chess. Shogi pieces are flat wedges that point at the enemy, the same colour for both sides, and a captured piece can be dropped back in on the other side. The silver steps diagonally or straight forward.',
   lance: 'The kyōsha, "incense chariot", of shogi: it slides any distance straight forward, and can never come back.',
 
+  gold: 'The gold general of shogi: it guards the king, stepping anywhere but diagonally back. In shogi most pieces that cross into the far camp promote to move like a gold.',
+  copper: 'The copper general of chu shogi, the larger shogi played in Japan from about the fourteenth century: a weaker cousin of the silver.',
+  leopard: 'The ferocious leopard of chu shogi: one step in any direction but sideways.',
+  tiger: 'The blind tiger of chu shogi: one step in any direction but straight ahead, which, being blind, it cannot see.',
+  kirin: 'The kirin of chu shogi, named for the kirin (qilin), a hoofed, horned beast of East Asian legend. In chu shogi it promotes to the lion, the game\'s great piece.',
+  phoenix: 'The phoenix of chu shogi, the kirin\'s partner: where the kirin steps diagonally and leaps straight, the phoenix steps straight and leaps diagonally. It promotes to the queen.',
+  elephant: 'The old elephant (the alfil) with the counsellor\'s step added. Several modern variants call this piece the elephant, a guess at what the shatranj elephant might have been if it could also take one step.',
+  woody: 'A short-range rook: one step or a two-square leap, straight. It belongs to Ralph Betza\'s Chess with Different Armies (1990s), where each side can field a different army of equal strength.',
+  alibaba: 'Every square exactly two away in a straight line or a diagonal. A name from the fairy chess catalogues, where compounds of simple leapers are given names of their own.',
+  threeleaper: 'The (3,0) leaper, one of the simple jumps fairy chess lists by size: wazir (1,0), dabbaba (2,0), threeleaper (3,0).',
+  tripper: 'The (3,3) leaper: ferz (1,1), alfil (2,2), tripper (3,3). It can reach only one square in eight of the board.',
+  frog: 'The ferz and the threeleaper in one. A name from the fairy chess catalogues.',
+  vao: 'The cannon\'s diagonal twin: it slides like a bishop, and captures only by jumping exactly one piece. It turns up in modern variants of xiangqi and in fairy chess.',
+
   ball: 'Not a chess piece: Grove Chess\'s own, for the golf-like levels. It rolls, putts or bounces like a billiard ball, depending on the level.',
   rabbit: 'Grove Chess\'s own. Rabbits get into pieces and move them; caught, they join your collection.'
 };
