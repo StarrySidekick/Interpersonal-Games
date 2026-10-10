@@ -136,6 +136,23 @@ export default {
   "rolls": 3,
   "print": "a0b304979ca9e21a"
  },
+ "2026-12-09": {
+  "name": "Pudding of Twelve Buttons",
+  "theme": "dusk",
+  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsImFpbSI6NCwibWluRW5nYWdlIjo1MCwibWluQ2VpbGluZyI6NiwiZ3JvdW5kIjoic2hyaW5rIiwic2hyaW5rRXZlcnkiOjEsIm1hZ2ljIjoic2lkZXMiLCJzdGF0dWVzIjozLCJtaW5lIjo2LCJtaW5lUG9vbCI6WyJrbmlnaHQiLCJiaXNob3AiLCJyb29rIiwicXVlZW4iLCJlbGVwaGFudCIsImdyYXNzaG9wcGVyIl0sIm1pbmVEdXBlcyI6dHJ1ZSwiaXEiOjcsInRyYWl0cyI6WyJndWFyZCIsImFnZ3Jlc3NpdmUiLCJzaHkiXSwicGF0dGVybnMiOiJkYWlseSIsImZvZXMiOjYsImtpbmRzIjozLCJmb2VQb29sIjpbImtpbmciLCJwYXduIiwia25pZ2h0IiwiYmlzaG9wIiwicm9vayIsImVsZXBoYW50Il0sInN0eWxlIjoiZmxlZSIsImJhbGxNb3ZlIjoiYm91bmNlIiwiYmFsbFN0b3BzIjp0cnVlLCJtYXhNb3ZlcyI6MTgsInBhck1pbiI6NH0",
+  "v": 12,
+  "seed": 438290,
+  "par": 4,
+  "measure": {
+   "difficulty": 4,
+   "ceiling": 0.61,
+   "engagement": 59,
+   "winRate": 0.67,
+   "winLen": 6.4
+  },
+  "rolls": 1,
+  "print": "b12230354cb51881"
+ },
  "2026-12-17": {
   "name": "Doorknob of Three Keys",
   "theme": "coral",
