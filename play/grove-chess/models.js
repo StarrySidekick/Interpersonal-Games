@@ -416,6 +416,16 @@ MODELS.ball = () => {
   return m;
 };
 
+// The first-turn cloud (2026-10-10): a low bank of white puffs over a
+// square of the second row, gone once both sides have moved.
+MODELS.cloud = () => {
+  const m = new Model();
+  for (const [x, y, z, r] of [[-2.2, 1.4, -1.0, 2.0], [1.9, 1.5, -1.3, 2.1], [0, 2.2, 0.4, 2.4], [-1.5, 1.2, 2.0, 1.7], [2.0, 1.1, 1.8, 1.6]])
+    m.ellipsoid(x, y, z, r * 1.15, r * 0.7, r * 1.05, '#f4f6f8', { seg: 7, rings: 4 });
+  m.ellipsoid(0.4, 3.2, -0.4, 1.4, 0.9, 1.3, '#ffffff', { seg: 6, rings: 4 });
+  return m;
+};
+
 // The hole's flag, so a moving hole can be seen from across the board.
 MODELS.flag = () => {
   const m = new Model();

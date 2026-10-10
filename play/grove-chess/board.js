@@ -7,7 +7,7 @@
 
 import { Mesh, Model, snapshot } from '../../engine/lowpoly.js';
 import { model } from './models.js';
-import { brambleCount, onBoard, movesFor, holeOpen, nextShrink, PIECES, statueKind } from './rules.js';
+import { brambleCount, onBoard, movesFor, holeOpen, nextShrink, PIECES, statueKind, reachMaps } from './rules.js';
 import * as sfx from './sounds.js';
 import { LOOK } from './config.js';
 
@@ -215,6 +215,14 @@ export class Board {
         } else if (gone.has(sq)) this.gap(x, y);
         else this.tile(x, y, col);
       }
+    // Every piece's reach (2026-10-10), when asked for (the 3D board shows it
+    // by default; here only the runner asks), and the first-turn cloud.
+    if (s && this.reach === true && !this.hidePieces) {
+      const R = reachMaps(s);
+      for (const sq of R.yours) P(this.cellX(sq % W), this.cellY(Math.floor(sq / W)), C, C, 'rgba(242,211,107,.35)');
+      for (const sq of R.theirs) P(this.cellX(sq % W), this.cellY(Math.floor(sq / W)), C, C, 'rgba(59,37,88,.22)');
+    }
+    if (s?.cloudy && day.cloud) for (const sq of day.cloud) P(this.cellX(sq % W), this.cellY(Math.floor(sq / W)), C, C, 'rgba(255,255,255,.7)');
   }
 
   /** One square. On crumbling ground every square shows hairline cracks,
@@ -600,6 +608,10 @@ export class Board {
       tw.landAt = t - 40;
       for (const i of tw.eaten) tw.poofs.push({ x: a.pieces[i].x, y: a.pieces[i].y, t0: t - 40, dur: 480, c1: '#7a5133', c2: '#c8462e' });
       if (tw.eaten.size) { sfx.eat(at(tw.landAt)); t += 440; }
+    }
+    // The first-turn cloud lifts, in white puffs.
+    if (a.cloudy && !b.cloudy && this.day.cloud) {
+      for (const sq of this.day.cloud) tw.poofs.push({ x: sq % this.day.W, y: Math.floor(sq / this.day.W), t0: t, dur: 620, c1: '#ffffff', c2: '#dfe6ea' });
     }
     // Then, on shrinking ground, a square on the edge may fall away.
     if ((b.shrunk?.length || 0) > (a.shrunk?.length || 0)) {

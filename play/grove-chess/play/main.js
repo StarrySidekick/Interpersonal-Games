@@ -9,7 +9,7 @@ import { makeTarget, render } from '../../../engine/lowpoly.js';
 import { rng } from '../../../engine/seed.js';
 import * as sfx from '../sounds.js';
 import {
-  PIECES, descOf, CRUMBLE_DESC, SHRINK_DESC, STUMP_DESC, HOLE_DESC, movesFor, playerMove, respond, isOver, outcome, initialState,
+  PIECES, descOf, CRUMBLE_DESC, SHRINK_DESC, STUMP_DESC, HOLE_DESC, CLOUD_DESC, movesFor, playerMove, respond, isOver, outcome, initialState,
   allMoves, holeOpen, crumbled, shrunk, apply, showdown, firstCaptures, onBoard
 } from '../rules.js';
 import { solveLevel } from '../solve.js';
@@ -99,12 +99,23 @@ function newSession() {
   // The "another piece" waystone deals one more, as far as the hand holds.
   const extra = carries() && litWaystones(deepest()).some((w) => w.id === 'extra') ? 1 : 0;
   const count = Math.min(M.maxPieces, M.startPieces + extra);
-  const start = Array.from({ length: count }, () => (pool.length ? pool : M.startPool)[Math.floor(rand() * (pool.length || M.startPool.length))]);
-  // A royal King is dealt first, and kept (kingLocked, below).
-  if (M.royal && M.run === 'descent' && !start.includes('king')) start[0] = 'king';
+  // A royal King is dealt first, and kept (kingLocked, below); only one, since
+  // with a royal King any King of yours taken would end the descent.
+  const royalKing = M.royal && M.run === 'descent';
+  const from = royalKing && pool.some((k) => k !== 'king') ? pool.filter((k) => k !== 'king') : pool.length ? pool : M.startPool;
+  const start = Array.from({ length: count }, () => from[Math.floor(rand() * from.length)]);
+  if (royalKing) start[0] = 'king';
   session = { seed, n: 1, found: new Map(), seen: new Set(), strokes: [], lives: M.lives, wins: 0, caught: [], claimed: [], acorns: 0, deepestBefore: deepest() };
   if (M.run === 'descent' || M.run === 'rounds') session.run = newRun(start, M.maxPieces);
+  // The set you were dealt: laying out your pieces opens once it changes.
+  session.dealt = session.run ? JSON.stringify(session.run.hand) : null;
 }
+
+/** Has your set changed from the one you were dealt (a piece found, lost,
+    swapped on the title, suited or fused)? Timothy, 2026-10-10: "you should
+    be allowed to organize pieces only after your default set you start
+    with changes." */
+const setChanged = () => !!session.run && JSON.stringify(session.run.hand) !== session.dealt;
 
 /** The level for level number n of this session, found on a background
     thread (and kept, so asking again is free). */
@@ -228,6 +239,7 @@ async function startLevel() {
   par = found.par; measured = found.measure; autoBest = found.autoBest; setups = found.setups;
   game = { states: [initialState(level)], moves: [] };
   board = makeBoard($('#board'), level);
+  board.reach = level.settings.showReach;
   board.redraw = draw;
   board.fur = furOf;
   sel = null; legal = []; shown = null;
@@ -259,9 +271,9 @@ async function startLevel() {
   await playIntro(board, level, { section: $('[data-screen=play]'), seen: session.seen, goal: goalCard() });
   busy = false;
   if (isAuto()) return setUp();
-  if (level.settings.arrange && level.pieces.length) await arrange();
+  if (level.settings.arrange && level.pieces.length && setChanged()) await arrange();
   $('#controls').hidden = false;
-  status(`${levelWord()} ${session.n}. ${GOAL_PILL[level.goalKind] || ''}.`);
+  status(`${levelWord()} ${session.n}. ${GOAL_PILL[level.goalKind] || ''}.${now().cloudy ? ' A cloud covers the second rows for the first turn.' : ''}`);
   select(null);
 }
 
@@ -445,6 +457,7 @@ $('#board').addEventListener('click', (e) => {
   if (i >= 0) return select(sel === i ? null : i);
   select(null);
   if (s.hole && s.hole.x === x && s.hole.y === y) return info(HOLE_DESC);
+  if (s.cloudy && s.day.cloud?.has(y * s.day.W + x)) return info(CLOUD_DESC);
   if (crumbled(s, x, y)) return info(CRUMBLE_DESC);
   if (shrunk(s, x, y)) return info(SHRINK_DESC);
   if (s.day.stumps.has(y * s.day.W + x)) return info(STUMP_DESC);

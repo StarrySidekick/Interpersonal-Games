@@ -31,7 +31,9 @@ export const LOOK_DEFAULTS = {
   tileDark: '#f6efd7',
   you: '#4f8a3b',       // your pieces' bodies
   foe: '#6c4795',       // theirs
-  statue: '#8e918c'     // statues' stone
+  statue: '#8e918c',    // statues' stone
+  reachYou: '#f2d36b',  // the glow on squares your pieces can reach
+  reachFoe: '#3b2558'   // and on squares theirs can
 };
 
 export const LOOK = { ...LOOK_DEFAULTS, ...(CONFIG.look || {}) };

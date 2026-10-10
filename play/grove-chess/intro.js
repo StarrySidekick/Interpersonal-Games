@@ -9,7 +9,7 @@
 import { el, haptic } from '../../engine/ui.js';
 import { Mesh, makeTarget, render } from '../../engine/lowpoly.js';
 import { model } from './models.js';
-import { PIECES, descOf, CRUMBLE_DESC, SHRINK_DESC, movesFor, playerMove, look } from './rules.js';
+import { PIECES, descOf, CRUMBLE_DESC, SHRINK_DESC, CLOUD_DESC, movesFor, playerMove, look } from './rules.js';
 import { Board, demoBoard } from './board.js';
 import * as sfx from './sounds.js';
 
@@ -122,6 +122,9 @@ export async function playIntro(board, level, { goal = null, section = null, see
     theirs.forEach((k, i) => cards.push({ kind: k, side: 'foe', eyebrow: `Their pieces · ${i + 1} of ${theirs.length}`,
       title: `Their ${PIECES[k].name}`, text: descOf(k, level.rules) + (sided(k) ? ' Their forward is down the board, toward you.' : ''),
       demo: true, rules: level.rules }));
+    // The first-turn cloud, once.
+    if (level.rules.cloud && level.cloud?.size && fresh('ground:cloud')) cards.push({ kind: 'cloud', side: 'you', eyebrow: 'The first turn', title: 'A cloud on the second rows',
+      text: CLOUD_DESC, demo: false });
     if (level.rules.crumble && fresh('ground:crumble')) cards.push({ kind: 'crumble', side: 'you', eyebrow: 'The ground', title: 'Crumbling ground',
       text: CRUMBLE_DESC, demo: 'crumble' });
     if (level.rules.shrink && fresh('ground:' + level.rules.shrink)) cards.push({ kind: 'shrink', side: 'you', eyebrow: 'The ground',

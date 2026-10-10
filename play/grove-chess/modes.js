@@ -121,21 +121,21 @@ export const MODES = {
     settings: { run: 'single', roll: 'daily', difficulty: 'normal', aim: 4, minEngage: 50, goal: 'all', royal: false, showdown: false, maxMoves: 20 }
   },
   descent: {
-    name: 'The descent', blurb: 'Four pieces, your King among them, down and down. Take their King to fall to the next level, where you find another piece, up to six; then upgrades. A piece taken is gone for good, and if they take your King the descent is over.',
+    name: 'The descent', blurb: 'A full row of pieces, your King among them, down and down. Take their King to fall to the next level, where you find another piece, up to eight; then upgrades. A piece taken is gone for good, and if they take your King the descent is over.',
     settings: {
-      run: 'descent', roll: 'fixed', startPieces: 4, maxPieces: 6, rewards: true, jokers: true, ramp: 'steady', outOfMoves: 'fall',
+      run: 'descent', roll: 'fixed', startPieces: 6, maxPieces: 8, rewards: true, jokers: true, ramp: 'steady', outOfMoves: 'fall',
       goal: 'king', royal: true, showdown: true, w: 6, h: 6, foes: 2, foePool: ['king', 'pawn', 'knight', 'bishop'], darkBrain: 'possessed', rabbitMind: 'mind', iq: 3, kinds: 1,
       foesCapture: true, statues: 1, maxMoves: 20, lineup: true, parMin: 3, parMax: 10, difficulty: 'any'
     }
   },
   chaos: {
     name: 'Chaos', blurb: 'A single level from a completely random mix of every rule and setting. It is always winnable and balanced, and as hard as you ask.',
-    settings: { run: 'single', roll: 'chaos', difficulty: 'normal' }
+    settings: { run: 'single', roll: 'chaos', difficulty: 'normal', fullRow: false }
   },
   golf: {
     name: 'Golf', blurb: 'A course of holes. Your pieces are the walls, the ramps and, with some balls, the clubs; sink the ball in as few strokes as you can.',
     settings: {
-      run: 'course', roll: 'fixed', courseName: 'meadow', courseHoles: 9, goal: 'hole', royal: false, showdown: false, foes: 0, rabbits: 1, rabbitsEat: false, rabbitMind: 'mind', traits: ['messy', 'shy', 'guard'], iq: 4,
+      run: 'course', roll: 'fixed', courseName: 'meadow', courseHoles: 9, goal: 'hole', royal: false, showdown: false, fullRow: false, cloud: false, foes: 0, rabbits: 1, rabbitsEat: false, rabbitMind: 'mind', traits: ['messy', 'shy', 'guard'], iq: 4,
       mine: 3, minePool: ['rook', 'bishop', 'knight', 'king', 'wazir', 'ferz', 'grasshopper'], statues: 2, ballCaptures: false, holeMoves: 'still',
       maxMoves: 15, parMin: 3, parMax: 9, w: 6, h: 6, lineup: false, mineRows: 2, foeRows: 3, difficulty: 'any'
     }
@@ -143,7 +143,7 @@ export const MODES = {
   autochess: {
     name: 'Autochess', blurb: 'Put rabbits in your pieces and let them fight. Win rounds to grow your side; lose three and it is over.',
     settings: {
-      run: 'rounds', roll: 'fixed', mode: 'auto', autoPool: 'all', oneMove: false, lives: 3, startPieces: 3, maxPieces: 6, rewards: true, shop: true, jokers: false,
+      run: 'rounds', roll: 'fixed', mode: 'auto', autoPool: 'all', oneMove: false, fullRow: false, cloud: false, lives: 3, startPieces: 3, maxPieces: 6, rewards: true, shop: true, jokers: false,
       goal: 'all', royal: false, showdown: false, foes: 2, foePool: ['king', 'knight', 'bishop', 'wazir'], darkBrain: 'possessed', rabbitMind: 'mind', iq: 4, kinds: 2,
       maxMoves: 20, lineup: true, statues: 1, difficulty: 'any'
     }
@@ -198,7 +198,8 @@ const SHOWN = {
   difficulty: (S) => S.run !== 'descent', aim: (S) => S.run !== 'descent',
   // Your side: a run brings its own hand.
   arrange: (S) => S.run !== 'rounds',
-  mine: (S) => !['descent', 'rounds'].includes(S.run), minePool: (S) => !['descent', 'rounds'].includes(S.run), mineDupes: (S) => !['descent', 'rounds'].includes(S.run),
+  fullRow: (S) => S.run !== 'course', foes: (S) => !S.fullRow,
+  mine: (S) => !['descent', 'rounds'].includes(S.run) && !S.fullRow, minePool: (S) => !['descent', 'rounds'].includes(S.run), mineDupes: (S) => !['descent', 'rounds'].includes(S.run),
   royal: (S) => S.run !== 'course',
   // Pieces can always take pieces: a setting for the workshop only.
   foesCapture: (S) => S.run == null, dealKing: (S) => S.run !== 'course' && S.royal, showdown: (S) => S.run !== 'course',
@@ -260,6 +261,8 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
     // Where pieces start is the mode's too, in Chaos and the daily practice:
     // lined up or not, within how many rows, and who moves first.
     Object.assign(S, { lineup: M.lineup, mineRows: M.mineRows, foeRows: M.foeRows, first: M.first });
+    // So are a full row each, the first-turn cloud, and showing reach.
+    Object.assign(S, { fullRow: M.fullRow, cloud: M.cloud, showReach: M.showReach });
     if (M.roll === 'daily') Object.assign(S, { maxMoves: Math.max(S.maxMoves || 20, 18), parMin: 4, parMax: 10, minCeiling: 6 });
   }
 

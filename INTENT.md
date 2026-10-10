@@ -26,6 +26,12 @@ His changes there go into the game when he asks Claude to apply them
 (`play/grove-chess/config.js`). **Theming the pieces' names is his, in the
 console; do not rename pieces on his behalf.**
 
+Later the same day, aimed at people who do not play chess: every piece's
+reach shown on the board, a full row of pieces each (six on six by six),
+the daily included, and a cloud on each side's second row for the first
+turn so nothing can be taken on move one. Built; see the same doc,
+"Second batch".
+
 ## 2026-10-06: hone in on what is actually fun
 
 Recorded from Timothy's own description. **The goal right now is to make
