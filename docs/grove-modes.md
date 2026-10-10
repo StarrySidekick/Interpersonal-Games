@@ -258,9 +258,13 @@ stored boards keep the old behaviour):
   descent starts with its full row as dealt.
 - **The daily.** The share link's piece digit now runs 0 to 9 (it was 0
   to 3, which is why the daily gave you four pieces at most). Stored daily
-  boards from 2026-10-11 to 2026-12-31 were made again with a full row
-  each (the shipped ones, 2026-10-09 and 10, are unchanged; nobody had
-  seen the later ones). With any rules at all almost no roll passed the
+  boards from 2026-10-11 on were made again with a full row each (the
+  shipped ones, 2026-10-09 and 10, are unchanged; nobody had seen the
+  later ones). Timothy, the same day: "don't worry about storing future
+  boards at the moment, outside of let's say like a week." So boards are
+  stored to 2026-10-17 only; a later date falls back to dealer version 3
+  (no full row) until more are made with `make-daily.mjs` (about 20
+  seconds a board). With any rules at all almost no roll passed the
   daily's bar, so full-row dailies are held closer to chess: a rectangle
   five or six wide and six tall, take their King, hands mostly classic
   (up to two fairy kinds yours, one theirs), par from 3 rather than 4.
@@ -435,8 +439,9 @@ green). The long game (`grove-long-game.md`) is still unbuilt.
 
 ## Next
 
-- Make more named dailies before the stored ones run out (they go to the
-  end of 2026; after that a date falls back to version 3).
+- Make more named dailies before the stored ones run out (they go to
+  2026-10-17, a week ahead, as Timothy asked; after that a date falls back
+  to version 3).
 - Calibrate difficulty and engagement against the workshop notebook's
   ratings.
 - Give each golf course its own look (board colours, a sound).
