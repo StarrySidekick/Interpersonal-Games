@@ -12,7 +12,8 @@
 //
 // Link format:  #d=2026-10-05&v=Mara.0a1b2c~Tombo.w00d3e
 //   each game:  name . moves      games joined by ~
-//   each move:  piece (0-3, or w for wait), then the square as one base-36
+//   each move:  piece (0-9, or w for wait; 0-3 before 2026-10-10, when the
+//               daily gave you at most four), then the square as one base-36
 //               character (y * N + x)
 
 import { replay, isOver, outcome } from './rules.js';
@@ -28,7 +29,7 @@ export function encodeMoves(moves, N) {
 }
 
 export function decodeMoves(str, N) {
-  if (!/^([0-3w][0-9a-z])*$/.test(str) || str.length > 60) return null;
+  if (!/^([0-9w][0-9a-z])*$/.test(str) || str.length > 60) return null;
   const out = [];
   for (let i = 0; i < str.length; i += 2) {
     if (str[i] === 'w') { out.push({ p: -1, x: 0, y: 0 }); continue; }

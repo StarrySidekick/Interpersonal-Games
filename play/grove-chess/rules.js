@@ -145,6 +145,16 @@ export function canTake(rules, f) {
 export function look(s, x, y, side = 'you') {
   if (s.day.rules.wrap) [x, y] = fold(s.day, x, y);
   if (!onBoard(s.day, x, y) || crumbled(s, x, y) || shrunk(s, x, y)) return OFF;
+  // The cloud (2026-10-10): for the first turn each side's second row is
+  // under a cloud. Nothing passes through it and nothing in it can be taken:
+  // here it reads as the edge of the world, so sliders stop, leapers cannot
+  // land, and hoppers find nothing to hop. A piece may still step into an
+  // empty square of it (pieceMoves asks again with `openCloud`).
+  if (s.cloudy && s.day.cloud?.has(y * s.day.W + x)) {
+    const empty = !s.pieces.some((p) => !p.taken && p.x === x && p.y === y) && !s.foes.some((f) => !f.taken && f.x === x && f.y === y)
+      && !s.day.stumps.has(y * s.day.W + x) && !(s.hole && s.hole.x === x && s.hole.y === y);
+    if (!(openCloud && empty)) return OFF;
+  }
   const bram = isBramble(s, x, y);
   for (const p of s.pieces)
     if (!p.taken && p.x === x && p.y === y) {
@@ -568,6 +578,7 @@ export const STUMP_DESC = 'A statue: a standing stone with a spiral cut in it, o
     rule they are the same thing.) */
 const STATUE_KINDS = ['pawn', 'rook', 'knight', 'bishop', 'king', 'queen'];
 export const statueKind = (day, sq) => day.statueKinds?.get(sq) ?? STATUE_KINDS[sq % STATUE_KINDS.length];
+export const CLOUD_DESC = 'A cloud over the second row on each side, for the first turn only. A piece can step into it but nothing goes through it, and nothing in it can be taken, so nobody can take anything on the very first move. It lifts once both sides have moved.';
 export const CRUMBLE_DESC = 'Every square you move off crumbles away behind you. Nothing can stand on it again: sliders stop at the gap, leapers can still jump it, and a rabbit that tries to hop in waits instead.';
 export const SHRINK_DESC = 'The edge of the board falls away. Every few moves one square on the rim drops into the dark for good, and the rim closes in. It never takes a square anything is standing on, never cuts the board in two, and stops when half the board is gone.';
 /** On a level where the ball captures, the sentence that says so. */
@@ -623,6 +634,7 @@ export function initialState(day) {
     shrunk: [], // squares that have fallen off the edge, in the order they went
     won: false
   };
+  if (day.rules.cloud && day.cloud?.size) s.cloudy = true;
   if (day.rules.first === 'them') { foesAct(s); s.opened = true; }
   return s;
 }
@@ -630,7 +642,7 @@ export function initialState(day) {
 export function clone(s) {
   return { day: s.day, t: s.t, pieces: s.pieces.map((p) => ({ ...p })), foes: s.foes.map((f) => ({ ...f })),
     hole: s.hole ? { ...s.hole } : null, gone: s.gone.slice(), shrunk: s.shrunk ? s.shrunk.slice() : [], won: s.won, sunk: s.sunk,
-    bonus: s.bonus || null, treasure: s.treasure || 0, ft: s.ft || 0 };
+    bonus: s.bonus || null, treasure: s.treasure || 0, ft: s.ft || 0, ...(s.cloudy ? { cloudy: true } : {}) };
 }
 
 const youLook = (s) => (x, y) => look(s, x, y, 'you');
@@ -646,8 +658,37 @@ function sight(s, p, side) {
   };
 }
 
-/** Piece p's moves, from `side`, folded back onto a magic board. */
+/** While true, look() lets an empty square under the cloud read as empty. */
+let openCloud = false;
+
+/** Piece p's moves, from `side`. Under the first-turn cloud: its moves with
+    the cloud as a wall, plus any that end on an empty square of the cloud
+    itself (stepping in is allowed; going through, or taking, is not). */
 function pieceMoves(s, p, side) {
+  if (!s.cloudy || !s.day.cloud?.size || openCloud) return pieceMoves0(s, p, side);
+  const out = pieceMoves0(s, p, side), seen = new Set(out.map((m) => m.y * s.day.W + m.x));
+  openCloud = true;
+  try {
+    for (const m of pieceMoves0(s, p, side)) {
+      const k = m.y * s.day.W + m.x;
+      if (m.cap || !s.day.cloud.has(k) || seen.has(k) || throughCloud(s, p, m)) continue;
+      seen.add(k); out.push(m);
+    }
+  } finally { openCloud = false; }
+  return out;
+}
+
+/** Does the straight way from p to m cross a square of the cloud before
+    it gets there? (A knight's L crosses no square; a slide crosses every
+    square on its line.) */
+function throughCloud(s, p, m) {
+  const dx = m.x - p.x, dy = m.y - p.y, g = gcd(Math.abs(dx), Math.abs(dy)) || 1;
+  for (let i = 1; i < g; i++) if (s.day.cloud.has((p.y + (dy / g) * i) * s.day.W + p.x + (dx / g) * i)) return true;
+  return false;
+}
+
+/** Piece p's moves, from `side`, folded back onto a magic board. */
+function pieceMoves0(s, p, side) {
   let ms = PIECES[p.type].moves(sight(s, p, side), p, side === 'you' ? 1 : -1, s.day);
   // Spirits (a suit, 2026-10-09): it passes through pieces, statues and
   // stumps as if they were not there, and lands as usual: on an empty
@@ -925,6 +966,24 @@ function hash01(str) {
 /** Squares the side `who` could move to next turn: where a piece of the
     other side would be standing in reach. (A little generous: a pawn's
     forward step is counted though it cannot capture that way.) */
+/**
+ * Where every piece can go, for showing on the board (2026-10-10: "every
+ * piece's movement pattern shows on the board ... to make the first
+ * approach to the game easier for non-chess players"). { yours, theirs }:
+ * Sets of squares (y * W + x) any piece of that side could move to or take
+ * on, as things stand. Rabbits on a fixed pattern have no moves to show.
+ */
+export function reachMaps(s) {
+  const W = s.day.W, yours = new Set(), theirs = new Set();
+  if (s.won) return { yours, theirs };
+  s.pieces.forEach((p, i) => { if (!p.taken) for (const m of movesFor(s, i)) if (!m.swap) yours.add(m.y * W + m.x); });
+  for (const f of s.foes) {
+    if (f.taken || f.brain === 'pattern') continue;
+    for (const m of pieceMoves(s, f, 'foe')) theirs.add(m.y * W + m.x);
+  }
+  return { yours, theirs };
+}
+
 function reachOf(s, who) {
   const out = new Set(), W = s.day.W;
   const list = who === 'you' ? s.pieces : s.foes;
@@ -1360,6 +1419,7 @@ export function apply(s, mv) {
   const n = playerMove(s, mv);
   if (n.bonus) return n;
   if (!n.won && theyMove(n)) foesAct(n);
+  if (n.cloudy) delete n.cloudy; // as in respond(): the cloud lifts
   n.t++;
   afterMove(n);
   return n;
@@ -1372,6 +1432,8 @@ export function respond(n) {
   const c = clone(n);
   if (c.bonus) return c;
   if (!c.won && theyMove(c)) foesAct(c);
+  // Both sides have had their first move: the cloud lifts.
+  if (c.cloudy) delete c.cloudy;
   c.t++;
   afterMove(c);
   return c;
@@ -1401,6 +1463,7 @@ export function stateKey(s) {
   let k = '';
   for (const p of s.pieces) k += p.taken ? '--' : p.x + ',' + p.y + (p.lives > 1 ? 'L' + p.lives : '') + (p.starUsed ? '*' : '') + ';';
   if (s.bonus) k += `|b${s.bonus.p}${s.bonus.cap ? 'c' : ''}`;
+  if (s.cloudy) k += '|c';
   if (s.day.rules.oneMove) k += `|f${s.ft || 0}`; // whose turn it is on their side
   k += '|';
   for (const f of s.foes) k += f.taken ? '--' : f.x + ',' + f.y + ',' + f.i + (f.mx > 0 ? '+' : '-') + (f.my > 0 ? '+' : '-') + (f.idle ? 'i' + f.idle : '') + ';';

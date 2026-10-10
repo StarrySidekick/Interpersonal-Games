@@ -191,7 +191,9 @@ const LOOK_FIELDS = [
   { key: 'tileLight', label: 'Light squares', type: 'color' }, { key: 'tileDark', label: 'Other squares', type: 'color' },
   { key: 'rim', label: 'Rim', type: 'color' }, { key: 'rimWidth', label: 'Rim width', type: 'range', min: 0, max: 3, step: 0.1, help: 'In tenths of a square. It was 3, now 1.2.' },
   { key: 'you', label: 'Your pieces', type: 'color' }, { key: 'foe', label: 'Their pieces', type: 'color' },
-  { key: 'statue', label: 'Statues', type: 'color' }, { key: 'fog', label: 'The forest round the board', type: 'color' }
+  { key: 'statue', label: 'Statues', type: 'color' }, { key: 'fog', label: 'The forest round the board', type: 'color' },
+  { key: 'reachYou', label: 'Where yours can go', type: 'color', help: 'The glow on every square your pieces can reach.' },
+  { key: 'reachFoe', label: 'Where theirs can go', type: 'color', help: 'The faint glow on every square their pieces can reach.' }
 ];
 
 // --- State: only what differs from the game as shipped. ---------------------
@@ -398,8 +400,10 @@ function drawPreview() {
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { g.fillStyle = (x + y) % 2 ? L.tileDark : L.tileLight; g.fillRect(ox + x * sq, oy + y * sq, sq, sq); }
   const disc = (x, y, col) => { g.fillStyle = col; g.beginPath(); g.ellipse(ox + x * sq + sq / 2, oy + y * sq + sq * 0.62, sq * 0.3, sq * 0.16, 0, 0, Math.PI * 2); g.fill();
     g.fillRect(ox + x * sq + sq * 0.36, oy + y * sq + sq * 0.15, sq * 0.28, sq * 0.45); g.beginPath(); g.arc(ox + x * sq + sq / 2, oy + y * sq + sq * 0.16, sq * 0.15, 0, Math.PI * 2); g.fill(); };
-  [1, 2, 3, 4].forEach((x) => disc(x, 5, L.you));
-  [2, 3].forEach((x) => disc(x, 0, L.foe));
+  const glow = (x, y, col, a) => { g.globalAlpha = a; g.fillStyle = col; g.fillRect(ox + x * sq, oy + y * sq, sq, sq); g.globalAlpha = 1; };
+  for (let x = 0; x < N; x++) { glow(x, 4, L.reachYou, 0.38); glow(x, 3, L.reachYou, 0.38); glow(x, 1, L.reachFoe, 0.24); glow(x, 2, L.reachFoe, 0.24); }
+  [0, 1, 2, 3, 4, 5].forEach((x) => disc(x, 5, L.you));
+  [0, 1, 2, 3, 4, 5].forEach((x) => disc(x, 0, L.foe));
   g.fillStyle = L.statue; g.fillRect(ox + 3 * sq + sq * 0.3, oy + 2 * sq + sq * 0.05, sq * 0.4, sq * 0.8);
   g.fillStyle = 'rgba(0,0,0,.35)'; g.font = '600 12px system-ui'; g.fillText('Rough sketch', 10, 320);
 }

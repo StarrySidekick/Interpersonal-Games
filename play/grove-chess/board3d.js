@@ -36,7 +36,7 @@ import { rng } from '../../engine/seed.js';
 import { model } from './models.js';
 import { LOOK } from './config.js';
 import { Board, tileColour, PIT, TRACK, tweenPos, wraps } from './board.js';
-import { onBoard, brambleCount, holeOpen, nextShrink, statueKind } from './rules.js';
+import { onBoard, brambleCount, holeOpen, nextShrink, statueKind, reachMaps } from './rules.js';
 import * as sfx from './sounds.js';
 import { haptic } from '../../engine/ui.js';
 
@@ -335,6 +335,15 @@ export class Board3D extends Board {
     this.air(g);
   }
 
+  /** Where every piece can go in state s (rules.js reachMaps), worked out
+      once per state shown; null when it is not to be shown (switched off,
+      the opening, the floor going). */
+  reachOf(s) {
+    if (this.reach === false || this.hidePieces || this.tw?.collapse || this.tw?.assemble) return null;
+    if (this.reachFor !== s) { this.reachFor = s; this.reachMap = reachMaps(s); }
+    return this.reachMap;
+  }
+
   /** Everything the squares picture depends on, as a string, or null while
       something on the board itself is moving (then it is drawn afresh). */
   squaresKey(s, v, at) {
@@ -348,7 +357,9 @@ export class Board3D extends Board {
     // (Which animations are under way matters too: a finished one still
     // draws its end state differently from none at all, e.g. the lid.)
     const anims = ['vanish', 'crumble'].map((k) => (tw?.[k] ? (at < tw[k].t0 ? 'b' : 'a') : '-')).join('');
-    return [s.gone?.join(','), s.shrunk?.join(','), anims, (this.theta || 0).toFixed(3),
+    const R = this.reachOf(s);
+    return [s.gone?.join(','), s.shrunk?.join(','), anims, (this.theta || 0).toFixed(3), s.cloudy ? 'c' : '',
+      R ? [...R.yours].join(',') + '/' + [...R.theirs].join(',') : '-',
       (v.legal || []).map((m) => `${m.x},${m.y},${m.cap || m.sink ? 1 : 0}`).join(';'),
       v.sel != null && s.pieces[v.sel] ? `${s.pieces[v.sel].x},${s.pieces[v.sel].y}` : '', shrinkNext].join('|');
   }
@@ -367,6 +378,7 @@ export class Board3D extends Board {
     let shade = -1;
     if (v.track && day.rules.shrink && !tw && (s.t + 1) % (day.rules.shrinkEvery || 2) === 0) shade = nextShrink(s) ?? -1;
     const slab = !day.holes.size && !off.size && !collapse && !assemble;
+    const RM = this.reachOf(s), cloudy = s.cloudy && day.cloud;
     // The wooden rim: a thin band round the board (Timothy, 2026-10-10: the
     // brown borders were "way too thick"). Width from LOOK (config.js).
     const R = LOOK.rimWidth;
@@ -403,6 +415,11 @@ export class Board3D extends Board {
         if (!slab && R > 0 && !drop && !collapse && !assemble) m.addBox(X - r - rim, -4, Z - r - rim, X + r + rim, -1, Z + r + rim, LOOK.rim, 2, 1 << 3);
         if (gone.has(sq) && !crumbling) { m.addBox(X - r, -1.04, Z - r, X + r, -0.98, Z + r, PIT, 2); continue; }
         let col = tileColour(day, x, y);
+        // Every piece's reach (2026-10-10): yours a yellow light, theirs a
+        // faint dark purple; a square both reach gets both.
+        if (RM?.yours.has(sq)) col = mix(col, LOOK.reachYou, 0.38);
+        if (RM?.theirs.has(sq)) col = mix(col, LOOK.reachFoe, 0.24);
+        if (cloudy && day.cloud.has(sq)) col = mix(col, '#ffffff', 0.55);
         const L = lit.get(sq);
         if (L === 'move') col = mix(col, '#f2c14e', 0.55);
         else if (L === 'catch') col = mix(col, '#e2603e', 0.6);
@@ -572,6 +589,8 @@ export class Board3D extends Board {
       const x = sq % day.W, y = Math.floor(sq / day.W), c = tw?.collapse;
       stand(model(statueKind(day, sq), 'stone'), x, y, 0, 400, c ? { s: away(at - c.t0 - c.delay(x, y)) } : {});
     }
+    // The first-turn cloud over the second rows.
+    if (s.cloudy && day.cloud && !tw?.collapse) for (const sq of day.cloud) stand(model('cloud'), sq % day.W, Math.floor(sq / day.W), 0, 402);
     for (let i = 0; i < brambleCount(day, s.t); i++) stand(model('bramble'), day.bramble[i] % day.W, Math.floor(day.bramble[i] / day.W), 0, 401 + i);
     const collapse = tw?.collapse;
     if (s.hole && !collapse) {

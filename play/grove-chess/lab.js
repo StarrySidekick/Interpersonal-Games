@@ -38,6 +38,8 @@ export const SCHEMA = [
   { group: 'How you play', fields: [
     { key: 'mode', label: 'Who moves your pieces', type: 'choice', def: 'hand', options: opts(['hand', 'You do'], ['auto', 'Rabbits (autochess)']),
       help: 'Autochess: before the game you put rabbits you have caught into your pieces, choose which way each faces and the order of your line. Then it plays itself: each rabbit picks the way, its piece picks how, the same as theirs.' },
+    { key: 'showReach', label: 'Show where every piece can go', type: 'bool', def: true,
+      help: 'Every square a piece of yours could go to glows yellow, and every square one of theirs could go to glows a faint dark purple, updating as pieces move (Timothy, 2026-10-10: to make the first approach easier for people who do not play chess).' },
     { key: 'autoPool', label: 'Your rabbits', type: 'choice', def: 'caught', options: opts(['caught', 'The ones you have caught'], ['all', 'Every named kind']),
       help: 'For autochess. Caught: one rabbit for every time you caught its kind, in the descent or the daily.' }
   ] },
@@ -66,10 +68,14 @@ export const SCHEMA = [
       help: 'Like Pac-Man: off one edge is on at the other. Joined edges glow. A piece that slides all the way round comes back to where it started, so it stops there; a ball rolling round with nothing to stop it arrives back where it began, which is no move.' },
     { key: 'geared', label: 'Geared', type: 'bool', def: false,
       help: 'After every turn the board turns a quarter turn clockwise, with everything on it. Your pieces turn with it, so they move as ever; the rabbits\u2019 patterns do not, so a rabbit that hops up the screen goes a different way across the board each turn. Square boards only.' },
+    { key: 'cloud', label: 'A cloud on the second rows, first turn', type: 'bool', def: true,
+      help: 'For the first turn, a cloud covers each side\u2019s second row: a piece can step into it, but nothing goes through it and nothing in it can be taken, so nobody can take anything on the first move. It lifts once both sides have moved (Timothy, 2026-10-10: with no second row of pawns, this protects the Kings at the start).' },
     { key: 'statues', label: 'Statues', type: 'int', min: 0, max: 8, def: 2,
       help: 'Standing stones, each with a spiral cut in it, in the middle of the board. They never move and nothing can take them. Sliders stop at them, leapers jump them, and the grasshopper and the cannon can hop over them.' }
   ] },
   { group: 'Your side', fields: [
+    { key: 'fullRow', label: 'A full row each', type: 'bool', def: true,
+      help: 'Each side starts with as many pieces as the board is wide: six on a six by six board, yours and theirs (Timothy, 2026-10-10). Off: the counts set here and under their pieces.' },
     { key: 'mine', label: 'Pieces', type: 'int', min: 1, max: 8, def: 4 },
     { key: 'minePool', label: 'Dealt from', type: 'pieces', def: ['queen', 'knight', 'bishop', 'rook', 'grasshopper'] },
     { key: 'mineDupes', label: 'Repeats allowed', type: 'bool', def: false },
@@ -149,7 +155,7 @@ export const SCHEMA = [
 ];
 
 const FIELDS = SCHEMA.flatMap((g) => g.fields);
-export const SETTINGS_VERSION = 11;
+export const SETTINGS_VERSION = 12;
 export const defaults = () => ({ ...Object.fromEntries(FIELDS.map((f) => [f.key, Array.isArray(f.def) ? [...f.def] : f.def])), v: SETTINGS_VERSION });
 
 /** How each earlier version's defaults differ from today's. Settings saved
@@ -161,13 +167,17 @@ export const defaults = () => ({ ...Object.fromEntries(FIELDS.map((f) => [f.key,
 // Version 11 (2026-10-10): nobody waits. You must move a piece every turn,
 // and so must they (Timothy: "by default, nobody, including enemies, should
 // be able to wait instead of moving").
-const V11 = { wait: true, foesWait: true, arrange: false };
+// Version 12 (2026-10-10): a full row each, a cloud on the second rows for
+// the first turn, and every piece's reach shown.
+const V12 = { fullRow: false, cloud: false, showReach: false };
+const V11 = { wait: true, foesWait: true, arrange: false, ...V12 };
 const V10 = { oneMove: false, ...V11 };
 const V9 = { mineRows: 2, foeRows: 3, ...V10 };
 // Version 8 (2026-10-09): each side has a King. Take theirs, keep yours
 // (goal 'king', royal), and two left brings on the showdown.
 const V8 = { goal: 'descent', royal: false, showdown: false, dealKing: false, ...V9 };
 const BEFORE = {
+  11: { ...V12 },
   10: { ...V11 },
   9: { ...V10 },
   8: { ...V9 },
@@ -180,6 +190,10 @@ const BEFORE = {
   1: { ...V8, rabbitMind: 'pattern', lineup: false, ballCaptures: false, statues: 0, rabbits: 0, foes: 3, patterns: 'daily', darkBrain: 'think', kinds: 1, foePool: ['king', 'knight', 'bishop', 'pawn'],
     ground: 'solid', goal: 'king', balance: 'off', ballMove: 'ice' }
 };
+/** A settings version this code can read: 2 up to today's. (Two copies
+    of a list of versions went out of step at version 11, and links from 11
+    on read as version 1: 2026-10-10.) */
+const knownVersion = (v) => Number.isInteger(v) && v >= 2 && v <= SETTINGS_VERSION;
 const defaultsFor = (v) => ({ ...defaults(), ...JSON.parse(JSON.stringify(BEFORE[v] || {})) });
 
 /** Keep settings inside their ranges, whatever a link or a bug hands us.
@@ -187,7 +201,7 @@ const defaultsFor = (v) => ({ ...defaults(), ...JSON.parse(JSON.stringify(BEFORE
     meaning: crumbling was a switch, there was no separate rabbit count, and
     rabbits ate whenever their side could take your pieces. */
 export function clean(raw) {
-  const v = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11].includes(raw?.v) ? raw.v : 1, legacy = v === 1;
+  const v = knownVersion(raw?.v) ? raw.v : 1, legacy = v === 1;
   // Pieces invented in the catalog travel with the settings (so a link, or
   // the solver's background thread, knows them), and are made real first.
   const invented = cleanInvented(raw?.invented);
@@ -222,6 +236,9 @@ export function clean(raw) {
   if (s.foes + s.rabbits < 1 && !ballGoal) s.foes = 1; // nothing to catch otherwise
   if (s.goal === 'king' && s.foes < 1) s.foes = 1;    // something has to be the King
   if (ballGoal && !legacy && s.mine < 2) s.mine = 2;  // the ball, and something to stop it
+  // A full row each (version 12): as many pieces a side as the board is
+  // wide (at most eight). A hand given outright (below) keeps its own count.
+  if (s.fullRow) { s.mine = Math.min(8, s.w); if (!ballGoal) s.foes = Math.min(8, s.w); }
   if (s.kinds > Math.max(1, s.foes)) s.kinds = Math.max(1, s.foes);
   // A hand given outright (the descent: the pieces you carry down), not
   // dealt. Not a setting on the page.
@@ -510,6 +527,17 @@ export function makeLevel(settings, seed) {
     }
   }
 
+  // The cloud (version 12), for the first turn: the row just in front of
+  // each side's pieces (their second row, when a full row lines up on the
+  // first). No random numbers, so nothing else about the level changes.
+  if (S.cloud && rows.length >= 4) {
+    const mineY = pieces.filter((p) => p.y !== undefined).map((p) => p.y), theirY = foes.filter((f) => f.y !== undefined && f.type !== 'rabbit').map((f) => f.y);
+    const ahead = mineY.length ? rows.find((r) => r > Math.max(...mineY)) : undefined;
+    const behind = theirY.length ? [...rows].reverse().find((r) => r < Math.min(...theirY)) : undefined;
+    const cloudRows = [ahead, behind].filter((r) => r !== undefined);
+    if (cloudRows.length) day.cloud = new Set(cells.filter((c) => cloudRows.includes(c[1])).map(([x, y]) => y * W + x));
+  }
+
   // Minds (version 7): every rabbit, loose or inside a piece, gets an
   // intelligence and a trait; `kinds` says how many different traits.
   // Drawn last, so a level without minds is dealt as it always was.
@@ -530,7 +558,7 @@ export function makeLevel(settings, seed) {
     foes: foes.filter((f) => f.x !== undefined),
     goalKind: goal, hole,
     rules: { goal: ['king', 'rabbit', 'target'].includes(goal) ? 'target' : goal, maxMoves: S.maxMoves, wait: S.wait,
-      foesCapture: S.foesCapture, rabbitsEat: S.rabbitsEat, royal: S.royal, ...(S.showdown ? { showdown: true } : {}), ...(S.oneMove ? { oneMove: true } : {}), ...(S.oneMove && !S.foesWait ? { foesMust: true } : {}), first: S.first, ballStops: S.ballStops, ballMove: S.ballMove,
+      foesCapture: S.foesCapture, rabbitsEat: S.rabbitsEat, royal: S.royal, ...(S.showdown ? { showdown: true } : {}), ...(S.oneMove ? { oneMove: true } : {}), ...(S.oneMove && !S.foesWait ? { foesMust: true } : {}), ...(day.cloud ? { cloud: true } : {}), first: S.first, ballStops: S.ballStops, ballMove: S.ballMove,
       ...(S.ballCaptures ? { ballCaptures: true } : {}),
       ...(S.magic !== 'none' ? { wrap: S.magic } : {}),
       ...(S.geared ? { geared: true } : {}),
@@ -601,7 +629,7 @@ export function decodeLevel(hash) {
     // A link is read against the defaults of the version it was made in
     // (no v at all: before version 2).
     const v = +p.get('v');
-    if ([2, 3, 4, 5, 6, 7, 8, 9, 10].includes(v)) diff.v = v; else delete diff.v;
+    if (knownVersion(v)) diff.v = v; else delete diff.v;
     return { settings: clean(diff), seed: Math.abs(parseInt(p.get('seed'), 10)) || 1, par: par > 0 ? par : null };
   } catch { return null; }
 }

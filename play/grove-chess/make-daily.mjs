@@ -22,7 +22,7 @@
 // few moves and easy to win in a lot ... high skill ceiling ... very
 // balanced ... can draw from any other rule as long as those parameters are
 // met." So each roll is a Chaos roll (any rules at all), kept only if:
-//   - the solver can win it, in 4 to 10 moves (par);
+//   - the solver can win it, in 4 to 10 moves (par; 3 to 10 from 2026-10-11);
 //   - it passes the balance rules (solve.js);
 //   - difficulty 3 to 6 of 10, and a novice bot wins at least half its games
 //     (easy to win in a lot of moves);
@@ -30,9 +30,13 @@
 //     (hard to win in few);
 //   - engagement at least 50 of 100;
 //   - the move limit is at least twice par, so the slow way really is open.
-// And a few limits so the daily's share links keep working: at most four
-// pieces of yours, at most 36 squares, at most 30 moves (vine.js writes a
-// move as two characters: the piece, and the square in base 36).
+// And a few limits so the daily's share links keep working: at most 36
+// squares, at most 30 moves (vine.js writes a move as two characters: the
+// piece, and the square in base 36). From 2026-10-11 (settings version 12)
+// each side has a full row, as many pieces as the board is wide (Timothy,
+// 2026-10-10: "mostly for the daily board"), with the first-turn cloud and
+// every piece's reach shown; the link's piece digit runs 0 to 9 for it. It
+// was at most four pieces of yours before.
 
 import { writeFileSync, readFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -51,8 +55,22 @@ const MAX_ROLLS = 80;
 /** A roll's settings, held to the daily's limits. */
 function dailyRoll(rand) {
   const S = levelSettings(modeDefaults('daily'), {}, rand);
-  S.mine = Math.min(S.mine, 4);
   while (S.w * S.h > 36) { if (S.w >= S.h) S.w--; else S.h--; }
+  if (S.fullRow) {
+    // A full row each (2026-10-10). Measured: with any rules at all, almost
+    // no roll passed (twelve random pieces, fairy pieces without a job, odd
+    // shapes with no clean first row). Held closer to chess, about one in
+    // four does: a rectangle five or six wide and six tall, take their
+    // King and keep yours, and hands mostly classic, with up to two kinds
+    // of fairy piece on your side and one on theirs. Everything else is
+    // still rolled.
+    const classic = ['knight', 'bishop', 'rook', 'queen'];
+    const fairy = S.minePool.filter((k) => !classic.includes(k) && !['king', 'pawn', 'rabbit'].includes(k)).slice(0, 2);
+    Object.assign(S, { shape: 'rect', holes: 0, w: 5 + Math.floor(rand() * 2), h: 6, goal: 'king', royal: true, dealKing: true, mirror: false, rabbits: 0,
+      minePool: [...classic, ...fairy], foePool: ['king', 'pawn', 'knight', 'bishop', 'rook', ...fairy.slice(0, 1)], mineDupes: true, foeDupes: true });
+    if (S.magic === 'all') S.magic = 'sides';
+    if (S.geared) S.geared = false;
+  }
   S.maxMoves = Math.max(18, Math.min(30, S.maxMoves || 25));
   S.mode = 'hand';
   S.foesCapture = true; // pieces can always take pieces (Timothy, 2026-10-09)
@@ -81,7 +99,9 @@ function dealStream(date, stream) {
   for (let k = 0; k < MAX_ROLLS; k++) {
     const S = dailyRoll(rand), seed = 1 + Math.floor(rand() * 1e6);
     let out = null;
-    searchLayouts({ settings: S, seed, parMin: 4, parMax: 10, maxTries: 60, maxMs: 6000 }, (d) => { if (d.type !== 'progress') out = d; });
+    // Par from 4 (from 3 with a full row each: taking a King with six
+    // pieces a side is quick once the cloud lifts).
+    searchLayouts({ settings: S, seed, parMin: S.fullRow ? 3 : 4, parMax: 10, maxTries: 60, maxMs: 6000 }, (d) => { if (d.type !== 'progress') out = d; });
     if (out?.type !== 'done' || !out.measure || !good(out.measure, out.par, S)) continue;
     const level = new URLSearchParams(encodeLevel(S, out.seed));
     const m = out.measure;

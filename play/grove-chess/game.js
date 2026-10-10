@@ -8,7 +8,7 @@ import { soundToggle } from '../../engine/sound.js';
 import { makeTarget, render } from '../../engine/lowpoly.js';
 import {
   PIECES, descOf, rabbitDesc, CRUMBLE_DESC, SHRINK_DESC, STUMP_DESC, HOLE_DESC, movesFor, apply, playerMove, respond, isOver, outcome,
-  isBramble, brambleCount, replay, crumbled, shrunk, holeOpen
+  isBramble, brambleCount, replay, crumbled, shrunk, holeOpen, allMoves, CLOUD_DESC
 } from './rules.js';
 import { todayStr, describePattern, fairyFor } from './day.js';
 import { loadDay } from './daily4.js';
@@ -123,6 +123,9 @@ function whatHappened(a, b) {
 function select(i) {
   sel = i;
   legal = i == null ? [] : movesFor(now(), i);
+  // With waiting off (from 2026-10-11's boards), the button only shows
+  // when nothing of yours can move: then it passes.
+  if (day.rules.wait === false) { $('#wait').hidden = !allMoves(now()).some((m) => m.p === -1); $('#wait').textContent = 'Pass (nothing can move)'; }
   if (i == null) info(named ? (day.hole && !holeOpen(now()) ? 'Tap a piece to light up where it can go. The hole opens once every rabbit is caught.' : 'Tap a piece to light up where it can go.')
     : 'Numbers mark where the rabbit has been, in order. Tap a piece to light up where it can go.');
   else {
@@ -195,6 +198,7 @@ board.el.addEventListener('click', (e) => {
   select(null);
   if (named) {
     if (s.hole && s.hole.x === x && s.hole.y === y) return info(HOLE_DESC);
+    if (s.cloudy && s.day.cloud?.has(y * s.day.W + x)) return info(CLOUD_DESC);
     if (crumbled(s, x, y)) return info(CRUMBLE_DESC);
     if (shrunk(s, x, y)) return info(SHRINK_DESC);
     if (s.day.stumps.has(y * s.day.W + x)) return info(STUMP_DESC);

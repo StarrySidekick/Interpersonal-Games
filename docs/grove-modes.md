@@ -224,6 +224,58 @@ were (waiting on, their pieces free to stay put, no layout step), and
   be rethemed.** Thirteen new pieces and the settings console: both in
   `docs/grove-pieces.md`.
 
+**Second batch, the same day.** Settings version 12 (older links and
+stored boards keep the old behaviour):
+
+- **"Every piece's movement pattern shows on the board"**, for people new
+  to chess. "Show where every piece can go" (`showReach`), on: every
+  square a piece of yours could go to glows yellow, every square one of
+  theirs could go to a faint dark purple (both, if both), redrawn as
+  pieces move (`reachMaps` in `rules.js`; colours `LOOK.reachYou` and
+  `LOOK.reachFoe`). The 3D board shows it unless a level turns it off, so
+  the shared daily shows it too; the flat board only when the runner asks.
+  A selected piece's own squares still light up brighter on top.
+- **"Default amount of pieces ... equal to how wide the board is."** "A
+  full row each" (`fullRow`), on: each side starts with as many pieces as
+  the board is wide (six on six by six, eight at most). The descent now
+  starts with six (its King among them, no second King) and carries up to
+  eight. Chaos, golf and autochess keep their own counts.
+- **A cloud on the second row, first turn**, since no pawns stand in front
+  of the King. "A cloud on the second rows, first turn" (`cloud`), on: the
+  row just in front of each side's pieces (`day.cloud`). Until both sides
+  have moved once, a piece may step into the cloud but nothing goes
+  through it, and nothing in it can be taken. First built as a wall,
+  which left only knights able to move on turn one (the tester said so:
+  "the Rook could not move at the start"); stepping in fixed that. Shown
+  as low white puffs that blow away when it lifts, with an intro card the
+  first time. Checked: 603 first moves on early descent boards, no
+  capture by either side. On very narrow shapes deep in a descent the two
+  sides can touch through it; the tester's own rule (no capture on a first
+  move) still throws those layouts out.
+- **"Organize pieces only after your default set changes."** Laying out
+  your pieces now opens only once your hand differs from the one you were
+  dealt (a piece found, lost, swapped on the title, suited or fused), so a
+  descent starts with its full row as dealt.
+- **The daily.** The share link's piece digit now runs 0 to 9 (it was 0
+  to 3, which is why the daily gave you four pieces at most). Stored daily
+  boards from 2026-10-11 on were made again with a full row each (the
+  shipped ones, 2026-10-09 and 10, are unchanged; nobody had seen the
+  later ones). Timothy, the same day: "don't worry about storing future
+  boards at the moment, outside of let's say like a week." So boards are
+  stored to 2026-10-17 only; a later date falls back to dealer version 3
+  (no full row) until more are made with `make-daily.mjs` (about 20
+  seconds a board). With any rules at all almost no roll passed the
+  daily's bar, so full-row dailies are held closer to chess: a rectangle
+  five or six wide and six tall, take their King, hands mostly classic
+  (up to two fairy kinds yours, one theirs), par from 3 rather than 4.
+  The rest of the bar is as before (`make-daily.mjs`).
+- **A bug found on the way.** `decodeLevel` (links, stored dailies, the
+  runner's test hash) kept its own list of settings versions, which
+  stopped at 10, so settings saved at 11 were read as version 1. Both
+  places now ask one function (`knownVersion` in `lab.js`). Links made in
+  the hours version 11 was live may have opened with old defaults; nothing
+  stored was affected (the shipped dailies are versions 10 and before).
+
 **The settings console.** An artifact,
 [Grove Chess Console](https://claude.ai/artifact/QDAPuPSH368u2TroPQ2QCf):
 every piece (record, name, words, in or out, notes), every mode's settings
@@ -387,8 +439,9 @@ green). The long game (`grove-long-game.md`) is still unbuilt.
 
 ## Next
 
-- Make more named dailies before the stored ones run out (they go to the
-  end of 2026; after that a date falls back to version 3).
+- Make more named dailies before the stored ones run out (they go to
+  2026-10-17, a week ahead, as Timothy asked; after that a date falls back
+  to version 3).
 - Calibrate difficulty and engagement against the workshop notebook's
   ratings.
 - Give each golf course its own look (board colours, a sound).
