@@ -210,8 +210,9 @@ const SHOWN = {
   difficulty: (S) => S.run !== 'descent', aim: (S) => S.run !== 'descent',
   // Your side: a run brings its own hand.
   arrange: (S) => S.run !== 'rounds',
+  variant: runIs('single'),
   fullRow: (S) => S.run !== 'course', foes: (S) => !S.fullRow, cloudOwn: (S) => S.cloud,
-  kfStep: (S) => S.realtime, kfCool: (S) => S.realtime, kfFoeCool: (S) => S.realtime,
+  kfStep: (S) => S.realtime, kfCool: (S) => S.realtime, kfFoeCool: (S) => S.realtime, kfFoeGap: (S) => S.realtime,
   mine: (S) => !['descent', 'rounds'].includes(S.run) && !S.fullRow, minePool: (S) => !['descent', 'rounds'].includes(S.run), mineDupes: (S) => !['descent', 'rounds'].includes(S.run),
   royal: (S) => S.run !== 'course',
   // Pieces can always take pieces: a setting for the workshop only.
@@ -226,8 +227,8 @@ const SHOWN = {
 
 /** Does this setting matter for these settings (the mode included)? */
 // With no mode (the workshop), only the rules between settings apply.
-const DEPENDS = ['kfStep', 'kfCool', 'kfFoeCool', 'cloudOwn', 'shrinkEvery', 'iq', 'traits', 'kinds', 'skill', 'style', 'holeMoves', 'ballMove', 'ballCaptures', 'ballStops', 'dealKing'];
-const VARIANT_KEYS = ['variant', 'skill', 'style', 'maxMoves', 'showReach', 'realtime', 'kfStep', 'kfCool', 'kfFoeCool'];
+const DEPENDS = ['kfStep', 'kfCool', 'kfFoeCool', 'kfFoeGap', 'cloudOwn', 'shrinkEvery', 'iq', 'traits', 'kinds', 'skill', 'style', 'holeMoves', 'ballMove', 'ballCaptures', 'ballStops', 'dealKing'];
+const VARIANT_KEYS = ['variant', 'skill', 'style', 'maxMoves', 'showReach', 'realtime', 'kfStep', 'kfCool', 'kfFoeCool', 'kfFoeGap', 'iq'];
 export const settingShown = (key, S) => {
   // A chess variant brings its own board, pieces and rules: only how they
   // think, the move limit and the reach glow still matter.
@@ -314,7 +315,10 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
   if (M.run === 'descent' && M.realtime) {
     // Kung fu: their pieces rest less each level down; the ground stays
     // solid (crumbling and shrinking count turns, and there are none).
-    Object.assign(S, { kfFoeCool: Math.max(8, M.kfFoeCool - Math.round((depth - 1) * 2 * k)), ground: 'solid', cloud: false, showdown: false });
+    // (Gentler from 2026-10-11: 0.3 seconds less rest a level, not under
+    // 1.5; their pace 0.1 seconds quicker a level, not under 0.6.)
+    Object.assign(S, { kfFoeCool: Math.max(15, M.kfFoeCool - Math.round((depth - 1) * 3 * k)), kfFoeGap: Math.max(6, M.kfFoeGap - Math.round((depth - 1) * k)),
+      ground: 'solid', cloud: false, showdown: false });
   }
   if (M.run === 'rounds') {
     const r = round - 1;

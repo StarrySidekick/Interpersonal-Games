@@ -1,5 +1,5 @@
 // A settings form, built from a schema (lab.js SCHEMA, modes.js
-// RUN_SCHEMA): steppers for numbers, switches, choices, several-of
+// RUN_SCHEMA): steppers with a box to type in for numbers, switches, choices, several-of
 // choices, and pieces. Shared by Chaos and every mode's settings panel, so
 // a setting looks and works the same wherever it is.
 
@@ -25,13 +25,27 @@ export function buildForm(root, groups, get, set, open = () => false, { show = (
     updaters.push(() => { extra.textContent = note(f.key, get()) || ''; });
     let ctrl;
     if (f.type === 'int') {
-      const val = el('span', { class: 'fval' });
+      // A box to type the number into, between − and + (2026-10-11: "need
+      // text entry for things like the millisecond travel time"). It takes
+      // the number when you finish (Enter, or tapping away), kept in range.
+      const clamp = (v) => Math.max(f.min, Math.min(f.max, Math.round(v)));
+      const box = el('input', { class: 'fnum', type: 'text', inputmode: 'numeric', pattern: '[0-9]*', 'aria-label': f.label, autocomplete: 'off' });
+      const commit = () => {
+        const v = parseInt(box.value.replace(/[^0-9-]/g, ''), 10);
+        if (Number.isFinite(v) && clamp(v) !== get()[f.key]) set(f.key, clamp(v));
+        else box.value = String(get()[f.key]);
+      };
+      box.addEventListener('change', commit);
+      box.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); box.blur(); } });
+      box.addEventListener('focus', () => box.select());
+      const unit = el('span', { class: 'funit' });
       const step = (d) => el('button', { class: 'quiet', 'aria-label': d < 0 ? `Less ${f.label}` : `More ${f.label}`,
-        onclick: () => set(f.key, Math.max(f.min, Math.min(f.max, get()[f.key] + d))) }, d < 0 ? '−' : '+');
-      ctrl = el('div', { class: 'stepper' }, step(-1), val, step(1));
+        onclick: () => set(f.key, clamp(get()[f.key] + d)) }, d < 0 ? '−' : '+');
+      ctrl = el('div', { class: 'stepper' }, step(-1), box, step(1), unit);
       updaters.push(() => {
         const v = get()[f.key];
-        val.textContent = f.key === 'maxMoves' && v === 0 ? 'none' : `${v}${f.unit ? ' ' + f.unit : ''}`;
+        if (document.activeElement !== box) box.value = String(v); // never under your fingers mid-typing
+        unit.textContent = f.key === 'maxMoves' && v === 0 ? 'none' : f.unit || '';
       });
     } else if (f.type === 'bool') {
       ctrl = el('button', { class: 'quiet tog', onclick: () => set(f.key, !get()[f.key]) });
@@ -88,6 +102,12 @@ export const FORM_CSS = `
   .stepper button, .seg button, .tog, .chip { width: auto; min-height: 44px; padding: 8px 12px; font-size: 15px; border-radius: 12px; }
   .stepper button { min-width: 44px; font-size: 20px; padding: 4px 0; }
   .fval { min-width: 64px; text-align: center; font-weight: 700; }
+  .stepper { flex-wrap: wrap; justify-content: flex-end; max-width: 220px; }
+  .stepper .fnum { width: 76px; flex: 0 0 76px; min-height: 44px; text-align: center; font: inherit; font-size: 17px; font-weight: 700; color: var(--text);
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 6px 4px; }
+  .stepper .fnum:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .funit { flex-basis: 100%; text-align: right; font-size: 13px; color: var(--dim); }
+  .funit:empty { display: none; }
   .seg { display: flex; flex-wrap: wrap; gap: 6px; }
   .seg button[aria-pressed='true'], .tog[aria-pressed='true'], .chip[aria-pressed='true'] { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
   .chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; }

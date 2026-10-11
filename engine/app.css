@@ -16,6 +16,12 @@
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
+/* No double-tap zoom (2026-10-11: on Safari it zoomed the page when menus
+   and buttons were tapped twice). touch-action: manipulation keeps pinch
+   zoom and scrolling and drops only double-tap zoom, and it applies to
+   everything inside the element it is set on. */
+html, body { touch-action: manipulation; }
+
 body {
   margin: 0;
   background: var(--bg);

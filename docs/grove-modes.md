@@ -297,6 +297,13 @@ stored boards keep the old behaviour):
   the hours version 11 was live may have opened with old defaults; nothing
   stored was affected (the shipped dailies are versions 10 and before).
 
+**Phone fixes (2026-10-11).** Double-tap zoom is off on every page
+(`touch-action: manipulation` on the page, in `engine/app.css`): Safari
+zoomed when menus and buttons were tapped twice. Pinch zoom still works.
+Every number setting has a box to type into between its − and + (`form.js`),
+kept in range when you finish; the box's text is 17 pixels, since iPhone
+Safari zooms in on any text field smaller than 16 when you tap it.
+
 **The settings console.** An artifact,
 [Grove Chess Console](https://claude.ai/artifact/QDAPuPSH368u2TroPQ2QCf):
 every piece (record, name, words, in or out, notes), every mode's settings

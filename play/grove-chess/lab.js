@@ -51,9 +51,11 @@ export const SCHEMA = [
   { group: 'Kung fu', fields: [
     { key: 'realtime', label: 'Kung fu: no turns', type: 'bool', def: false,
       help: 'Real time, after Kung-Fu Chess (2002): move any piece of yours whenever it is ready, and so do they. A move takes time to travel, so a piece can dodge, and a piece that has moved rests before it moves again. Take their King.' },
-    { key: 'kfStep', label: 'Travel time a square', type: 'int', min: 60, max: 1000, def: 200, unit: 'ms', help: 'Kung-Fu Chess\u2019s lightning speed is 200; its standard speed is 1,000.' },
+    { key: 'kfStep', label: 'Travel time a square', type: 'int', min: 60, max: 2000, def: 300, unit: 'ms', help: 'Kung-Fu Chess\u2019s lightning speed is 200; its standard speed is 1,000.' },
     { key: 'kfCool', label: 'Your pieces rest for', type: 'int', min: 3, max: 100, def: 20, unit: 'tenths of a second', help: 'Lightning is 2 seconds (20); standard is 10 seconds (100).' },
-    { key: 'kfFoeCool', label: 'Theirs rest for', type: 'int', min: 3, max: 100, def: 35, unit: 'tenths of a second', help: 'In a descent, their first level\u2019s; they get quicker each level down.' }
+    { key: 'kfFoeCool', label: 'Theirs rest for', type: 'int', min: 3, max: 100, def: 50, unit: 'tenths of a second', help: 'In a descent, their first level\u2019s; they get quicker each level down.' },
+    { key: 'kfFoeGap', label: 'They start a move at most every', type: 'int', min: 2, max: 60, def: 18, unit: 'tenths of a second',
+      help: 'Their side plays like one opponent: one move at a time, this often at most. In a descent, their first level\u2019s; it shortens each level down.' }
   ] },
   { group: 'Difficulty', fields: [
     { key: 'difficulty', label: 'Difficulty', type: 'choice', def: 'any', options: opts(['any', 'Any'], ['easy', 'Easy (1 to 3)'], ['normal', 'Normal (4 to 6)'], ['hard', 'Hard (7 to 8)'], ['brutal', 'Brutal (9 to 10)']),
@@ -595,7 +597,7 @@ export function makeLevel(settings, seed) {
 }
 
 /** Kung fu's timings, in the rules: ms a square, and each side's rest. */
-const kungfuRules = (S) => ({ step: S.kfStep, cool: S.kfCool * 100, foeCool: S.kfFoeCool * 100 });
+const kungfuRules = (S) => ({ step: S.kfStep, cool: S.kfCool * 100, foeCool: S.kfFoeCool * 100, gap: S.kfFoeGap * 100 });
 
 /** A chess variant's level: its own board and starting position, their
     side thinking, take their King (or the variant's own way to win). No

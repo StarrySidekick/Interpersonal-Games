@@ -39,6 +39,12 @@
   }
   .stepper button { min-width: 44px; font-size: 20px; padding: 4px 0; }
   .fval { min-width: 64px; text-align: center; font-weight: 700; }
+  .stepper { flex-wrap: wrap; justify-content: flex-end; max-width: 220px; }
+  .stepper .fnum { width: 76px; flex: 0 0 76px; min-height: 44px; text-align: center; font: inherit; font-size: 17px; font-weight: 700; color: var(--text);
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 6px 4px; }
+  .stepper .fnum:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .funit { flex-basis: 100%; text-align: right; font-size: 13px; color: var(--dim); }
+  .funit:empty { display: none; }
   .seg { display: flex; flex-wrap: wrap; gap: 6px; }
   .seg button[aria-pressed='true'], .tog[aria-pressed='true'], .chip[aria-pressed='true'], .rate button[aria-pressed='true'] {
     background: var(--accent); color: var(--accent-ink); border-color: transparent;
