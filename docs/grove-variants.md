@@ -104,6 +104,19 @@ about ten seconds and fell to depth 2; an 8 × 8 game ran to its end
 (their rook took the King) in under half a minute; the board kept 61
 frames a second.
 
+**Gentler, the same day.** Timothy: "enemy pieces moving so fast, feels
+very hard to play." Their side had been choosing a move every quarter to
+half a second, with any rested piece, and dodged the instant you moved. Now
+it plays like one opponent: at most one move every 1.8 seconds at first
+("They start a move at most every", `kfFoeGap`, quicker by 0.1 a level
+down, never under 0.6), a 2.5 second head start, and it notices a move of
+yours only after a reaction time (about half a second; sharper rabbits
+sooner), so a quick strike lands. Their rest starts at 5 seconds (0.3 less
+a level, never under 1.5), and travel is 0.3 seconds a square, a little
+slower than lightning, so moves are easier to follow. Measured: doing
+nothing for 15 seconds, their moves came at 2.5, 4.6, 6.7, 8.8, 10.7, 12.7
+and 14.5 seconds, and nothing of yours was lost.
+
 Why it might be the key: real time turns knowing the moves into reflexes,
 which is a mastery curve chess players and non-players start on more
 evenly, and it gives the descent's pieces a feel (speed, rest) that suits

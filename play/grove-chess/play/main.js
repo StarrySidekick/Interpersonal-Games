@@ -307,6 +307,7 @@ async function beginKungFu() {
     board, level, state: now(), iq: level.settings.iq,
     // Jokers, read for real time: Double Time halves your rest, Lazy Rabbits doubles theirs.
     myCool: R.cool / (jokers.includes('double') ? 2 : 1), foeCool: R.foeCool * (jokers.includes('lazy') ? 2 : 1), step: R.step,
+    gap: (R.gap || 1800) * (jokers.includes('lazy') ? 2 : 1),
     onStatus: status, onInfo: info,
     onClock: (ms) => { $('#movecount').textContent = `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`; },
     onEnd: (end) => { kf = null; game.states = [end]; levelOver(end); }

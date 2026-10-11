@@ -7,7 +7,8 @@
 // any piece at any moment, a move takes time to travel, and a piece that has
 // moved must rest before it moves again. There is no check: the game ends
 // when a King is taken. Its "lightning" speed is a square every fifth of a
-// second and two seconds' rest, which is the default here.
+// second and two seconds' rest. Here the default is a little slower to read
+// (0.3 seconds a square), and their side gentler at first (below).
 //
 // How this one plays it, on the Grove Chess rules:
 // - A move is chosen from the piece's ordinary moves (rules.js movesFor), as
@@ -18,8 +19,9 @@
 //   back too. Nothing collides in the air.
 // - After moving, a piece rests: yours `cool` ms, theirs `foeCool`. A ring
 //   under each resting piece runs down as it recovers (board3d.js marks).
-// - Their side chooses in real time: several times a second, one of their
-//   rested pieces may move, scored for what it takes, what it dodges, the
+// - Their side chooses in real time, like one opponent: a move at most
+//   every `gap` ms, after a head start, noticing yours only after a short
+//   reaction time. A move is scored for what it takes, what it dodges, the
 //   danger it walks into and how close it gets to your King, with a little
 //   noise that sharper rabbits (higher intelligence) have less of.
 // - Suits keep their meaning where they can: Hearts a second life, Swords no
@@ -42,14 +44,20 @@ const worth = (type) => (type === 'king' ? KING : PIECES[type]?.value ?? 3);
  * yours is left; onStatus(text), onInfo(text) for the lines under the board;
  * onClock(ms). Returns { tap(cell), stop(), state() }.
  */
-export function startKungFu({ board, level, state, iq = 5, myCool = 2000, foeCool = 3500, step = 200, onEnd, onStatus, onInfo, onClock }) {
+export function startKungFu({ board, level, state, iq = 5, myCool = 2000, foeCool = 5000, step = 300, gap = 1800, onEnd, onStatus, onInfo, onClock }) {
   const s = clone(state);
   s.t = 0; s.treasure = 0;
   const all = (side) => (side === 'you' ? s.pieces : s.foes);
   for (const p of [...s.pieces, ...s.foes]) { p.ready = 0; p.flying = false; }
   const flights = [];
-  let t = 0, last = 0, sel = null, legal = [], alive = true, nextThink = 900, firstMove = true;
-  const aware = 0.3 + 0.7 * Math.max(1, Math.min(10, iq)) / 10;
+  // Their side plays like one opponent, not a swarm (2026-10-11: "enemy
+  // pieces moving so fast, feels very hard to play"): they start a move at
+  // most every `gap` ms, the first only after a head start, and they notice
+  // a move of yours only once it has been in the air for `react` ms, so a
+  // quick strike cannot be dodged on the instant. Sharper rabbits react
+  // sooner.
+  let t = 0, last = 0, sel = null, legal = [], alive = true, nextThink = 2500, firstMove = true, lastFoeMove = -Infinity;
+  const aware = 0.3 + 0.7 * Math.max(1, Math.min(10, iq)) / 10, react = Math.max(250, 750 - 45 * iq);
   const rand = mulberry(level.seed || 1);
 
   // --- Moving. ---------------------------------------------------------------
@@ -107,8 +115,9 @@ export function startKungFu({ board, level, state, iq = 5, myCool = 2000, foeCoo
 
   // --- Their side, in real time. ---------------------------------------------
   function think() {
+    if (t - lastFoeMove < gap) return;
     const reach = reachMaps(s).yours, W = level.W;
-    for (const f of flights) if (f.side === 'you') reach.add(f.ty * W + f.tx); // where yours are about to land
+    for (const f of flights) if (f.side === 'you' && t - f.t0 >= react) reach.add(f.ty * W + f.tx); // where yours are about to land, once seen
     const king = s.pieces.find((p) => !p.taken && !p.flying && p.type === 'king') || s.pieces.find((p) => !p.taken && !p.flying);
     let best = null;
     s.foes.forEach((f, k) => {
@@ -125,7 +134,7 @@ export function startKungFu({ board, level, state, iq = 5, myCool = 2000, foeCoo
         if (!best || v > best.v) best = { k, m, v };
       }
     });
-    if (best && best.v > -4) launch('foe', best.k, best.m);
+    if (best && best.v > -4) { launch('foe', best.k, best.m); lastFoeMove = t; }
   }
 
   // --- The clock. -------------------------------------------------------------
