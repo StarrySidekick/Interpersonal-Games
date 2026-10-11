@@ -8,7 +8,7 @@ import { soundToggle } from '../../engine/sound.js';
 import { makeTarget, render } from '../../engine/lowpoly.js';
 import {
   PIECES, descOf, rabbitDesc, CRUMBLE_DESC, SHRINK_DESC, STUMP_DESC, HOLE_DESC, movesFor, apply, playerMove, respond, isOver, outcome,
-  isBramble, brambleCount, replay, crumbled, shrunk, holeOpen, allMoves, CLOUD_DESC
+  isBramble, brambleCount, replay, crumbled, shrunk, holeOpen, allMoves, cloudDesc
 } from './rules.js';
 import { todayStr, describePattern, fairyFor } from './day.js';
 import { loadDay } from './daily4.js';
@@ -198,7 +198,7 @@ board.el.addEventListener('click', (e) => {
   select(null);
   if (named) {
     if (s.hole && s.hole.x === x && s.hole.y === y) return info(HOLE_DESC);
-    if (s.cloudy && s.day.cloud?.has(y * s.day.W + x)) return info(CLOUD_DESC);
+    if (s.cloudy && s.day.cloud?.has(y * s.day.W + x)) return info(cloudDesc(s.day.rules));
     if (crumbled(s, x, y)) return info(CRUMBLE_DESC);
     if (shrunk(s, x, y)) return info(SHRINK_DESC);
     if (s.day.stumps.has(y * s.day.W + x)) return info(STUMP_DESC);

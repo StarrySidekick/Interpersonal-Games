@@ -69,7 +69,9 @@ export const SCHEMA = [
     { key: 'geared', label: 'Geared', type: 'bool', def: false,
       help: 'After every turn the board turns a quarter turn clockwise, with everything on it. Your pieces turn with it, so they move as ever; the rabbits\u2019 patterns do not, so a rabbit that hops up the screen goes a different way across the board each turn. Square boards only.' },
     { key: 'cloud', label: 'A cloud on the second rows, first turn', type: 'bool', def: true,
-      help: 'For the first turn, a cloud covers each side\u2019s second row: a piece can step into it, but nothing goes through it and nothing in it can be taken, so nobody can take anything on the first move. It lifts once both sides have moved (Timothy, 2026-10-10: with no second row of pawns, this protects the Kings at the start).' },
+      help: 'For the first turn, a cloud covers the row in front of each side. Each side moves through its own cloud freely; the other side\u2019s stops it (a piece can step in, not past), and nothing in a cloud can be taken by the other side. So nobody can take anything on the first move. It lifts once both sides have moved (Timothy, 2026-10-10 and 11: with no second row of pawns, this protects the Kings at the start).' },
+    { key: 'cloudOwn', label: 'Each cloud stops only the other side', type: 'bool', def: true,
+      help: 'On: your pieces go through your own cloud as if it were not there, and only theirs stops you (and the same for them). Off: both clouds stop everyone, the first version.' },
     { key: 'statues', label: 'Statues', type: 'int', min: 0, max: 8, def: 2,
       help: 'Standing stones, each with a spiral cut in it, in the middle of the board. They never move and nothing can take them. Sliders stop at them, leapers jump them, and the grasshopper and the cannon can hop over them.' }
   ] },
@@ -155,7 +157,7 @@ export const SCHEMA = [
 ];
 
 const FIELDS = SCHEMA.flatMap((g) => g.fields);
-export const SETTINGS_VERSION = 12;
+export const SETTINGS_VERSION = 13;
 export const defaults = () => ({ ...Object.fromEntries(FIELDS.map((f) => [f.key, Array.isArray(f.def) ? [...f.def] : f.def])), v: SETTINGS_VERSION });
 
 /** How each earlier version's defaults differ from today's. Settings saved
@@ -169,7 +171,9 @@ export const defaults = () => ({ ...Object.fromEntries(FIELDS.map((f) => [f.key,
 // be able to wait instead of moving").
 // Version 12 (2026-10-10): a full row each, a cloud on the second rows for
 // the first turn, and every piece's reach shown.
-const V12 = { fullRow: false, cloud: false, showReach: false };
+// Version 13 (2026-10-11): each cloud stops only the other side (`cloudOwn`).
+const V13 = { cloudOwn: false };
+const V12 = { fullRow: false, cloud: false, showReach: false, ...V13 };
 const V11 = { wait: true, foesWait: true, arrange: false, ...V12 };
 const V10 = { oneMove: false, ...V11 };
 const V9 = { mineRows: 2, foeRows: 3, ...V10 };
@@ -177,6 +181,7 @@ const V9 = { mineRows: 2, foeRows: 3, ...V10 };
 // (goal 'king', royal), and two left brings on the showdown.
 const V8 = { goal: 'descent', royal: false, showdown: false, dealKing: false, ...V9 };
 const BEFORE = {
+  12: { ...V13 },
   11: { ...V12 },
   10: { ...V11 },
   9: { ...V10 },
@@ -535,7 +540,12 @@ export function makeLevel(settings, seed) {
     const ahead = mineY.length ? rows.find((r) => r > Math.max(...mineY)) : undefined;
     const behind = theirY.length ? [...rows].reverse().find((r) => r < Math.min(...theirY)) : undefined;
     const cloudRows = [ahead, behind].filter((r) => r !== undefined);
-    if (cloudRows.length) day.cloud = new Set(cells.filter((c) => cloudRows.includes(c[1])).map(([x, y]) => y * W + x));
+    const rowSet = (r) => new Set(cells.filter((c) => c[1] === r).map(([x, y]) => y * W + x));
+    if (cloudRows.length) {
+      day.cloud = new Set(cells.filter((c) => cloudRows.includes(c[1])).map(([x, y]) => y * W + x));
+      // Which is whose (version 13): yours stops theirs, theirs stops yours.
+      day.cloudYou = rowSet(ahead); day.cloudFoe = rowSet(behind);
+    }
   }
 
   // Minds (version 7): every rabbit, loose or inside a piece, gets an
@@ -558,7 +568,7 @@ export function makeLevel(settings, seed) {
     foes: foes.filter((f) => f.x !== undefined),
     goalKind: goal, hole,
     rules: { goal: ['king', 'rabbit', 'target'].includes(goal) ? 'target' : goal, maxMoves: S.maxMoves, wait: S.wait,
-      foesCapture: S.foesCapture, rabbitsEat: S.rabbitsEat, royal: S.royal, ...(S.showdown ? { showdown: true } : {}), ...(S.oneMove ? { oneMove: true } : {}), ...(S.oneMove && !S.foesWait ? { foesMust: true } : {}), ...(day.cloud ? { cloud: true } : {}), first: S.first, ballStops: S.ballStops, ballMove: S.ballMove,
+      foesCapture: S.foesCapture, rabbitsEat: S.rabbitsEat, royal: S.royal, ...(S.showdown ? { showdown: true } : {}), ...(S.oneMove ? { oneMove: true } : {}), ...(S.oneMove && !S.foesWait ? { foesMust: true } : {}), ...(day.cloud ? { cloud: true, ...(S.cloudOwn ? { cloudOwn: true } : {}) } : {}), first: S.first, ballStops: S.ballStops, ballMove: S.ballMove,
       ...(S.ballCaptures ? { ballCaptures: true } : {}),
       ...(S.magic !== 'none' ? { wrap: S.magic } : {}),
       ...(S.geared ? { geared: true } : {}),

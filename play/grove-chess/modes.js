@@ -198,7 +198,7 @@ const SHOWN = {
   difficulty: (S) => S.run !== 'descent', aim: (S) => S.run !== 'descent',
   // Your side: a run brings its own hand.
   arrange: (S) => S.run !== 'rounds',
-  fullRow: (S) => S.run !== 'course', foes: (S) => !S.fullRow,
+  fullRow: (S) => S.run !== 'course', foes: (S) => !S.fullRow, cloudOwn: (S) => S.cloud,
   mine: (S) => !['descent', 'rounds'].includes(S.run) && !S.fullRow, minePool: (S) => !['descent', 'rounds'].includes(S.run), mineDupes: (S) => !['descent', 'rounds'].includes(S.run),
   royal: (S) => S.run !== 'course',
   // Pieces can always take pieces: a setting for the workshop only.
@@ -213,7 +213,7 @@ const SHOWN = {
 
 /** Does this setting matter for these settings (the mode included)? */
 // With no mode (the workshop), only the rules between settings apply.
-const DEPENDS = ['shrinkEvery', 'iq', 'traits', 'kinds', 'skill', 'style', 'holeMoves', 'ballMove', 'ballCaptures', 'ballStops', 'dealKing'];
+const DEPENDS = ['cloudOwn', 'shrinkEvery', 'iq', 'traits', 'kinds', 'skill', 'style', 'holeMoves', 'ballMove', 'ballCaptures', 'ballStops', 'dealKing'];
 export const settingShown = (key, S) => (!SHOWN[key] ? true : S.run == null && !DEPENDS.includes(key) ? true : SHOWN[key](S));
 
 /** Settings the descent raises level by level: their value is the first level's. */
@@ -262,7 +262,7 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
     // lined up or not, within how many rows, and who moves first.
     Object.assign(S, { lineup: M.lineup, mineRows: M.mineRows, foeRows: M.foeRows, first: M.first });
     // So are a full row each, the first-turn cloud, and showing reach.
-    Object.assign(S, { fullRow: M.fullRow, cloud: M.cloud, showReach: M.showReach });
+    Object.assign(S, { fullRow: M.fullRow, cloud: M.cloud, cloudOwn: M.cloudOwn, showReach: M.showReach });
     if (M.roll === 'daily') Object.assign(S, { maxMoves: Math.max(S.maxMoves || 20, 18), parMin: 4, parMax: 10, minCeiling: 6 });
   }
 
