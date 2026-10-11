@@ -2,7 +2,7 @@
 // main: one more for every push (2026-10-11). Shown at the foot of the home
 // page and of every Grove Chess page's menu. Do not edit by hand.
 export const RELEASE = {
-  "number": 39,
+  "number": 40,
   "date": "2026-10-11",
-  "note": "Chess variants mode"
+  "note": "Reach shown as rings round the squares"
 };

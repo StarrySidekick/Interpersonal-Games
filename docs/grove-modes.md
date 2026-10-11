@@ -235,6 +235,13 @@ stored boards keep the old behaviour):
   `LOOK.reachFoe`). The 3D board shows it unless a level turns it off, so
   the shared daily shows it too; the flat board only when the runner asks.
   A selected piece's own squares still light up brighter on top.
+  On 2026-10-11 the glow became rings: "kind of hard to tell what's
+  happening ... maybe it's like an outline around the cell instead of
+  coloring it." Each square a piece of theirs can reach gets a purple ring
+  near its edge, each one yours can reach a gold ring inside that, so a
+  square both reach shows both, and a piece of yours under attack stands
+  in a purple ring. Each ring has a thin dark edge, to read on light and
+  green squares alike (`marks` in `board3d.js`).
 - **"Default amount of pieces ... equal to how wide the board is."** "A
   full row each" (`fullRow`), on: each side starts with as many pieces as
   the board is wide (six on six by six, eight at most). The descent now
