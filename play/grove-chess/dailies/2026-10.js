@@ -55,102 +55,102 @@ export default {
   "name": "The Lodger’s Parliament",
   "theme": "lichen",
   "lab": "eyJhdXRvUG9vbCI6ImFsbCIsImFpbSI6NCwibWluRW5nYWdlIjo1MCwibWluQ2VpbGluZyI6NiwiZ3JvdW5kIjoiY3J1bWJsZSIsInNocmlua0V2ZXJ5IjozLCJtYWdpYyI6InNpZGVzIiwic3RhdHVlcyI6MywibWluZSI6NiwibWluZVBvb2wiOlsia25pZ2h0IiwiYmlzaG9wIiwicm9vayIsInF1ZWVuIiwicm9zZSJdLCJtaW5lRHVwZXMiOnRydWUsImlxIjo5LCJ0cmFpdHMiOlsiaHVudGVyIiwicGF0dGVybiJdLCJyYWJiaXRCcmFpbiI6ImFpIiwicGF0dGVybnMiOiJzaG9ydCIsImZvZXMiOjYsImZvZVBvb2wiOlsia2luZyIsInBhd24iLCJrbmlnaHQiLCJiaXNob3AiLCJyb29rIiwicm9zZSJdLCJob2xlTW92ZXMiOiJtaWQiLCJiYWxsTW92ZSI6ImJvdW5jZSIsImJhbGxTdG9wcyI6dHJ1ZSwicGFyTWluIjo0fQ",
-  "v": 12,
-  "seed": 127701,
+  "v": 13,
+  "seed": 127785,
   "par": 3,
   "measure": {
    "difficulty": 4,
-   "ceiling": 0.72,
-   "engagement": 54,
-   "winRate": 0.5,
-   "winLen": 5.2
+   "ceiling": 0.86,
+   "engagement": 63,
+   "winRate": 0.58,
+   "winLen": 5.6
   },
   "rolls": 2,
-  "print": "ebda312cd81b1e5b"
+  "print": "9d897dfd8e7b922a"
  },
  "2026-10-13": {
-  "name": "The Backwards Thimble",
-  "theme": "moth",
-  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsImFpbSI6NCwibWluRW5nYWdlIjo1MCwibWluQ2VpbGluZyI6NiwiZ3JvdW5kIjoic3BpcmFsIiwic2hyaW5rRXZlcnkiOjMsInN0YXR1ZXMiOjEsIm1pbmUiOjYsIm1pbmVQb29sIjpbImtuaWdodCIsImJpc2hvcCIsInJvb2siLCJxdWVlbiIsInJvc2UiLCJkYWJiYWJhIl0sIm1pbmVEdXBlcyI6dHJ1ZSwiaXEiOjIsInRyYWl0cyI6WyJzaHkiLCJwYXR0ZXJuIiwiYWdncmVzc2l2ZSIsImh1bnRlciJdLCJyYWJiaXRCcmFpbiI6ImFpIiwicGF0dGVybnMiOiJ3aWxkIiwiZm9lcyI6Niwia2luZHMiOjIsImZvZVBvb2wiOlsia2luZyIsInBhd24iLCJrbmlnaHQiLCJiaXNob3AiLCJyb29rIiwicm9zZSJdLCJza2lsbCI6IjEiLCJob2xlTW92ZXMiOiJzdGlsbCIsInBhck1pbiI6NH0",
-  "v": 12,
-  "seed": 365996,
+  "name": "A Lukewarm Matter of Pears",
+  "theme": "mint",
+  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsImFpbSI6NCwibWluRW5nYWdlIjo1MCwibWluQ2VpbGluZyI6Niwic2hyaW5rRXZlcnkiOjMsInN0YXR1ZXMiOjAsIm1pbmUiOjYsIm1pbmVQb29sIjpbImtuaWdodCIsImJpc2hvcCIsInJvb2siLCJxdWVlbiIsImdvbGQiLCJ6ZWJyYSJdLCJtaW5lRHVwZXMiOnRydWUsImlxIjo5LCJ0cmFpdHMiOlsiZ3VhcmQiLCJwYXR0ZXJuIiwiaHVudGVyIiwibWVzc3kiXSwicmFiYml0QnJhaW4iOiJhaSIsImZvZXMiOjYsImtpbmRzIjozLCJmb2VQb29sIjpbImtpbmciLCJwYXduIiwia25pZ2h0IiwiYmlzaG9wIiwicm9vayIsImdvbGQiXSwic3R5bGUiOiJodW50IiwicGFyTWluIjo0fQ",
+  "v": 13,
+  "seed": 675834,
   "par": 3,
   "measure": {
-   "difficulty": 3,
-   "ceiling": 1.29,
-   "engagement": 73,
-   "winRate": 0.63,
-   "winLen": 6.9
+   "difficulty": 4,
+   "ceiling": 0.61,
+   "engagement": 57,
+   "winRate": 0.5,
+   "winLen": 4.8
   },
-  "rolls": 1,
-  "print": "102eb547313c5f7e"
+  "rolls": 29,
+  "print": "fdc702aa4d19078c"
  },
  "2026-10-14": {
-  "name": "A Hollow Matter of Puddles",
-  "theme": "dusk",
-  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsImFpbSI6NCwibWluRW5nYWdlIjo1MCwibWluQ2VpbGluZyI6NiwidyI6NSwiZ3JvdW5kIjoic3BpcmFsIiwic2hyaW5rRXZlcnkiOjEsIm1pbmUiOjUsIm1pbmVQb29sIjpbImtuaWdodCIsImJpc2hvcCIsInJvb2siLCJxdWVlbiIsImNhbWVsIl0sIm1pbmVEdXBlcyI6dHJ1ZSwiaXEiOjMsInRyYWl0cyI6WyJodW50ZXIiXSwicGF0dGVybnMiOiJsb25nIiwiZm9lcyI6NSwiZm9lUG9vbCI6WyJraW5nIiwicGF3biIsImtuaWdodCIsImJpc2hvcCIsInJvb2siLCJjYW1lbCJdLCJza2lsbCI6IjEiLCJzdHlsZSI6Imh1bnQiLCJtYXhNb3ZlcyI6MTgsInBhck1pbiI6NH0",
-  "v": 12,
-  "seed": 436006,
+  "name": "Mrs Odgerly’s Ladder",
+  "theme": "moth",
+  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsImFpbSI6NCwibWluRW5nYWdlIjo1MCwibWluQ2VpbGluZyI6NiwiZ3JvdW5kIjoiY3J1bWJsZSIsInNocmlua0V2ZXJ5IjoxLCJzdGF0dWVzIjo0LCJtaW5lIjo2LCJtaW5lUG9vbCI6WyJrbmlnaHQiLCJiaXNob3AiLCJyb29rIiwicXVlZW4iLCJjaGFuY2VsbG9yIiwid29vZHkiXSwibWluZUR1cGVzIjp0cnVlLCJpcSI6NiwidHJhaXRzIjpbImFnZ3Jlc3NpdmUiLCJzaHkiLCJodW50ZXIiLCJndWFyZCJdLCJyYWJiaXRCcmFpbiI6ImFpIiwicGF0dGVybnMiOiJtaWQiLCJmb2VzIjo2LCJraW5kcyI6MywiZm9lUG9vbCI6WyJraW5nIiwicGF3biIsImtuaWdodCIsImJpc2hvcCIsInJvb2siLCJjaGFuY2VsbG9yIl0sInN0eWxlIjoiaHVudCIsImhvbGVNb3ZlcyI6InN0aWxsIiwibWF4TW92ZXMiOjI1LCJwYXJNaW4iOjR9",
+  "v": 13,
+  "seed": 699502,
   "par": 3,
   "measure": {
-   "difficulty": 3,
-   "ceiling": 1.07,
-   "engagement": 60,
-   "winRate": 0.63,
-   "winLen": 6.2
+   "difficulty": 4,
+   "ceiling": 1.13,
+   "engagement": 58,
+   "winRate": 0.54,
+   "winLen": 6.4
   },
-  "rolls": 4,
-  "print": "89e3ee65db01868b"
+  "rolls": 5,
+  "print": "6f9cae3980823340"
  },
  "2026-10-15": {
   "name": "Where the Marrow Listens",
   "theme": "dusk",
   "lab": "eyJhdXRvUG9vbCI6ImFsbCIsImFpbSI6NCwibWluRW5nYWdlIjo1MCwibWluQ2VpbGluZyI6NiwiZ3JvdW5kIjoic3BpcmFsIiwic3RhdHVlcyI6MCwibWluZSI6NiwibWluZVBvb2wiOlsia25pZ2h0IiwiYmlzaG9wIiwicm9vayIsInF1ZWVuIiwid2F6aXIiLCJhbWF6b24iXSwibWluZUR1cGVzIjp0cnVlLCJpcSI6NywidHJhaXRzIjpbImd1YXJkIiwiaHVudGVyIiwic2h5Il0sInBhdHRlcm5zIjoibWlkIiwiaG9wcyI6MiwiZm9lcyI6Niwia2luZHMiOjMsImZvZVBvb2wiOlsia2luZyIsInBhd24iLCJrbmlnaHQiLCJiaXNob3AiLCJyb29rIiwid2F6aXIiXSwiYmFsbE1vdmUiOiJoaXQiLCJtYXhNb3ZlcyI6MjUsInBhck1pbiI6NH0",
-  "v": 12,
+  "v": 13,
   "seed": 646207,
   "par": 4,
   "measure": {
    "difficulty": 4,
-   "ceiling": 1.07,
-   "engagement": 71,
-   "winRate": 0.63,
-   "winLen": 8.3
+   "ceiling": 0.85,
+   "engagement": 69,
+   "winRate": 0.54,
+   "winLen": 7.4
   },
   "rolls": 7,
-  "print": "43a00645a492fb49"
+  "print": "68f437c9cc245162"
  },
  "2026-10-16": {
   "name": "The Lodger’s Hatstand",
   "theme": "coral",
   "lab": "eyJhdXRvUG9vbCI6ImFsbCIsImFpbSI6NCwibWluRW5nYWdlIjo1MCwibWluQ2VpbGluZyI6Niwic2hyaW5rRXZlcnkiOjMsInN0YXR1ZXMiOjQsIm1pbmUiOjYsIm1pbmVQb29sIjpbImtuaWdodCIsImJpc2hvcCIsInJvb2siLCJxdWVlbiIsImFsZmlsIiwiYXJjaGJpc2hvcCJdLCJtaW5lRHVwZXMiOnRydWUsImlxIjoyLCJ0cmFpdHMiOlsiaHVudGVyIiwibWVzc3kiXSwicmFiYml0QnJhaW4iOiJhaSIsImZvZXMiOjYsImtpbmRzIjoyLCJmb2VQb29sIjpbImtpbmciLCJwYXduIiwia25pZ2h0IiwiYmlzaG9wIiwicm9vayIsImFsZmlsIl0sInNraWxsIjoiMyIsInN0eWxlIjoiZmxlZSIsImhvbGVNb3ZlcyI6InN0aWxsIiwicGFyTWluIjo0fQ",
-  "v": 12,
-  "seed": 256210,
+  "v": 13,
+  "seed": 256213,
   "par": 3,
   "measure": {
-   "difficulty": 3,
-   "ceiling": 0.67,
-   "engagement": 64,
-   "winRate": 0.67,
-   "winLen": 5
+   "difficulty": 4,
+   "ceiling": 1.25,
+   "engagement": 63,
+   "winRate": 0.5,
+   "winLen": 6.8
   },
   "rolls": 3,
-  "print": "8ee1c75fb1104f9c"
+  "print": "1f70ec460b01f413"
  },
  "2026-10-17": {
-  "name": "The Woollen Parliament",
-  "theme": "ash",
-  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsImFpbSI6NCwibWluRW5nYWdlIjo1MCwibWluQ2VpbGluZyI6NiwibWluZSI6NiwibWluZVBvb2wiOlsia25pZ2h0IiwiYmlzaG9wIiwicm9vayIsInF1ZWVuIiwia2lyaW4iLCJ2YW8iXSwibWluZUR1cGVzIjp0cnVlLCJpcSI6MywidHJhaXRzIjpbImFnZ3Jlc3NpdmUiXSwicmFiYml0QnJhaW4iOiJhaSIsImhvcHMiOjIsInJhYmJpdHNFYXQiOnRydWUsImZvZXMiOjYsImZvZVBvb2wiOlsia2luZyIsInBhd24iLCJrbmlnaHQiLCJiaXNob3AiLCJyb29rIiwia2lyaW4iXSwic3R5bGUiOiJmbGVlIiwiaG9sZU1vdmVzIjoic2hvcnQiLCJiYWxsTW92ZSI6ImljZSIsIm1heE1vdmVzIjoxOCwicGFyTWluIjo0fQ",
-  "v": 12,
-  "seed": 116648,
-  "par": 3,
+  "name": "The Reluctant Spindle",
+  "theme": "lichen",
+  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsImFpbSI6NCwibWluRW5nYWdlIjo1MCwibWluQ2VpbGluZyI6Niwic2hyaW5rRXZlcnkiOjEsIm1hZ2ljIjoic2lkZXMiLCJtaW5lIjo2LCJtaW5lUG9vbCI6WyJrbmlnaHQiLCJiaXNob3AiLCJyb29rIiwicXVlZW4iLCJkYWJiYWJhIiwiYXJjaGJpc2hvcCJdLCJtaW5lRHVwZXMiOnRydWUsImlxIjozLCJ0cmFpdHMiOlsibWVzc3kiLCJndWFyZCJdLCJyYWJiaXRCcmFpbiI6ImFpIiwiZm9lcyI6Niwia2luZHMiOjMsImZvZVBvb2wiOlsia2luZyIsInBhd24iLCJrbmlnaHQiLCJiaXNob3AiLCJyb29rIiwiZGFiYmFiYSJdLCJzdHlsZSI6ImZsZWUiLCJob2xlTW92ZXMiOiJzdGlsbCIsImJhbGxNb3ZlIjoiaWNlIiwiYmFsbFN0b3BzIjp0cnVlLCJwYXJNaW4iOjR9",
+  "v": 13,
+  "seed": 707764,
+  "par": 4,
   "measure": {
-   "difficulty": 3,
-   "ceiling": 1.7,
-   "engagement": 68,
-   "winRate": 0.79,
-   "winLen": 8.1
+   "difficulty": 4,
+   "ceiling": 0.87,
+   "engagement": 67,
+   "winRate": 0.54,
+   "winLen": 7.5
   },
-  "rolls": 2,
-  "print": "ee7f431f9467000e"
+  "rolls": 10,
+  "print": "ee3a36f9fcdc4ddb"
  }
 };

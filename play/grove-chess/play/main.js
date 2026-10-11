@@ -9,7 +9,7 @@ import { makeTarget, render } from '../../../engine/lowpoly.js';
 import { rng } from '../../../engine/seed.js';
 import * as sfx from '../sounds.js';
 import {
-  PIECES, descOf, CRUMBLE_DESC, SHRINK_DESC, STUMP_DESC, HOLE_DESC, CLOUD_DESC, movesFor, playerMove, respond, isOver, outcome, initialState,
+  PIECES, descOf, CRUMBLE_DESC, SHRINK_DESC, STUMP_DESC, HOLE_DESC, cloudDesc, movesFor, playerMove, respond, isOver, outcome, initialState,
   allMoves, holeOpen, crumbled, shrunk, apply, showdown, firstCaptures, onBoard
 } from '../rules.js';
 import { solveLevel } from '../solve.js';
@@ -273,7 +273,7 @@ async function startLevel() {
   if (isAuto()) return setUp();
   if (level.settings.arrange && level.pieces.length && setChanged()) await arrange();
   $('#controls').hidden = false;
-  status(`${levelWord()} ${session.n}. ${GOAL_PILL[level.goalKind] || ''}.${now().cloudy ? ' A cloud covers the second rows for the first turn.' : ''}`);
+  status(`${levelWord()} ${session.n}. ${GOAL_PILL[level.goalKind] || ''}.${now().cloudy ? (now().day.rules.cloudOwn ? ' For the first turn, a cloud in front of each side stops the other side.' : ' A cloud covers the second rows for the first turn.') : ''}`);
   select(null);
 }
 
@@ -457,7 +457,7 @@ $('#board').addEventListener('click', (e) => {
   if (i >= 0) return select(sel === i ? null : i);
   select(null);
   if (s.hole && s.hole.x === x && s.hole.y === y) return info(HOLE_DESC);
-  if (s.cloudy && s.day.cloud?.has(y * s.day.W + x)) return info(CLOUD_DESC);
+  if (s.cloudy && s.day.cloud?.has(y * s.day.W + x)) return info(cloudDesc(s.day.rules));
   if (crumbled(s, x, y)) return info(CRUMBLE_DESC);
   if (shrunk(s, x, y)) return info(SHRINK_DESC);
   if (s.day.stumps.has(y * s.day.W + x)) return info(STUMP_DESC);

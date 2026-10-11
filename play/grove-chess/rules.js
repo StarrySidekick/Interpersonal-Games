@@ -150,7 +150,7 @@ export function look(s, x, y, side = 'you') {
   // here it reads as the edge of the world, so sliders stop, leapers cannot
   // land, and hoppers find nothing to hop. A piece may still step into an
   // empty square of it (pieceMoves asks again with `openCloud`).
-  if (s.cloudy && s.day.cloud?.has(y * s.day.W + x)) {
+  if (s.cloudy && cloudFor(s, side)?.has(y * s.day.W + x)) {
     const empty = !s.pieces.some((p) => !p.taken && p.x === x && p.y === y) && !s.foes.some((f) => !f.taken && f.x === x && f.y === y)
       && !s.day.stumps.has(y * s.day.W + x) && !(s.hole && s.hole.x === x && s.hole.y === y);
     if (!(openCloud && empty)) return OFF;
@@ -578,7 +578,10 @@ export const STUMP_DESC = 'A statue: a standing stone with a spiral cut in it, o
     rule they are the same thing.) */
 const STATUE_KINDS = ['pawn', 'rook', 'knight', 'bishop', 'king', 'queen'];
 export const statueKind = (day, sq) => day.statueKinds?.get(sq) ?? STATUE_KINDS[sq % STATUE_KINDS.length];
-export const CLOUD_DESC = 'A cloud over the second row on each side, for the first turn only. A piece can step into it but nothing goes through it, and nothing in it can be taken, so nobody can take anything on the very first move. It lifts once both sides have moved.';
+export const CLOUD_DESC = 'A cloud over the row in front of each side, for the first turn only. Your pieces move through your own cloud freely, but the other side\'s stops them: they can step into it, not past it, and nothing in it can be taken. The same goes for theirs. So nobody can take anything on the very first move. It lifts once both sides have moved.';
+/** The words for a level's cloud: the old one stopped everyone. */
+export const cloudDesc = (rules) => (rules?.cloudOwn ? CLOUD_DESC
+  : 'A cloud over the second row on each side, for the first turn only. A piece can step into it but nothing goes through it, and nothing in it can be taken, so nobody can take anything on the very first move. It lifts once both sides have moved.');
 export const CRUMBLE_DESC = 'Every square you move off crumbles away behind you. Nothing can stand on it again: sliders stop at the gap, leapers can still jump it, and a rabbit that tries to hop in waits instead.';
 export const SHRINK_DESC = 'The edge of the board falls away. Every few moves one square on the rim drops into the dark for good, and the rim closes in. It never takes a square anything is standing on, never cuts the board in two, and stops when half the board is gone.';
 /** On a level where the ball captures, the sentence that says so. */
@@ -658,6 +661,20 @@ function sight(s, p, side) {
   };
 }
 
+/**
+ * The cloud squares that stand in `side`'s way. Timothy, 2026-10-11: "the
+ * clouds are to prevent opposing pieces from captures in the first turn, not
+ * stopping your own pieces from moving past their own second row." So from
+ * settings version 13 (`cloudOwn`) each side's cloud stops only the other
+ * side: yours (the row in front of your pieces) stops theirs, and theirs
+ * stops yours. Before that (the dailies of 2026-10-11) both clouds stopped
+ * everyone.
+ */
+export function cloudFor(s, side) {
+  if (!s.day.rules.cloudOwn) return s.day.cloud;
+  return side === 'you' ? s.day.cloudFoe : s.day.cloudYou;
+}
+
 /** While true, look() lets an empty square under the cloud read as empty. */
 let openCloud = false;
 
@@ -665,13 +682,14 @@ let openCloud = false;
     the cloud as a wall, plus any that end on an empty square of the cloud
     itself (stepping in is allowed; going through, or taking, is not). */
 function pieceMoves(s, p, side) {
-  if (!s.cloudy || !s.day.cloud?.size || openCloud) return pieceMoves0(s, p, side);
+  const B = s.cloudy && !openCloud ? cloudFor(s, side) : null;
+  if (!B?.size) return pieceMoves0(s, p, side);
   const out = pieceMoves0(s, p, side), seen = new Set(out.map((m) => m.y * s.day.W + m.x));
   openCloud = true;
   try {
     for (const m of pieceMoves0(s, p, side)) {
       const k = m.y * s.day.W + m.x;
-      if (m.cap || !s.day.cloud.has(k) || seen.has(k) || throughCloud(s, p, m)) continue;
+      if (m.cap || !B.has(k) || seen.has(k) || throughCloud(B, s.day.W, p, m)) continue;
       seen.add(k); out.push(m);
     }
   } finally { openCloud = false; }
@@ -681,9 +699,9 @@ function pieceMoves(s, p, side) {
 /** Does the straight way from p to m cross a square of the cloud before
     it gets there? (A knight's L crosses no square; a slide crosses every
     square on its line.) */
-function throughCloud(s, p, m) {
+function throughCloud(B, W, p, m) {
   const dx = m.x - p.x, dy = m.y - p.y, g = gcd(Math.abs(dx), Math.abs(dy)) || 1;
-  for (let i = 1; i < g; i++) if (s.day.cloud.has((p.y + (dy / g) * i) * s.day.W + p.x + (dx / g) * i)) return true;
+  for (let i = 1; i < g; i++) if (B.has((p.y + (dy / g) * i) * W + p.x + (dx / g) * i)) return true;
   return false;
 }
 

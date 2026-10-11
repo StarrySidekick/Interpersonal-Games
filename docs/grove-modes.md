@@ -252,6 +252,20 @@ stored boards keep the old behaviour):
   capture by either side. On very narrow shapes deep in a descent the two
   sides can touch through it; the tester's own rule (no capture on a first
   move) still throws those layouts out.
+- **The cloud, corrected (2026-10-11, settings version 13).** Timothy:
+  "the clouds are to prevent opposing pieces from captures in the first
+  turn, not stopping your own pieces from moving past their own second
+  row ... pieces can move past their own cloud rows but just not past
+  their opponents." So each side's cloud now stops only the other side
+  ("Each cloud stops only the other side", `cloudOwn`; `cloudFor` in
+  `rules.js`). Yours is the row in front of your pieces: you go through
+  it freely, theirs cannot pass it or take anything in it; the same the
+  other way round. Checked on 80 early descent boards (1,640 first
+  moves): you never capture on your first move, nobody gets past the
+  other side's cloud, and their first reply only ever takes a piece you
+  just moved out past your own cloud into open ground, never one still
+  behind it. The daily of 2026-10-11 keeps the first version (it was
+  live); 2026-10-12 to 17 were made again with this one.
 - **"Organize pieces only after your default set changes."** Laying out
   your pieces now opens only once your hand differs from the one you were
   dealt (a piece found, lost, swapped on the title, suited or fused), so a
