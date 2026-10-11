@@ -30,6 +30,7 @@ import {
   canCombine, applyCombine, combineText
 } from '../run.js';
 import { setupPanel, setupState, playOut } from '../autosetup.js';
+import { VARIANTS, VARIANT_ORDER, differs } from '../variants.js';
 import { describeMeasure } from '../metrics.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -229,6 +230,9 @@ function goalCard() {
     rounds: 'Put rabbits in your pieces and let them fight. Win the round to grow your side; a lost round costs a life.',
     single: 'One level. Win it how it says above.'
   }[M.run];
+  // A chess variant: its own goal, and what Grove Chess plays differently.
+  const V = VARIANTS[M.variant];
+  if (V && M.run === 'single') return { kind: 'king', side: 'foe', title: V.name, text: [V.blurb, ...differs(V)].join(' ') };
   return { kind: M.run === 'course' ? 'flag' : 'rabbit', side: M.run === 'course' ? 'you' : 'foe', title: MODE.name, text };
 }
 
@@ -246,7 +250,7 @@ async function startLevel() {
   $('#sheet-list').replaceChildren();
   openSheet = piecesSheet($('#sheet'), $('#sheet-list'), level, { when: `${levelWord()} ${session.n}` });
   $('#modepill').textContent = M.run === 'single' ? MODE.name : `${levelWord()} ${session.n}`;
-  $('#goalpill').textContent = GOAL_PILL[level.goalKind] || '';
+  $('#goalpill').textContent = level.rules.race ? 'Race to the top row' : level.rules.hill ? 'Take their King, or the hill' : GOAL_PILL[level.goalKind] || '';
   const chips = $('#chips');
   chips.replaceChildren(el('span', { class: 'pill' }, `${level.W} × ${level.H}`));
   if (M.run === 'rounds') chips.append(el('span', { class: 'pill lifeline' }, '♥'.repeat(session.lives)));
@@ -273,7 +277,7 @@ async function startLevel() {
   if (isAuto()) return setUp();
   if (level.settings.arrange && level.pieces.length && setChanged()) await arrange();
   $('#controls').hidden = false;
-  status(`${levelWord()} ${session.n}. ${GOAL_PILL[level.goalKind] || ''}.${now().cloudy ? (now().day.rules.cloudOwn ? ' For the first turn, a cloud in front of each side stops the other side.' : ' A cloud covers the second rows for the first turn.') : ''}`);
+  status(`${levelWord()} ${session.n}. ${$('#goalpill').textContent}.${now().cloudy ? (now().day.rules.cloudOwn ? ' For the first turn, a cloud in front of each side stops the other side.' : ' A cloud covers the second rows for the first turn.') : ''}`);
   select(null);
 }
 
@@ -736,11 +740,28 @@ function shop() {
 function singleOver(end) {
   const r = mine(); r.played++; if (end.won) r.won = (r.won || 0) + 1; saveRecords();
   show('over');
-  $('#overeyebrow').textContent = MODE.name;
-  $('#overbig').textContent = end.won ? (end.sunk ? `Sunk in ${end.t}` : `Won in ${end.t}`) : outcome(end) === 'dusk' ? 'Out of moves' : 'They took everything';
+  const V = VARIANTS[level.variant];
+  $('#overeyebrow').textContent = V ? V.name : MODE.name;
+  const kingTaken = end.pieces.some((p) => p.taken && p.type === 'king');
+  $('#overbig').textContent = end.won ? (end.sunk ? `Sunk in ${end.t}` : `Won in ${end.t}`) : outcome(end) === 'dusk' ? 'Out of moves'
+    : kingTaken ? 'They took your King' : V && (level.rules.hill || level.rules.race) ? 'Their King got there first' : 'They took everything';
   $('#overwhy').textContent = par ? `Par ${par}.` : '';
-  $('#overbody').replaceChildren(...[summary(level.settings), ...describeMeasure(measured)].map((t) => el('p', { class: 'small dim' }, t)));
-  $('#again').textContent = 'Another level';
+  $('#overbody').replaceChildren(...(V ? [V.history, ...differs(V)] : [summary(level.settings), ...describeMeasure(measured)]).map((t) => el('p', { class: 'small dim' }, t)));
+  $('#again').textContent = V ? 'Play it again' : 'Another level';
+}
+
+/** Chess variants: pick one on the title. */
+function variantList() {
+  const box = $('#variants');
+  box.replaceChildren();
+  box.hidden = !(MODE === MODES.variants || (M.variant && M.variant !== 'none'));
+  if (box.hidden) return;
+  for (const id of VARIANT_ORDER) {
+    const V = VARIANTS[id], on = M.variant === id;
+    box.append(el('button', { class: `coursecard${on ? ' on' : ''}`, 'aria-pressed': String(on),
+      onclick: () => { M = cleanMode({ ...M, variant: id }); if (!test) saveModeSettings(modeId, M); haptic(10); prepareTitle(); } },
+    el('b', {}, `${V.name} · ${V.size}`), el('span', { class: 'small dim' }, V.blurb)));
+  }
 }
 
 function courseOver() {
@@ -813,6 +834,7 @@ async function prepareTitle() {
   titleHand();
   waystoneList();
   courseList();
+  variantList();
   await previewFirst();
 }
 

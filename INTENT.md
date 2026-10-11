@@ -32,6 +32,15 @@ the daily included, and a cloud on each side's second row for the first
 turn so nothing can be taken on move one. Built; see the same doc,
 "Second batch".
 
+## 2026-10-11: chess variants, to test
+
+Timothy wants simpler chess variants modelled, to see what could be woven
+into the game. Built: a **Chess variants** mode with nine (Microchess,
+Gardner, Los Alamos, a 5 × 6 mini chess, Petty chess, King of the Hill,
+Racing Kings, Peasants' Revolt, Monster chess), and notes on what each
+could become in Grove Chess: [`docs/grove-variants.md`](docs/grove-variants.md).
+Ideas there, not decisions.
+
 ## 2026-10-06: hone in on what is actually fun
 
 Recorded from Timothy's own description. **The goal right now is to make

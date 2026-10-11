@@ -708,6 +708,12 @@ function throughCloud(B, W, p, m) {
 /** Piece p's moves, from `side`, folded back onto a magic board. */
 function pieceMoves0(s, p, side) {
   let ms = PIECES[p.type].moves(sight(s, p, side), p, side === 'you' ? 1 : -1, s.day);
+  // Chess variants (2026-10-11): a pawn on its starting row may step two,
+  // if both squares ahead are empty. (No en passant.)
+  if (s.day.rules.pawnDouble && p.type === 'pawn') {
+    const f = side === 'you' ? 1 : -1, L = sight(s, p, side);
+    if (p.y === (f > 0 ? 1 : s.day.H - 2) && L(p.x, p.y + f) === EMPTY && L(p.x, p.y + 2 * f) === EMPTY) ms = [...ms, { x: p.x, y: p.y + 2 * f, cap: false }];
+  }
   // Spirits (a suit, 2026-10-09): it passes through pieces, statues and
   // stumps as if they were not there, and lands as usual: on an empty
   // square, or taking a piece of theirs. Its own moves, read on a board
@@ -741,6 +747,7 @@ export function movesFor(s, i) {
   let ms = pieceMoves(s, p, 'you');
   if (s.day.rules.ballMove === 'hit') ms = ms.filter((m) => hitOk(s, p, m));
   if (s.bonus?.cap) return ms.filter((m) => onFoe(s, m));
+  if (s.day.rules.noCheck) ms = ms.filter((m) => !givesCheck(s, 'you', i, m));
   // Spirals: it may trade squares with any other piece of yours.
   if (p.suit === 'spirals') {
     s.pieces.forEach((q, k) => { if (k !== i && !q.taken && q.type !== 'ball') ms.push({ x: q.x, y: q.y, cap: false, swap: true }); });
@@ -774,7 +781,8 @@ function openBonus(n, i, took, wasBonus) {
 export function foeMovesFor(s, k) {
   const f = s.foes[k];
   if (f.taken || f.brain !== 'ai') return [];
-  const ms = pieceMoves(s, f, 'foe');
+  let ms = pieceMoves(s, f, 'foe');
+  if (s.day.rules.noCheck) ms = ms.filter((m) => !givesCheck(s, 'foe', k, m));
   if (s.day.rules.ballMove === 'hit') return ms.filter((m) => hitOk(s, f, m) && (!m.cap || hitBall(s, m.x, m.y) || canTake(s.day.rules, f)));
   return canTake(s.day.rules, f) ? ms : ms.filter((m) => !m.cap);
 }
@@ -808,6 +816,24 @@ export function firstCaptures(s) {
   return { yours, theirs };
 }
 
+/**
+ * Racing Kings (2026-10-11): nobody may give check. Would moving piece i of
+ * `side` to m leave either King where the other side could take it?
+ */
+function givesCheck(s, side, i, m) {
+  const c = clone(s), mine = side === 'you' ? c.pieces : c.foes, theirs = side === 'you' ? c.foes : c.pieces;
+  mine[i].x = m.x; mine[i].y = m.y;
+  const hit = theirs.find((q) => !q.taken && q.x === m.x && q.y === m.y);
+  if (hit) hit.taken = true;
+  const attacked = (who, list) => {
+    const k = list.find((q) => !q.taken && q.type === 'king');
+    if (!k) return false;
+    const other = who === 'you' ? c.foes : c.pieces, oside = who === 'you' ? 'foe' : 'you';
+    return other.some((q) => !q.taken && pieceMoves0(c, q, oside).some((mv) => mv.cap && mv.x === k.x && mv.y === k.y));
+  };
+  return attacked('you', c.pieces) || attacked('foe', c.foes);
+}
+
 /** Every move available to you, waiting first if waiting is allowed. With
     no move at all you must pass, whatever the rules say about waiting. */
 export function allMoves(s) {
@@ -838,8 +864,18 @@ function goalMet(s) {
 }
 
 export const allTaken = (s) => s.pieces.every((p) => p.taken);
+/** King of the Hill: is this King on one of the middle squares? */
+export function onHill(s, k) {
+  if (!s.day.rules.hill) return false;
+  const W = s.day.W, H = s.day.H;
+  return Math.abs(k.x - (W - 1) / 2) < 1 && Math.abs(k.y - (H - 1) / 2) < 1;
+}
+/** Has their King won by getting somewhere (the hill, the top row)? */
+const theyArrived = (s) => (s.day.rules.hill || s.day.rules.race) &&
+  s.foes.some((f) => !f.taken && f.type === 'king' && (onHill(s, f) || (s.day.rules.race && f.y === s.day.H - 1)));
+
 export function lost(s) {
-  return allTaken(s) || (s.day.rules.royal && s.pieces.some((p) => p.taken && p.type === 'king')) ||
+  return allTaken(s) || (s.day.rules.royal && s.pieces.some((p) => p.taken && p.type === 'king')) || theyArrived(s) ||
     ((s.day.rules.goal === 'hole' || s.day.rules.goal === 'descent') && s.pieces.some((p) => p.taken && p.type === 'ball'));
 }
 
@@ -863,6 +899,8 @@ function landFoe(s, f, x, y) {
     p.taken = true;
   }
   f.from = [f.x, f.y]; f.x = x; f.y = y; f.blocked = false;
+  // Chess variants (2026-10-11): a pawn of theirs on your back row is a queen.
+  if (s.day.rules.promote && f.type === 'pawn' && y === 0) f.type = 'queen';
 }
 
 /** A pattern foe's hop. Mutates `s`. Landing on one of your pieces eats it
@@ -1228,6 +1266,10 @@ function landMine(n, i, x, y) {
   // Crumbling ground: the square you leave falls away behind you.
   if (n.day.rules.crumble) n.gone.push(p.y * n.day.W + p.x);
   p.x = x; p.y = y;
+  // Chess variants (2026-10-11): a pawn on the far row becomes a queen; a
+  // King on the hill, or on the top row in a race, wins.
+  if (n.day.rules.promote && p.type === 'pawn' && y === n.day.H - 1) p.type = 'queen';
+  if (p.type === 'king' && (onHill(n, p) || (n.day.rules.race && y === n.day.H - 1))) n.won = true;
   const f = n.foes.find((f) => !f.taken && f.x === x && f.y === y);
   if (f) f.taken = true;
   if (f && p.suit === 'diamonds') n.treasure = (n.treasure || 0) + 1;

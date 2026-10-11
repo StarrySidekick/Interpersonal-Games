@@ -140,6 +140,10 @@ export const MODES = {
       maxMoves: 15, parMin: 3, parMax: 9, w: 6, h: 6, lineup: false, mineRows: 2, foeRows: 3, difficulty: 'any'
     }
   },
+  variants: {
+    name: 'Chess variants', blurb: 'Real chess variants, small and strange, from their own starting positions, against a side that thinks. Pick one below.',
+    settings: { run: 'single', roll: 'fixed', variant: 'gardner', darkBrain: 'think', skill: '2', style: 'balanced', maxMoves: 0, showReach: true, solve: false }
+  },
   autochess: {
     name: 'Autochess', blurb: 'Put rabbits in your pieces and let them fight. Win rounds to grow your side; lose three and it is over.',
     settings: {
@@ -214,7 +218,13 @@ const SHOWN = {
 /** Does this setting matter for these settings (the mode included)? */
 // With no mode (the workshop), only the rules between settings apply.
 const DEPENDS = ['cloudOwn', 'shrinkEvery', 'iq', 'traits', 'kinds', 'skill', 'style', 'holeMoves', 'ballMove', 'ballCaptures', 'ballStops', 'dealKing'];
-export const settingShown = (key, S) => (!SHOWN[key] ? true : S.run == null && !DEPENDS.includes(key) ? true : SHOWN[key](S));
+const VARIANT_KEYS = ['variant', 'skill', 'style', 'maxMoves', 'showReach'];
+export const settingShown = (key, S) => {
+  // A chess variant brings its own board, pieces and rules: only how they
+  // think, the move limit and the reach glow still matter.
+  if (S.variant && S.variant !== 'none' && S.run != null) return VARIANT_KEYS.includes(key);
+  return !SHOWN[key] ? true : S.run == null && !DEPENDS.includes(key) ? true : SHOWN[key](S);
+};
 
 /** Settings the descent raises level by level: their value is the first level's. */
 const CLIMBS = ['foes', 'iq', 'kinds', 'statues', 'foePool', 'parMin', 'parMax', 'traits', 'w', 'h'];
