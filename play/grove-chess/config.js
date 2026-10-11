@@ -33,7 +33,9 @@ export const LOOK_DEFAULTS = {
   foe: '#6c4795',       // theirs
   statue: '#8e918c',    // statues' stone
   reachYou: '#f5c13a',  // the ring on squares your pieces can reach
-  reachFoe: '#9a5ad6'   // and on squares theirs can
+  reachFoe: '#9a5ad6',  // and on squares theirs can
+  beaconYou: '#b45cff', // the beam over a piece of yours they could take next
+  beaconFoe: '#3ddc6a'  // and over one of theirs you can take now
 };
 
 export const LOOK = { ...LOOK_DEFAULTS, ...(CONFIG.look || {}) };

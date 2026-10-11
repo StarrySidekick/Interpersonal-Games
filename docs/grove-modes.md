@@ -312,6 +312,35 @@ bounces once, and clinks (`sfx.shield`), with a tap of the phone. Kings
 are left out (losing one ends the game). Settings version 14; older
 links keep their old look.
 
+**Gold shields and beacons (2026-10-11).** Timothy: "if a piece is
+defended by more than one piece, it gets a gold shield, if it's just
+defended by one, it's a silver shield. ... a purple minecraft beacon like
+thing to come from pieces that could be taken on the next enemy turn if
+not moved. similarly a green beacon on enemy pieces that could be taken by
+you on your turn."
+
+- `guarded` now counts: one guard is a silver shield (silver with a steel
+  rim), two or more a gold one. A shield turning gold drops in again, and
+  its clink rings on a note higher.
+- "Beacons on what can be taken" (`showBeacons`, on; settings version 15):
+  `threats` in `rules.js` finds your pieces one of theirs could take on
+  its next move if you left them (purple; on your King, that is check)
+  and their pieces you can take now (green). Each gets a pool of light on
+  the ground under it and a beam rising from its head about two squares,
+  a bright core in a see-through beam, fading out. A new one rises when
+  the move lands. Colours are `beaconYou` and `beaconFoe` in the look.
+- Tried and changed: a beam six squares tall crossed the pieces behind
+  and seemed to light them; added light (the 'lighter' blend) tinted the
+  colours, purple going pink over your pieces.
+- Cost: under a millisecond a frame on a full 8 × 8 board, so Kung fu,
+  which redraws every frame, still runs at 60.
+
+Paths moved: mastery. Chess's hardest early skill is seeing what hangs:
+what you leave loose and what they leave loose. The beacons show both
+before you move, and the shields show which of your pieces are safe to
+leave and how safe. Notated: visual (silver, gold, purple, green), audial
+(the clink and the higher ring for gold), touch (the tap).
+
 **Phone fixes (2026-10-11).** Double-tap zoom is off on every page
 (`touch-action: manipulation` on the page, in `engine/app.css`): Safari
 zoomed when menus and buttons were tapped twice. Pinch zoom still works.

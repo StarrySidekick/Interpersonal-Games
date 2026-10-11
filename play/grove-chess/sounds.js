@@ -182,9 +182,10 @@ export function gain(at = 0) {
 }
 
 /** A shield dropping into place in front of a guarded piece: a bright metal
-    clink and a short ring. */
-export function shield(at = 0) {
+    clink and a short ring. A gold one (two guards) rings on, a note higher. */
+export function shield(at = 0, gold = false) {
   tone({ f: 1320, f2: 1250, type: 'triangle', at, dur: 0.22, vol: 0.14 });
   tone({ f: 1980, f2: 1900, type: 'sine', at: at + 0.01, dur: 0.3, vol: 0.07 });
   noise({ at, dur: 0.03, vol: 0.08, from: 4200, type: 'bandpass', q: 5 });
+  if (gold) tone({ f: 2640, type: 'sine', at: at + 0.09, dur: 0.5, vol: 0.06, attack: 0.01 });
 }

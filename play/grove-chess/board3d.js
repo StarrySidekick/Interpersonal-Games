@@ -36,7 +36,7 @@ import { rng } from '../../engine/seed.js';
 import { model } from './models.js';
 import { LOOK } from './config.js';
 import { Board, tileColour, PIT, TRACK, tweenPos, wraps } from './board.js';
-import { onBoard, brambleCount, holeOpen, nextShrink, statueKind, reachMaps, onHill, guarded } from './rules.js';
+import { onBoard, brambleCount, holeOpen, nextShrink, statueKind, reachMaps, onHill, guarded, threats } from './rules.js';
 import * as sfx from './sounds.js';
 import { haptic } from '../../engine/ui.js';
 
@@ -314,7 +314,7 @@ export class Board3D extends Board {
     if (!fallen) {
       // 2. Marks on the surface (not once the floor starts to go).
       if (this.tw?.assemble && at < this.tw.assemble.end) return this.redrawSoon?.();
-      if (!this.tw?.collapse) this.marks(g, v, s);
+      if (!this.tw?.collapse) { this.marks(g, v, s); this.beacon(g, s, at, 'pool'); }
       // 3. Everything standing up. This picture has gaps, so it goes onto a
       // canvas of its own first, which is then laid over the top.
       //
@@ -333,6 +333,7 @@ export class Board3D extends Board {
       // 4. Puffs and leaves; Kung fu's resting rings, over the pieces.
       this.effects(g, at);
       this.resting(g, s);
+      this.beacon(g, s, at, 'beam');
     }
     this.air(g);
   }
@@ -353,19 +354,95 @@ export class Board3D extends Board {
     this.soon = requestAnimationFrame(() => { this.soon = null; this.redraw?.(); });
   }
 
-  /** Your guarded pieces in state s (rules.js guarded), once per state; and
-      when a piece newly becomes guarded, the time (for the shield's fall)
-      and a clink. Not on the first look at a level: only a change sounds. */
+  /** Your guarded pieces in state s (rules.js guarded: index to how many
+      guard it), once per state; and when a piece newly becomes guarded, or
+      its shield turns gold (a second guard), the time (for the shield's
+      fall) and a clink. Not on the first look at a level: only a change
+      sounds. */
   guardOf(s, at) {
     if (this.guardFor === s) return this.guardSet;
     const G = guarded(s), had = this.guardSet;
     this.guardT = this.guardT || new Map();
-    let fresh = false;
-    for (const i of G) if (!had?.has(i)) { this.guardT.set(i, had ? at : -1e9); fresh = fresh || !!had; }
+    let fresh = false, gold = false;
+    for (const [i, n] of G) {
+      const was = had?.get(i) || 0;
+      if (!was || (n >= 2 && was < 2)) {
+        this.guardT.set(i, had ? at : -1e9);
+        if (had) { fresh = true; gold = gold || n >= 2; }
+      }
+    }
     for (const i of [...this.guardT.keys()]) if (!G.has(i)) this.guardT.delete(i);
-    if (fresh) { sfx.shield(); haptic(12); }
+    if (fresh) { sfx.shield(0, gold); haptic(12); }
     this.guardFor = s; this.guardSet = G;
     return G;
+  }
+
+  /** What could be taken next in state s (rules.js threats), once per state
+      shown; null when beacons are off or it is not the time. When a beacon
+      newly lights, the time, so it can rise. */
+  threatsOf(s, at) {
+    if (this.beacons === false || this.hidePieces || this.tw?.collapse || this.tw?.assemble) return null;
+    if (this.threatFor === s) return this.threatMap;
+    const T2 = threats(s), had = this.threatMap;
+    this.beamT = this.beamT || new Map();
+    const lit = new Set();
+    for (const [list, set, tag] of [[s.pieces, T2.mine, 'm'], [s.foes, T2.theirs, 't']])
+      for (const k of set) {
+        const key = tag + (list[k].y * s.day.W + list[k].x);
+        lit.add(key);
+        // A new one waits for the move to land, then rises.
+        if (!this.beamT.has(key)) this.beamT.set(key, had ? Math.max(at, this.tw?.landAt ?? 0) : -1e9);
+      }
+    for (const key of [...this.beamT.keys()]) if (!lit.has(key)) this.beamT.delete(key);
+    this.threatFor = s; this.threatMap = T2;
+    return T2;
+  }
+
+  /** Beacons (2026-10-11, Timothy: "a purple minecraft beacon like thing
+      ... from pieces that could be taken on the next enemy turn if not
+      moved. similarly a green beacon on enemy pieces that could be taken by
+      you on your turn"): a pool of light on the ground under the piece
+      (`part` 'pool', drawn before the pieces, so they stand in it), and a
+      beam rising from its head (`part` 'beam', drawn after them): a thin
+      bright core in a wider see-through beam, fading out about two squares
+      up. (Added light, the 'lighter' blend, was tried first: it tinted the
+      colours, purple going pink over your pieces.) A new one rises over a third
+      of a second. One a square, however many stand there (a rabbit riding
+      on a head). */
+  beacon(g, s, at, part) {
+    const T2 = this.threatsOf(s, at);
+    if (!T2) return;
+    const W = s.day.W, seen = new Set(), beams = [];
+    for (const [list, set, tag, col] of [[s.pieces, T2.mine, 'm', LOOK.beaconYou], [s.foes, T2.theirs, 't', LOOK.beaconFoe]])
+      for (const k of set) {
+        const p = list[k], sq = p.y * W + p.x, key = tag + sq;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        beams.push({ x: p.x, y: p.y, col, t0: this.beamT.get(key) ?? -1e9 });
+      }
+    if (!beams.length) return;
+    const u = this.scale * T, foot = HEAD * 0.75, top = foot + 22, wide = u * 0.17, core = u * 0.05;
+    g.save();
+    for (const b of beams) {
+      const k = Math.min(1, (at - b.t0) / 320);
+      if (k < 1 && part === 'beam') this.settleSoon();
+      if (k <= 0) continue;
+      const rise = 1 - (1 - k) ** 3;
+      if (part === 'pool') {
+        const [px, py] = this.pt(b.x + 0.5, b.y + 0.5, 0), pool = g.createRadialGradient(px, py, 0, px, py, u * 0.5);
+        pool.addColorStop(0, rgba(b.col, 0.6 * rise)); pool.addColorStop(0.6, rgba(b.col, 0.25 * rise)); pool.addColorStop(1, rgba(b.col, 0));
+        g.fillStyle = pool; g.beginPath(); g.arc(px, py, u * 0.5, 0, Math.PI * 2); g.fill();
+        continue;
+      }
+      const [bx, by] = this.pt(b.x + 0.5, b.y + 0.5, foot), [, ty] = this.pt(b.x + 0.5, b.y + 0.5, foot + (top - foot) * rise);
+      // Soft at the start, so it seems to come out of the piece, then fading high up.
+      const fade = (a) => { const l = g.createLinearGradient(0, by, 0, ty); l.addColorStop(0, rgba(b.col, 0)); l.addColorStop(0.08, rgba(b.col, a)); l.addColorStop(0.5, rgba(b.col, a * 0.5)); l.addColorStop(1, rgba(b.col, 0)); return l; };
+      g.fillStyle = fade(0.4); g.fillRect(bx - wide, ty, wide * 2, by - ty);
+      const light = mix(b.col, '#ffffff', 0.55);
+      g.fillStyle = (() => { const l = g.createLinearGradient(0, by, 0, ty); l.addColorStop(0, rgba(light, 0)); l.addColorStop(0.08, rgba(light, 0.95)); l.addColorStop(0.6, rgba(light, 0.5)); l.addColorStop(1, rgba(light, 0)); return l; })();
+      g.fillRect(bx - core, ty, core * 2, by - ty);
+    }
+    g.restore();
   }
 
   /** Kung fu (2026-10-11): a piece resting after a move has a ring round
@@ -694,7 +771,7 @@ export class Board3D extends Board {
       if (G?.has(i) && !p.taken) {
         const k = Math.min(1, (at - (this.guardT.get(i) ?? -1e9)) / 360), after = at - (this.guardT.get(i) ?? -1e9) - 360;
         const fall = k < 1 ? (1 - k) * (1 - k) * 16 : 0, bounce = after > 0 && after < 220 ? Math.sin((after / 220) * Math.PI) * 0.9 : 0;
-        stand(model('shield', 'you'), x, y - 0.3, h + 2.4 + fall + bounce, 100 + i, { s: 1.3 });
+        stand(model(G.get(i) >= 2 ? 'shieldGold' : 'shield', 'you'), x, y - 0.3, h + 2.4 + fall + bounce, 100 + i, { s: 1.3 });
         if (k < 1 || bounce) this.settleSoon();
       }
     });

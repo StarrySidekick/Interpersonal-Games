@@ -228,7 +228,7 @@ const SHOWN = {
 /** Does this setting matter for these settings (the mode included)? */
 // With no mode (the workshop), only the rules between settings apply.
 const DEPENDS = ['kfStep', 'kfCool', 'kfFoeCool', 'kfFoeGap', 'cloudOwn', 'shrinkEvery', 'iq', 'traits', 'kinds', 'skill', 'style', 'holeMoves', 'ballMove', 'ballCaptures', 'ballStops', 'dealKing'];
-const VARIANT_KEYS = ['variant', 'skill', 'style', 'maxMoves', 'showReach', 'showMyReach', 'showGuards', 'realtime', 'kfStep', 'kfCool', 'kfFoeCool', 'kfFoeGap', 'iq'];
+const VARIANT_KEYS = ['variant', 'skill', 'style', 'maxMoves', 'showReach', 'showMyReach', 'showGuards', 'showBeacons', 'realtime', 'kfStep', 'kfCool', 'kfFoeCool', 'kfFoeGap', 'iq'];
 export const settingShown = (key, S) => {
   // A chess variant brings its own board, pieces and rules: only how they
   // think, the move limit and the reach glow still matter.
@@ -282,7 +282,7 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
     // lined up or not, within how many rows, and who moves first.
     Object.assign(S, { lineup: M.lineup, mineRows: M.mineRows, foeRows: M.foeRows, first: M.first });
     // So are a full row each, the first-turn cloud, and showing reach.
-    Object.assign(S, { fullRow: M.fullRow, cloud: M.cloud, cloudOwn: M.cloudOwn, showReach: M.showReach, showMyReach: M.showMyReach, showGuards: M.showGuards });
+    Object.assign(S, { fullRow: M.fullRow, cloud: M.cloud, cloudOwn: M.cloudOwn, showReach: M.showReach, showMyReach: M.showMyReach, showGuards: M.showGuards, showBeacons: M.showBeacons });
     if (M.roll === 'daily') Object.assign(S, { maxMoves: Math.max(S.maxMoves || 20, 18), parMin: 4, parMax: 10, minCeiling: 6 });
   }
 
