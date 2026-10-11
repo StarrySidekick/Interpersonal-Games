@@ -94,8 +94,10 @@
 <script type="module">
 import { blindAgreementStats, exportCode, importCode } from './engine/record.js';
 import { $, el, relativeDay, themeToggle } from './engine/ui.js';
+import { releaseLine } from './engine/release.js';
 
 $('.wrap').prepend(el('div', { class: 'topbar', style: 'margin-bottom:6px' }, themeToggle()));
+$('.wrap').append(releaseLine());
 
 const s = blindAgreementStats();
 if (s.rounds > 0) {

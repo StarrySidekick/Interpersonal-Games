@@ -4,6 +4,7 @@
 // (modes.js); the workshop (lab/) is where any setting can be tried.
 
 import { el } from '../../engine/ui.js';
+import { releaseLine } from '../../engine/release.js';
 
 /** Each entry: where it lives (from play/grove-chess/), its name. */
 export const MENU = [
@@ -20,4 +21,6 @@ export const MENU = [
     from this page ('' or '../'); `current` is this page's id. */
 export function fillMenu(nav, current, root = '') {
   nav.replaceChildren(...MENU.map((m) => el('a', { href: root + m.href || './', ...(m.id === current ? { 'aria-current': 'page' } : {}) }, m.label)));
+  // Which release this is (version.js), under the menu on every page.
+  if (!nav.nextElementSibling?.classList.contains('release')) nav.after(releaseLine());
 }

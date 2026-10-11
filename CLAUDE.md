@@ -21,6 +21,12 @@ release: confirm the live site serves the new files before saying it is live.
 
 ## Before every merge
 
+- `node tools/release.mjs "what this release changes"`: run it last, on the
+  branch, and commit `version.js`. It stamps the release number (one more
+  than the pushes main already has) that the site shows at the foot of the
+  home page and under every Grove Chess menu, so Timothy can see which push
+  the live site is on. Every push to `main` is a release and gets one.
+
 - `node play/grove-chess/check-daily.mjs`: run it. It proves the daily
   boards have not changed, the stored named ones (from 2026-10-09)
   included. Before stored boards run out, make more with
