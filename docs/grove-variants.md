@@ -58,6 +58,59 @@ move counts match real chess (20 in King of the Hill, 21 in Racing Kings,
 7 in Gardner); every variant played out with no errors; the slowest reply
 was under a second (Racing Kings, where no-check is costly).
 
+## Kung fu: chess without turns (2026-10-11)
+
+Timothy: "kind of crazy variant but it may be the key here, i want to be
+able to test kung fu chess as a variant, and have it be a version of
+descent you can play." Two ways in: **Kung Fu Chess** in the variants
+list (the usual 8 × 8 start), and the **Kung fu descent** mode in the menu
+(the descent, with no turns). Any level can be played this way with the
+setting "Kung fu: no turns" (`realtime`); `kungfu.js` runs it.
+
+Kung-Fu Chess (Shizmoo Games, 2001 to 2002; Audience Choice at the 2002
+Independent Games Festival) is chess in real time: either side moves any
+piece at any moment, moves take time to travel, a piece that has moved
+must rest, and there is no check (a King is taken). Its lightning speed,
+a square every 0.2 seconds and 2 seconds' rest, is the default here
+(settings: travel time a square, your rest, theirs).
+
+As built:
+- A move starts from the piece's ordinary moves as things stand; the
+  piece leaves its square and is in the air until it lands. Landing on a
+  piece of theirs takes it; landing where one of yours has since moved
+  bounces back. Nothing collides in the air (in the original, pieces
+  moving into each other did).
+- A resting piece wears a ring that runs down (gold yours, purple theirs).
+  The reach rings still show where everything can go.
+- Their side chooses several times a second: what it can take, what it
+  can dodge (including squares yours are about to land on), the danger it
+  walks into, how close it gets to your King, with less noise the sharper
+  the rabbits. It is a scoring rule, not the turn-based search, which
+  assumes turns.
+- In the descent: their rest gets shorter each level down (3.5 seconds at
+  first, 0.2 less a level on the steady ramp, never under 0.8); the
+  ground stays solid and there is no cloud or showdown (all count turns).
+  Suits: Hearts a second life, Swords no rest after a capture, Stars no
+  rest after the level's first move, Diamonds treasure, Spirals an
+  instant swap, Spirits through anything. Jokers: Double Time halves your
+  rest, Lazy Rabbits doubles theirs. The clock stops when the page is not
+  drawing (the phone put away).
+- The level search still uses the turn-based solver to pick a fair
+  layout; par and the measured difficulty are hidden, since they count
+  turns.
+
+Checked in a browser: a scripted player won the first descent level in
+about ten seconds and fell to depth 2; an 8 × 8 game ran to its end
+(their rook took the King) in under half a minute; the board kept 61
+frames a second.
+
+Why it might be the key: real time turns knowing the moves into reflexes,
+which is a mastery curve chess players and non-players start on more
+evenly, and it gives the descent's pieces a feel (speed, rest) that suits
+and jokers can change. Open questions for play: how fast their rest should
+fall, whether the AI should hold back more at first, and whether
+collisions in the air should come back.
+
 ## What could be woven into Grove Chess
 
 Each idea with the paths it would move (`docs/design-philosophy.md`):

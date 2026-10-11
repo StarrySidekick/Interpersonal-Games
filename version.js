@@ -2,7 +2,7 @@
 // main: one more for every push (2026-10-11). Shown at the foot of the home
 // page and of every Grove Chess page's menu. Do not edit by hand.
 export const RELEASE = {
-  "number": 40,
+  "number": 41,
   "date": "2026-10-11",
-  "note": "Reach shown as rings round the squares"
+  "note": "Kung fu: real-time chess, as a variant and a descent"
 };

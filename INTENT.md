@@ -39,7 +39,9 @@ into the game. Built: a **Chess variants** mode with nine (Microchess,
 Gardner, Los Alamos, a 5 × 6 mini chess, Petty chess, King of the Hill,
 Racing Kings, Peasants' Revolt, Monster chess), and notes on what each
 could become in Grove Chess: [`docs/grove-variants.md`](docs/grove-variants.md).
-Ideas there, not decisions.
+Ideas there, not decisions. Then, his words, "kind of crazy ... it may be
+the key here": **Kung Fu Chess**, real time, as a variant and as a **Kung
+fu descent** mode. Built; see the same doc.
 
 ## 2026-10-06: hone in on what is actually fun
 

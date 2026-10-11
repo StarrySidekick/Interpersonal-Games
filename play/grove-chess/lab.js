@@ -48,6 +48,13 @@ export const SCHEMA = [
     { key: 'variant', label: 'Play a chess variant', type: 'choice', def: 'none', options: opts(['none', 'No: a Grove Chess level'], ...VARIANT_ORDER.map((k) => [k, `${VARIANTS[k].name} (${VARIANTS[k].size})`])),
       help: 'A real chess variant from its starting position, against the thinking side (Timothy, 2026-10-11). The board, the pieces and the rules are the variant\u2019s; the settings that still matter are how they think and the move limit.' }
   ] },
+  { group: 'Kung fu', fields: [
+    { key: 'realtime', label: 'Kung fu: no turns', type: 'bool', def: false,
+      help: 'Real time, after Kung-Fu Chess (2002): move any piece of yours whenever it is ready, and so do they. A move takes time to travel, so a piece can dodge, and a piece that has moved rests before it moves again. Take their King.' },
+    { key: 'kfStep', label: 'Travel time a square', type: 'int', min: 60, max: 1000, def: 200, unit: 'ms', help: 'Kung-Fu Chess\u2019s lightning speed is 200; its standard speed is 1,000.' },
+    { key: 'kfCool', label: 'Your pieces rest for', type: 'int', min: 3, max: 100, def: 20, unit: 'tenths of a second', help: 'Lightning is 2 seconds (20); standard is 10 seconds (100).' },
+    { key: 'kfFoeCool', label: 'Theirs rest for', type: 'int', min: 3, max: 100, def: 35, unit: 'tenths of a second', help: 'In a descent, their first level\u2019s; they get quicker each level down.' }
+  ] },
   { group: 'Difficulty', fields: [
     { key: 'difficulty', label: 'Difficulty', type: 'choice', def: 'any', options: opts(['any', 'Any'], ['easy', 'Easy (1 to 3)'], ['normal', 'Normal (4 to 6)'], ['hard', 'Hard (7 to 8)'], ['brutal', 'Brutal (9 to 10)']),
       help: 'Measured by a novice bot playing the level two dozen times (metrics.js): how often it loses, and how long the shortest win is. Needs the solver.' },
@@ -575,7 +582,7 @@ export function makeLevel(settings, seed) {
     foes: foes.filter((f) => f.x !== undefined),
     goalKind: goal, hole,
     rules: { goal: ['king', 'rabbit', 'target'].includes(goal) ? 'target' : goal, maxMoves: S.maxMoves, wait: S.wait,
-      foesCapture: S.foesCapture, rabbitsEat: S.rabbitsEat, royal: S.royal, ...(S.showdown ? { showdown: true } : {}), ...(S.oneMove ? { oneMove: true } : {}), ...(S.oneMove && !S.foesWait ? { foesMust: true } : {}), ...(day.cloud ? { cloud: true, ...(S.cloudOwn ? { cloudOwn: true } : {}) } : {}), first: S.first, ballStops: S.ballStops, ballMove: S.ballMove,
+      foesCapture: S.foesCapture, rabbitsEat: S.rabbitsEat, royal: S.royal, ...(S.showdown ? { showdown: true } : {}), ...(S.oneMove ? { oneMove: true } : {}), ...(S.oneMove && !S.foesWait ? { foesMust: true } : {}), ...(day.cloud ? { cloud: true, ...(S.cloudOwn ? { cloudOwn: true } : {}) } : {}), ...(S.realtime ? { realtime: kungfuRules(S) } : {}), first: S.first, ballStops: S.ballStops, ballMove: S.ballMove,
       ...(S.ballCaptures ? { ballCaptures: true } : {}),
       ...(S.magic !== 'none' ? { wrap: S.magic } : {}),
       ...(S.geared ? { geared: true } : {}),
@@ -586,6 +593,9 @@ export function makeLevel(settings, seed) {
     tracks: S.tracks
   });
 }
+
+/** Kung fu's timings, in the rules: ms a square, and each side's rest. */
+const kungfuRules = (S) => ({ step: S.kfStep, cool: S.kfCool * 100, foeCool: S.kfFoeCool * 100 });
 
 /** A chess variant's level: its own board and starting position, their
     side thinking, take their King (or the variant's own way to win). No
@@ -600,7 +610,8 @@ function variantLevel(S, seed) {
     rules: { goal: 'target', maxMoves: S.maxMoves, wait: false, foesCapture: true, rabbitsEat: false, royal: true, oneMove: true,
       first: 'you', ballStops: false, ballMove: 'putt', crumble: false, shrink: null, shrinkEvery: 2,
       ...(r.promote ? { promote: true } : {}), ...(r.pawnDouble ? { pawnDouble: true } : {}), ...(r.hill ? { hill: true } : {}),
-      ...(r.race ? { race: true } : {}), ...(r.noCheck ? { noCheck: true } : {}), ...(r.movesPerTurn ? { movesPerTurn: r.movesPerTurn } : {}) },
+      ...(r.race ? { race: true } : {}), ...(r.noCheck ? { noCheck: true } : {}), ...(r.movesPerTurn ? { movesPerTurn: r.movesPerTurn } : {}),
+      ...(r.realtime || S.realtime ? { realtime: kungfuRules(S) } : {}) },
     ai: { skill: +S.skill, style: S.style },
     tracks: false
   };

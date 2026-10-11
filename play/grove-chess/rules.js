@@ -778,6 +778,16 @@ function openBonus(n, i, took, wasBonus) {
 }
 
 /** Where a thinking foe can go. */
+/** Every move piece k of theirs could make now, whatever moves it (its
+    rabbit, a pattern, thought): for Kung fu, where they choose in real
+    time (kungfu.js). */
+export function foeMovesAny(s, k) {
+  const f = s.foes[k];
+  if (f.taken || f.flying) return [];
+  const ms = pieceMoves(s, f, 'foe');
+  return canTake(s.day.rules, f) ? ms : ms.filter((m) => !m.cap);
+}
+
 export function foeMovesFor(s, k) {
   const f = s.foes[k];
   if (f.taken || f.brain !== 'ai') return [];
@@ -1032,9 +1042,9 @@ function hash01(str) {
 export function reachMaps(s) {
   const W = s.day.W, yours = new Set(), theirs = new Set();
   if (s.won) return { yours, theirs };
-  s.pieces.forEach((p, i) => { if (!p.taken) for (const m of movesFor(s, i)) if (!m.swap) yours.add(m.y * W + m.x); });
+  s.pieces.forEach((p, i) => { if (!p.taken && !p.flying) for (const m of movesFor(s, i)) if (!m.swap) yours.add(m.y * W + m.x); });
   for (const f of s.foes) {
-    if (f.taken || f.brain === 'pattern') continue;
+    if (f.taken || f.flying || f.brain === 'pattern') continue;
     for (const m of pieceMoves(s, f, 'foe')) theirs.add(m.y * W + m.x);
   }
   return { yours, theirs };

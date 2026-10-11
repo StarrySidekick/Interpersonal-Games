@@ -128,6 +128,14 @@ export const MODES = {
       foesCapture: true, statues: 1, maxMoves: 20, lineup: true, parMin: 3, parMax: 10, difficulty: 'any'
     }
   },
+  kungfu: {
+    name: 'Kung fu descent', blurb: 'The descent with no turns, after Kung-Fu Chess. Move any piece whenever it is ready, and so do they; moves take time to travel, and a piece that moved must rest. Take their King to fall to the next level.',
+    settings: {
+      run: 'descent', roll: 'fixed', realtime: true, startPieces: 6, maxPieces: 8, rewards: true, jokers: true, ramp: 'steady', outOfMoves: 'fall',
+      goal: 'king', royal: true, showdown: false, cloud: false, w: 6, h: 6, foes: 2, foePool: ['king', 'pawn', 'knight', 'bishop'], darkBrain: 'possessed', rabbitMind: 'mind', iq: 3, kinds: 1,
+      foesCapture: true, statues: 1, maxMoves: 0, lineup: true, parMin: 3, parMax: 10, difficulty: 'any'
+    }
+  },
   chaos: {
     name: 'Chaos', blurb: 'A single level from a completely random mix of every rule and setting. It is always winnable and balanced, and as hard as you ask.',
     settings: { run: 'single', roll: 'chaos', difficulty: 'normal', fullRow: false }
@@ -203,6 +211,7 @@ const SHOWN = {
   // Your side: a run brings its own hand.
   arrange: (S) => S.run !== 'rounds',
   fullRow: (S) => S.run !== 'course', foes: (S) => !S.fullRow, cloudOwn: (S) => S.cloud,
+  kfStep: (S) => S.realtime, kfCool: (S) => S.realtime, kfFoeCool: (S) => S.realtime,
   mine: (S) => !['descent', 'rounds'].includes(S.run) && !S.fullRow, minePool: (S) => !['descent', 'rounds'].includes(S.run), mineDupes: (S) => !['descent', 'rounds'].includes(S.run),
   royal: (S) => S.run !== 'course',
   // Pieces can always take pieces: a setting for the workshop only.
@@ -217,8 +226,8 @@ const SHOWN = {
 
 /** Does this setting matter for these settings (the mode included)? */
 // With no mode (the workshop), only the rules between settings apply.
-const DEPENDS = ['cloudOwn', 'shrinkEvery', 'iq', 'traits', 'kinds', 'skill', 'style', 'holeMoves', 'ballMove', 'ballCaptures', 'ballStops', 'dealKing'];
-const VARIANT_KEYS = ['variant', 'skill', 'style', 'maxMoves', 'showReach'];
+const DEPENDS = ['kfStep', 'kfCool', 'kfFoeCool', 'cloudOwn', 'shrinkEvery', 'iq', 'traits', 'kinds', 'skill', 'style', 'holeMoves', 'ballMove', 'ballCaptures', 'ballStops', 'dealKing'];
+const VARIANT_KEYS = ['variant', 'skill', 'style', 'maxMoves', 'showReach', 'realtime', 'kfStep', 'kfCool', 'kfFoeCool'];
 export const settingShown = (key, S) => {
   // A chess variant brings its own board, pieces and rules: only how they
   // think, the move limit and the reach glow still matter.
@@ -301,6 +310,11 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
       // switching their captures off, is what makes the start easy.
       traits: d * k < 2 ? ['messy'] : M.traits
     });
+  }
+  if (M.run === 'descent' && M.realtime) {
+    // Kung fu: their pieces rest less each level down; the ground stays
+    // solid (crumbling and shrinking count turns, and there are none).
+    Object.assign(S, { kfFoeCool: Math.max(8, M.kfFoeCool - Math.round((depth - 1) * 2 * k)), ground: 'solid', cloud: false, showdown: false });
   }
   if (M.run === 'rounds') {
     const r = round - 1;
