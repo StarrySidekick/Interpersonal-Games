@@ -218,9 +218,14 @@ export class Board {
     // Every piece's reach (2026-10-10), when asked for (the 3D board shows it
     // by default; here only the runner asks), and the first-turn cloud.
     if (s && this.reach === true && !this.hidePieces) {
+      // Rings, as on the 3D board: theirs near the edge, yours inside.
       const R = reachMaps(s);
-      for (const sq of R.yours) P(this.cellX(sq % W), this.cellY(Math.floor(sq / W)), C, C, 'rgba(242,211,107,.35)');
-      for (const sq of R.theirs) P(this.cellX(sq % W), this.cellY(Math.floor(sq / W)), C, C, 'rgba(59,37,88,.22)');
+      const ring = (sq, i, col) => {
+        const x = this.cellX(sq % W) + i, y = this.cellY(Math.floor(sq / W)) + i, n = C - i * 2;
+        P(x, y, n, 2, col); P(x, y + n - 2, n, 2, col); P(x, y, 2, n, col); P(x + n - 2, y, 2, n, col);
+      };
+      for (const sq of R.theirs) ring(sq, 2, LOOK.reachFoe);
+      for (const sq of R.yours) ring(sq, 6, LOOK.reachYou);
     }
     if (s?.cloudy && day.cloud) for (const sq of day.cloud) P(this.cellX(sq % W), this.cellY(Math.floor(sq / W)), C, C, 'rgba(255,255,255,.7)');
   }

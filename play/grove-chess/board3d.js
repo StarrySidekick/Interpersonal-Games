@@ -357,9 +357,7 @@ export class Board3D extends Board {
     // (Which animations are under way matters too: a finished one still
     // draws its end state differently from none at all, e.g. the lid.)
     const anims = ['vanish', 'crumble'].map((k) => (tw?.[k] ? (at < tw[k].t0 ? 'b' : 'a') : '-')).join('');
-    const R = this.reachOf(s);
     return [s.gone?.join(','), s.shrunk?.join(','), anims, (this.theta || 0).toFixed(3), s.cloudy ? 'c' : '',
-      R ? [...R.yours].join(',') + '/' + [...R.theirs].join(',') : '-',
       (v.legal || []).map((m) => `${m.x},${m.y},${m.cap || m.sink ? 1 : 0}`).join(';'),
       v.sel != null && s.pieces[v.sel] ? `${s.pieces[v.sel].x},${s.pieces[v.sel].y}` : '', shrinkNext].join('|');
   }
@@ -378,7 +376,7 @@ export class Board3D extends Board {
     let shade = -1;
     if (v.track && day.rules.shrink && !tw && (s.t + 1) % (day.rules.shrinkEvery || 2) === 0) shade = nextShrink(s) ?? -1;
     const slab = !day.holes.size && !off.size && !collapse && !assemble;
-    const RM = this.reachOf(s), cloudy = s.cloudy && day.cloud;
+    const cloudy = s.cloudy && day.cloud;
     // The wooden rim: a thin band round the board (Timothy, 2026-10-10: the
     // brown borders were "way too thick"). Width from LOOK (config.js).
     const R = LOOK.rimWidth;
@@ -415,10 +413,6 @@ export class Board3D extends Board {
         if (!slab && R > 0 && !drop && !collapse && !assemble) m.addBox(X - r - rim, -4, Z - r - rim, X + r + rim, -1, Z + r + rim, LOOK.rim, 2, 1 << 3);
         if (gone.has(sq) && !crumbling) { m.addBox(X - r, -1.04, Z - r, X + r, -0.98, Z + r, PIT, 2); continue; }
         let col = tileColour(day, x, y);
-        // Every piece's reach (2026-10-10): yours a yellow light, theirs a
-        // faint dark purple; a square both reach gets both.
-        if (RM?.yours.has(sq)) col = mix(col, LOOK.reachYou, 0.38);
-        if (RM?.theirs.has(sq)) col = mix(col, LOOK.reachFoe, 0.24);
         if (cloudy && day.cloud.has(sq)) col = mix(col, '#ffffff', 0.55);
         // Chess variants: the hill's middle squares, and a race's finishing row, in gold.
         if (onHill(s, { x, y }) || (day.rules.race && y === H - 1)) col = mix(col, '#e3bd57', 0.6);
@@ -475,6 +469,22 @@ export class Board3D extends Board {
       const glow = (a, b) => { line([a, b], 'rgba(170,120,255,.55)', 7); line([a, b], 'rgba(226,206,255,.95)', 2, [3, 3]); };
       glow(this.pt(0, 0), this.pt(0, day.H)); glow(this.pt(W, 0), this.pt(W, day.H));
       if (day.rules.wrap === 'all') { glow(this.pt(0, 0), this.pt(W, 0)); glow(this.pt(0, day.H), this.pt(W, day.H)); }
+    }
+
+    // Every piece's reach, as rings round the squares (2026-10-11: a colour
+    // wash over the squares was "kind of hard to tell what's happening ...
+    // maybe it's like an outline around the cell"). Theirs a purple ring
+    // near the square's edge, yours a gold ring inside it, so a square both
+    // sides reach shows both. Each has a thin dark edge, to read on the
+    // light squares and the green alike.
+    const R = this.reachOf(s);
+    if (R) {
+      const ring = (sq, inset, col) => {
+        const q = quad(sq % W, Math.floor(sq / W), inset), pts = [...q, q[0]];
+        line(pts, 'rgba(20,14,8,.45)', 3.6); line(pts, col, 2);
+      };
+      for (const sq of R.theirs) ring(sq, 0.07, LOOK.reachFoe);
+      for (const sq of R.yours) ring(sq, 0.2, LOOK.reachYou);
     }
 
     // Crumbling ground: hairline cracks on every square, the same each time.
