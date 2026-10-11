@@ -2,7 +2,7 @@
 // main: one more for every push (2026-10-11). Shown at the foot of the home
 // page and of every Grove Chess page's menu. Do not edit by hand.
 export const RELEASE = {
-  "number": 43,
+  "number": 44,
   "date": "2026-10-11",
-  "note": "Shields on guarded pieces, your reach rings off, the Rabbit piece"
+  "note": "Gold and silver shields, purple and green beacons on what can be taken"
 };

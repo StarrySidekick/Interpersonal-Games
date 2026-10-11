@@ -248,6 +248,7 @@ async function startLevel() {
   board.reach = level.settings.showReach;
   board.reachMine = level.settings.showMyReach;
   board.guards = level.settings.showGuards;
+  board.beacons = level.settings.showBeacons;
   board.redraw = draw;
   board.fur = furOf;
   sel = null; legal = []; shown = null;

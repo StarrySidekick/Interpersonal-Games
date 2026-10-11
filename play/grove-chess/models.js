@@ -434,9 +434,10 @@ MODELS.cloud = () => {
 };
 
 // A shield (2026-10-11), standing in front of a guarded piece: a heater
-// shield in silver with a gold rim and cross, its face toward you.
-MODELS.shield = () => {
-  const m = new Model(), face = '#cfd3da', rim = '#e3bd57';
+// shield, its face toward you. Silver when one piece guards it, gold when
+// two or more do (2026-10-11, later).
+const shieldModel = (face, rim) => {
+  const m = new Model();
   m.box(0, 2.3, 0, 3.0, 2.4, 0.35, face);                       // the upper part
   m.box(0, 1.15, 0, 2.1, 2.1, 0.35, face, { rz: Math.PI / 4 });  // the point
   m.box(0, 3.55, 0.03, 3.3, 0.32, 0.42, rim);                    // rim: top
@@ -445,6 +446,8 @@ MODELS.shield = () => {
   m.box(0, 2.75, 0.22, 1.7, 0.42, 0.08, rim);
   return m;
 };
+MODELS.shield = () => shieldModel('#cfd3da', '#8e96a3');
+MODELS.shieldGold = () => shieldModel('#e8c048', '#fff0b0');
 
 // The hole's flag, so a moving hole can be seen from across the board.
 MODELS.flag = () => {

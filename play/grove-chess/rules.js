@@ -1100,7 +1100,9 @@ export function reachMaps(s) {
  * Returns a Set of indexes into s.pieces.
  */
 export function guarded(s) {
-  const out = new Set();
+  // A Map of index to how many pieces of yours guard it (2026-10-11: one
+  // guard a silver shield, two or more a gold one).
+  const out = new Map();
   if (s.won) return out;
   s.pieces.forEach((p, i) => {
     if (p.taken || p.flying || p.type === 'king' || p.type === 'ball' || p.rides != null) return;
@@ -1108,9 +1110,30 @@ export function guarded(s) {
     const c = clone(s);
     c.pieces.forEach((q) => { if (!q.taken && q.x === p.x && q.y === p.y) q.taken = true; });
     c.foes.push({ type: 'pawn', x: p.x, y: p.y, taken: false, brain: 'none' });
-    if (c.pieces.some((q) => !q.taken && !q.flying && q.type !== 'ball' && pieceMoves(c, q, 'you').some((m) => m.cap && m.x === p.x && m.y === p.y))) out.add(i);
+    const n = c.pieces.filter((q) => !q.taken && !q.flying && q.type !== 'ball' && pieceMoves(c, q, 'you').some((m) => m.cap && m.x === p.x && m.y === p.y)).length;
+    if (n) out.set(i, n);
   });
   return out;
+}
+
+/**
+ * What could be taken next (2026-10-11, the beacons): `mine`, your pieces
+ * one of theirs could take on their next turn if you left them where they
+ * are (on your King, that is check), and `theirs`, their pieces you could
+ * take now. Sets of indexes into s.pieces and s.foes. A piece riding on
+ * another counts with it. Loose rabbits on a fixed pattern are left out.
+ */
+export function threats(s) {
+  const mine = new Set(), theirs = new Set();
+  if (s.won) return { mine, theirs };
+  const at = (list, x, y, out) => list.forEach((q, k) => { if (!q.taken && !q.flying && q.x === x && q.y === y) out.add(k); });
+  s.pieces.forEach((p, i) => { if (!p.taken && !p.flying) for (const m of movesFor(s, i)) if (m.cap && !m.swap) at(s.foes, m.x, m.y, theirs); });
+  s.foes.forEach((f) => {
+    if (f.taken || f.flying || f.brain === 'pattern' || !canTake(s.day.rules, f)) return;
+    for (const m of pieceMoves(s, f, 'foe')) if (m.cap) at(s.pieces, m.x, m.y, mine);
+  });
+  for (const k of [...mine]) if (s.pieces[k].type === 'ball') mine.delete(k);
+  return { mine, theirs };
 }
 
 function reachOf(s, who) {

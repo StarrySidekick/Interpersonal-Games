@@ -44,7 +44,9 @@ export const SCHEMA = [
     { key: 'showMyReach', label: 'Show where yours can go', type: 'bool', def: false,
       help: 'A gold ring on every square one of your pieces could move to. Off by default (2026-10-11: "less useful and muddies the board"); tapping a piece still lights its own squares.' },
     { key: 'showGuards', label: 'Shields on guarded pieces', type: 'bool', def: true,
-      help: 'A piece of yours that another of yours would avenge (if it were taken there, yours could take back on that square) wears a shield, which falls into place with a clink when it becomes guarded.' },
+      help: 'A piece of yours that another of yours would avenge (if it were taken there, yours could take back on that square) wears a shield, which falls into place with a clink when it becomes guarded: silver for one guard, gold for two or more.' },
+    { key: 'showBeacons', label: 'Beacons on what can be taken', type: 'bool', def: true,
+      help: 'A beam of light rises from what could be taken next: purple from a piece of yours they could take on their next move if it stays (on your King, that is check), green from a piece of theirs you can take now (Timothy, 2026-10-11).' },
     { key: 'autoPool', label: 'Your rabbits', type: 'choice', def: 'caught', options: opts(['caught', 'The ones you have caught'], ['all', 'Every named kind']),
       help: 'For autochess. Caught: one rabbit for every time you caught its kind, in the descent or the daily.' }
   ] },
@@ -175,7 +177,7 @@ export const SCHEMA = [
 ];
 
 const FIELDS = SCHEMA.flatMap((g) => g.fields);
-export const SETTINGS_VERSION = 14;
+export const SETTINGS_VERSION = 15;
 export const defaults = () => ({ ...Object.fromEntries(FIELDS.map((f) => [f.key, Array.isArray(f.def) ? [...f.def] : f.def])), v: SETTINGS_VERSION });
 
 /** How each earlier version's defaults differ from today's. Settings saved
@@ -192,7 +194,9 @@ export const defaults = () => ({ ...Object.fromEntries(FIELDS.map((f) => [f.key,
 // Version 13 (2026-10-11): each cloud stops only the other side (`cloudOwn`).
 // Version 14 (2026-10-11): your own reach rings off, shields on guarded
 // pieces.
-const V14 = { showMyReach: true, showGuards: false };
+// Version 15 (2026-10-11): beacons on what can be taken.
+const V15 = { showBeacons: false };
+const V14 = { showMyReach: true, showGuards: false, ...V15 };
 const V13 = { cloudOwn: false, ...V14 };
 const V12 = { fullRow: false, cloud: false, showReach: false, ...V13 };
 const V11 = { wait: true, foesWait: true, arrange: false, ...V12 };
@@ -202,6 +206,7 @@ const V9 = { mineRows: 2, foeRows: 3, ...V10 };
 // (goal 'king', royal), and two left brings on the showdown.
 const V8 = { goal: 'descent', royal: false, showdown: false, dealKing: false, ...V9 };
 const BEFORE = {
+  14: { ...V15 },
   13: { ...V14 },
   12: { ...V13 },
   11: { ...V12 },
