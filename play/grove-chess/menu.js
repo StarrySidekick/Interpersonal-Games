@@ -10,6 +10,7 @@ import { releaseLine } from '../../engine/release.js';
 export const MENU = [
   { id: 'daily', href: '', label: 'The daily' },
   { id: 'descent', href: 'play/?mode=descent', label: 'The descent' },
+  { id: 'kungfu', href: 'play/?mode=kungfu', label: 'Kung fu descent' },
   { id: 'chaos', href: 'play/?mode=chaos', label: 'Chaos' },
   { id: 'golf', href: 'play/?mode=golf', label: 'Golf' },
   { id: 'autochess', href: 'play/?mode=autochess', label: 'Autochess' },

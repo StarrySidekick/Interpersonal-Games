@@ -65,6 +65,12 @@ export const VARIANTS = {
     blurb: 'Your King and eight pawns against their King, three knights and a pawn. March, promote, and overwhelm.',
     history: 'A lopsided variant from the Chess Variants Pages, kept in Fairy-Stockfish’s list: good practice at pawn play and promotion.'
   },
+  kungfu: {
+    name: 'Kung Fu Chess', size: '8 × 8',
+    fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR', rules: { promote: true, pawnDouble: true, realtime: true },
+    blurb: 'Chess with no turns. Move any piece whenever it is ready, and so do they. Moves take time to travel, so a piece can dodge; a piece that moved must rest. Take their King.',
+    history: 'Kung-Fu Chess, by Shizmoo Games (2001 to 2002), won the Audience Choice award at the 2002 Independent Games Festival. This plays its lightning speed: a square every fifth of a second, two seconds’ rest. In the original, pieces could also collide in the air.'
+  },
   monster: {
     name: 'Monster chess', size: '8 × 8',
     fen: 'rnbqkbnr/pppppppp/8/8/8/8/2PPPP2/4K3', rules: { promote: true, pawnDouble: true, movesPerTurn: 2 },

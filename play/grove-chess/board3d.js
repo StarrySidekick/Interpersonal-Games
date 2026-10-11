@@ -329,8 +329,9 @@ export class Board3D extends Board {
       this.layer.width = w;
       this.lctx.putImageData(this.t3.img, 0, 0);
       g.drawImage(this.layer, 0, 0);
-      // 4. Puffs and leaves.
+      // 4. Puffs and leaves; Kung fu's resting rings, over the pieces.
       this.effects(g, at);
+      this.resting(g, s);
     }
     this.air(g);
   }
@@ -342,6 +343,21 @@ export class Board3D extends Board {
     if (this.reach === false || this.hidePieces || this.tw?.collapse || this.tw?.assemble) return null;
     if (this.reachFor !== s) { this.reachFor = s; this.reachMap = reachMaps(s); }
     return this.reachMap;
+  }
+
+  /** Kung fu (2026-10-11): a piece resting after a move has a ring round
+      its foot, over the piece, that runs down as it recovers (`cool`, the
+      share still to go, from kungfu.js). Gold for yours, purple for theirs. */
+  resting(g, s) {
+    for (const [list, col] of [[s.pieces, LOOK.reachYou], [s.foes, LOOK.reachFoe]])
+      for (const p of list) {
+        if (p.taken || p.flying || !(p.cool > 0)) continue;
+        const [cx, cy] = this.pt(p.x + 0.5, p.y + 0.5), r = this.scale * T * 0.4, a0 = -Math.PI / 2, a1 = a0 + p.cool * Math.PI * 2;
+        g.save(); g.lineCap = 'round';
+        g.lineWidth = 4.5; g.strokeStyle = 'rgba(20,14,8,.55)'; g.beginPath(); g.ellipse(cx, cy, r, r * 0.55, 0, a0, a1); g.stroke();
+        g.lineWidth = 2.6; g.strokeStyle = col; g.beginPath(); g.ellipse(cx, cy, r, r * 0.55, 0, a0, a1); g.stroke();
+        g.restore();
+      }
   }
 
   /** Everything the squares picture depends on, as a string, or null while

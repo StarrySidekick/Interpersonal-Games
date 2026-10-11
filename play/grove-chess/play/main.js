@@ -31,6 +31,7 @@ import {
 } from '../run.js';
 import { setupPanel, setupState, playOut } from '../autosetup.js';
 import { VARIANTS, VARIANT_ORDER, differs } from '../variants.js';
+import { startKungFu } from '../kungfu.js';
 import { describeMeasure } from '../metrics.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -223,7 +224,7 @@ function handRow(box, { pick = null, picked = [] } = {}) {
 function goalCard() {
   if (session.seen.has('goal')) return null;
   session.seen.add('goal');
-  const text = {
+  let text = {
     descent: M.goal === 'king' ? 'Take their King to fall to the next level, where you find something. Keep yours: if they take your King, the descent is over. Any other piece of yours that is taken is gone for good.'
       : 'Take every piece of theirs to fall to the next level, where you find something. A piece of yours that is taken is gone for good; when they are all gone, so is the descent.',
     course: 'Sink the ball in the hole in as few strokes as you can. Each hole has its own ball; the pieces sheet says how it rolls.',
@@ -231,6 +232,7 @@ function goalCard() {
     single: 'One level. Win it how it says above.'
   }[M.run];
   // A chess variant: its own goal, and what Grove Chess plays differently.
+  if (M.realtime && M.run === 'descent') text = text + ' Kung fu: there are no turns. Move any piece of yours whenever it is ready, and so do they. A move takes time to travel, so a piece can dodge one coming for it, and a piece that has moved rests for a moment: the ring under it runs down.';
   const V = VARIANTS[M.variant];
   if (V && M.run === 'single') return { kind: 'king', side: 'foe', title: V.name, text: [V.blurb, ...differs(V)].join(' ') };
   return { kind: M.run === 'course' ? 'flag' : 'rabbit', side: M.run === 'course' ? 'you' : 'foe', title: MODE.name, text };
@@ -270,15 +272,45 @@ async function startLevel() {
   handRow($('#playhand'));
   $('#setup').hidden = true;
   $('#arrange').hidden = true; arranging = null;
+  kf?.stop(); kf = null;
+  $('#movecount').previousSibling.textContent = 'Move ';
   $('#controls').hidden = true;
   busy = true;
   await playIntro(board, level, { section: $('[data-screen=play]'), seen: session.seen, goal: goalCard() });
   busy = false;
   if (isAuto()) return setUp();
   if (level.settings.arrange && level.pieces.length && setChanged()) await arrange();
+  if (level.rules.realtime) return beginKungFu();
   $('#controls').hidden = false;
   status(`${levelWord()} ${session.n}. ${$('#goalpill').textContent}.${now().cloudy ? (now().day.rules.cloudOwn ? ' For the first turn, a cloud in front of each side stops the other side.' : ' A cloud covers the second rows for the first turn.') : ''}`);
   select(null);
+}
+
+// --- Kung fu: no turns (2026-10-11, kungfu.js). -----------------------------------
+
+let kf = null;
+
+async function beginKungFu() {
+  const R = level.rules.realtime, jokers = session.run?.jokers || [];
+  $('#controls').hidden = false; $('#wait').hidden = true;
+  $('#movemax').textContent = '';
+  $('#movecount').previousSibling.textContent = 'Time ';
+  // Turn-based measures (difficulty, par) say nothing about real time.
+  for (const c of $('#chips').children) if (/^Difficulty/.test(c.textContent)) c.remove();
+  // Ready, then go: a beat to look at the board before the clock starts.
+  status('Kung fu: no turns. Ready…');
+  info('Move any piece of yours whenever it is ready. It rests after, and the ring under it shows for how long.');
+  haptic(10);
+  await sleep(1100);
+  status('Go!'); sfx.slam(); haptic([20, 40, 20]);
+  kf = startKungFu({
+    board, level, state: now(), iq: level.settings.iq,
+    // Jokers, read for real time: Double Time halves your rest, Lazy Rabbits doubles theirs.
+    myCool: R.cool / (jokers.includes('double') ? 2 : 1), foeCool: R.foeCool * (jokers.includes('lazy') ? 2 : 1), step: R.step,
+    onStatus: status, onInfo: info,
+    onClock: (ms) => { $('#movecount').textContent = `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`; },
+    onEnd: (end) => { kf = null; game.states = [end]; levelOver(end); }
+  });
 }
 
 // --- Laying out your pieces (2026-10-10). --------------------------------------
@@ -453,6 +485,7 @@ $('#board').addEventListener('click', (e) => {
   if (!board || busy || isOver(now())) return;
   const c = board.cellAt(e);
   if (!c) return;
+  if (kf) return kf.tap(c);
   if (arranging) return arranging(c);
   if (isAuto()) { if (!$('#setup').hidden) panel?.pickAt(c.x, c.y); return; }
   const { x, y } = c, s = now();
@@ -824,6 +857,7 @@ function previewFrame(ts) {
 }
 
 async function prepareTitle() {
+  kf?.stop(); kf = null;
   newSession();
   show('title');
   $('#modename').textContent = MODE.name;
@@ -956,4 +990,4 @@ prepareTitle();
 requestAnimationFrame(previewFrame);
 
 // For automated tests: read-only access, and a way to move.
-window.__play = { now: () => (game ? now() : null), level: () => level, board: () => board, session: () => session, settings: () => M, play: (mv) => play(mv), par: () => par };
+window.__play = { now: () => (game ? now() : null), level: () => level, board: () => board, kf: () => kf, session: () => session, settings: () => M, play: (mv) => play(mv), par: () => par };
