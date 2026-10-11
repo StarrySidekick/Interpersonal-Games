@@ -364,6 +364,24 @@ function pawn(L, p, fwd) {
   return out;
 }
 
+/** The rabbit's two hops: a square in any direction, then another, onto
+    empty squares or the heads of its own side's pieces; never a capture,
+    never back where it started. (pieceMoves0 also keeps it off a head that
+    already has a rider.) */
+function bunnyHops(L, p) {
+  const out = new Map(), ok = (c) => c === EMPTY || c === OWN;
+  for (const [ax, ay] of ALL8) {
+    const x1 = p.x + ax, y1 = p.y + ay;
+    if (!ok(L(x1, y1))) continue;
+    for (const [bx, by] of ALL8) {
+      const x2 = x1 + bx, y2 = y1 + by;
+      if ((x2 === p.x && y2 === p.y) || !ok(L(x2, y2))) continue;
+      out.set(`${x2},${y2}`, { x: x2, y: y2, cap: false });
+    }
+  }
+  return [...out.values()];
+}
+
 function rose(L, p) {
   const seen = new Map();
   for (let k = 0; k < 8; k++)
@@ -544,6 +562,18 @@ export const PIECES = {
     origin: 'The cannon (pao) of xiangqi turned diagonal, from 20th-century variants.',
     moves: betzaMoves('mBcpB') },
 
+  // --- Added 2026-10-11: the rabbit as a chess piece (Timothy: "rabbits are
+  // now a fairy chess piece (same model) and function differently. they hop
+  // twice in any direction each turn, cannot capture, and can hop onto other
+  // pieces of their side's heads. taking the piece captures the rabbit. it
+  // can be captured by itself as well"). No Betza: no notation lands on its
+  // own side's pieces. The loose rabbits of the daily and golf (`rabbit`,
+  // below) are a different thing and stay as they were.
+  bunny: { name: 'Rabbit', kind: 'fairy', tier: 0, value: 1.5, betza: null, strength: 1.5,
+    desc: 'Hops twice each turn: one square in any direction, then another, so it can turn a corner. It never takes anything. It can hop onto the head of a piece of its own side and ride there; taking that piece takes the rabbit too.',
+    origin: 'Grove Chess\u2019s own, 2026.',
+    moves: bunnyHops },
+
   // Only ever on their side. When it thinks (the AI brain) it moves like a
   // king; when it follows a pattern, the pattern decides.
   // Only ever yours, and only on ball-and-hole levels.
@@ -551,7 +581,7 @@ export const PIECES = {
     desc: 'Rolls up, down, left or right until something stops it. Your other pieces make good walls. Get it into the hole to win.',
     moves: ball },
 
-  rabbit: { name: 'Rabbit', kind: 'quarry', tier: 1, value: 3, betza: 'K', strength: null,
+  rabbit: { name: 'Wild rabbit', kind: 'quarry', tier: 1, value: 3, betza: 'K', strength: null,
     desc: 'Steps one square in any direction.',
     moves: (L, p) => leap(L, p, ALL8) }
 };
@@ -708,6 +738,12 @@ function throughCloud(B, W, p, m) {
 /** Piece p's moves, from `side`, folded back onto a magic board. */
 function pieceMoves0(s, p, side) {
   let ms = PIECES[p.type].moves(sight(s, p, side), p, side === 'you' ? 1 : -1, s.day);
+  // A rabbit rides one piece at a time: not onto a rabbit, a ball, or a
+  // head that already has a rider.
+  if (p.type === 'bunny') {
+    const own = side === 'you' ? s.pieces : s.foes;
+    ms = ms.filter((m) => { const there = own.filter((q) => q !== p && !q.taken && q.x === m.x && q.y === m.y); return !there.length || (there.length === 1 && !['bunny', 'ball'].includes(there[0].type)); });
+  }
   // Chess variants (2026-10-11): a pawn on its starting row may step two,
   // if both squares ahead are empty. (No en passant.)
   if (s.day.rules.pawnDouble && p.type === 'pawn') {
@@ -893,6 +929,10 @@ export function lost(s) {
 
 /** A foe lands on (x, y), taking whatever of yours is there. Mutates. */
 function landFoe(s, f, x, y) {
+  const k = s.foes.indexOf(f);
+  // A rabbit of theirs hopping onto one of their heads rides there.
+  const mate = f.type === 'bunny' ? s.foes.find((q) => q !== f && !q.taken && q.x === x && q.y === y) : null;
+  if (mate) { f.ate = -1; f.from = [f.x, f.y]; f.x = x; f.y = y; f.blocked = false; f.rides = s.foes.indexOf(mate); return; }
   const b = hitBall(s, x, y);
   if (b) { knock(s, b, f.x, f.y); f.ate = -1; f.from = [f.x, f.y]; f.x = x; f.y = y; f.blocked = false; return; }
   f.ate = s.pieces.findIndex((p) => !p.taken && p.x === x && p.y === y);
@@ -907,8 +947,11 @@ function landFoe(s, f, x, y) {
       return;
     }
     p.taken = true;
+    // Taking a piece takes a rabbit riding on it too.
+    s.pieces.forEach((q) => { if (!q.taken && q.x === x && q.y === y) q.taken = true; });
   }
-  f.from = [f.x, f.y]; f.x = x; f.y = y; f.blocked = false;
+  f.from = [f.x, f.y]; f.x = x; f.y = y; f.blocked = false; delete f.rides;
+  s.foes.forEach((q) => { if (q.rides === k && !q.taken) { q.from = [q.x, q.y]; q.x = x; q.y = y; } });
   // Chess variants (2026-10-11): a pawn of theirs on your back row is a queen.
   if (s.day.rules.promote && f.type === 'pawn' && y === 0) f.type = 'queen';
 }
@@ -1048,6 +1091,26 @@ export function reachMaps(s) {
     for (const m of pieceMoves(s, f, 'foe')) theirs.add(m.y * W + m.x);
   }
   return { yours, theirs };
+}
+
+/**
+ * Your pieces that are guarded (2026-10-11): if one of theirs took it where
+ * it stands, another piece of yours could take back on that square. Kings
+ * are left out: losing one ends the game, so taking back is no comfort.
+ * Returns a Set of indexes into s.pieces.
+ */
+export function guarded(s) {
+  const out = new Set();
+  if (s.won) return out;
+  s.pieces.forEach((p, i) => {
+    if (p.taken || p.flying || p.type === 'king' || p.type === 'ball' || p.rides != null) return;
+    // As if one of theirs now stood there, having taken it (and anything riding on it).
+    const c = clone(s);
+    c.pieces.forEach((q) => { if (!q.taken && q.x === p.x && q.y === p.y) q.taken = true; });
+    c.foes.push({ type: 'pawn', x: p.x, y: p.y, taken: false, brain: 'none' });
+    if (c.pieces.some((q) => !q.taken && !q.flying && q.type !== 'ball' && pieceMoves(c, q, 'you').some((m) => m.cap && m.x === p.x && m.y === p.y))) out.add(i);
+  });
+  return out;
 }
 
 function reachOf(s, who) {
@@ -1267,21 +1330,32 @@ function knock(s, b, fx, fy) {
 /** Your piece i lands on (x, y): the square it left may crumble, anything
     of theirs there is caught, and the game may be won. Mutates. */
 function landMine(n, i, x, y) {
-  const p = n.pieces[i];
-  // Spirals: landing on a piece of yours trades squares with it.
+  const p = n.pieces[i], riding = p.rides != null;
   const mate = n.pieces.find((q, k) => k !== i && !q.taken && q.type !== 'ball' && q.x === x && q.y === y);
+  // A rabbit hopping onto a head rides there (2026-10-11).
+  if (mate && p.type === 'bunny') {
+    if (n.day.rules.crumble && !riding) n.gone.push(p.y * n.day.W + p.x);
+    p.x = x; p.y = y; p.rides = n.pieces.indexOf(mate);
+    return null;
+  }
+  // Spirals: landing on a piece of yours trades squares with it.
   if (mate) { mate.x = p.x; mate.y = p.y; p.x = x; p.y = y; return null; }
   const hit = hitBall(n, x, y);
   if (hit && hit !== p) knock(n, hit, p.x, p.y);
-  // Crumbling ground: the square you leave falls away behind you.
-  if (n.day.rules.crumble) n.gone.push(p.y * n.day.W + p.x);
-  p.x = x; p.y = y;
+  // Crumbling ground: the square you leave falls away behind you (not when
+  // a rabbit hops off a head: the piece under it is still there).
+  if (n.day.rules.crumble && !riding) n.gone.push(p.y * n.day.W + p.x);
+  p.x = x; p.y = y; delete p.rides;
+  // A rabbit riding on this piece goes with it.
+  n.pieces.forEach((q) => { if (q.rides === i && !q.taken) { q.x = x; q.y = y; } });
   // Chess variants (2026-10-11): a pawn on the far row becomes a queen; a
   // King on the hill, or on the top row in a race, wins.
   if (n.day.rules.promote && p.type === 'pawn' && y === n.day.H - 1) p.type = 'queen';
   if (p.type === 'king' && (onHill(n, p) || (n.day.rules.race && y === n.day.H - 1))) n.won = true;
   const f = n.foes.find((f) => !f.taken && f.x === x && f.y === y);
   if (f) f.taken = true;
+  // Taking a piece takes a rabbit riding on it too.
+  if (f) n.foes.forEach((q) => { if (!q.taken && q.x === x && q.y === y) q.taken = true; });
   if (f && p.suit === 'diamonds') n.treasure = (n.treasure || 0) + 1;
   if (f && goalMet(n)) n.won = true;
   if (p.type === 'ball' && n.hole && p.x === n.hole.x && p.y === n.hole.y && holeOpen(n)) n.won = n.sunk = true;

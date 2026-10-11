@@ -180,3 +180,11 @@ export function gain(at = 0) {
   tone({ f: 230, f2: 150, type: 'triangle', at, dur: 0.08, vol: 0.26 });
   [7, 9, 12].forEach((d, i) => tone({ f: hz(d), type: 'triangle', at: at + 0.1 + i * 0.09, dur: i === 2 ? 0.45 : 0.14, vol: 0.16, attack: 0.008 }));
 }
+
+/** A shield dropping into place in front of a guarded piece: a bright metal
+    clink and a short ring. */
+export function shield(at = 0) {
+  tone({ f: 1320, f2: 1250, type: 'triangle', at, dur: 0.22, vol: 0.14 });
+  tone({ f: 1980, f2: 1900, type: 'sine', at: at + 0.01, dur: 0.3, vol: 0.07 });
+  noise({ at, dur: 0.03, vol: 0.08, from: 4200, type: 'bandpass', q: 5 });
+}

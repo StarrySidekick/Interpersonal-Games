@@ -392,20 +392,27 @@ function shogi(mark) {
 
 /** A rabbit, white by default or in the fur of its pattern (rabbits.js).
     The tail and the insides of the ears stay pale either way. */
-MODELS.rabbit = (fur = null) => {
-  const m = new Model(), w = fur || '#f6f2ea', sh = fur ? shade(fur, 0.82) : '#ddd4c4';
-  m.ellipsoid(0, 2.5, -0.3, 2.2, 2.3, 2.6, w);             // body
-  m.ellipsoid(0, 5.4, 1.5, 1.6, 1.5, 1.6, w);             // head
+MODELS.rabbit = (fur = null) => rabbitShape(new Model(), fur);
+
+/** The rabbit's shape, built into m, `lift` units up. */
+function rabbitShape(m, fur = null, lift = 0) {
+  const w = fur || '#f6f2ea', sh = fur ? shade(fur, 0.82) : '#ddd4c4', y = (v) => v + lift;
+  m.ellipsoid(0, y(2.5), -0.3, 2.2, 2.3, 2.6, w);             // body
+  m.ellipsoid(0, y(5.4), 1.5, 1.6, 1.5, 1.6, w);             // head
   for (const s of [1, -1]) {
-    m.ellipsoid(s * 0.7, 8.1, 1.0, 0.5, 2.0, 0.35, w, { rot: { rz: -s * 0.15 } });      // ears
-    m.ellipsoid(s * 0.7, 8.0, 1.3, 0.3, 1.5, 0.15, P.pink, { rot: { rz: -s * 0.15 } });
-    m.ball(s * 1.05, 5.8, 2.55, 0.3, P.eye, { seg: 6, rings: 4 });
-    m.ellipsoid(s * 0.8, 0.5, 1.9, 0.5, 0.45, 0.8, sh);     // front paws
+    m.ellipsoid(s * 0.7, y(8.1), 1.0, 0.5, 2.0, 0.35, w, { rot: { rz: -s * 0.15 } });      // ears
+    m.ellipsoid(s * 0.7, y(8.0), 1.3, 0.3, 1.5, 0.15, P.pink, { rot: { rz: -s * 0.15 } });
+    m.ball(s * 1.05, y(5.8), 2.55, 0.3, P.eye, { seg: 6, rings: 4 });
+    m.ellipsoid(s * 0.8, y(0.5), 1.9, 0.5, 0.45, 0.8, sh);     // front paws
   }
-  m.ball(0, 5.0, 3.1, 0.3, P.pink, { seg: 6, rings: 4 }); // nose
-  m.ball(0, 2.4, -2.9, 0.9, '#ffffff', { seg: 6, rings: 4 }); // tail
+  m.ball(0, y(5.0), 3.1, 0.3, P.pink, { seg: 6, rings: 4 }); // nose
+  m.ball(0, y(2.4), -2.9, 0.9, '#ffffff', { seg: 6, rings: 4 }); // tail
   return m;
-};
+}
+
+// The rabbit as a chess piece (2026-10-11): the same rabbit, in its side's
+// colour, on a plinth so it reads as a piece.
+MODELS.bunny = () => rabbitShape(plinth(new Model()), P.woodLight, 1.4);
 
 // The ball rolls rather than stands, so it has no plinth: a cream ball with a
 // moss band, so it still reads as yours.
@@ -423,6 +430,19 @@ MODELS.cloud = () => {
   for (const [x, y, z, r] of [[-2.2, 1.4, -1.0, 2.0], [1.9, 1.5, -1.3, 2.1], [0, 2.2, 0.4, 2.4], [-1.5, 1.2, 2.0, 1.7], [2.0, 1.1, 1.8, 1.6]])
     m.ellipsoid(x, y, z, r * 1.15, r * 0.7, r * 1.05, '#f4f6f8', { seg: 7, rings: 4 });
   m.ellipsoid(0.4, 3.2, -0.4, 1.4, 0.9, 1.3, '#ffffff', { seg: 6, rings: 4 });
+  return m;
+};
+
+// A shield (2026-10-11), standing in front of a guarded piece: a heater
+// shield in silver with a gold rim and cross, its face toward you.
+MODELS.shield = () => {
+  const m = new Model(), face = '#cfd3da', rim = '#e3bd57';
+  m.box(0, 2.3, 0, 3.0, 2.4, 0.35, face);                       // the upper part
+  m.box(0, 1.15, 0, 2.1, 2.1, 0.35, face, { rz: Math.PI / 4 });  // the point
+  m.box(0, 3.55, 0.03, 3.3, 0.32, 0.42, rim);                    // rim: top
+  for (const sx of [1, -1]) m.box(sx * 1.55, 2.35, 0.03, 0.32, 2.5, 0.42, rim);
+  m.box(0, 2.2, 0.22, 0.42, 2.2, 0.08, rim);                     // the cross
+  m.box(0, 2.75, 0.22, 1.7, 0.42, 0.08, rim);
   return m;
 };
 

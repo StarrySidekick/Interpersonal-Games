@@ -297,6 +297,21 @@ stored boards keep the old behaviour):
   the hours version 11 was live may have opened with old defaults; nothing
   stored was affected (the shipped dailies are versions 10 and before).
 
+**Seeing the board (2026-10-11).** Timothy: "i like the purple outline
+for dangerous cells to move to, its great. i want to be able to toggle off
+your yellow highlighted spots ... off by default." Two settings now: "Show
+where theirs can go" (on) and "Show where yours can go" (`showMyReach`,
+off). And: "when a piece is defending another piece ... the defended piece
+should get a cool shield on it and a sound effect when a piece moves into
+a position where it can guard it." "Shields on guarded pieces"
+(`showGuards`, on): a piece of yours that another of yours could avenge
+(if theirs took it there, yours could take back on that square;
+`guarded` in `rules.js`) wears a silver shield with a gold cross across
+its front. When a piece becomes guarded its shield drops in from above,
+bounces once, and clinks (`sfx.shield`), with a tap of the phone. Kings
+are left out (losing one ends the game). Settings version 14; older
+links keep their old look.
+
 **Phone fixes (2026-10-11).** Double-tap zoom is off on every page
 (`touch-action: manipulation` on the page, in `engine/app.css`): Safari
 zoomed when menus and buttons were tapped twice. Pinch zoom still works.

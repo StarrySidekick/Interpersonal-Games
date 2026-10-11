@@ -225,7 +225,7 @@ export class Board {
         P(x, y, n, 2, col); P(x, y + n - 2, n, 2, col); P(x, y, 2, n, col); P(x + n - 2, y, 2, n, col);
       };
       for (const sq of R.theirs) ring(sq, 2, LOOK.reachFoe);
-      for (const sq of R.yours) ring(sq, 6, LOOK.reachYou);
+      if (this.reachMine === true) for (const sq of R.yours) ring(sq, 6, LOOK.reachYou);
     }
     if (s?.cloudy && day.cloud) for (const sq of day.cloud) P(this.cellX(sq % W), this.cellY(Math.floor(sq / W)), C, C, 'rgba(255,255,255,.7)');
   }
@@ -716,6 +716,7 @@ export async function revealPattern(cv, steps, mx = 1, my = 1, gap = 300) {
 const DEMO = {
   pawn: { rabbit: [4, 4] },
   cannon: { walls: [[3, 5]], rabbit: [3, 6] },
+  bunny: { walls: [[4, 4]] }, // a piece of its own to hop up onto
   grasshopper: { walls: [[3, 5], [5, 5], [1, 3]] },
   mao: { walls: [[4, 3]] },
   ball: { walls: [[3, 6], [0, 3]] }

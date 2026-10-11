@@ -65,7 +65,7 @@ export const RUN_SCHEMA = [
       help: 'A new piece while you have room; once your hand is full, an upgrade: a suit, fusing two pieces, or a joker. Pieces of theirs you take are claimed, and can be combined with yours after the level.' },
     { key: 'jokers', label: 'Jokers can turn up', type: 'bool', def: true, help: 'Rules for the rest of a run: Double Time, Foresight, Recruiter, Lazy Rabbits, Overtime.' },
     { key: 'findPool', label: 'Pieces you can find', type: 'pieces', def: ['king', 'knight', 'bishop', 'rook', 'queen', 'wazir', 'ferz', 'alfil', 'dabbaba', 'mao', 'zebra', 'camel', 'grasshopper', 'cannon', 'silver', 'lance', 'squirrel', 'rose', 'nightrider', 'archbishop', 'chancellor',
-      'gold', 'copper', 'leopard', 'tiger', 'kirin', 'phoenix', 'elephant', 'woody', 'alibaba', 'threeleaper', 'tripper', 'frog', 'vao'],
+      'gold', 'copper', 'leopard', 'tiger', 'kirin', 'phoenix', 'elephant', 'woody', 'alibaba', 'threeleaper', 'tripper', 'frog', 'vao', 'bunny'],
       help: 'What a run offers when it finds a piece. Pieces vetoed in the catalog are left out anyway.' },
     { key: 'startDifficulty', label: 'First level\u2019s difficulty', type: 'int', min: 1, max: 10, def: 1, unit: 'of 10',
       help: 'For a descent. The first level is found at this difficulty (measured: a novice bot plays it two dozen times), and every level after aims a little higher, as fast as "It gets harder" says.' },
@@ -228,7 +228,7 @@ const SHOWN = {
 /** Does this setting matter for these settings (the mode included)? */
 // With no mode (the workshop), only the rules between settings apply.
 const DEPENDS = ['kfStep', 'kfCool', 'kfFoeCool', 'kfFoeGap', 'cloudOwn', 'shrinkEvery', 'iq', 'traits', 'kinds', 'skill', 'style', 'holeMoves', 'ballMove', 'ballCaptures', 'ballStops', 'dealKing'];
-const VARIANT_KEYS = ['variant', 'skill', 'style', 'maxMoves', 'showReach', 'realtime', 'kfStep', 'kfCool', 'kfFoeCool', 'kfFoeGap', 'iq'];
+const VARIANT_KEYS = ['variant', 'skill', 'style', 'maxMoves', 'showReach', 'showMyReach', 'showGuards', 'realtime', 'kfStep', 'kfCool', 'kfFoeCool', 'kfFoeGap', 'iq'];
 export const settingShown = (key, S) => {
   // A chess variant brings its own board, pieces and rules: only how they
   // think, the move limit and the reach glow still matter.
@@ -282,7 +282,7 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
     // lined up or not, within how many rows, and who moves first.
     Object.assign(S, { lineup: M.lineup, mineRows: M.mineRows, foeRows: M.foeRows, first: M.first });
     // So are a full row each, the first-turn cloud, and showing reach.
-    Object.assign(S, { fullRow: M.fullRow, cloud: M.cloud, cloudOwn: M.cloudOwn, showReach: M.showReach });
+    Object.assign(S, { fullRow: M.fullRow, cloud: M.cloud, cloudOwn: M.cloudOwn, showReach: M.showReach, showMyReach: M.showMyReach, showGuards: M.showGuards });
     if (M.roll === 'daily') Object.assign(S, { maxMoves: Math.max(S.maxMoves || 20, 18), parMin: 4, parMax: 10, minCeiling: 6 });
   }
 
@@ -302,7 +302,7 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
       // theirs are all classic (2026-10-10). After it, the small ones
       // that used to start the descent (wazir, ferz) come back in.
       foePool: classicUntil(depth < M.fairyFrom, d * k < 3 ? M.foePool : d * k < 7 ? [...M.foePool, 'knight', 'bishop'] : d * k < 11 ? [...M.foePool, 'knight', 'bishop', 'rook', 'camel'] : [...M.foePool, 'rook', 'bishop', 'knight', 'queen', 'archbishop'],
-        ['wazir', 'ferz']),
+        ['wazir', 'ferz', 'bunny']),
       ground: d * k < 2 ? M.ground : pick([M.ground, M.ground, 'crumble', 'shrink', 'spiral']),
       shape: d * k < 3 ? M.shape : pick([M.shape, M.shape, 'diamond', 'round', 'cross', 'cheese']),
       statues: Math.min(4, M.statues + Math.floor(d * k / 3)),

@@ -209,3 +209,30 @@ what it does, can be changed in `config.js` (the settings console,
 `docs/grove-modes.md`); the catalog then says "In fairy chess: the
 Ferocious leopard (FvW)." No piece is renamed yet: that is Timothy's to
 decide in the console.
+
+## The rabbit as a chess piece (2026-10-11)
+
+Timothy: "rabbits are now a fairy chess piece (same model) and function
+differently. they hop twice in any direction each turn, cannot capture,
+and can hop onto other pieces of their side's heads. taking the piece
+captures the rabbit. it can be captured by itself as well."
+
+**The Rabbit** (`bunny` in `rules.js`): two hops a turn, a square in any
+direction and then another, so it can turn a corner (it reaches every
+square within two, 24 from the middle of an empty board, if the way is
+open). It never takes anything. It can hop onto the head of a piece of
+its own side and ride there; it goes wherever that piece goes, and taking
+the piece takes the rabbit too. One rider to a head, and not onto another
+rabbit or the ball. A rabbit on its own is taken like any piece. Tapping a
+stacked square selects the rabbit first, then the piece under it.
+
+It has no Betza notation (no notation lands on its own side's pieces), so
+it is not fused with anything; two rabbits still make a veteran. Its
+model is the rabbit's, in its side's colour, on a plinth. It can be found
+in a descent and dealt to their side from depth 4 (with the wazir and
+ferz), and Chaos can deal it. In Kung fu a rider flies with its carrier.
+
+The loose rabbits of the daily, golf and Chaos ("Free rabbits", type
+`rabbit`) are a different thing, untouched: they wander by pattern or
+mind, and in the daily they can eat. Turning them into this piece would
+change the daily's shipped boards; that is Timothy's call.

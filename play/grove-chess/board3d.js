@@ -36,7 +36,7 @@ import { rng } from '../../engine/seed.js';
 import { model } from './models.js';
 import { LOOK } from './config.js';
 import { Board, tileColour, PIT, TRACK, tweenPos, wraps } from './board.js';
-import { onBoard, brambleCount, holeOpen, nextShrink, statueKind, reachMaps, onHill } from './rules.js';
+import { onBoard, brambleCount, holeOpen, nextShrink, statueKind, reachMaps, onHill, guarded } from './rules.js';
 import * as sfx from './sounds.js';
 import { haptic } from '../../engine/ui.js';
 
@@ -48,6 +48,7 @@ const FOG = LOOK.fog;      // the forest, far off (config.js)
 const PALE = '#e9e4da';   // a possessed piece whose rabbit you do not know
 const SUIT_COLOUR = { hearts: '#e0445a', swords: '#7f9fc0', stars: '#e8c547', diamonds: '#5fd0d8', spirals: '#f0903a' }; // run.js SUITS
 const LIFT = 10 / 28;     // the flat board's pixels of height, in model units
+const HEAD = 9.5;         // how high a rider sits on a piece's head, in model units
 
 // --- Colours, as the renderer wants them ('#rrggbb'). ----------------------
 
@@ -340,9 +341,31 @@ export class Board3D extends Board {
       once per state shown; null when it is not to be shown (switched off,
       the opening, the floor going). */
   reachOf(s) {
-    if (this.reach === false || this.hidePieces || this.tw?.collapse || this.tw?.assemble) return null;
+    if ((this.reach === false && this.reachMine !== true) || this.hidePieces || this.tw?.collapse || this.tw?.assemble) return null;
     if (this.reachFor !== s) { this.reachFor = s; this.reachMap = reachMaps(s); }
     return this.reachMap;
+  }
+
+  /** Draw again on the next frame (once, however often asked), for
+      something still settling, like a shield falling into place. */
+  settleSoon() {
+    if (this.soon) return;
+    this.soon = requestAnimationFrame(() => { this.soon = null; this.redraw?.(); });
+  }
+
+  /** Your guarded pieces in state s (rules.js guarded), once per state; and
+      when a piece newly becomes guarded, the time (for the shield's fall)
+      and a clink. Not on the first look at a level: only a change sounds. */
+  guardOf(s, at) {
+    if (this.guardFor === s) return this.guardSet;
+    const G = guarded(s), had = this.guardSet;
+    this.guardT = this.guardT || new Map();
+    let fresh = false;
+    for (const i of G) if (!had?.has(i)) { this.guardT.set(i, had ? at : -1e9); fresh = fresh || !!had; }
+    for (const i of [...this.guardT.keys()]) if (!G.has(i)) this.guardT.delete(i);
+    if (fresh) { sfx.shield(); haptic(12); }
+    this.guardFor = s; this.guardSet = G;
+    return G;
   }
 
   /** Kung fu (2026-10-11): a piece resting after a move has a ring round
@@ -499,8 +522,9 @@ export class Board3D extends Board {
         const q = quad(sq % W, Math.floor(sq / W), inset), pts = [...q, q[0]];
         line(pts, 'rgba(20,14,8,.45)', 3.6); line(pts, col, 2);
       };
-      for (const sq of R.theirs) ring(sq, 0.07, LOOK.reachFoe);
-      for (const sq of R.yours) ring(sq, 0.2, LOOK.reachYou);
+      if (this.reach !== false) for (const sq of R.theirs) ring(sq, 0.07, LOOK.reachFoe);
+      // Yours only when asked for (2026-10-11: off by default).
+      if (this.reachMine === true) for (const sq of R.yours) ring(sq, 0.2, LOOK.reachYou);
     }
 
     // Crumbling ground: hairline cracks on every square, the same each time.
@@ -627,9 +651,14 @@ export class Board3D extends Board {
       stand(model('flag'), hx + 0.3, hy + 0.15, 0, 300);
     }
     // Yours.
+    const G = this.guards !== false && !this.hidePieces && !tw?.collapse ? this.guardOf(s, at) : null;
     if (!this.hidePieces) s.pieces.forEach((p, i) => {
       if (p.taken && !(tw?.eaten?.has(i) && at < tw.landAt)) return;
       let x = p.x, y = p.y, h = 0, o = {};
+      // A rabbit riding on a piece's head (2026-10-11): it goes where its
+      // carrier goes, up on top.
+      const carrier = p.rides != null ? s.pieces[p.rides] : null;
+      if (carrier && !carrier.taken) { h += HEAD * BIG; if (tw?.piece?.i === p.rides) ({ x, y } = tweenPos(tw.piece, at)); }
       if (s.sunk && p.type === 'ball') {
         // The ball rolls to the hole, then drops into it: from above, it
         // shrinks away into the dark.
@@ -660,6 +689,14 @@ export class Board3D extends Board {
       // In autochess a piece of yours with a rabbit inside wears its colour;
       // in a descent, a piece with a suit wears the suit's.
       stand(model(p.type, 'you', null, p.brain === 'possessed' ? this.fur(p) : SUIT_COLOUR[p.suit] || null), x, y, h, 100 + i, o);
+      // Guarded (2026-10-11): a shield in front, which falls into place and
+      // bounces once when the piece becomes guarded.
+      if (G?.has(i) && !p.taken) {
+        const k = Math.min(1, (at - (this.guardT.get(i) ?? -1e9)) / 360), after = at - (this.guardT.get(i) ?? -1e9) - 360;
+        const fall = k < 1 ? (1 - k) * (1 - k) * 16 : 0, bounce = after > 0 && after < 220 ? Math.sin((after / 220) * Math.PI) * 0.9 : 0;
+        stand(model('shield', 'you'), x, y - 0.3, h + 2.4 + fall + bounce, 100 + i, { s: 1.3 });
+        if (k < 1 || bounce) this.settleSoon();
+      }
     });
     // Theirs.
     s.foes.forEach((f, k) => {
@@ -667,6 +704,7 @@ export class Board3D extends Board {
       let x = f.x, y = f.y, h = 0;
       const t = tw?.foes?.[k];
       if (t) { const q = tweenPos(t, at); x = q.x; y = q.y; h = t.hop ? Math.sin(Math.PI * q.k) * (t.blocked ? 1.2 : 3.5) : 0; }
+      if (f.rides != null && !s.foes[f.rides]?.taken) h += HEAD * BIG; // a rabbit of theirs riding on a head
       const mdl = f.brain === 'possessed' ? model(f.type, 'foe', null, this.glowOf(f, k, at)) : model(f.type, 'foe', this.fur(f));
       stand(mdl, x, y, h, 200 + k, collapse ? { s: away(at - collapse.t0 - collapse.delay(f.x, f.y)) } : {});
       if (day.rules.goal === 'target' && day.foes.length > 1 && f.target) stand(ring('#e3bd57'), x, y, 0, 200 + k);
