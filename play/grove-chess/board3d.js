@@ -36,7 +36,7 @@ import { rng } from '../../engine/seed.js';
 import { model } from './models.js';
 import { LOOK } from './config.js';
 import { Board, tileColour, PIT, TRACK, tweenPos, wraps } from './board.js';
-import { onBoard, brambleCount, holeOpen, nextShrink, statueKind, reachMaps } from './rules.js';
+import { onBoard, brambleCount, holeOpen, nextShrink, statueKind, reachMaps, onHill } from './rules.js';
 import * as sfx from './sounds.js';
 import { haptic } from '../../engine/ui.js';
 
@@ -420,6 +420,8 @@ export class Board3D extends Board {
         if (RM?.yours.has(sq)) col = mix(col, LOOK.reachYou, 0.38);
         if (RM?.theirs.has(sq)) col = mix(col, LOOK.reachFoe, 0.24);
         if (cloudy && day.cloud.has(sq)) col = mix(col, '#ffffff', 0.55);
+        // Chess variants: the hill's middle squares, and a race's finishing row, in gold.
+        if (onHill(s, { x, y }) || (day.rules.race && y === H - 1)) col = mix(col, '#e3bd57', 0.6);
         const L = lit.get(sq);
         if (L === 'move') col = mix(col, '#f2c14e', 0.55);
         else if (L === 'catch') col = mix(col, '#e2603e', 0.6);

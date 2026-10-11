@@ -74,6 +74,16 @@ function evaluate(s, budget) {
     dist += near;
   }
   if (alive) v -= mood.close * (dist / alive);
+  // Chess variants (2026-10-11): a King's way to win by getting somewhere.
+  // How far each King has still to go counts, theirs for them and yours
+  // against them: the hill's middle squares, or the top row in a race.
+  if (r.hill || r.race) {
+    const H = s.day.H, togo = (k) => (r.race ? H - 1 - k.y : Math.max(Math.abs(k.x - (W - 1) / 2), Math.abs(k.y - (H - 1) / 2)) - 0.5);
+    const mine = s.foes.find((f) => !f.taken && f.type === 'king'), yours = s.pieces.find((p) => !p.taken && p.type === 'king');
+    const w = r.race ? 2.5 : 1.2;
+    if (mine) v -= w * togo(mine);
+    if (yours) v += w * togo(yours);
+  }
   return v;
 }
 

@@ -26,6 +26,7 @@ import { solveLevel, assess, unbalanced, openingCaptures } from './solve.js';
 import { measure, BANDS } from './metrics.js';
 import { cleanInvented, registerInvented } from './invented.js';
 import { SUITS } from './run.js';
+import { VARIANTS, VARIANT_ORDER, readFen } from './variants.js';
 
 export const CLASSIC = Object.keys(PIECES).filter((k) => PIECES[k].kind === 'classic');
 export const FAIRY = Object.keys(PIECES).filter((k) => PIECES[k].kind === 'fairy');
@@ -42,6 +43,10 @@ export const SCHEMA = [
       help: 'Every square a piece of yours could go to glows yellow, and every square one of theirs could go to glows a faint dark purple, updating as pieces move (Timothy, 2026-10-10: to make the first approach easier for people who do not play chess).' },
     { key: 'autoPool', label: 'Your rabbits', type: 'choice', def: 'caught', options: opts(['caught', 'The ones you have caught'], ['all', 'Every named kind']),
       help: 'For autochess. Caught: one rabbit for every time you caught its kind, in the descent or the daily.' }
+  ] },
+  { group: 'Chess variant', fields: [
+    { key: 'variant', label: 'Play a chess variant', type: 'choice', def: 'none', options: opts(['none', 'No: a Grove Chess level'], ...VARIANT_ORDER.map((k) => [k, `${VARIANTS[k].name} (${VARIANTS[k].size})`])),
+      help: 'A real chess variant from its starting position, against the thinking side (Timothy, 2026-10-11). The board, the pieces and the rules are the variant\u2019s; the settings that still matter are how they think and the move limit.' }
   ] },
   { group: 'Difficulty', fields: [
     { key: 'difficulty', label: 'Difficulty', type: 'choice', def: 'any', options: opts(['any', 'Any'], ['easy', 'Easy (1 to 3)'], ['normal', 'Normal (4 to 6)'], ['hard', 'Hard (7 to 8)'], ['brutal', 'Brutal (9 to 10)']),
@@ -377,7 +382,9 @@ function randomPattern(kind, rand) {
 
 /** Settings + seed -> a level the rules engine can play. */
 export function makeLevel(settings, seed) {
-  const S = clean(settings), rand = rng(`lab:${seed}`);
+  const S = clean(settings);
+  if (S.variant !== 'none' && VARIANTS[S.variant]) return variantLevel(S, seed);
+  const rand = rng(`lab:${seed}`);
   const W = S.w, H = S.h;
   const need = S.mine + (S.mirror ? S.mine : S.foes) + S.rabbits + 2 + S.statues;
 
@@ -580,6 +587,25 @@ export function makeLevel(settings, seed) {
   });
 }
 
+/** A chess variant's level: its own board and starting position, their
+    side thinking, take their King (or the variant's own way to win). No
+    random numbers: the same every time. */
+function variantLevel(S, seed) {
+  const V = VARIANTS[S.variant], { W, H, pieces, foes } = readFen(V.fen);
+  for (const f of foes) { f.brain = 'ai'; if (f.type === 'king') f.target = true; }
+  const r = V.rules;
+  return {
+    W, H, holes: new Set(), stumps: new Set(), bramble: [], brambleAt: new Map(), every: 2,
+    seed, settings: S, shrinkKey: seed, pieces, foes, goalKind: 'king', hole: null, variant: S.variant,
+    rules: { goal: 'target', maxMoves: S.maxMoves, wait: false, foesCapture: true, rabbitsEat: false, royal: true, oneMove: true,
+      first: 'you', ballStops: false, ballMove: 'putt', crumble: false, shrink: null, shrinkEvery: 2,
+      ...(r.promote ? { promote: true } : {}), ...(r.pawnDouble ? { pawnDouble: true } : {}), ...(r.hill ? { hill: true } : {}),
+      ...(r.race ? { race: true } : {}), ...(r.noCheck ? { noCheck: true } : {}), ...(r.movesPerTurn ? { movesPerTurn: r.movesPerTurn } : {}) },
+    ai: { skill: +S.skill, style: S.style },
+    tracks: false
+  };
+}
+
 export const GOAL_TEXT = {
   descent: 'catching every possessed piece and loose rabbit, then sinking the ball', all: 'capturing them all', king: 'taking their King', rabbit: 'catching the rabbit',
   any: 'catching any one', target: 'catching the marked one', mix: 'a goal that changes with each layout',
@@ -759,6 +785,8 @@ export function bandOf(S) {
 }
 
 export function searchLayouts({ settings, seed, parMin, parMax, maxTries = 400, maxMs = 15000, fixed = false, pool }, post) {
+  // A chess variant has one starting position and nothing to search for.
+  if (clean(settings).variant !== 'none') return post({ type: 'done', seed, par: null, tried: 1, thrown: {}, measure: null });
   if (clean(settings).mode === 'auto') return searchAutoLayouts({ settings, seed, parMin, maxMs, fixed, pool }, post);
   const t0 = Date.now(), rules = clean(settings).balance;
   let best = null, tried = 0;
