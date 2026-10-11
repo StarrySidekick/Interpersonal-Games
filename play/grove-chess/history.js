@@ -42,6 +42,8 @@ export const HISTORY = {
   frog: 'The ferz and the threeleaper in one. A name from the fairy chess catalogues.',
   vao: 'The cannon\'s diagonal twin: it slides like a bishop, and captures only by jumping exactly one piece. It turns up in modern variants of xiangqi and in fairy chess.',
 
+  bunny: 'Grove Chess\'s own, from the rabbits that have always lived in the grove (2026). It has no fairy chess record: no other game lets a piece climb onto a friend\'s head and ride.',
+
   ball: 'Not a chess piece: Grove Chess\'s own, for the golf-like levels. It rolls, putts or bounces like a billiard ball, depending on the level.',
   rabbit: 'Grove Chess\'s own. Rabbits get into pieces and move them; caught, they join your collection.'
 };

@@ -246,6 +246,8 @@ async function startLevel() {
   game = { states: [initialState(level)], moves: [] };
   board = makeBoard($('#board'), level);
   board.reach = level.settings.showReach;
+  board.reachMine = level.settings.showMyReach;
+  board.guards = level.settings.showGuards;
   board.redraw = draw;
   board.fur = furOf;
   sel = null; legal = []; shown = null;
@@ -491,8 +493,11 @@ $('#board').addEventListener('click', (e) => {
   if (isAuto()) { if (!$('#setup').hidden) panel?.pickAt(c.x, c.y); return; }
   const { x, y } = c, s = now();
   if (sel != null) { const m = legal.find((m) => m.x === x && m.y === y); if (m) return play({ p: sel, x, y }); }
-  const i = s.pieces.findIndex((p) => !p.taken && p.x === x && p.y === y);
-  if (i >= 0) return select(sel === i ? null : i);
+  // A square can hold two of yours: a rabbit on a piece's head. Tapping
+  // goes rabbit first, then the piece under it, then neither.
+  const here = s.pieces.map((p, k) => k).filter((k) => !s.pieces[k].taken && s.pieces[k].x === x && s.pieces[k].y === y)
+    .sort((a, b) => (s.pieces[b].rides != null) - (s.pieces[a].rides != null));
+  if (here.length) { const at = here.indexOf(sel); return select(at < 0 ? here[0] : at + 1 < here.length ? here[at + 1] : null); }
   select(null);
   if (s.hole && s.hole.x === x && s.hole.y === y) return info(HOLE_DESC);
   if (s.cloudy && s.day.cloud?.has(y * s.day.W + x)) return info(cloudDesc(s.day.rules));
@@ -651,7 +656,7 @@ function reward({ k = 0, note = null, cards: given = null } = {}) {
         handRow($('#pickhand'), { picked, pick: (i) => {
           const h = run.hand[i];
           if (card.kind === 'suit' && h.suit) return;
-          if ((card.kind === 'fuse' || card.kind === 'promote') && kingLocked(h)) return;
+          if ((card.kind === 'fuse' || card.kind === 'promote') && (kingLocked(h) || (card.kind === 'fuse' && h.base === 'bunny'))) return;
           const at = picked.indexOf(i);
           if (at >= 0) picked.splice(at, 1); else { picked.push(i); if (picked.length > need) picked.shift(); }
           paint();
@@ -717,7 +722,7 @@ function pickFor(card, run) {
     const paint = () => {
       handRow($('#pickhand'), { picked, pick: (i) => {
         if (card.kind === 'suit' && run.hand[i].suit) return;
-        if ((card.kind === 'fuse' || card.kind === 'promote') && kingLocked(run.hand[i])) return;
+        if ((card.kind === 'fuse' || card.kind === 'promote') && (kingLocked(run.hand[i]) || (card.kind === 'fuse' && run.hand[i].base === 'bunny'))) return;
         const at = picked.indexOf(i);
         if (at >= 0) picked.splice(at, 1); else { picked.push(i); if (picked.length > need) picked.shift(); }
         paint();

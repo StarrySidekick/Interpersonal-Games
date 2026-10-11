@@ -66,7 +66,10 @@ export function powers(W = 6, H = 6) {
     const P = PIECES[k];
     if (!P.moves || k === 'rabbit' || k === 'ball' || !['classic', 'fairy'].includes(P.kind) && !P.invented) continue;
     const { reach, threat } = sample(k, W, H);
-    out[k] = { reach, threat, raw: reach + 4 * threat, screen: !capturesAlone(k, W, H) };
+    // The rabbit (2026-10-11) reaches far but never takes anything, so its
+    // reach counts for less: it is worth what it does for others (a ride,
+    // a block), not what it threatens.
+    out[k] = { reach, threat, raw: k === 'bunny' ? reach * 0.3 : reach + 4 * threat, screen: k !== 'bunny' && !capturesAlone(k, W, H) };
   }
   const q = out.queen?.raw || 1;
   for (const k of Object.keys(out)) out[k].power = Math.round((out[k].raw / q) * 9 * 4) / 4;

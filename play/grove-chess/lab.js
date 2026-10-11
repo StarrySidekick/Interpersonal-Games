@@ -39,8 +39,12 @@ export const SCHEMA = [
   { group: 'How you play', fields: [
     { key: 'mode', label: 'Who moves your pieces', type: 'choice', def: 'hand', options: opts(['hand', 'You do'], ['auto', 'Rabbits (autochess)']),
       help: 'Autochess: before the game you put rabbits you have caught into your pieces, choose which way each faces and the order of your line. Then it plays itself: each rabbit picks the way, its piece picks how, the same as theirs.' },
-    { key: 'showReach', label: 'Show where every piece can go', type: 'bool', def: true,
-      help: 'Every square a piece of yours could go to glows yellow, and every square one of theirs could go to glows a faint dark purple, updating as pieces move (Timothy, 2026-10-10: to make the first approach easier for people who do not play chess).' },
+    { key: 'showReach', label: 'Show where theirs can go', type: 'bool', def: true,
+      help: 'A purple ring on every square one of their pieces could move to, updating as pieces move: the squares that are dangerous to stand on (Timothy, 2026-10-10 and 11).' },
+    { key: 'showMyReach', label: 'Show where yours can go', type: 'bool', def: false,
+      help: 'A gold ring on every square one of your pieces could move to. Off by default (2026-10-11: "less useful and muddies the board"); tapping a piece still lights its own squares.' },
+    { key: 'showGuards', label: 'Shields on guarded pieces', type: 'bool', def: true,
+      help: 'A piece of yours that another of yours would avenge (if it were taken there, yours could take back on that square) wears a shield, which falls into place with a clink when it becomes guarded.' },
     { key: 'autoPool', label: 'Your rabbits', type: 'choice', def: 'caught', options: opts(['caught', 'The ones you have caught'], ['all', 'Every named kind']),
       help: 'For autochess. Caught: one rabbit for every time you caught its kind, in the descent or the daily.' }
   ] },
@@ -171,7 +175,7 @@ export const SCHEMA = [
 ];
 
 const FIELDS = SCHEMA.flatMap((g) => g.fields);
-export const SETTINGS_VERSION = 13;
+export const SETTINGS_VERSION = 14;
 export const defaults = () => ({ ...Object.fromEntries(FIELDS.map((f) => [f.key, Array.isArray(f.def) ? [...f.def] : f.def])), v: SETTINGS_VERSION });
 
 /** How each earlier version's defaults differ from today's. Settings saved
@@ -186,7 +190,10 @@ export const defaults = () => ({ ...Object.fromEntries(FIELDS.map((f) => [f.key,
 // Version 12 (2026-10-10): a full row each, a cloud on the second rows for
 // the first turn, and every piece's reach shown.
 // Version 13 (2026-10-11): each cloud stops only the other side (`cloudOwn`).
-const V13 = { cloudOwn: false };
+// Version 14 (2026-10-11): your own reach rings off, shields on guarded
+// pieces.
+const V14 = { showMyReach: true, showGuards: false };
+const V13 = { cloudOwn: false, ...V14 };
 const V12 = { fullRow: false, cloud: false, showReach: false, ...V13 };
 const V11 = { wait: true, foesWait: true, arrange: false, ...V12 };
 const V10 = { oneMove: false, ...V11 };
@@ -195,6 +202,7 @@ const V9 = { mineRows: 2, foeRows: 3, ...V10 };
 // (goal 'king', royal), and two left brings on the showdown.
 const V8 = { goal: 'descent', royal: false, showdown: false, dealKing: false, ...V9 };
 const BEFORE = {
+  13: { ...V14 },
   12: { ...V13 },
   11: { ...V12 },
   10: { ...V11 },

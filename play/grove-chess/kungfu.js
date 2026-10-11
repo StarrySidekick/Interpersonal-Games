@@ -80,9 +80,12 @@ export function startKungFu({ board, level, state, iq = 5, myCool = 2000, foeCoo
       if (q) { q.x = p.x; q.y = p.y; q.ready = t + rest; }
       p.x = m.x; p.y = m.y; p.ready = t + rest;
     } else {
-      flights.push({ side, i, fx: p.x, fy: p.y, tx: m.x, ty: m.y, t0: t, t1: t + Math.max(1, dist) * step });
-      p.flying = true; p.fromX = p.x; p.fromY = p.y; p.x = -100; p.y = -100;
-      p.ready = t + Math.max(1, dist) * step + rest;
+      const t1 = t + Math.max(1, dist) * step, list = all(side);
+      flights.push({ side, i, fx: p.x, fy: p.y, tx: m.x, ty: m.y, t0: t, t1 });
+      // A rabbit riding on its head goes along (and is not tired by it).
+      list.forEach((q, j) => { if (q.rides === i && !q.taken && !q.flying) { flights.push({ side, i: j, fx: p.x, fy: p.y, tx: m.x, ty: m.y, t0: t, t1, rider: true }); q.flying = true; q.x = -100; q.y = -100; } });
+      p.flying = true; p.fromX = p.x; p.fromY = p.y; p.x = -100; p.y = -100; delete p.rides;
+      p.ready = t1 + rest;
     }
     if (side === 'you') { s.t++; firstMove = false; sfx.move(); haptic(8); }
     else sfx.slide();
@@ -92,12 +95,19 @@ export function startKungFu({ board, level, state, iq = 5, myCool = 2000, foeCoo
     const mine = all(f.side), theirs = all(f.side === 'you' ? 'foe' : 'you'), p = mine[f.i];
     p.flying = false;
     const back = () => { [p.x, p.y] = freeNear(f.fx, f.fy); sfx.bump(); };
-    if (at(mine, f.tx, f.ty) >= 0) return back(); // one of its own got there first
+    // A rabbit landing on a head of its own side rides there.
+    const head = at(mine, f.tx, f.ty);
+    if (head >= 0 && p.type === 'bunny' && mine[head].type !== 'bunny' && !mine.some((q) => q.rides === head && !q.taken)) {
+      p.x = f.tx; p.y = f.ty; p.rides = head; sfx.drop(f.i); return;
+    }
+    if (f.rider) { [p.x, p.y] = freeNear(f.tx, f.ty); return; } // its carrier did not make it
+    if (head >= 0) return back(); // one of its own got there first
     const k = at(theirs, f.tx, f.ty);
     if (k >= 0) {
       const v = theirs[k];
       if ((v.lives || 1) > 1) { v.lives--; back(); haptic([20, 30, 20]); return; } // Hearts
       v.taken = true;
+      theirs.forEach((q) => { if (!q.taken && !q.flying && q.x === f.tx && q.y === f.ty) q.taken = true; }); // and a rabbit riding on it
       if (f.side === 'you') {
         sfx.capture(); haptic([30, 20, 40]);
         if (p.suit === 'diamonds') s.treasure++;
@@ -142,7 +152,10 @@ export function startKungFu({ board, level, state, iq = 5, myCool = 2000, foeCoo
     if (!alive) return;
     const dt = last ? Math.min(100, now - last) : 0; // a long gap (the phone asleep) does not count
     last = now; t += dt;
-    for (let n = flights.length - 1; n >= 0; n--) if (flights[n].t1 <= t) { const f = flights.splice(n, 1)[0]; land(f); }
+    // Land whatever has arrived, in the order it set off (a carrier before
+    // the rabbit riding on it).
+    const due = flights.filter((f) => f.t1 <= t);
+    for (const f of due) { flights.splice(flights.indexOf(f), 1); land(f); }
     if (!s.won && s.foes.some((f) => f.target && f.taken)) s.won = true;
     if (s.won || lost(s)) { alive = false; draw(); setTimeout(() => onEnd?.(s), 700); return; }
     if (t >= nextThink) { think(); nextThink = t + 260 + rand() * 220; }
@@ -175,11 +188,14 @@ export function startKungFu({ board, level, state, iq = 5, myCool = 2000, foeCoo
       const m = legal.find((q) => q.x === c.x && q.y === c.y);
       if (selectable(sel)) { launch('you', sel, m); sel = null; legal = []; onInfo?.('Tap a piece of yours that is ready.'); return; }
     }
-    const i = at(s.pieces, c.x, c.y);
+    // Two of yours on one square (a rabbit on a head): rabbit first, then the piece under it.
+    const here = s.pieces.map((q, k) => k).filter((k) => !s.pieces[k].taken && !s.pieces[k].flying && s.pieces[k].x === c.x && s.pieces[k].y === c.y)
+      .sort((a, b) => (s.pieces[b].rides != null) - (s.pieces[a].rides != null));
+    const i = here.length ? (here.includes(sel) ? here[here.indexOf(sel) + 1] ?? -1 : here[0]) : -1;
     if (i < 0) { sel = null; legal = []; return; }
     if (!selectable(i)) { onInfo?.(`Your ${PIECES[s.pieces[i].type].name} is resting. The ring under it shows how long.`); sel = null; legal = []; return; }
-    sel = sel === i ? null : i;
-    legal = sel == null ? [] : movesFor(s, sel);
+    sel = i;
+    legal = movesFor(s, sel);
     if (sel != null) onInfo?.(`${PIECES[s.pieces[i].type].name}: tap where it should go.`);
   }
 

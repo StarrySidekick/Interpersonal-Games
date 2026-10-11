@@ -327,6 +327,9 @@ export function shopStock(run, rand, { veto = [], findPool = null, jokers = fals
 /** Can a claimed piece go onto hand piece h? */
 export function canCombine(h, type, royal = false) {
   if (!h || !PIECES[type]) return false;
+  // A rabbit is not fused with anything: its hops cannot be written down to
+  // join another piece's (it has no Betza). Two rabbits still make a veteran.
+  if ((type === 'bunny' || h.base === 'bunny' || h.fused?.includes('bunny')) && !(h.base === type && !h.fused)) return false;
   const bases = h.fused || [h.base];
   if (bases.length === 1 && h.base === type) return (h.lives || 1) < 3;
   if (royal && h.base === 'king' && !h.fused) return false;
