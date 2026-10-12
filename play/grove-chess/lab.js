@@ -40,7 +40,7 @@ export const SCHEMA = [
     { key: 'mode', label: 'Who moves your pieces', type: 'choice', def: 'hand', options: opts(['hand', 'You do'], ['auto', 'Rabbits (autochess)']),
       help: 'Autochess: before the game you put rabbits you have caught into your pieces, choose which way each faces and the order of your line. Then it plays itself: each rabbit picks the way, its piece picks how, the same as theirs.' },
     { key: 'showReach', label: 'Show where theirs can go', type: 'bool', def: true,
-      help: 'A purple ring on every square one of their pieces could move to, updating as pieces move: the squares that are dangerous to stand on (Timothy, 2026-10-10 and 11).' },
+      help: 'A purple ring on every square their pieces\u2019 moves cover, updating as pieces move: the squares that are dangerous to stand on (Timothy, 2026-10-10 and 11). It includes squares under their own pieces that another of theirs guards, and a pawn\u2019s diagonals even when empty (2026-10-12).' },
     { key: 'showMyReach', label: 'Show where yours can go', type: 'bool', def: false,
       help: 'A gold ring on every square one of your pieces could move to. Off by default (2026-10-11: "less useful and muddies the board"); tapping a piece still lights its own squares.' },
     { key: 'showGuards', label: 'Shields on guarded pieces', type: 'bool', def: true,

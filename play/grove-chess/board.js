@@ -219,7 +219,7 @@ export class Board {
     // by default; here only the runner asks), and the first-turn cloud.
     if (s && this.reach === true && !this.hidePieces) {
       // Rings, as on the 3D board: theirs near the edge, yours inside.
-      const R = reachMaps(s);
+      const R = reachMaps(s, true);
       const ring = (sq, i, col) => {
         const x = this.cellX(sq % W) + i, y = this.cellY(Math.floor(sq / W)) + i, n = C - i * 2;
         P(x, y, n, 2, col); P(x, y + n - 2, n, 2, col); P(x, y, 2, n, col); P(x + n - 2, y, 2, n, col);

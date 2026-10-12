@@ -341,6 +341,29 @@ before you move, and the shields show which of your pieces are safe to
 leave and how safe. Notated: visual (silver, gold, purple, green), audial
 (the clink and the higher ring for gold), touch (the tap).
 
+**Rings as the move set (2026-10-12).** Timothy: "we need to see the
+highlights as to where enemy pieces could move, even if it's underneath
+another enemy piece. it's just like their move set maps onto the board ...
+instead of the actual movability within that turn." The rings had shown
+each piece's legal moves this turn, and a piece cannot move onto its own
+side, so a square under one of theirs never lit, even when another of
+theirs would take back there. Now (`reachMaps(s, true)`, `patternReach` in
+`rules.js`) the rings also take in:
+
+- squares their own side stands on that a piece's moves cover (a rook's
+  file up to and including the first piece in the way): the pieces it
+  guards;
+- empty squares a piece could only take on: a pawn's forward diagonals,
+  and the squares beyond a cannon's or vao's screen.
+
+Things in the way still stop a slider, so a square behind a blocker stays
+dark, and a side that cannot take gets nothing extra. Your gold rings, when
+on, work the same way. Kung fu's thinking side still reads the old map
+(moves this turn), so its play is unchanged.
+
+Paths moved: mastery (the rings now say where taking back would happen,
+not only where they can step). Notated: visual.
+
 **Phone fixes (2026-10-11).** Double-tap zoom is off on every page
 (`touch-action: manipulation` on the page, in `engine/app.css`): Safari
 zoomed when menus and buttons were tapped twice. Pinch zoom still works.
