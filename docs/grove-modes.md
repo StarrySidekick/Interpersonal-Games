@@ -391,6 +391,86 @@ customization of the whole game through the console), collection
 (visual, written), the lit squares while laying out (visual), the drop
 sound and buzz on a placed piece (audial, touch).
 
+## The descent, rebuilt small (2026-10-12)
+
+Timothy: "decent starts with a 5x5 board ... one rabbit piece is on each
+level to start ... the middle row is filled with the statue things, and
+every round one randomly disappears to open up the spot ... 5 pieces per
+side plus a rabbit on the enemy side ... you no longer use captured pieces
+to upgrade yours right now. every new board you move to each side gets one
+random upgrade of two to choose from, whether it's a new piece to combine
+with your existing lineup or a new suit to apply to a piece, no more level
+4-7-11 special upgrades ... after level 5 we move to a 7x7 board." And:
+"the beacon that appears on pieces should be behind them in the layer
+order on their head, not in front."
+
+What it became (the descent's preset in `modes.js`; Kung fu descent is
+unchanged):
+
+- **Five by five, five a side.** Your King and four dealt from "You start
+  with"; their King and four from their pool. **They carry a lineup too**
+  (`run.foes` in `run.js`, sent to a level as `foeHand` and `foeMods`,
+  which `makeLevel` lines up on the far row as it does your `hand`). Their
+  lineup comes back whole every board; yours does not (a piece taken is
+  still gone for good).
+- **A Rabbit with theirs**, every board, on the row in front of their line
+  (the `bunny` piece: two hops, never takes, rides heads).
+- **A row of statues that opens** (level setting `statueRow`): the whole
+  middle row is statues, and after every turn one of them, in an order the
+  level draws at random, sinks away (`s.open` in `rules.js`, `statueAt`;
+  the rule is `statuesOpen`). On five by five the row is clear after five
+  turns. Notated three ways: the statue shrinks into the ground (visual), a
+  low grind of stone (`sfx.shrink`, audial), "A statue sinks away."
+  (written). The pieces sheet and a tap on a statue say how the row works.
+- **One upgrade a board, each side** (run setting `upgrades: 'each'`). On
+  every new board, won or out of moves: they get one at random, said
+  before you choose ("Their side: their Bishop takes Hearts"), then you
+  choose one of two cards (`boardCards`). A card is a piece or a suit:
+  - a piece combines with one of yours, as claiming did: the same kind
+    makes a veteran with a heart more, another kind fuses into one with
+    every move of both. While your row has a gap (a piece lost), it can
+    take the gap instead. Fusions that would change nothing (a mao onto a
+    knight) are never offered, to either side.
+  - a suit goes on a piece without one, any of the six.
+  - Their upgrades: a fused piece, a veteran, or a suit, never on their
+    King. **Only Hearts and Spirits for them** (`FOE_SUITS`): the other
+    suits are rules for a turn of choices (cleave, a second move, a swap,
+    treasure), and their pieces are moved by rabbits. Hearts on a piece of
+    theirs is new in `rules.js`: your first capture costs it the heart and
+    your piece bounces off ("Their Bishop lost a heart"). A suited piece
+    of theirs wears the suit's colour on its plinth, as yours do.
+  - Gone from this mode, on purpose: claiming and combining what you took,
+    jokers, the find-a-piece-then-upgrades ladder, and the waystones at
+    depths 4, 7 and 10 with the roster ("What you find carries over" is
+    off). All still exist as settings; Kung fu descent keeps them.
+- **Seven by seven from depth 6** (run setting `growAt`). The board opens,
+  and each side gets two more pieces to fill its row: two different ones of
+  knight, bishop and rook for you, two from their pool for them. Notated in
+  writing, with a fanfare and a buzz. Measuring a seven by seven layout
+  takes seconds, so the search settles after six (`find` in
+  `play/main.js`) for the best it saw.
+- Fairy pieces still wait for depth 4 ("Fairy pieces from depth").
+
+**The beam behind the piece.** The beacon's beam is still drawn after the
+pieces, but every pixel where the renderer drew that piece, or one
+standing nearer you, is cut out of it (the renderer keeps which object
+each pixel belongs to, `t3.id`). So it rises out from behind the head and
+still crosses in front of pieces further back.
+
+**A bug found on the way.** `unionBetza` (fusing) wrote terms one after
+another, and a bare atom after a term ending in the same letter merged with
+it: a pawn and a ferz came out as "mfWcfFF", a capture-only ferz rider, and
+the ferz's quiet diagonal steps were lost. Bare atoms are now written first.
+
+Paths moved: power (one choice a board instead of a ladder of rewards, and
+now a climb on their side too: their lineup grows as yours does, so power
+is matched by challenge rather than outrunning it), mastery (a small,
+readable first board; the statue row makes the opening a question of
+timing: which square opens next). Collection across descents is off for
+now with the roster. Gaps: a fused piece of theirs looks like the piece it
+started as (yours do too); a Hearts plinth on their side is a red close to
+some rabbit traits' glow.
+
 ## The modes
 
 **The daily.** One board a day, the same for everyone. Its own page and

@@ -12,6 +12,16 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
+## 2026-10-12: the descent, rebuilt small
+
+From Timothy: the descent on five by five, five a side and a Rabbit with
+theirs, a middle row of statues that opens one a turn, one upgrade a board
+for each side (one of two for you: a piece to combine or a suit), no
+claiming, no waystones, and seven by seven from depth 6. Also the beacon's
+beam behind the piece. Built; what each became is in
+`docs/grove-modes.md` ("The descent, rebuilt small"). The old ways are
+still settings, and Kung fu descent keeps them.
+
 ## 2026-10-10: a batch of descent notes, and a settings console
 
 From Timothy: no upgrade at the start of a descent, no fairy pieces early

@@ -93,7 +93,9 @@ export const SCHEMA = [
     { key: 'cloudOwn', label: 'Each cloud stops only the other side', type: 'bool', def: true,
       help: 'On: your pieces go through your own cloud as if it were not there, and only theirs stops you (and the same for them). Off: both clouds stop everyone, the first version.' },
     { key: 'statues', label: 'Statues', type: 'int', min: 0, max: 8, def: 2,
-      help: 'Standing stones, each with a spiral cut in it, in the middle of the board. They never move and nothing can take them. Sliders stop at them, leapers jump them, and the grasshopper and the cannon can hop over them.' }
+      help: 'Standing stones, each with a spiral cut in it, in the middle of the board. They never move and nothing can take them. Sliders stop at them, leapers jump them, and the grasshopper and the cannon can hop over them.' },
+    { key: 'statueRow', label: 'A row of statues that opens', type: 'bool', def: false,
+      help: 'The middle row is all statues (in place of the count above), and after every turn one of them, at random, sinks away and opens its square (Timothy, 2026-10-12).' }
   ] },
   { group: 'Your side', fields: [
     { key: 'fullRow', label: 'A full row each', type: 'bool', def: true,
@@ -281,6 +283,15 @@ export function clean(raw) {
     // What the descent has done to each piece in the hand: hearts (lives)
     // and its suit (a rule it carries, and its colour).
     if (Array.isArray(raw.handMods)) s.handMods = raw.handMods.filter((m, i) => keep[i]).map((m) => ({
+      ...(m?.lives > 1 ? { lives: Math.min(9, m.lives | 0) } : {}), ...(SUITS[m?.suit] ? { suit: m.suit } : {}) }));
+  }
+  // Their side given outright (the descent from 2026-10-12: they carry a
+  // lineup down too, with its own upgrades), not dealt. Not on the page.
+  if (Array.isArray(raw?.foeHand) && raw.foeHand.length) {
+    const keep = raw.foeHand.map((k) => !!PIECES[k]);
+    s.foeHand = raw.foeHand.filter((k, i) => keep[i]);
+    s.foes = s.foeHand.filter((k) => k !== 'bunny').length;
+    if (Array.isArray(raw.foeMods)) s.foeMods = raw.foeMods.filter((m, i) => keep[i]).map((m) => ({
       ...(m?.lives > 1 ? { lives: Math.min(9, m.lives | 0) } : {}), ...(SUITS[m?.suit] ? { suit: m.suit } : {}) }));
   }
   // Run rules carried by a level (the descent's jokers).
@@ -478,6 +489,14 @@ export function makeLevel(settings, seed) {
       const spot = onBoard(day, p.x, my) && !taken.has(sq) ? (taken.add(sq), { x: p.x, y: my }) : place(top);
       return { type: p.type, ...spot };
     });
+  } else if (S.foeHand) {
+    // Their lineup, given: lined up on the far row, and any Rabbit among it
+    // on the row in front of them (2026-10-12).
+    const far = rows.slice().reverse(), mods = S.foeMods || [];
+    const line = S.foeHand.map((type, i) => ({ type, ...(mods[i] || {}) })).filter((f) => f.type !== 'bunny');
+    const spots = lineUp(far, line.length);
+    foes = line.map((f, i) => ({ ...f, ...spots[i] }));
+    for (const t of S.foeHand) if (t === 'bunny') foes.push({ type: 'bunny', ...place(far.slice(1, 2)) });
   } else if (S.lineup) {
     // With all four edges joined the top row touches the bottom one, so the
     // farthest their line can be from yours is halfway up the board.
@@ -549,7 +568,15 @@ export function makeLevel(settings, seed) {
   // Statues (2026-10-07): in the middle of the board, between the two
   // sides' rows, never where anything starts. Placed last, so a level
   // without them comes out exactly as it did before they existed.
-  if (S.statues) {
+  if (S.statueRow) {
+    // A row of statues (2026-10-12): the middle row, all of it, opening one
+    // a turn in an order drawn here.
+    const y = rows[Math.floor(rows.length / 2)], row = cells.filter((c) => c[1] === y && free(c));
+    day.statueKinds = new Map();
+    const kinds = ['pawn', 'rook', 'knight', 'bishop', 'king', 'queen'];
+    for (const [x] of row) { day.stumps.add(y * W + x); day.statueKinds.set(y * W + x, kinds[Math.floor(rand() * kinds.length)]); }
+    day.statueOrder = shuffled(row.map(([x]) => y * W + x), rand);
+  } else if (S.statues) {
     const mid = rows.slice(S.lineup ? 1 : S.mineRows, S.lineup ? -1 : -S.foeRows);
     const pool = cells.filter((c) => (mid.length ? mid.includes(c[1]) : true) && free(c));
     const kinds = ['pawn', 'rook', 'knight', 'bishop', 'king', 'queen'];
@@ -565,7 +592,7 @@ export function makeLevel(settings, seed) {
   // each side's pieces (their second row, when a full row lines up on the
   // first). No random numbers, so nothing else about the level changes.
   if (S.cloud && rows.length >= 4) {
-    const mineY = pieces.filter((p) => p.y !== undefined).map((p) => p.y), theirY = foes.filter((f) => f.y !== undefined && f.type !== 'rabbit').map((f) => f.y);
+    const mineY = pieces.filter((p) => p.y !== undefined).map((p) => p.y), theirY = foes.filter((f) => f.y !== undefined && f.type !== 'rabbit' && f.type !== 'bunny').map((f) => f.y);
     const ahead = mineY.length ? rows.find((r) => r > Math.max(...mineY)) : undefined;
     const behind = theirY.length ? [...rows].reverse().find((r) => r < Math.min(...theirY)) : undefined;
     const cloudRows = [ahead, behind].filter((r) => r !== undefined);
@@ -602,6 +629,7 @@ export function makeLevel(settings, seed) {
       ...(S.magic !== 'none' ? { wrap: S.magic } : {}),
       ...(S.geared ? { geared: true } : {}),
       ...(S.movesPerTurn === 2 ? { movesPerTurn: 2 } : {}), ...(S.lazyFoes ? { lazyFoes: true } : {}),
+      ...(day.statueOrder ? { statuesOpen: true } : {}),
       crumble: S.ground === 'crumble', shrink: S.ground === 'shrink' ? 'random' : S.ground === 'spiral' ? 'spiral' : null,
       shrinkEvery: S.shrinkEvery },
     ai: { skill: +S.skill, style: S.style },

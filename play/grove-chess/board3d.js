@@ -46,7 +46,7 @@ const TURN = -0.35;       // and a slight turn, so they read as solid
 const BIG = 1.25;         // pieces stand a little larger here than on the title
 const FOG = LOOK.fog;      // the forest, far off (config.js)
 const PALE = '#e9e4da';   // a possessed piece whose rabbit you do not know
-const SUIT_COLOUR = { hearts: '#e0445a', swords: '#7f9fc0', stars: '#e8c547', diamonds: '#5fd0d8', spirals: '#f0903a' }; // run.js SUITS
+const SUIT_COLOUR = { hearts: '#e0445a', swords: '#7f9fc0', stars: '#e8c547', diamonds: '#5fd0d8', spirals: '#f0903a', spirits: '#b9a7ff' }; // run.js SUITS
 const LIFT = 10 / 28;     // the flat board's pixels of height, in model units
 const HEAD = 9.5;         // how high a rider sits on a piece's head, in model units
 
@@ -403,12 +403,19 @@ export class Board3D extends Board {
       moved. similarly a green beacon on enemy pieces that could be taken by
       you on your turn"): a pool of light on the ground under the piece
       (`part` 'pool', drawn before the pieces, so they stand in it), and a
-      beam rising from its head (`part` 'beam', drawn after them): a thin
-      bright core in a wider see-through beam, fading out about two squares
-      up. (Added light, the 'lighter' blend, was tried first: it tinted the
-      colours, purple going pink over your pieces.) A new one rises over a third
-      of a second. One a square, however many stand there (a rabbit riding
-      on a head). */
+      beam rising from its head (`part` 'beam'): a thin bright core in a
+      wider see-through beam, fading out about two squares up. (Added light,
+      the 'lighter' blend, was tried first: it tinted the colours, purple
+      going pink over your pieces.) A new one rises over a third of a second.
+      One a square, however many stand there (a rabbit riding on a head).
+
+      The beam stands behind its piece (2026-10-12, Timothy: "behind them in
+      the layer order on their head, not in front"). It is drawn after the
+      pieces, but every pixel where the renderer drew this piece, or one
+      standing nearer you, is cut out of it (the renderer keeps which piece
+      each pixel belongs to: `t3.id`, 100 + i for yours, 200 + k for theirs).
+      So it rises out from behind the head, and still crosses in front of the
+      pieces further back. */
   beacon(g, s, at, part) {
     const T2 = this.threatsOf(s, at);
     if (!T2) return;
@@ -422,6 +429,9 @@ export class Board3D extends Board {
       }
     if (!beams.length) return;
     const u = this.scale * T, foot = HEAD * 0.75, top = foot + 22, wide = u * 0.17, core = u * 0.05;
+    // Where each piece's foot is on screen, to know which stand nearer you.
+    const feet = part === 'beam' ? [...s.pieces.map((p, i) => [p, 100 + i]), ...s.foes.map((f, k) => [f, 200 + k])]
+      .filter(([p]) => !p.taken).map(([p, id]) => [id, this.pt(p.x + 0.5, p.y + 0.5, 0)[1]]) : null;
     g.save();
     for (const b of beams) {
       const k = Math.min(1, (at - b.t0) / 320);
@@ -435,12 +445,27 @@ export class Board3D extends Board {
         continue;
       }
       const [bx, by] = this.pt(b.x + 0.5, b.y + 0.5, foot), [, ty] = this.pt(b.x + 0.5, b.y + 0.5, foot + (top - foot) * rise);
+      const x0 = Math.max(0, Math.floor(bx - wide)), x1 = Math.min(this.el.width, Math.ceil(bx + wide));
+      const y0 = Math.max(0, Math.floor(ty)), y1 = Math.min(this.el.height, Math.ceil(by));
+      if (x1 <= x0 || y1 <= y0) continue;
+      // Drawn on a scrap canvas first, so the cut-out touches only the beam.
+      const c = this.beamCv || (this.beamCv = document.createElement('canvas'));
+      c.width = x1 - x0; c.height = y1 - y0;
+      const bg = c.getContext('2d', { willReadFrequently: true });
+      bg.translate(-x0, -y0);
       // Soft at the start, so it seems to come out of the piece, then fading high up.
-      const fade = (a) => { const l = g.createLinearGradient(0, by, 0, ty); l.addColorStop(0, rgba(b.col, 0)); l.addColorStop(0.08, rgba(b.col, a)); l.addColorStop(0.5, rgba(b.col, a * 0.5)); l.addColorStop(1, rgba(b.col, 0)); return l; };
-      g.fillStyle = fade(0.4); g.fillRect(bx - wide, ty, wide * 2, by - ty);
+      const fade = (a) => { const l = bg.createLinearGradient(0, by, 0, ty); l.addColorStop(0, rgba(b.col, 0)); l.addColorStop(0.08, rgba(b.col, a)); l.addColorStop(0.5, rgba(b.col, a * 0.5)); l.addColorStop(1, rgba(b.col, 0)); return l; };
+      bg.fillStyle = fade(0.4); bg.fillRect(bx - wide, ty, wide * 2, by - ty);
       const light = mix(b.col, '#ffffff', 0.55);
-      g.fillStyle = (() => { const l = g.createLinearGradient(0, by, 0, ty); l.addColorStop(0, rgba(light, 0)); l.addColorStop(0.08, rgba(light, 0.95)); l.addColorStop(0.6, rgba(light, 0.5)); l.addColorStop(1, rgba(light, 0)); return l; })();
-      g.fillRect(bx - core, ty, core * 2, by - ty);
+      bg.fillStyle = (() => { const l = bg.createLinearGradient(0, by, 0, ty); l.addColorStop(0, rgba(light, 0)); l.addColorStop(0.08, rgba(light, 0.95)); l.addColorStop(0.6, rgba(light, 0.5)); l.addColorStop(1, rgba(light, 0)); return l; })();
+      bg.fillRect(bx - core, ty, core * 2, by - ty);
+      // Cut out this piece and everything standing at least as near as it.
+      const [, fy] = this.pt(b.x + 0.5, b.y + 0.5, 0), front = new Set(feet.filter(([, y]) => y >= fy - 0.5).map(([id]) => id));
+      const img = bg.getImageData(0, 0, c.width, c.height), d = img.data, ids = this.t3.id, Wp = this.el.width;
+      for (let j = 0; j < c.height; j++)
+        for (let i = 0; i < c.width; i++) if (front.has(ids[(y0 + j) * Wp + x0 + i])) d[(j * c.width + i) * 4 + 3] = 0;
+      bg.putImageData(img, 0, 0);
+      g.drawImage(c, x0, y0);
     }
     g.restore();
   }
@@ -714,8 +739,16 @@ export class Board3D extends Board {
       for (const t of tris) m.tris.push(t);
     };
     // Statues, falling with their squares when the floor goes.
+    // A statue that has opened (a statue row) is gone; the one opening now
+    // sinks and shrinks away.
     for (const sq of day.stumps) {
-      const x = sq % day.W, y = Math.floor(sq / day.W), c = tw?.collapse;
+      const x = sq % day.W, y = Math.floor(sq / day.W), c = tw?.collapse, sink = tw?.sinkStatue?.sq === sq ? tw.sinkStatue : null;
+      if (s.open?.includes(sq) && !(sink && at < sink.t0 + sink.dur)) continue;
+      if (sink && s.open?.includes(sq)) {
+        const k = Math.max(0, Math.min(1, (at - sink.t0) / sink.dur));
+        stand(model(statueKind(day, sq), 'stone'), x, y, -k * 3, 400, { s: Math.max(0.02, 1 - k * k) });
+        continue;
+      }
       stand(model(statueKind(day, sq), 'stone'), x, y, 0, 400, c ? { s: away(at - c.t0 - c.delay(x, y)) } : {});
     }
     // The first-turn cloud over the second rows.
@@ -782,7 +815,7 @@ export class Board3D extends Board {
       const t = tw?.foes?.[k];
       if (t) { const q = tweenPos(t, at); x = q.x; y = q.y; h = t.hop ? Math.sin(Math.PI * q.k) * (t.blocked ? 1.2 : 3.5) : 0; }
       if (f.rides != null && !s.foes[f.rides]?.taken) h += HEAD * BIG; // a rabbit of theirs riding on a head
-      const mdl = f.brain === 'possessed' ? model(f.type, 'foe', null, this.glowOf(f, k, at)) : model(f.type, 'foe', this.fur(f));
+      const mdl = f.suit ? model(f.type, 'foe', null, SUIT_COLOUR[f.suit]) : f.brain === 'possessed' ? model(f.type, 'foe', null, this.glowOf(f, k, at)) : model(f.type, 'foe', this.fur(f));
       stand(mdl, x, y, h, 200 + k, collapse ? { s: away(at - collapse.t0 - collapse.delay(f.x, f.y)) } : {});
       if (day.rules.goal === 'target' && day.foes.length > 1 && f.target) stand(ring('#e3bd57'), x, y, 0, 200 + k);
     });

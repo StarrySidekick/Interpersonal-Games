@@ -9,7 +9,7 @@ import { makeTarget, render } from '../../../engine/lowpoly.js';
 import { rng } from '../../../engine/seed.js';
 import * as sfx from '../sounds.js';
 import {
-  PIECES, descOf, CRUMBLE_DESC, SHRINK_DESC, STUMP_DESC, HOLE_DESC, cloudDesc, movesFor, playerMove, respond, isOver, outcome, initialState,
+  PIECES, descOf, CRUMBLE_DESC, SHRINK_DESC, STUMP_DESC, STATUE_ROW_DESC, statueAt, HOLE_DESC, cloudDesc, movesFor, playerMove, respond, isOver, outcome, initialState,
   allMoves, holeOpen, crumbled, shrunk, apply, showdown, firstCaptures, onBoard
 } from '../rules.js';
 import { solveLevel } from '../solve.js';
@@ -27,7 +27,7 @@ import { MODES, modeSettings, saveModeSettings, resetModeSettings, cleanMode, PA
 import {
   newRun, rewardsFor, applyReward, cardText, handSettings, afterLevel, pieceOf, SUITS, JOKERS,
   WAYSTONES, litWaystones, newlyLit, startChoices, keepsakeCards, acornsFor, priceOf, shopStock,
-  canCombine, applyCombine, combineText
+  canCombine, applyCombine, combineText, boardCards, boardCardText, applyMerge, mergeTargets, foeUpgrade
 } from '../run.js';
 import { setupPanel, setupState, playOut } from '../autosetup.js';
 import { VARIANTS, VARIANT_ORDER, differs } from '../variants.js';
@@ -108,7 +108,15 @@ function newSession() {
   const start = Array.from({ length: count }, () => from[Math.floor(rand() * from.length)]);
   if (royalKing) start[0] = 'king';
   session = { seed, n: 1, found: new Map(), seen: new Set(), strokes: [], lives: M.lives, wins: 0, caught: [], claimed: [], acorns: 0, deepestBefore: deepest() };
-  if (M.run === 'descent' || M.run === 'rounds') session.run = newRun(start, M.maxPieces);
+  // One upgrade a board (2026-10-12): they carry a lineup too, their King
+  // and the rest dealt from their pool, as wide as the board.
+  let foes = null;
+  if (M.run === 'descent' && M.upgrades === 'each') {
+    const theirs = M.foePool.filter((k) => k !== 'king' && !catalog.vetoed.includes(k) && (M.fairyFrom <= 1 || PIECES[k]?.kind !== 'fairy'));
+    const pool2 = theirs.length ? theirs : ['pawn'];
+    foes = ['king', ...Array.from({ length: Math.max(0, M.w - 1) }, () => pool2[Math.floor(rand() * pool2.length)])];
+  }
+  if (M.run === 'descent' || M.run === 'rounds') session.run = newRun(start, M.maxPieces, foes);
   // The set you were dealt: laying out your pieces opens once it changes.
   session.dealt = session.run ? JSON.stringify(session.run.hand) : null;
 }
@@ -123,7 +131,7 @@ const setChanged = () => !!session.run && JSON.stringify(session.run.hand) !== s
     thread (and kept, so asking again is free). */
 function find(n = session.n) {
   const hand = session.run ? handSettings(session.run) : null;
-  const key = `${n}|${JSON.stringify(hand?.hand || null)}|${JSON.stringify(hand?.handMods || null)}|${(session.run?.jokers || []).join(',')}`;
+  const key = `${n}|${JSON.stringify(hand?.hand || null)}|${JSON.stringify(hand?.handMods || null)}|${JSON.stringify(hand?.foeHand || null)}|${JSON.stringify(hand?.foeMods || null)}|${(session.run?.jokers || []).join(',')}`;
   if (session.found.has(key)) return session.found.get(key);
   // A rolled level (Chaos, the daily's way) that finds nothing passing gets
   // fresh rolls, up to six, before settling for the best it saw: the daily's
@@ -148,6 +156,9 @@ function findOnce(n, hand, attempt) {
   const msg = { settings, seed: session.seed + n * 1000, parMin: settings.parMin, parMax: settings.parMax, maxMs: 15000,
     pool: rabbitPool(settings, myRabbits(), Math.max(1, settings.mine)) };
   if (M.roll !== 'fixed') msg.maxMs = 8000;
+  // Seven by seven, seven a side: measuring a layout takes seconds, so the
+  // search settles sooner for the best it has seen (2026-10-12).
+  if (M.upgrades === 'each' && settings.w * settings.h >= 49) msg.maxMs = 6000;
   return new Promise((resolve) => {
     const done = (data) => {
       if (data.type === 'progress') return;
@@ -450,6 +461,8 @@ function whatHappened(a, b) {
   });
   if (b.hole && !holeOpen(a) && holeOpen(b)) bits.push('The hole is open.');
   if (b.shrunk.length > a.shrunk.length) bits.push('A square fell off the edge.');
+  if (b.bounced != null) bits.push(`Their ${nameOf(b.foes[b.bounced])} lost a heart, and your piece bounced off.`);
+  if ((b.open?.length || 0) > (a.open?.length || 0)) bits.push(b.open.length >= b.day.stumps.size ? 'The last statue sinks away.' : 'A statue sinks away.');
   if ((b.treasure || 0) > (a.treasure || 0)) bits.push('♦ Treasure: another pick when this level is done.');
   if (!bits.length) bits.push('Your move.');
   return bits.join(' ');
@@ -504,7 +517,7 @@ $('#board').addEventListener('click', (e) => {
   if (s.cloudy && s.day.cloud?.has(y * s.day.W + x)) return info(cloudDesc(s.day.rules));
   if (crumbled(s, x, y)) return info(CRUMBLE_DESC);
   if (shrunk(s, x, y)) return info(SHRINK_DESC);
-  if (s.day.stumps.has(y * s.day.W + x)) return info(STUMP_DESC);
+  if (statueAt(s, y * s.day.W + x)) return info(s.day.statueOrder ? `${STUMP_DESC} ${STATUE_ROW_DESC}` : STUMP_DESC);
   const f = s.foes.find((f) => !f.taken && f.x === x && f.y === y);
   if (f) info(f.mind ? `Their ${nameOf(f)}, with a ${f.patternName ? f.patternName.toLowerCase() + ' ' : ''}rabbit inside (intelligence ${f.mind.iq}).` : `Their ${nameOf(f)}. ${PIECES[f.type].desc}`);
 });
@@ -577,6 +590,14 @@ async function levelOver(end) {
   if (kingGone) { status('They took your King.'); await sleep(1600); return runOver('They took your King.'); }
   if (allGone) { status('They took everything.'); await sleep(1600); return runOver('Every piece you had is gone.'); }
   if (!won && M.outOfMoves === 'end') { status('Out of moves.'); await sleep(1600); return runOver('You ran out of moves.'); }
+  if (M.upgrades === 'each') {
+    // One upgrade a board, each side: on every new board, won or not.
+    session.n++; session.run.depth = session.n;
+    if (!test) { const r = mine(); r.best = Math.max(r.best || 0, session.n); saveRecords(); }
+    status(won ? 'The floor gives way.' : 'Out of moves: the floor gives way anyway.');
+    if (!calm()) { await sleep(400); if (board.collapse) await board.collapse(); }
+    return between({ note: `Depth ${session.n}`, board: true, fall: true });
+  }
   // Recruiter: the first piece you took joins you, if there is room.
   let recruited = null;
   if (won && session.run.jokers.includes('recruiter') && session.firstCatch && PIECES[session.firstCatch]?.kind !== 'quarry'
@@ -603,7 +624,7 @@ async function levelOver(end) {
 
 let fall = null;
 
-async function between({ note, sub = '', rewards = false, extra = 0, combine = false, shop: shopping = false, fall: falling = false }) {
+async function between({ note, sub = '', rewards = false, extra = 0, combine = false, shop: shopping = false, fall: falling = false, board: newBoard = false }) {
   show('between');
   $('#betweennote').textContent = note;
   $('#betweensub').textContent = sub;
@@ -616,6 +637,7 @@ async function between({ note, sub = '', rewards = false, extra = 0, combine = f
     for (let k = 0; k <= Math.min(2, extra); k++) await reward({ k, note: k ? '♦ Treasure: another pick.' : null });
   }
   if (shopping && session.run) await shop();
+  if (newBoard && session.run) await boardUpgrade();
   if (combine && session.run && session.claimed?.length) await combineStep();
   const t0 = performance.now();
   const slow = setTimeout(() => { $('#betweensub').textContent = 'Finding the next one…'; }, 1500);
@@ -634,11 +656,11 @@ async function between({ note, sub = '', rewards = false, extra = 0, combine = f
 }
 
 /** Offer the rewards for a finished level; resolves once one is taken. */
-function reward({ k = 0, note = null, cards: given = null } = {}) {
+function reward({ k = 0, note = null, cards: given = null, room = false } = {}) {
   const fairy = M.run !== 'descent' || session.n >= M.fairyFrom;
   const run = session.run, cards = (given || rewardsFor(run, rng(`reward:${session.seed}:${session.n}${k ? ':' + k : ''}`), catalog.vetoed, fairy))
     .filter((c) => c.kind !== 'joker' || M.jokers)
-    .filter((c) => c.kind !== 'piece' || M.findPool.includes(c.type));
+    .filter((c) => (c.kind !== 'piece' && c.kind !== 'merge') || M.findPool.includes(c.type));
   if (!cards.length) return Promise.resolve();
   const box = $('#offer');
   $('[data-screen=between]').classList.add('offering');
@@ -647,38 +669,74 @@ function reward({ k = 0, note = null, cards: given = null } = {}) {
     const choose = (card) => {
       haptic(14); sfx.gain();
       box.hidden = true;
-      const need = card.kind === 'fuse' ? 2 : card.kind === 'suit' || card.kind === 'promote' ? 1 : 0;
+      const need = card.kind === 'fuse' ? 2 : card.kind === 'suit' || card.kind === 'promote' || card.kind === 'merge' ? 1 : 0;
       if (!need) { applyReward(run, card, [], catalog.vetoed); if (card.kind === 'piece') { fall?.add(card.type); addToRoster(card.type); } return done(); }
       // Pick the piece (or two) it is for.
       const picked = [];
       $('#pickbox').hidden = false;
-      $('#picktext').textContent = card.kind === 'fuse' ? 'Choose two pieces to fuse into one.' : card.kind === 'promote' ? 'Choose a piece to promote.' : `Choose a piece to give ${SUITS[card.suit].name} to.`;
+      $('#picktext').textContent = card.kind === 'fuse' ? 'Choose two pieces to fuse into one.' : card.kind === 'promote' ? 'Choose a piece to promote.'
+        : card.kind === 'merge' ? `Choose a piece of yours for the ${PIECES[card.type].name}.` : `Choose a piece to give ${SUITS[card.suit].name} to.`;
+      // A piece card can also take a gap in the row, if a piece was lost.
+      const gap = card.kind === 'merge' && room ? el('button', { class: 'quiet', onclick: () => { gap.remove(); applyMerge(run, -1, card.type); fall?.add(card.type); done(); } }, `Put the ${PIECES[card.type].name} in the gap in your row`) : null;
+      if (gap) $('#pickdone').after(gap);
       const paint = () => {
         handRow($('#pickhand'), { picked, pick: (i) => {
           const h = run.hand[i];
           if (card.kind === 'suit' && h.suit) return;
+          if (card.kind === 'merge' && !mergeTargets(run.hand, card.type, M.royal, run.made).includes(i)) return;
           if ((card.kind === 'fuse' || card.kind === 'promote') && (kingLocked(h) || (card.kind === 'fuse' && h.base === 'bunny'))) return;
           const at = picked.indexOf(i);
           if (at >= 0) picked.splice(at, 1); else { picked.push(i); if (picked.length > need) picked.shift(); }
           paint();
         } });
         $('#pickdone').disabled = picked.length !== need;
+        if (card.kind === 'merge') $('#picktext').textContent = picked.length ? combineText(run.hand[picked[0]], card.type, run.made, 'the') : `Choose a piece of yours for the ${PIECES[card.type].name}.`;
       };
       paint();
-      $('#pickdone').onclick = () => { applyReward(run, card, picked, catalog.vetoed); done(); };
+      $('#pickdone').onclick = () => { gap?.remove(); if (card.kind === 'merge') applyMerge(run, picked[0], card.type); else applyReward(run, card, picked, catalog.vetoed); done(); };
     };
     const head = note || (given ? 'A keepsake, from the waystones. Take one.' : run.hand.length < run.maxPieces ? 'Something is down here with you. Take one of them.' : 'Your hand is full. Take an upgrade.');
     box.replaceChildren(el('p', { class: 'center' }, head),
       ...cards.map((c) => {
-        const t = cardText(c), cv = el('canvas', { class: 'model', width: 30, height: 36 });
-        if (c.kind === 'piece') cv.getContext('2d').drawImage(sprite(c.type, 'you'), 0, 0);
+        const t = boardCardText(c), cv = el('canvas', { class: 'model', width: 30, height: 36 });
+        if (c.kind === 'piece' || c.kind === 'merge') cv.getContext('2d').drawImage(sprite(c.type, 'you'), 0, 0);
         return el('button', { class: 'offercard', onclick: () => choose(c) },
-          el('div', {}, c.kind === 'piece' ? cv : el('div', { style: `font-size:40px;text-align:center;color:${c.suit ? SUITS[c.suit].colour : 'var(--accent)'}` }, c.suit ? SUITS[c.suit].mark : c.kind === 'fuse' ? '✦' : c.kind === 'promote' ? '▲' : '❀')),
+          el('div', {}, c.kind === 'piece' || c.kind === 'merge' ? cv : el('div', { style: `font-size:40px;text-align:center;color:${c.suit ? SUITS[c.suit].colour : 'var(--accent)'}` }, c.suit ? SUITS[c.suit].mark : c.kind === 'fuse' ? '✦' : c.kind === 'promote' ? '▲' : '❀')),
           el('div', {}, el('span', { class: 'tag' }, t.tag), el('h3', {}, t.title), el('p', {}, t.text)));
       }),
       el('button', { class: 'quiet', onclick: done }, 'Take nothing'));
     box.hidden = false;
   });
+}
+
+/** A new board, one upgrade a board (2026-10-12): from depth `growAt` the
+    board opens to seven by seven and each side gets two more pieces; then
+    they get an upgrade at random, said before you choose, and you choose
+    one of two. */
+async function boardUpgrade() {
+  const run = session.run, rand = rng(`board:${session.seed}:${session.n}`), fairy = session.n >= M.fairyFrom;
+  const width = M.growAt > 0 && session.n >= M.growAt ? 7 : M.w, lines = [];
+  if (M.growAt > 0 && session.n === M.growAt) {
+    const pick = (a) => a[Math.floor(rand() * a.length)];
+    // Two minor pieces, different ones: a knight, a bishop or a rook.
+    const ours = ['knight', 'bishop', 'rook'].filter((k) => !catalog.vetoed.includes(k));
+    const theirs = M.foePool.filter((k) => k !== 'king' && !catalog.vetoed.includes(k));
+    const got = [];
+    for (let i = 0; i < 2 && run.hand.length < run.maxPieces; i++) {
+      const left = ours.filter((k) => !got.includes(PIECES[k].name.toLowerCase())), t = pick(left.length ? left : ['knight']);
+      run.hand.push({ base: t }); got.push(PIECES[t].name.toLowerCase()); fall?.add(t);
+    }
+    for (let i = 0; i < 2 && run.foes.length < width; i++) run.foes.push({ base: pick(theirs.length ? theirs : ['pawn']) });
+    sfx.fanfare(2); haptic([30, 40, 30]);
+    lines.push(`The board opens to seven by seven.${got.length ? ` A ${got.join(' and a ')} join you, and two more join them.` : ''}`);
+  }
+  const theirs = foeUpgrade(run, rand, { veto: catalog.vetoed, fairy, pool: M.findPool });
+  if (theirs) lines.push(`Their side: ${theirs}.`);
+  $('#betweensub').textContent = [$('#betweensub').textContent, ...lines].filter(Boolean).join(' ');
+  const room = run.hand.length < Math.min(width, run.maxPieces);
+  const cards = boardCards(run, rand, { veto: catalog.vetoed, fairy, pool: M.findPool, royal: M.royal, room });
+  if (cards.length) await reward({ cards, note: 'A new board. Choose an upgrade.', room });
+  session.found.clear();
 }
 
 /** Combine one claimed piece of theirs with one of yours, or neither. */
