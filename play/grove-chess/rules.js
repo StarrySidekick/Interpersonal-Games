@@ -1081,16 +1081,54 @@ function hash01(str) {
  * approach to the game easier for non-chess players"). { yours, theirs }:
  * Sets of squares (y * W + x) any piece of that side could move to or take
  * on, as things stand. Rabbits on a fixed pattern have no moves to show.
+ *
+ * With `pattern` (the rings, 2026-10-12), each piece's move set as it maps
+ * onto the board rather than only its moves this turn (Timothy: "we need to
+ * see the highlights as to where enemy pieces could move, even if it's
+ * underneath another enemy piece"): see patternReach.
  */
-export function reachMaps(s) {
+export function reachMaps(s, pattern = false) {
   const W = s.day.W, yours = new Set(), theirs = new Set();
   if (s.won) return { yours, theirs };
-  s.pieces.forEach((p, i) => { if (!p.taken && !p.flying) for (const m of movesFor(s, i)) if (!m.swap) yours.add(m.y * W + m.x); });
+  s.pieces.forEach((p, i) => {
+    if (p.taken || p.flying) return;
+    for (const m of movesFor(s, i)) if (!m.swap) yours.add(m.y * W + m.x);
+    if (pattern && p.type !== 'ball') for (const k of patternReach(s, p, 'you', true)) yours.add(k);
+  });
   for (const f of s.foes) {
     if (f.taken || f.flying || f.brain === 'pattern') continue;
     for (const m of pieceMoves(s, f, 'foe')) theirs.add(m.y * W + m.x);
+    if (pattern) for (const k of patternReach(s, f, 'foe', canTake(s.day.rules, f))) theirs.add(k);
   }
   return { yours, theirs };
+}
+
+// Pieces with moves that only take, never step (a pawn's diagonals, a
+// cannon's or vao's shot over a screen): their empty target squares are
+// found one by one.
+const TAKES_ONLY = new Set(['pawn', 'cannon', 'vao']);
+
+/** The squares piece p's move set covers beyond its moves this turn, as
+    squares (y * W + x): those its own side stands on, where it would take
+    if one of the other side stood there instead (the piece guards them);
+    and, for a piece that can take there, the empty squares it could only
+    take on. Things in the way still stop it, and its own side stops it on
+    the square it guards. Nothing for a piece that cannot take. */
+function patternReach(s, p, side, takes) {
+  const out = new Set();
+  if (!takes) return out;
+  const base = sight(s, p, side), fwd = side === 'you' ? 1 : -1, moves = PIECES[p.type].moves, W = s.day.W, wrap = s.day.rules.wrap;
+  const at = (x, y) => (wrap ? fold(s.day, x, y) : [x, y]);
+  for (const m of moves((x, y) => { const c = base(x, y); return c === OWN ? ENEMY : c; }, p, fwd, s.day)) if (m.cap) { const [x, y] = at(m.x, m.y); out.add(y * W + x); }
+  if (TAKES_ONLY.has(p.type))
+    for (let y = 0; y < s.day.H; y++) for (let x = 0; x < W; x++) {
+      // A pawn only takes next to itself: no need to try further off.
+      if (p.type === 'pawn' && !wrap && (Math.abs(x - p.x) > 1 || Math.abs(y - p.y) > 1)) continue;
+      if (base(x, y) !== EMPTY) continue;
+      const L = (a, b) => { const [fa, fb] = at(a, b); return fa === x && fb === y ? ENEMY : base(a, b); };
+      if (moves(L, p, fwd, s.day).some((m) => { const [mx, my] = at(m.x, m.y); return m.cap && mx === x && my === y; })) out.add(y * W + x);
+    }
+  return out;
 }
 
 /**

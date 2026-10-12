@@ -343,7 +343,7 @@ export class Board3D extends Board {
       the opening, the floor going). */
   reachOf(s) {
     if ((this.reach === false && this.reachMine !== true) || this.hidePieces || this.tw?.collapse || this.tw?.assemble) return null;
-    if (this.reachFor !== s) { this.reachFor = s; this.reachMap = reachMaps(s); }
+    if (this.reachFor !== s) { this.reachFor = s; this.reachMap = reachMaps(s, true); }
     return this.reachMap;
   }
 
