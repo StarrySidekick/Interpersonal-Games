@@ -426,7 +426,7 @@ export class Board {
 
     // Everything that stands up, drawn back to front.
     const things = [];
-    for (const sq of day.stumps) things.push({ img: sprite(statueKind(day, sq), 'stone'), x: sq % day.W, y: Math.floor(sq / day.W) });
+    for (const sq of day.stumps) if (!s.open?.includes(sq)) things.push({ img: sprite(statueKind(day, sq), 'stone'), x: sq % day.W, y: Math.floor(sq / day.W) });
     for (let i = 0; i < bc; i++) {
       const sq = day.bramble[i];
       things.push({ img: sprite('bramble'), x: sq % day.W, y: Math.floor(sq / day.W), under: true });
@@ -623,6 +623,12 @@ export class Board {
       tw.vanish = { sq: b.shrunk[b.shrunk.length - 1], t0: t + 60 * slow, dur: 560 * slow };
       sfx.shrink(at(tw.vanish.t0));
       t = tw.vanish.t0 + tw.vanish.dur;
+    }
+    // A statue row (2026-10-12): one statue sinks away, with a grind of stone.
+    if ((b.open?.length || 0) > (a.open?.length || 0)) {
+      tw.sinkStatue = { sq: b.open[b.open.length - 1], t0: t + 60 * slow, dur: 520 * slow };
+      sfx.shrink(at(tw.sinkStatue.t0));
+      t = tw.sinkStatue.t0 + tw.sinkStatue.dur;
     }
     // A geared board turns a quarter turn once the whole turn is over.
     if (this.day.rules.geared && !b.won && b.t !== a.t) {

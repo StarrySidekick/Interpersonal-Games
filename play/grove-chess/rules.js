@@ -129,6 +129,10 @@ export const crumbled = (s, x, y) => s.gone.length > 0 && s.gone.includes(y * s.
     Unlike a crumbled square it is no longer part of the board at all. */
 export const shrunk = (s, x, y) => s.shrunk?.length > 0 && s.shrunk.includes(y * s.day.W + x);
 
+/** Is there a statue on square sq? A statue row (2026-10-12) opens one
+    statue a turn, so a statue that has opened is gone. */
+export const statueAt = (s, sq) => s.day.stumps.has(sq) && !(s.open?.length > 0 && s.open.includes(sq));
+
 /** Is the hole open? On a descent level it stays shut until every rabbit
     has been caught; anywhere else it is always open. A shut hole is just
     ground: anything can stand on it and the ball rolls straight over. */
@@ -152,7 +156,7 @@ export function look(s, x, y, side = 'you') {
   // empty square of it (pieceMoves asks again with `openCloud`).
   if (s.cloudy && cloudFor(s, side)?.has(y * s.day.W + x)) {
     const empty = !s.pieces.some((p) => !p.taken && p.x === x && p.y === y) && !s.foes.some((f) => !f.taken && f.x === x && f.y === y)
-      && !s.day.stumps.has(y * s.day.W + x) && !(s.hole && s.hole.x === x && s.hole.y === y);
+      && !statueAt(s, y * s.day.W + x) && !(s.hole && s.hole.x === x && s.hole.y === y);
     if (!(openCloud && empty)) return OFF;
   }
   const bram = isBramble(s, x, y);
@@ -167,7 +171,7 @@ export function look(s, x, y, side = 'you') {
   for (const f of s.foes)
     if (!f.taken && f.x === x && f.y === y) return side === 'foe' ? OWN : bram ? HIDDEN : ENEMY;
   if (s.hole && s.hole.x === x && s.hole.y === y && holeOpen(s)) return HOLE;
-  if (s.day.stumps.has(y * s.day.W + x)) return STUMP;
+  if (statueAt(s, y * s.day.W + x)) return STUMP;
   return bram ? BRAMBLE : EMPTY;
 }
 
@@ -601,6 +605,7 @@ export const RABBIT_GENTLE_DESC = 'Hops in a fixed pattern that repeats. It boun
 export const rabbitDesc = (rules) => ((rules.rabbitsEat ?? rules.foesCapture) ? RABBIT_DESC : RABBIT_GENTLE_DESC);
 export const RABBIT_AI_DESC = 'Thinks for itself and steps one square in any direction, like a king. It eats what it lands on.';
 export const BRAMBLE_DESC = 'Creeps across the board. Nothing can enter it and nothing slides through it. Anything caught inside is safe until it leaves.';
+export const STATUE_ROW_DESC = 'Here the whole middle row is statues, and after every turn one of them, at random, sinks away and opens its square.';
 export const STUMP_DESC = 'A statue: a standing stone with a spiral cut in it, older than the board. It never moves and nothing can take it. Sliders stop at it, leapers jump over it, and pieces that hop (the grasshopper, the cannon) can hop over it.';
 
 /** The kind of piece a statue on square sq is a statue of. (The rules call
@@ -665,6 +670,7 @@ export function initialState(day) {
     hole: day.hole ? { ...day.hole, i: 0 } : null,
     gone: [], // squares that have crumbled away, in the order they went
     shrunk: [], // squares that have fallen off the edge, in the order they went
+    open: [], // statues of a statue row that have opened, in the order they went
     won: false
   };
   if (day.rules.cloud && day.cloud?.size) s.cloudy = true;
@@ -674,7 +680,7 @@ export function initialState(day) {
 
 export function clone(s) {
   return { day: s.day, t: s.t, pieces: s.pieces.map((p) => ({ ...p })), foes: s.foes.map((f) => ({ ...f })),
-    hole: s.hole ? { ...s.hole } : null, gone: s.gone.slice(), shrunk: s.shrunk ? s.shrunk.slice() : [], won: s.won, sunk: s.sunk,
+    hole: s.hole ? { ...s.hole } : null, gone: s.gone.slice(), shrunk: s.shrunk ? s.shrunk.slice() : [], open: s.open ? s.open.slice() : [], won: s.won, sunk: s.sunk,
     bonus: s.bonus || null, treasure: s.treasure || 0, ft: s.ft || 0, ...(s.cloudy ? { cloudy: true } : {}) };
 }
 
@@ -1401,6 +1407,10 @@ function landMine(n, i, x, y) {
   }
   // Spirals: landing on a piece of yours trades squares with it.
   if (mate) { mate.x = p.x; mate.y = p.y; p.x = x; p.y = y; return null; }
+  // Hearts on a piece of theirs (the descent, 2026-10-12: they get upgrades
+  // too): the first capture costs the heart, and your piece bounces off.
+  const hurt = n.foes.find((f) => !f.taken && f.x === x && f.y === y && f.rides == null && (f.lives || 1) > 1);
+  if (hurt) { hurt.lives--; n.bounced = n.foes.indexOf(hurt); return null; }
   const hit = hitBall(n, x, y);
   if (hit && hit !== p) knock(n, hit, p.x, p.y);
   // Crumbling ground: the square you leave falls away behind you (not when
@@ -1583,6 +1593,14 @@ function shrinkStep(s) {
 function afterMove(n) {
   const r = n.day.rules;
   if (n.won || lost(n)) return;
+  // A statue row (2026-10-12, Timothy: "the middle row is filled with the
+  // statue things, and every round one randomly disappears to open up the
+  // spot"): one statue opens each turn, in an order the level drew at random.
+  if (r.statuesOpen && n.day.statueOrder) {
+    if (!n.open) n.open = [];
+    const next = n.day.statueOrder.find((q) => !n.open.includes(q));
+    if (next != null) n.open.push(next);
+  }
   if (r.shrink && n.t % (r.shrinkEvery || 2) === 0) shrinkStep(n);
   else if (showdown(n)) shrinkStep(n);
 }
@@ -1671,11 +1689,12 @@ export function stateKey(s) {
   if (s.cloudy) k += '|c';
   if (s.day.rules.oneMove) k += `|f${s.ft || 0}`; // whose turn it is on their side
   k += '|';
-  for (const f of s.foes) k += f.taken ? '--' : f.x + ',' + f.y + ',' + f.i + (f.mx > 0 ? '+' : '-') + (f.my > 0 ? '+' : '-') + (f.idle ? 'i' + f.idle : '') + ';';
+  for (const f of s.foes) k += f.taken ? '--' : f.x + ',' + f.y + ',' + f.i + (f.lives > 1 ? 'L' + f.lives : '') + (f.mx > 0 ? '+' : '-') + (f.my > 0 ? '+' : '-') + (f.idle ? 'i' + f.idle : '') + ';';
   if (s.hole) k += `|h${s.hole.x},${s.hole.y},${s.hole.i}${s.hole.mx > 0 ? '+' : '-'}${s.hole.my > 0 ? '+' : '-'}`;
   // Which squares are gone matters; the order they went in does not.
   if (s.gone.length) k += '|g' + s.gone.slice().sort((a, b) => a - b).join(',');
   if (s.shrunk?.length) k += '|s' + s.shrunk.slice().sort((a, b) => a - b).join(',');
+  if (s.open?.length) k += '|o' + s.open.length; // statues open in a fixed order
   // On a geared board the same position facing another way is not the same.
   if (s.day.rules.geared) k += '|r' + turns(s);
   // Nor, with Double Time or Lazy Rabbits, at a different point in the turn.

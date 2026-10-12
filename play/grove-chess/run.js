@@ -53,9 +53,12 @@ export const JOKERS = {
 
 const ATOM = { '1,0': 'W', '1,1': 'F', '2,0': 'D', '2,1': 'N', '2,2': 'A', '3,0': 'H', '3,1': 'C', '3,2': 'Z', '3,3': 'G' };
 
-/** Terms back to Betza text. */
+/** Terms back to Betza text. Terms with no modifiers go first: written
+    after another term, a bare atom could merge with it ("cfF" then "F"
+    reads as "cfFF", a capture-only rider; found 2026-10-12). After them,
+    every term starts with a small letter, so nothing merges. */
 function write(terms) {
-  return terms.map((t) => {
+  return [...terms.filter((t) => !(t.mods + t.dirs)), ...terms.filter((t) => t.mods + t.dirs)].map((t) => {
     const a = ATOM[`${t.jump[0]},${t.jump[1]}`] || `(${t.jump[0]},${t.jump[1]})`;
     return t.mods + t.dirs + (t.ride && a.length === 1 ? a + a : a);
   }).join('');
@@ -215,16 +218,28 @@ export function handSettings(run) {
     types.push(type);
     mods.push({ ...(h.lives > 1 ? { lives: h.lives } : {}), ...(h.suit ? { suit: h.suit } : {}) });
   }
+  // Their lineup, when they carry one (2026-10-12), and a Rabbit with it.
+  const foe = {};
+  if (run.foes) {
+    foe.foeHand = []; foe.foeMods = [];
+    for (const h of run.foes) {
+      foe.foeHand.push(pieceOf(h, run.made).type);
+      foe.foeMods.push({ ...(h.lives > 1 ? { lives: h.lives } : {}), ...(h.suit ? { suit: h.suit } : {}) });
+    }
+    if (run.foeRabbit) { foe.foeHand.push('bunny'); foe.foeMods.push({}); }
+  }
   registerInvented(run.made);
   return {
-    hand: types, handMods: mods, ...(run.made.length ? { invented: run.made } : {}),
+    ...foe, hand: types, handMods: mods, ...(run.made.length ? { invented: run.made } : {}),
     ...(run.jokers.includes('double') ? { movesPerTurn: 2 } : {}), ...(run.jokers.includes('lazy') ? { lazyFoes: true } : {})
   };
 }
 
-/** A new run of the descent. */
-export function newRun(start = ['knight', 'bishop', 'rook', 'king'], maxPieces = 6) {
-  return { depth: 1, hand: start.map((base) => ({ base })), maxPieces, jokers: [], made: [], caught: [], lost: [], found: [] };
+/** A new run of the descent. `foes`, when given, is their lineup: they
+    carry one down too, and it gets upgrades as yours does (2026-10-12). */
+export function newRun(start = ['knight', 'bishop', 'rook', 'king'], maxPieces = 6, foes = null) {
+  return { depth: 1, hand: start.map((base) => ({ base })), maxPieces, jokers: [], made: [], caught: [], lost: [], found: [],
+    ...(foes ? { foes: foes.map((base) => ({ base })), foeRabbit: true } : {}) };
 }
 
 /** After a level: pieces taken are gone, hearts spent stay spent. */
@@ -345,9 +360,100 @@ export function applyCombine(run, i, type) {
 }
 
 /** Plain words for combining claimed `type` onto hand piece h. */
-export function combineText(h, type, made = []) {
+export function combineText(h, type, made = [], whose = 'their') {
   const bases = h.fused || [h.base];
   if (bases.length === 1 && h.base === type) return `Your ${PIECES[type].name} becomes a veteran: one heart more (${(h.lives || 1) + 1} lives).`;
   const after = pieceOf({ ...h, fused: [...bases, type] }, made.slice());
-  return `Your ${pieceOf(h, made.slice()).name} gains every move of their ${PIECES[type].name}, and becomes the ${after.name}.`;
+  return `Your ${pieceOf(h, made.slice()).name} gains every move of ${whose} ${PIECES[type].name}, and becomes the ${after.name}.`;
+}
+
+// --- One upgrade a board, each side (2026-10-12). ---------------------------
+// Timothy: "every new board you move to each side gets one random upgrade of
+// two to choose from, whether it's a new piece to combine with your existing
+// lineup or a new suit to apply to a piece, no more level 4-7-11 special
+// upgrades." You choose one of two cards; they get one at random. A piece
+// card combines with a piece already in the lineup (claiming's rule: the same
+// kind makes a veteran with a heart more, another kind fuses), or, while the
+// row has a gap from a piece you lost, takes the gap.
+
+/** Suits their side can carry. The others are rules for a turn that you
+    play (cleave, a second move, a swap, treasure), and their pieces are
+    moved by rabbits, not turns of choices. */
+export const FOE_SUITS = ['hearts', 'spirits'];
+
+/** Pieces a board's piece card can be: findable, classic only while
+    `fairy` is false, in `pool` if given, and never a King (a second King
+    would be a second way to lose). */
+function piecePool(veto, fairy, pool) {
+  return findable(veto).filter((k) => k !== 'king' && k !== 'pawn' && (fairy || PIECES[k].kind === 'classic') && (!pool || pool.includes(k)));
+}
+
+/** Where a piece card of `type` can go in a lineup: hand indexes it
+    combines with. */
+export const mergeTargets = (hand, type, royal, made = []) => hand.map((h, i) => (canCombine(h, type, royal) && adds(h, type, made) ? i : -1)).filter((i) => i >= 0);
+
+/** Does fusing `type` onto h change anything? A mao on a knight does not:
+    every mao move is a knight move. (The same kind always adds a heart.) */
+function adds(h, type, made) {
+  const bases = h.fused || [h.base];
+  if (bases.length === 1 && h.base === type) return true;
+  const sig = (x) => { const p = pieceOf(x, made.slice()); return p.type in PIECES && !PIECES[p.type].invented ? p.type : p.code; };
+  return sig(h) !== sig({ ...h, fused: [...bases, type] });
+}
+
+/** Your two cards for a new board: each a piece or a suit, at random, never
+    the same twice, and only what can be used. `room`: is there a gap in the
+    row a piece could take? */
+export function boardCards(run, rand, { veto = [], fairy = true, pool = null, royal = true, room = false } = {}) {
+  const pick = (a) => a[Math.floor(rand() * a.length)];
+  const pieces = piecePool(veto, fairy, pool).filter((k) => room || mergeTargets(run.hand, k, royal, run.made).length);
+  const suitless = run.hand.some((h) => !h.suit);
+  const out = [];
+  for (let n = 0; n < 8 && out.length < 2; n++) {
+    const wantPiece = pieces.length && (!suitless || rand() < 0.5);
+    const card = wantPiece ? { kind: 'merge', type: pick(pieces) } : suitless ? { kind: 'suit', suit: pick(Object.keys(SUITS)) } : null;
+    if (!card) break;
+    if (!out.some((c) => c.kind === card.kind && c.type === card.type && c.suit === card.suit)) out.push(card);
+  }
+  return out;
+}
+
+/** Put piece card `type` on hand piece `i`, or into a gap in the row when
+    `i` is -1. Mutates. Returns 'veteran', 'fused' or 'joined'. */
+export function applyMerge(run, i, type) {
+  if (i < 0) { run.hand.push({ base: type }); return 'joined'; }
+  return applyCombine(run, i, type);
+}
+
+/** Their upgrade for a new board, at random: a piece fused onto one of
+    theirs (the same kind: a heart more), or a suit on one without. Never
+    their King, which stays the King. Mutates the run; returns plain words
+    for it, or null if nothing could be given. */
+export function foeUpgrade(run, rand, { veto = [], fairy = true, pool = null } = {}) {
+  if (!run.foes) return null;
+  const pick = (a) => a[Math.floor(rand() * a.length)];
+  const open = run.foes.map((h, i) => i).filter((i) => run.foes[i].base !== 'king' || run.foes[i].fused);
+  const suitless = open.filter((i) => !run.foes[i].suit);
+  const types = piecePool(veto, fairy, pool);
+  for (let n = 0; n < 12; n++) {
+    if (suitless.length && rand() < 0.5) {
+      const i = pick(suitless), suit = pick(FOE_SUITS), before = pieceOf(run.foes[i], run.made).name;
+      run.foes[i].suit = suit;
+      if (suit === 'hearts') run.foes[i].lives = 2;
+      return `their ${before} takes ${SUITS[suit].name}: ${SUITS[suit].desc.split(':')[0].toLowerCase()}`;
+    }
+    const type = pick(types), at = open.filter((i) => canCombine(run.foes[i], type, false) && adds(run.foes[i], type, run.made));
+    if (!at.length) continue;
+    const i = pick(at), before = pieceOf(run.foes[i], run.made).name;
+    const how = applyCombine({ hand: run.foes }, i, type);
+    return how === 'veteran' ? `their ${before} becomes a veteran, with a heart more`
+      : `their ${before} gains every move of a ${PIECES[type].name.toLowerCase()} and becomes the ${pieceOf(run.foes[i], run.made).name}`;
+  }
+  return null;
+}
+
+/** Plain words for a board card. */
+export function boardCardText(card) {
+  if (card.kind === 'merge') return { title: PIECES[card.type].name, text: `${PIECES[card.type].desc} Choose a piece of yours to combine it with: the same kind makes a veteran with a heart more; another kind fuses, with every move of both.`, tag: PIECES[card.type].kind === 'fairy' ? 'A fairy piece' : 'A classic piece' };
+  return cardText(card);
 }

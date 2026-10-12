@@ -63,6 +63,10 @@ export const RUN_SCHEMA = [
     { key: 'startPool', label: 'You start with', type: 'pieces', def: ['knight', 'bishop', 'rook', 'king'], help: 'Dealt from these.' },
     { key: 'rewards', label: 'Finishing a level finds you something', type: 'bool', def: true,
       help: 'A new piece while you have room; once your hand is full, an upgrade: a suit, fusing two pieces, or a joker. Pieces of theirs you take are claimed, and can be combined with yours after the level.' },
+    { key: 'upgrades', label: 'Between levels', type: 'choice', def: 'finds', options: opts(['finds', 'Find pieces, then upgrades'], ['each', 'One upgrade a board, each side']),
+      help: 'Find pieces, then upgrades: a new piece while you have room, then suits, fusing and jokers; pieces of theirs you take can be combined with yours. One upgrade a board, each side (Timothy, 2026-10-12): every new board you choose one of two, a piece to combine with one of yours or a suit for one, and they get one at random. They carry a lineup down as you do, and a Rabbit with it.' },
+    { key: 'growAt', label: 'The board is 7 by 7 from depth', type: 'int', min: 0, max: 30, def: 0,
+      help: 'For a descent with one upgrade a board. 0: never. From this depth the board is 7 by 7, and each side gets two more pieces to fill its row.' },
     { key: 'jokers', label: 'Jokers can turn up', type: 'bool', def: true, help: 'Rules for the rest of a run: Double Time, Foresight, Recruiter, Lazy Rabbits, Overtime.' },
     { key: 'findPool', label: 'Pieces you can find', type: 'pieces', def: ['king', 'knight', 'bishop', 'rook', 'queen', 'wazir', 'ferz', 'alfil', 'dabbaba', 'mao', 'zebra', 'camel', 'grasshopper', 'cannon', 'silver', 'lance', 'squirrel', 'rose', 'nightrider', 'archbishop', 'chancellor',
       'gold', 'copper', 'leopard', 'tiger', 'kirin', 'phoenix', 'elephant', 'woody', 'alibaba', 'threeleaper', 'tripper', 'frog', 'vao', 'bunny'],
@@ -121,11 +125,14 @@ export const MODES = {
     settings: { run: 'single', roll: 'daily', difficulty: 'normal', aim: 4, minEngage: 50, goal: 'all', royal: false, showdown: false, maxMoves: 20 }
   },
   descent: {
-    name: 'The descent', blurb: 'A full row of pieces, your King among them, down and down. Take their King to fall to the next level, where you find another piece, up to eight; then upgrades. A piece taken is gone for good, and if they take your King the descent is over.',
+    // 2026-10-12 (Timothy): five on five on a five by five board, a Rabbit
+    // with theirs, a middle row of statues that opens one a turn, and one
+    // upgrade a board for each side; seven by seven from depth 6.
+    name: 'The descent', blurb: 'Five pieces each on a five by five board, your King among them, and a Rabbit with theirs. The middle row is statues, and one sinks away every turn. Take their King to fall to the next board, where each side gets an upgrade: you choose one of two. From depth 6 the board is seven by seven. A piece taken is gone for good, and if they take your King the descent is over.',
     settings: {
-      run: 'descent', roll: 'fixed', startPieces: 6, maxPieces: 8, rewards: true, jokers: true, ramp: 'steady', outOfMoves: 'fall',
-      goal: 'king', royal: true, showdown: true, w: 6, h: 6, foes: 2, foePool: ['king', 'pawn', 'knight', 'bishop'], darkBrain: 'possessed', rabbitMind: 'mind', iq: 3, kinds: 1,
-      foesCapture: true, statues: 1, maxMoves: 20, lineup: true, parMin: 3, parMax: 10, difficulty: 'any'
+      run: 'descent', roll: 'fixed', startPieces: 5, maxPieces: 7, rewards: true, jokers: false, ramp: 'steady', outOfMoves: 'fall', upgrades: 'each', growAt: 6, carry: false,
+      goal: 'king', royal: true, showdown: true, w: 5, h: 5, foes: 5, foePool: ['king', 'pawn', 'knight', 'bishop'], darkBrain: 'possessed', rabbitMind: 'mind', iq: 3, kinds: 1,
+      foesCapture: true, statues: 0, statueRow: true, maxMoves: 20, lineup: true, parMin: 3, parMax: 10, difficulty: 'any'
     }
   },
   kungfu: {
@@ -201,6 +208,7 @@ const SHOWN = {
   // The session.
   startPieces: runIs('descent', 'rounds'), maxPieces: runIs('descent', 'rounds'), startPool: runIs('descent', 'rounds'),
   rewards: runIs('descent', 'rounds'), jokers: runIs('descent', 'rounds'), findPool: runIs('descent', 'rounds'), ramp: runIs('descent', 'rounds'),
+  upgrades: runIs('descent'), growAt: (S) => S.run === 'descent' && S.upgrades === 'each',
   carry: runIs('descent'), keepsakes: (S) => S.run === 'descent' && S.carry, fairyFrom: runIs('descent'), startDifficulty: runIs('descent'), boardGrows: runIs('descent'), outOfMoves: runIs('descent'),
   shop: runIs('rounds'), lives: runIs('rounds'),
   courseName: runIs('course'), courseHoles: (S) => S.run === 'course' && S.courseName === 'mixed', balls: (S) => S.run === 'course' && S.courseName === 'mixed',
@@ -311,6 +319,14 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
       // switching their captures off, is what makes the start easy.
       traits: d * k < 2 ? ['messy'] : M.traits
     });
+  }
+  if (M.run === 'descent' && M.upgrades === 'each') {
+    // One upgrade a board (2026-10-12): the board is the board, five by five
+    // and then seven by seven, rectangular and solid, with its row of
+    // statues. Both lineups are carried (hand); what climbs is how hard the
+    // level is aimed and how sharp their rabbits are.
+    const big = M.growAt > 0 && depth >= M.growAt;
+    Object.assign(S, { w: big ? 7 : M.w, h: big ? 7 : M.h, shape: M.shape, ground: M.ground, statues: M.statues, foePool: M.foePool, kinds: M.kinds });
   }
   if (M.run === 'descent' && M.realtime) {
     // Kung fu: their pieces rest less each level down; the ground stays
