@@ -566,6 +566,20 @@ export const PIECES = {
     origin: 'The cannon (pao) of xiangqi turned diagonal, from 20th-century variants.',
     moves: betzaMoves('mBcpB') },
 
+  // --- Added 2026-10-13, Timothy's names: "short rook: slides fully left and
+  // right but only moves one space up and down; tall rook: slide fully up and
+  // down but only moves one space left and right". Both are real pieces of
+  // chu shogi, kept as their records. Up and down are the same both ways, so
+  // they play the same for either side.
+  shortrook: { name: 'Short rook', record: 'Side mover', kind: 'fairy', tier: 1, value: 3, betza: 'sRvW', strength: 3,
+    desc: 'Slides any distance left or right, and steps one square up or down.',
+    origin: 'The side mover (ōgyō) of chu shogi, the larger shogi of medieval Japan.',
+    moves: betzaMoves('sRvW') },
+  tallrook: { name: 'Tall rook', record: 'Vertical mover', kind: 'fairy', tier: 1, value: 3.5, betza: 'vRsW', strength: 3.5,
+    desc: 'Slides any distance up or down, and steps one square left or right.',
+    origin: 'The vertical mover (kengyō) of chu shogi, the larger shogi of medieval Japan.',
+    moves: betzaMoves('vRsW') },
+
   // --- Added 2026-10-11: the rabbit as a chess piece (Timothy: "rabbits are
   // now a fairy chess piece (same model) and function differently. they hop
   // twice in any direction each turn, cannot capture, and can hop onto other
@@ -592,7 +606,8 @@ export const PIECES = {
 
 // Every piece's record: its real name, kept when the game calls it
 // something else. Then Timothy's names and words from config.js.
-for (const k of Object.keys(PIECES)) PIECES[k].record = PIECES[k].name;
+// (A piece Timothy named himself keeps its fairy chess name as `record`.)
+for (const k of Object.keys(PIECES)) PIECES[k].record = PIECES[k].record || PIECES[k].name;
 for (const [k, o] of Object.entries(CONFIG.pieces || {})) {
   if (!PIECES[k] || !o) continue;
   if (typeof o.name === 'string' && o.name.trim()) PIECES[k].name = o.name.trim();
@@ -1221,11 +1236,11 @@ function patternReach(s, p, side, takes) {
  * Your pieces that are guarded (2026-10-11): if one of theirs took it where
  * it stands, another piece of yours could take back on that square. Kings
  * are left out: losing one ends the game, so taking back is no comfort.
- * Returns a Set of indexes into s.pieces.
+ * Returns a Map of index into s.pieces to the indexes of the pieces of
+ * yours that guard it (one guard: a silver shield; two or more: gold). Who
+ * guards is kept so the shield can fly from the guard (2026-10-13).
  */
 export function guarded(s) {
-  // A Map of index to how many pieces of yours guard it (2026-10-11: one
-  // guard a silver shield, two or more a gold one).
   const out = new Map();
   if (s.won) return out;
   s.pieces.forEach((p, i) => {
@@ -1234,10 +1249,61 @@ export function guarded(s) {
     const c = clone(s);
     c.pieces.forEach((q) => { if (!q.taken && q.x === p.x && q.y === p.y) q.taken = true; });
     c.foes.push({ type: 'pawn', x: p.x, y: p.y, taken: false, brain: 'none' });
-    const n = c.pieces.filter((q) => !q.taken && !q.flying && q.type !== 'ball' && pieceMoves(c, q, 'you').some((m) => m.cap && m.x === p.x && m.y === p.y)).length;
-    if (n) out.set(i, n);
+    const by = [];
+    c.pieces.forEach((q, j) => { if (!q.taken && !q.flying && q.type !== 'ball' && pieceMoves(c, q, 'you').some((m) => m.cap && m.x === p.x && m.y === p.y)) by.push(j); });
+    if (by.length) out.set(i, by);
   });
   return out;
+}
+
+/**
+ * Pieces pinned to their King (2026-10-13, Timothy: "pieces that would be
+ * considered absolutely pinned (as in they cannot move legally because it
+ * would expose their king)").
+ *
+ * In chess a pin is a piece standing between an attacker and something
+ * behind it; an absolute pin is one where the thing behind is the King, so
+ * moving the piece off the line is illegal (a relative pin is to anything
+ * else, and only costly). Grove Chess has no rule against moving into
+ * danger (a King left where it can be taken is simply lost), so a pinned
+ * piece can still move; moving it loses. It is found the plain way: lift
+ * the piece off the board, and see whether a piece of the other side that
+ * could not take the King before now can. That catches every kind of pin,
+ * a slider's along a line or a cannon's through a screen.
+ *
+ * Only where losing the King loses: yours with a royal King, theirs when
+ * taking their King wins. Returns { mine, theirs }: Maps of index into
+ * s.pieces or s.foes to the indexes of the pieces that pin it.
+ */
+export function pinned(s) {
+  const mine = new Map(), theirs = new Map();
+  if (s.won || lost(s)) return { mine, theirs };
+  const r = s.day.rules;
+  /** Which pieces of `side`'s enemies could take its King in state c. */
+  const attackers = (c, side, king) => {
+    const out = [];
+    if (side === 'you') c.foes.forEach((f, k) => { if (!f.taken && !f.flying && f.brain !== 'pattern' && canTake(r, f) && pieceMoves(c, f, 'foe').some((m) => m.cap && m.x === king.x && m.y === king.y)) out.push(k); });
+    else c.pieces.forEach((p, i) => { if (!p.taken && !p.flying && p.type !== 'ball' && pieceMoves(c, p, 'you').some((m) => m.cap && m.x === king.x && m.y === king.y)) out.push(i); });
+    return out;
+  };
+  const sides = [
+    ['you', s.pieces, mine, r.royal ? s.pieces.find((p) => !p.taken && p.type === 'king') : null],
+    ['foe', s.foes, theirs, (r.goal === 'king' || r.goal === 'target') ? s.foes.find((f) => !f.taken && f.type === 'king' && (r.goal === 'king' || f.target)) : null]
+  ];
+  for (const [side, list, out, king] of sides) {
+    if (!king) continue;
+    const before = attackers(s, side, king);
+    list.forEach((p, i) => {
+      if (p === king || p.taken || p.flying || p.type === 'ball' || p.rides != null) return;
+      const c = clone(s), own = side === 'you' ? c.pieces : c.foes;
+      own[i].taken = true;
+      // Anything riding on it comes off with it.
+      own.forEach((q) => { if (q.rides === i) q.taken = true; });
+      const by = attackers(c, side, king).filter((k) => !before.includes(k));
+      if (by.length) out.set(i, by);
+    });
+  }
+  return { mine, theirs };
 }
 
 /**

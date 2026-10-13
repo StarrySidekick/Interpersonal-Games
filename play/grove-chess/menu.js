@@ -15,6 +15,7 @@ export const MENU = [
   { id: 'golf', href: 'play/?mode=golf', label: 'Golf' },
   { id: 'autochess', href: 'play/?mode=autochess', label: 'Autochess' },
   { id: 'variants', href: 'play/?mode=variants', label: 'Chess variants' },
+  { id: 'trials', href: 'trials/', label: 'Piece trials' },
   { id: 'workshop', href: 'lab/', label: 'Workshop' },
   { id: 'pieces', href: 'pieces/', label: 'The pieces' }
 ];

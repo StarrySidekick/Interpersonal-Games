@@ -117,7 +117,9 @@ function newSession() {
   if (M.run === 'descent' && M.upgrades === 'each') {
     const given = M.startPool.filter((k) => !catalog.vetoed.includes(k) || k === 'king');
     start.splice(0, start.length, ...(given.includes('king') ? given : [...given, 'king']));
-    foes = start.slice();
+    // Theirs facing yours on the same files (Microchess), or yours reversed
+    // (Timothy, 2026-10-13: "the enemy side is the same but reversed").
+    foes = M.foeLine === 'turned' ? start.slice().reverse() : start.slice();
   }
   if (M.run === 'descent' || M.run === 'rounds') session.run = newRun(start, M.maxPieces, foes);
   // The set you were dealt: laying out your pieces opens once it changes.
@@ -252,6 +254,8 @@ function goalCard() {
   if (M.realtime && M.run === 'descent') text = text + ' Kung fu: there are no turns. Move any piece of yours whenever it is ready, and so do they. A move takes time to travel, so a piece can dodge one coming for it, and a piece that has moved rests for a moment: the ring under it runs down.';
   const V = VARIANTS[M.variant];
   if (V && M.run === 'single') return { kind: 'king', side: 'foe', title: V.name, text: [V.blurb, ...differs(V)].join(' ') };
+  if (M.position && M.run === 'single') return { kind: 'king', side: 'foe', title: MODE.name,
+    text: 'A layout from the piece trials: the same army on each side, theirs thinking. Take their King and keep yours. A King left where it can be taken is lost: there is no check, and no checkmate.' };
   return { kind: M.run === 'course' ? 'flag' : 'rabbit', side: M.run === 'course' ? 'you' : 'foe', title: MODE.name, text };
 }
 
@@ -266,6 +270,7 @@ async function startLevel() {
   board.reachMine = level.settings.showMyReach;
   board.guards = level.settings.showGuards;
   board.beacons = level.settings.showBeacons;
+  board.pins = level.settings.showPins;
   board.redraw = draw;
   board.fur = furOf;
   sel = null; legal = []; shown = null;
@@ -735,11 +740,14 @@ async function boardUpgrade() {
     const ours = ['knight', 'bishop', 'rook'].filter((k) => !catalog.vetoed.includes(k));
     const theirs = M.foePool.filter((k) => k !== 'king' && !catalog.vetoed.includes(k));
     const got = [];
+    // One at each end of the line, so a King in the middle of five stays in
+    // the middle of seven.
+    const add = (list, h, i) => (i % 2 ? list.push(h) : list.unshift(h));
     for (let i = 0; i < 2 && run.hand.length < run.maxPieces; i++) {
       const left = ours.filter((k) => !got.includes(PIECES[k].name.toLowerCase())), t = pick(left.length ? left : ['knight']);
-      run.hand.push({ base: t }); got.push(PIECES[t].name.toLowerCase()); fall?.add(t);
+      add(run.hand, { base: t }, i); got.push(PIECES[t].name.toLowerCase()); fall?.add(t);
     }
-    for (let i = 0; i < 2 && run.foes.length < width; i++) run.foes.push({ base: pick(theirs.length ? theirs : ['pawn']) });
+    for (let i = 0; i < 2 && run.foes.length < width; i++) add(run.foes, { base: pick(theirs.length ? theirs : ['pawn']) }, i);
     sfx.fanfare(2); haptic([30, 40, 30]);
     lines.push(`The board opens to seven by seven.${got.length ? ` A ${got.join(' and a ')} join you, and two more join them.` : ''}`);
   }
@@ -862,8 +870,10 @@ function singleOver(end) {
   $('#overbig').textContent = end.won ? (end.sunk ? `Sunk in ${end.t}` : `Won in ${end.t}`) : outcome(end) === 'dusk' ? 'Out of moves'
     : kingTaken ? 'They took your King' : V && (level.rules.hill || level.rules.race) ? 'Their King got there first' : 'They took everything';
   $('#overwhy').textContent = par ? `Par ${par}.` : '';
-  $('#overbody').replaceChildren(...(V ? [V.history, ...differs(V)] : [summary(level.settings), ...describeMeasure(measured)]).map((t) => el('p', { class: 'small dim' }, t)));
-  $('#again').textContent = V ? 'Play it again' : 'Another level';
+  const lines = V ? [V.history, ...differs(V)] : level.position ? [`A layout from the piece trials. Its position, in FEN (theirs on top, capitals yours): ${level.position}.`]
+    : [summary(level.settings), ...describeMeasure(measured)];
+  $('#overbody').replaceChildren(...lines.map((t) => el('p', { class: 'small dim' }, t)));
+  $('#again').textContent = V || level.position ? 'Play it again' : 'Another level';
 }
 
 /** Chess variants: pick one on the title. */

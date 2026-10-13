@@ -36,7 +36,7 @@ import { rng } from '../../engine/seed.js';
 import { model } from './models.js';
 import { LOOK } from './config.js';
 import { Board, tileColour, PIT, TRACK, tweenPos, wraps } from './board.js';
-import { onBoard, brambleCount, holeOpen, nextShrink, statueKind, reachMaps, onHill, guarded, threats } from './rules.js';
+import { onBoard, brambleCount, holeOpen, nextShrink, statueKind, reachMaps, onHill, guarded, threats, pinned } from './rules.js';
 import * as sfx from './sounds.js';
 import { haptic } from '../../engine/ui.js';
 
@@ -49,6 +49,9 @@ const PALE = '#e9e4da';   // a possessed piece whose rabbit you do not know
 const SUIT_COLOUR = { hearts: '#e0445a', swords: '#7f9fc0', stars: '#e8c547', diamonds: '#5fd0d8', spirals: '#f0903a', spirits: '#b9a7ff' }; // run.js SUITS
 const LIFT = 10 / 28;     // the flat board's pixels of height, in model units
 const HEAD = 9.5;         // how high a rider sits on a piece's head, in model units
+const SHIELD_FLIGHT = 460; // ms a shield takes to fly from a guard to the piece it guards
+const NEEDLE_DROP = 300;   // ms a needle takes to fall from above into a pinned piece
+const NEEDLE_OUT = 240;    // and to be pulled out when the pin ends
 
 // --- Colours, as the renderer wants them ('#rrggbb'). ----------------------
 
@@ -354,27 +357,84 @@ export class Board3D extends Board {
     this.soon = requestAnimationFrame(() => { this.soon = null; this.redraw?.(); });
   }
 
-  /** Your guarded pieces in state s (rules.js guarded: index to how many
-      guard it), once per state; and when a piece newly becomes guarded, or
-      its shield turns gold (a second guard), the time (for the shield's
-      fall) and a clink. Not on the first look at a level: only a change
-      sounds. */
+  /** When everything a move set going has landed: your piece, their reply.
+      What a new state shows (a shield, a needle) waits for it. */
+  settled(at) {
+    const tw = this.tw;
+    return Math.max(at, tw?.landAt ?? 0, tw?.piece ? tw.piece.t0 + tw.piece.dur : 0);
+  }
+
+  /** Your guarded pieces in state s (rules.js guarded: index to the pieces
+      of yours guarding it), once per state. When a piece gains a guard, a
+      shield flies to it from each new guard, in a low arc, once the move
+      has landed (Timothy, 2026-10-13: "the guard shield should fly from the
+      guarding pieces to the newly guarded piece as an animation, in a
+      slight arc"); it lands with a clink and a buzz, and a second guard
+      turns it gold. Not on the first look at a level: only a change moves. */
   guardOf(s, at) {
     if (this.guardFor === s) return this.guardSet;
     const G = guarded(s), had = this.guardSet;
-    this.guardT = this.guardT || new Map();
-    let fresh = false, gold = false;
-    for (const [i, n] of G) {
-      const was = had?.get(i) || 0;
-      if (!was || (n >= 2 && was < 2)) {
-        this.guardT.set(i, had ? at : -1e9);
-        if (had) { fresh = true; gold = gold || n >= 2; }
-      }
+    this.guardT = this.guardT || new Map();   // i: when its shield lands
+    this.guardWas = this.guardWas || new Map(); // i: guards it had while one flies
+    this.flights = (this.flights || []).filter((f) => at < f.t0 + f.dur);
+    const from = this.settled(at);
+    let first = Infinity, gold = false;
+    for (const [i, by] of G) {
+      if (!had) { this.guardT.set(i, -1e9); continue; }
+      const was = had.get(i) || [], fresh = by.filter((j) => !was.includes(j));
+      if (!fresh.length) continue;
+      fresh.forEach((j, n) => this.flights.push({ from: j, to: i, t0: from + n * 90, dur: SHIELD_FLIGHT }));
+      const lands = from + SHIELD_FLIGHT;
+      this.guardT.set(i, lands); this.guardWas.set(i, was.length);
+      first = Math.min(first, lands);
+      gold = gold || (by.length >= 2 && was.length < 2);
     }
-    for (const i of [...this.guardT.keys()]) if (!G.has(i)) this.guardT.delete(i);
-    if (fresh) { sfx.shield(0, gold); haptic(12); }
+    for (const i of [...this.guardT.keys()]) if (!G.has(i)) { this.guardT.delete(i); this.guardWas.delete(i); }
+    if (first < Infinity) { sfx.shield((first - at) / 1000, gold); setTimeout(() => haptic(12), first - at); }
     this.guardFor = s; this.guardSet = G;
     return G;
+  }
+
+  /** Pieces pinned to their King in state s (rules.js pinned), yours and
+      theirs, once per state; and when a pin starts, the time its needle
+      lands, after the move has (Timothy, 2026-10-13: "a metal sewing needle
+      fly into the from above as an animation that skewers them in place to
+      show they are pinned"). A pin that ends pulls its needle out. */
+  pinsOf(s, at) {
+    if (this.pins === false || this.hidePieces || this.tw?.collapse || this.tw?.assemble) return null;
+    if (this.pinFor === s) return this.pinSet;
+    const P = pinned(s), had = this.pinSet;
+    this.pinT = this.pinT || new Map();
+    this.unpins = (this.unpins || []).filter((u) => at < u.t0 + NEEDLE_OUT);
+    const from = this.settled(at), now = new Set();
+    let fresh = false;
+    for (const [tag, map, list] of [['m', P.mine, s.pieces], ['t', P.theirs, s.foes]])
+      for (const i of map.keys()) {
+        const key = tag + i;
+        now.add(key);
+        if (!this.pinT.has(key)) { this.pinT.set(key, had ? from + NEEDLE_DROP : -1e9); fresh = fresh || !!had; }
+      }
+    for (const key of [...this.pinT.keys()]) if (!now.has(key)) {
+      // Pulled out where the piece now stands (it may have moved off the line).
+      const list = key[0] === 'm' ? s.pieces : s.foes, p = list[+key.slice(1)];
+      if (p && !p.taken) this.unpins.push({ key, x: p.x, y: p.y, t0: at });
+      this.pinT.delete(key);
+    }
+    if (fresh) { const t = Math.min(...[...this.pinT.values()].filter((v) => v > at)) - at; sfx.pin(t / 1000); setTimeout(() => haptic([8, 30, 18]), t); }
+    this.pinFor = s; this.pinSet = P;
+    return P;
+  }
+
+  /** A pinned piece's needle at (x, y), standing at height h: it drops from
+      high above, faster and faster, and stops dead through the piece; a
+      shiver as it bites. Returns whether it is still moving. */
+  needle(stand, x, y, h, id, key, at) {
+    const t = this.pinT.get(key) ?? -1e9;
+    if (at < t - NEEDLE_DROP) return true; // not yet: the move is still landing
+    const k = Math.min(1, (at - (t - NEEDLE_DROP)) / NEEDLE_DROP), after = at - t;
+    const drop = k < 1 ? (1 - k * k) * 40 : 0, shiver = after > 0 && after < 160 ? Math.sin(after / 18) * 0.06 * (1 - after / 160) : 0;
+    stand(model('needle', 'you'), x + 0.02, y + 0.05, h + drop, id, { rz: 0.16 + shiver, rx: -0.12 });
+    return k < 1 || (after > 0 && after < 160);
   }
 
   /** What could be taken next in state s (rules.js threats), once per state
@@ -762,6 +822,7 @@ export class Board3D extends Board {
     }
     // Yours.
     const G = this.guards !== false && !this.hidePieces && !tw?.collapse ? this.guardOf(s, at) : null;
+    const PIN = this.pinsOf(s, at), where = []; // where each of yours is drawn this frame
     if (!this.hidePieces) s.pieces.forEach((p, i) => {
       if (p.taken && !(tw?.eaten?.has(i) && at < tw.landAt)) return;
       let x = p.x, y = p.y, h = 0, o = {};
@@ -799,15 +860,31 @@ export class Board3D extends Board {
       // In autochess a piece of yours with a rabbit inside wears its colour;
       // in a descent, a piece with a suit wears the suit's.
       stand(model(p.type, 'you', null, p.brain === 'possessed' ? this.fur(p) : SUIT_COLOUR[p.suit] || null), x, y, h, 100 + i, o);
-      // Guarded (2026-10-11): a shield in front, which falls into place and
-      // bounces once when the piece becomes guarded.
+      where[i] = { x, y, h };
+      // Guarded (2026-10-11): a shield in front. Since 2026-10-13 it flies
+      // there from the guard (the flights, below), then bounces once as it
+      // lands. While it flies, the piece keeps the shield it had (none, or
+      // silver before it turns gold).
       if (G?.has(i) && !p.taken) {
-        const k = Math.min(1, (at - (this.guardT.get(i) ?? -1e9)) / 360), after = at - (this.guardT.get(i) ?? -1e9) - 360;
-        const fall = k < 1 ? (1 - k) * (1 - k) * 16 : 0, bounce = after > 0 && after < 220 ? Math.sin((after / 220) * Math.PI) * 0.9 : 0;
-        stand(model(G.get(i) >= 2 ? 'shieldGold' : 'shield', 'you'), x, y - 0.3, h + 2.4 + fall + bounce, 100 + i, { s: 1.3 });
-        if (k < 1 || bounce) this.settleSoon();
+        const lands = this.guardT.get(i) ?? -1e9, after = at - lands, n = after < 0 ? this.guardWas.get(i) || 0 : G.get(i).length;
+        const bounce = after > 0 && after < 220 ? Math.sin((after / 220) * Math.PI) * 0.9 : 0;
+        if (n) stand(model(n >= 2 ? 'shieldGold' : 'shield', 'you'), x, y - 0.3, h + 2.4 + bounce, 100 + i, { s: 1.3 });
+        if (after < 220) this.settleSoon();
       }
+      if (PIN?.mine.has(i) && !p.taken && this.needle(stand, x, y, h, 100 + i, 'm' + i, at)) this.settleSoon();
     });
+    // Shields in flight (2026-10-13): from the guard's chest to the front of
+    // the piece it now guards, in a low arc, turning a little as they go.
+    for (const f of this.flights || []) {
+      const a = where[f.from], b = where[f.to];
+      if (!a || !b || at > f.t0 + f.dur) continue;
+      if (at < f.t0) { this.settleSoon(); continue; }
+      const k = (at - f.t0) / f.dur, e = k * k * (3 - 2 * k), dist = Math.hypot(b.x - a.x, b.y - a.y);
+      const x = a.x + (b.x - a.x) * e, y = a.y - 0.3 + (b.y - a.y) * e, h = a.h + (b.h - a.h) * e + 2.4 + (1 - e) * 3 + Math.sin(Math.PI * k) * (1.5 + dist * 1.2);
+      const gold = (G?.get(f.to)?.length || 0) >= 2 && e > 0.5;
+      stand(model(gold ? 'shieldGold' : 'shield', 'you'), x, y, h, 100 + f.from, { s: 1 + 0.3 * e, ry: (1 - e) * 0.9 * Math.sign(b.x - a.x || 1) });
+      this.settleSoon();
+    }
     // Theirs.
     s.foes.forEach((f, k) => {
       if (f.taken && !(tw?.caught?.has(k) && at < tw.caughtAt)) return;
@@ -820,7 +897,15 @@ export class Board3D extends Board {
       const mdl = f.brain === 'leader' ? model('rabbit', 'foe', this.fur(f)) : f.suit ? model(f.type, 'foe', null, SUIT_COLOUR[f.suit]) : f.brain === 'possessed' ? model(f.type, 'foe', null, this.glowOf(f, k, at)) : model(f.type, 'foe', this.fur(f));
       stand(mdl, x, y, h, 200 + k, collapse ? { s: away(at - collapse.t0 - collapse.delay(f.x, f.y)) } : {});
       if (day.rules.goal === 'target' && day.foes.length > 1 && f.target) stand(ring('#e3bd57'), x, y, 0, 200 + k);
+      if (PIN?.theirs.has(k) && !f.taken && this.needle(stand, x, y, h, 200 + k, 't' + k, at)) this.settleSoon();
     });
+    // Needles pulled out of pieces no longer pinned: straight up and away.
+    for (const u of this.unpins || []) {
+      const k = (at - u.t0) / NEEDLE_OUT;
+      if (k < 0 || k >= 1) continue;
+      stand(model('needle', 'you'), u.x + 0.02, u.y + 0.05, k * k * 40, u.key[0] === 'm' ? 100 + +u.key.slice(1) : 200 + +u.key.slice(1), { rz: 0.16, rx: -0.12, s: 1 - k * 0.4 });
+      this.settleSoon();
+    }
     // A winning catch: what was caught pops up and tumbles away. A possessed
     // piece lets its rabbit go: the rabbit is what tumbles out.
     for (const tb of tw?.tumbles || []) {

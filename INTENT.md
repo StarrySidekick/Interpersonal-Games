@@ -12,6 +12,19 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
+## 2026-10-13, later: flying shields, needles, two rooks, piece trials
+
+From Timothy: guard shields fly from the guards in an arc; a sewing needle
+skewers every piece pinned to its King; the descent starts tall rook,
+bishop, King, knight, short rook, theirs reversed; a short rook (slides
+sideways, steps up and down) and a tall rook (the other way round); and a
+mode for testing pieces: choose an army and a board, find the balanced
+mirrored layouts, judge whether any is fun, weave in a new piece, play it.
+All built: `docs/grove-modes.md` ("Flying shields, needles, a new line, and
+the piece trials") and `docs/grove-pieces.md`. The trials' first finding:
+on an open five by five no layout of the descent's army works; with its
+statue row most do, and about a quarter of games end with only the Kings.
+
 ## 2026-10-13: one rabbit leads them
 
 From Timothy: the descent with Microchess's pieces (no pawn) on five by

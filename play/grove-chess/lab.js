@@ -47,6 +47,8 @@ export const SCHEMA = [
       help: 'A piece of yours that another of yours would avenge (if it were taken there, yours could take back on that square) wears a shield, which falls into place with a clink when it becomes guarded: silver for one guard, gold for two or more.' },
     { key: 'showBeacons', label: 'Beacons on what can be taken', type: 'bool', def: true,
       help: 'A beam of light rises from what could be taken next: purple from a piece of yours they could take on their next move if it stays (on your King, that is check), green from a piece of theirs you can take now (Timothy, 2026-10-11).' },
+    { key: 'showPins', label: 'Needles through pinned pieces', type: 'bool', def: true,
+      help: 'A piece pinned to its King (it stands between its King and a piece of the other side, so moving it would leave the King to be taken) has a sewing needle driven down through it, which drops in from above when the pin starts (Timothy, 2026-10-13). Yours and theirs, wherever losing the King loses. The rules still let it move: moving it loses.' },
     { key: 'autoPool', label: 'Your rabbits', type: 'choice', def: 'caught', options: opts(['caught', 'The ones you have caught'], ['all', 'Every named kind']),
       help: 'For autochess. Caught: one rabbit for every time you caught its kind, in the descent or the daily.' }
   ] },
@@ -181,7 +183,7 @@ export const SCHEMA = [
 ];
 
 const FIELDS = SCHEMA.flatMap((g) => g.fields);
-export const SETTINGS_VERSION = 15;
+export const SETTINGS_VERSION = 16;
 export const defaults = () => ({ ...Object.fromEntries(FIELDS.map((f) => [f.key, Array.isArray(f.def) ? [...f.def] : f.def])), v: SETTINGS_VERSION });
 
 /** How each earlier version's defaults differ from today's. Settings saved
@@ -199,7 +201,9 @@ export const defaults = () => ({ ...Object.fromEntries(FIELDS.map((f) => [f.key,
 // Version 14 (2026-10-11): your own reach rings off, shields on guarded
 // pieces.
 // Version 15 (2026-10-11): beacons on what can be taken.
-const V15 = { showBeacons: false };
+// Version 16 (2026-10-13): needles through pinned pieces.
+const V16 = { showPins: false };
+const V15 = { showBeacons: false, ...V16 };
 const V14 = { showMyReach: true, showGuards: false, ...V15 };
 const V13 = { cloudOwn: false, ...V14 };
 const V12 = { fullRow: false, cloud: false, showReach: false, ...V13 };
@@ -210,6 +214,7 @@ const V9 = { mineRows: 2, foeRows: 3, ...V10 };
 // (goal 'king', royal), and two left brings on the showdown.
 const V8 = { goal: 'descent', royal: false, showdown: false, dealKing: false, ...V9 };
 const BEFORE = {
+  15: { ...V16 },
   14: { ...V15 },
   13: { ...V14 },
   12: { ...V13 },
@@ -296,6 +301,9 @@ export function clean(raw) {
     if (Array.isArray(raw.foeMods)) s.foeMods = raw.foeMods.filter((m, i) => keep[i]).map((m) => ({
       ...(m?.lives > 1 ? { lives: Math.min(9, m.lives | 0) } : {}), ...(SUITS[m?.suit] ? { suit: m.suit } : {}) }));
   }
+  // A starting position given outright (the piece trials, 2026-10-13): an
+  // extended FEN (variants.js readFen). Not on the page.
+  if (typeof raw?.position === 'string' && /^[0-9a-zA-Z/[\]-]{3,400}$/.test(raw.position)) s.position = raw.position;
   // Run rules carried by a level (the descent's jokers).
   if (raw?.movesPerTurn === 2) s.movesPerTurn = 2;
   if (raw?.lazyFoes) s.lazyFoes = true;
@@ -419,6 +427,7 @@ function randomPattern(kind, rand) {
 export function makeLevel(settings, seed) {
   const S = clean(settings);
   if (S.variant !== 'none' && VARIANTS[S.variant]) return variantLevel(S, seed);
+  if (S.position) { const L = positionLevel(S, seed); if (L) return L; }
   const rand = rng(`lab:${seed}`);
   const W = S.w, H = S.h;
   const need = S.mine + (S.mirror ? S.mine : S.foes) + S.rabbits + 2 + S.statues;
@@ -682,6 +691,35 @@ function variantLevel(S, seed) {
   };
 }
 
+/** A position given outright (the piece trials): both sides as written,
+    their side thinking, take their King, keep yours. A row of statues, if
+    asked for, fills the middle row's empty squares and opens one a turn in
+    an order drawn from the seed. Null if the position does not read. */
+function positionLevel(S, seed) {
+  let read = null;
+  try { read = readFen(S.position); } catch { return null; }
+  const { W, H, pieces, foes } = read;
+  if (!pieces.length || !foes.length || [...pieces, ...foes].some((p) => !PIECES[p.type])) return null;
+  for (const f of foes) { f.brain = 'ai'; if (f.type === 'king') f.target = true; }
+  const day = { W, H, holes: new Set(), stumps: new Set(), bramble: [], brambleAt: new Map(), every: 2 };
+  if (S.statueRow && H % 2 === 1) {
+    const rand = rng(`lab:${seed}`), y = (H - 1) / 2, kinds = ['pawn', 'rook', 'knight', 'bishop', 'king', 'queen'];
+    const row = Array.from({ length: W }, (_, x) => y * W + x).filter((sq) => ![...pieces, ...foes].some((p) => p.y * W + p.x === sq));
+    day.statueKinds = new Map();
+    for (const sq of row) { day.stumps.add(sq); day.statueKinds.set(sq, kinds[Math.floor(rand() * kinds.length)]); }
+    day.statueOrder = shuffled(row, rand);
+  }
+  return Object.assign(day, {
+    seed, settings: S, shrinkKey: seed, pieces, foes, goalKind: 'king', hole: null, position: S.position,
+    rules: { goal: 'target', maxMoves: S.maxMoves, wait: false, foesCapture: true, rabbitsEat: false, royal: true, oneMove: true,
+      first: 'you', ballStops: false, ballMove: 'putt', crumble: false, shrink: null, shrinkEvery: 2,
+      ...(pieces.some((p) => p.type === 'pawn') || foes.some((f) => f.type === 'pawn') ? { promote: true } : {}),
+      ...(day.statueOrder ? { statuesOpen: true } : {}) },
+    ai: { skill: +S.skill, style: S.style },
+    tracks: false
+  });
+}
+
 export const GOAL_TEXT = {
   descent: 'catching every possessed piece and loose rabbit, then sinking the ball', all: 'capturing them all', king: 'taking their King', rabbit: 'catching the rabbit',
   any: 'catching any one', target: 'catching the marked one', mix: 'a goal that changes with each layout',
@@ -862,7 +900,7 @@ export function bandOf(S) {
 
 export function searchLayouts({ settings, seed, parMin, parMax, maxTries = 400, maxMs = 15000, fixed = false, pool }, post) {
   // A chess variant has one starting position and nothing to search for.
-  if (clean(settings).variant !== 'none') return post({ type: 'done', seed, par: null, tried: 1, thrown: {}, measure: null });
+  if (clean(settings).variant !== 'none' || clean(settings).position) return post({ type: 'done', seed, par: null, tried: 1, thrown: {}, measure: null });
   if (clean(settings).mode === 'auto') return searchAutoLayouts({ settings, seed, parMin, maxMs, fixed, pool }, post);
   const t0 = Date.now(), rules = clean(settings).balance;
   let best = null, tried = 0;

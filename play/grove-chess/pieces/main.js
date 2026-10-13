@@ -14,6 +14,7 @@ import { betzaMoves, patent, mobility } from '../betza.js';
 import { loadCatalog, saveCatalog, registerInvented, betzaError, estimateStrength, newId } from '../invented.js';
 import { encodeLevel, defaults, clean } from '../lab.js';
 import { fillMenu } from '../menu.js';
+import { trialPiece } from '../trials.js';
 
 /** Power in context: on a 6 by 6 board, as levels are (power.js). Measured once. */
 const PW = () => powers(6, 6);
@@ -91,6 +92,7 @@ function open(k) {
   $('#d-side').textContent = 'Show theirs';
   $('#d-remove').hidden = !P.invented;
   $('#d-chaos').hidden = k === 'rabbit' || k === 'ball';
+  $('#d-trials').hidden = !trialPiece(k) || k === 'king';
   $('#detail').showModal();
   if (!spinning) { spinning = true; requestAnimationFrame(spin); }
 }
@@ -126,6 +128,9 @@ $('#d-chaos').onclick = () => {
   const S = clean({ ...defaults(), minePool: [current, 'knight', 'rook'], foePool: [current, 'king', 'bishop'], invented: cat.invented });
   location.href = `../lab/#${encodeLevel(S, 1 + Math.floor(Math.random() * 1e9))}`; // the workshop
 };
+
+// The piece trials, ready to weave this piece into an army (2026-10-13).
+$('#d-trials').onclick = () => { location.href = `../trials/#weave=${encodeURIComponent(current)}`; };
 
 // --- Inventing. ------------------------------------------------------------
 

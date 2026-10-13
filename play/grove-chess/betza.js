@@ -191,7 +191,8 @@ export function patent(code) {
     if (t.mods.includes('g') || t.mods.includes('p')) notes.add('needs something to hop over');
     if (t.mods.includes('n')) notes.add('can be blocked on the way');
     if (how === 'leaps' && !t.mods.includes('n')) notes.add(terms.length > 1 ? 'jumps over anything on its leaps' : 'jumps over anything');
-    if (t.dirs) notes.add('has a forward');
+    // Sideways only, or up and down alike, has no forward: it plays the same for either side.
+    if (/[fb]/.test(t.dirs)) notes.add('has a forward');
   }
   const cap = capture.size ? [...capture].join(', or ') : 'never';
   return {

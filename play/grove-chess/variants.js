@@ -83,18 +83,29 @@ export const VARIANT_ORDER = Object.keys(VARIANTS);
 
 const LETTER = { k: 'king', q: 'queen', r: 'rook', b: 'bishop', n: 'knight', p: 'pawn' };
 
-/** A FEN position as { W, H, pieces, foes }: yours are the capitals. */
+/** A FEN position as { W, H, pieces, foes }: yours are the capitals.
+    Extended (2026-10-13, for the piece trials): any other piece is its id
+    in square brackets, its first letter a capital for yours, so
+    [Tallrook] is your tall rook and [tallrook] theirs. A run of empty
+    squares may be more than one digit, for boards wider than nine. */
 export function readFen(fen) {
   const rows = fen.split('/'), H = rows.length, pieces = [], foes = [];
   let W = 0;
   rows.forEach((row, r) => {
     const y = H - 1 - r;
     let x = 0;
-    for (const ch of row) {
-      if (/\d/.test(ch)) { x += +ch; continue; }
-      const type = LETTER[ch.toLowerCase()];
+    for (let i = 0; i < row.length; i++) {
+      const ch = row[i];
+      if (/\d/.test(ch)) { let n = ch; while (/\d/.test(row[i + 1] || '')) n += row[++i]; x += +n; continue; }
+      let type = LETTER[ch.toLowerCase()], mine = ch === ch.toUpperCase();
+      if (ch === '[') {
+        const j = row.indexOf(']', i);
+        if (j < 0) throw new Error(`FEN: an unclosed [ in ${fen}`);
+        const id = row.slice(i + 1, j);
+        type = id.toLowerCase(); mine = id[0] !== id[0].toLowerCase(); i = j;
+      }
       if (!type) throw new Error(`FEN: cannot read "${ch}" in ${fen}`);
-      (ch === ch.toUpperCase() ? pieces : foes).push({ type, x, y });
+      (mine ? pieces : foes).push({ type, x, y });
       x++;
     }
     W = Math.max(W, x);
