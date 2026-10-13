@@ -125,14 +125,16 @@ export const MODES = {
     settings: { run: 'single', roll: 'daily', difficulty: 'normal', aim: 4, minEngage: 50, goal: 'all', royal: false, showdown: false, maxMoves: 20 }
   },
   descent: {
-    // 2026-10-12 (Timothy): five on five on a five by five board, a Rabbit
-    // with theirs, a middle row of statues that opens one a turn, and one
-    // upgrade a board for each side; seven by seven from depth 6.
-    name: 'The descent', blurb: 'Five pieces each on a five by five board, your King among them, and a Rabbit with theirs. The middle row is statues, and one sinks away every turn. Take their King to fall to the next board, where each side gets an upgrade: you choose one of two. From depth 6 the board is seven by seven. A piece taken is gone for good, and if they take your King the descent is over.',
+    // 2026-10-12 and 13 (Timothy): Microchess's pieces on a five by five
+    // board (rook, bishop, knight, King; no pawn), the same facing you, a
+    // middle row of statues that opens one a turn, one Rabbit leading their
+    // side, one upgrade a board for each side, nothing lost for good, no
+    // layout step, no clouds, no balancing search; seven by seven from depth 6.
+    name: 'The descent', blurb: 'Rook, bishop, knight and King each, like Microchess, on a five by five board. The middle row is statues, and one sinks away every turn. One rabbit leads their side: its kind is how they play. Take their King to fall to the next board, where each side gets an upgrade: you choose one of two. From depth 6 the board is seven by seven. If they take your King the descent is over.',
     settings: {
-      run: 'descent', roll: 'fixed', startPieces: 5, maxPieces: 7, rewards: true, jokers: false, ramp: 'steady', outOfMoves: 'fall', upgrades: 'each', growAt: 6, carry: false,
-      goal: 'king', royal: true, showdown: true, w: 5, h: 5, foes: 5, foePool: ['king', 'pawn', 'knight', 'bishop'], darkBrain: 'possessed', rabbitMind: 'mind', iq: 3, kinds: 1,
-      foesCapture: true, statues: 0, statueRow: true, maxMoves: 20, lineup: true, parMin: 3, parMax: 10, difficulty: 'any'
+      run: 'descent', roll: 'fixed', startPieces: 4, maxPieces: 7, startPool: ['rook', 'bishop', 'knight', 'king'], rewards: true, jokers: false, ramp: 'steady', outOfMoves: 'fall', upgrades: 'each', growAt: 6, carry: false,
+      goal: 'king', royal: true, showdown: true, w: 5, h: 5, foes: 4, foePool: ['knight', 'bishop', 'rook'], darkBrain: 'rabbit', rabbitMind: 'mind', iq: 3, kinds: 1,
+      foesCapture: true, statues: 0, statueRow: true, maxMoves: 20, lineup: true, inOrder: true, arrange: false, cloud: false, parMin: 3, parMax: 10, difficulty: 'any'
     }
   },
   kungfu: {
@@ -279,7 +281,15 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
   // Rolled at random: everything but the difficulty and the pieces allowed.
   if (M.roll === 'chaos' || M.roll === 'daily') {
     const fairy = FAIRY.filter((k) => !veto.includes(k));
-    S = { ...crazy(rand, [...fairy, 'rabbit']), difficulty: M.difficulty, aim: M.aim, minEngage: M.minEngage, balance: 'on', solve: true };
+    S = { ...crazy(rand, M.roll === 'daily' ? fairy : [...fairy, 'rabbit']), difficulty: M.difficulty, aim: M.aim, minEngage: M.minEngage, balance: 'on', solve: true };
+    // The daily from 2026-10-14 (Timothy, 2026-10-13: "the rabbit inhabiting
+    // each piece is no longer a thing in decent or daily and its just that
+    // one rabbit"): one Rabbit on their King leads them; no rabbits inside
+    // their pieces, none loose.
+    // Its intelligence 3 to 5, so their side looks one move ahead: the solver
+    // and the measures play it through thousands of times, and two moves
+    // ahead made that too slow to deal a board (measured 2026-10-13).
+    if (M.roll === 'daily') Object.assign(S, { darkBrain: 'rabbit', rabbits: 0, iq: 3 + (S.iq % 3), ...(S.goal === 'mix' ? { goal: 'all' } : {}) });
     S.mode = 'hand'; // autochess is its own mode
     // Pieces can always take pieces (Timothy, 2026-10-09): never rolled off.
     S.foesCapture = true;

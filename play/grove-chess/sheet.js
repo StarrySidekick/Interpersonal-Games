@@ -5,7 +5,7 @@
 import { el } from '../../engine/ui.js';
 import { Mesh, makeTarget, render } from '../../engine/lowpoly.js';
 import { model } from './models.js';
-import { PIECES, descOf, rabbitDesc, RABBIT_AI_DESC, BRAMBLE_DESC, STUMP_DESC, STATUE_ROW_DESC, HOLE_DESC, CRUMBLE_DESC, SHRINK_DESC, LOCKED_DESC, statueKind } from './rules.js';
+import { PIECES, descOf, rabbitDesc, RABBIT_AI_DESC, BRAMBLE_DESC, STUMP_DESC, STATUE_ROW_DESC, HOLE_DESC, CRUMBLE_DESC, SHRINK_DESC, LOCKED_DESC, statueKind, leaderDesc } from './rules.js';
 import { diagram } from './board.js';
 import { patent } from './betza.js';
 
@@ -60,7 +60,9 @@ export function piecesSheet(dialog, list, day, notes = {}) {
       const key = f.type + f.brain;
       if (seen.has(key)) continue;
       seen.add(key);
-      if (f.type === 'rabbit') {
+      if (f.brain === 'leader') {
+        row('rabbit', 'foe', 'The rabbit that leads them', 'Leads them', [leaderDesc(f, day)], false);
+      } else if (f.type === 'rabbit') {
         row('rabbit', 'foe', 'The rabbit', f.brain === 'ai' ? 'Thinks' : 'Follows a pattern',
           [f.brain === 'ai' ? RABBIT_AI_DESC : rabbitDesc(day.rules), f.brain === 'ai' ? null : notes.rabbit], f.brain === 'ai');
       } else {

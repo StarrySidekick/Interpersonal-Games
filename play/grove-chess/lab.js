@@ -16,7 +16,7 @@
 // of its own version, so it still builds exactly the level it was.
 
 import { rng, shuffled } from '../../engine/seed.js';
-import { PIECES, onBoard, initialState, autoApply, isOver, TRAITS } from './rules.js';
+import { PIECES, onBoard, initialState, autoApply, isOver, TRAITS, leaderMind } from './rules.js';
 import { PATTERNS } from './day.js';
 import { EXTRA_PATTERNS } from './rabbits.js';
 
@@ -103,6 +103,8 @@ export const SCHEMA = [
     { key: 'mine', label: 'Pieces', type: 'int', min: 1, max: 8, def: 4 },
     { key: 'minePool', label: 'Dealt from', type: 'pieces', def: ['queen', 'knight', 'bishop', 'rook', 'grasshopper'] },
     { key: 'mineDupes', label: 'Repeats allowed', type: 'bool', def: false },
+    { key: 'inOrder', label: 'Stand in the order given', type: 'bool', def: false,
+      help: 'For a run, whose sides are given rather than dealt (the descent): both lines stand in the order they were given, file by file, facing each other like chess, in the middle of the row. Off: where each piece stands is part of the dice roll.' },
     { key: 'lineup', label: 'Line up like chess', type: 'bool', def: true,
       help: 'Your pieces start in a line along the bottom edge, theirs along the top. Off: scattered within the rows below.' },
     { key: 'mineRows', label: 'Start within the bottom', type: 'int', min: 1, max: 5, def: 1, unit: 'rows', help: 'When not lined up.' },
@@ -133,8 +135,8 @@ export const SCHEMA = [
   ] },
   { group: 'Their pieces', fields: [
     { key: 'foes', label: 'Pieces', type: 'int', min: 0, max: 8, def: 3, help: 'Dark versions of chess and fairy pieces.' },
-    { key: 'darkBrain', label: 'Moved by', type: 'choice', def: 'possessed', options: opts(['possessed', 'A rabbit inside'], ['think', 'Thinking']),
-      help: 'A rabbit inside: each piece is possessed by a rabbit, whose pattern decides which way it goes each turn (left, up, a pause); the piece\u2019s own moves decide how.' },
+    { key: 'darkBrain', label: 'Moved by', type: 'choice', def: 'possessed', options: opts(['possessed', 'A rabbit inside'], ['think', 'Thinking'], ['rabbit', 'One rabbit leads them']),
+      help: 'A rabbit inside: each piece is possessed by a rabbit, whose pattern decides which way it goes each turn (left, up, a pause); the piece\u2019s own moves decide how. One rabbit leads them (2026-10-13): their pieces think, and a single Rabbit, starting on their King, sets how: its trait is their mood (aggressive and hunter hunt, shy flees) and its intelligence how far ahead they look. It hops every turn by its own mind.' },
     { key: 'kinds', label: 'Kinds of rabbit inside', type: 'int', min: 1, max: 4, def: 1,
       help: 'One kind: every piece moves to the same pattern (or has the same trait), so you can see it. More: each piece may have its own.' },
     { key: 'foePool', label: 'Dealt from', type: 'pieces', rabbit: true, def: ['king', 'knight', 'bishop', 'rook'] },
@@ -479,8 +481,15 @@ export function makeLevel(settings, seed) {
   // A royal King has to be there to protect. (A run's hand brings its own:
   // the descent deals one and keeps it.)
   if (S.royal && S.dealKing && !S.hand && myTypes.length && !myTypes.includes('king') && S.goal !== 'hole') myTypes[0] = 'king';
-  const mySpots = S.lineup ? lineUp(rows, myTypes.length) : null;
-  const pieces = myTypes.map((type, i) => ({ type, ...(S.lineup ? mySpots[i] : place(bottom)), ...(S.handMods?.[i] || {}) }));
+  /** In the order given (inOrder): n squares along row y, from the file
+      that centres them, left to right. */
+  const inRow = (y, n) => {
+    const row = cells.filter((c) => c[1] === y).sort((p, q) => p[0] - q[0]), at = Math.max(0, Math.floor((row.length - n) / 2));
+    return Array.from({ length: n }, (_, i) => { const c = row[at + i]; if (!c || !free(c)) return place([y]); taken.add(c[1] * W + c[0]); return { x: c[0], y: c[1] }; });
+  };
+  const ordered = S.inOrder && S.hand && S.foeHand;
+  const mySpots = ordered ? inRow(rows[0], myTypes.length) : S.lineup ? lineUp(rows, myTypes.length) : null;
+  const pieces = myTypes.map((type, i) => ({ type, ...(mySpots ? mySpots[i] : place(bottom)), ...(S.handMods?.[i] || {}) }));
 
   let foes;
   if (S.mirror) {
@@ -494,7 +503,7 @@ export function makeLevel(settings, seed) {
     // on the row in front of them (2026-10-12).
     const far = rows.slice().reverse(), mods = S.foeMods || [];
     const line = S.foeHand.map((type, i) => ({ type, ...(mods[i] || {}) })).filter((f) => f.type !== 'bunny');
-    const spots = lineUp(far, line.length);
+    const spots = ordered ? inRow(far[0], line.length) : lineUp(far, line.length);
     foes = line.map((f, i) => ({ ...f, ...spots[i] }));
     for (const t of S.foeHand) if (t === 'bunny') foes.push({ type: 'bunny', ...place(far.slice(1, 2)) });
   } else if (S.lineup) {
@@ -564,6 +573,19 @@ export function makeLevel(settings, seed) {
       f.mx = rand() < 0.5 ? 1 : -1; f.my = rand() < 0.5 ? 1 : -1; f.hops = S.hops;
     }
   });
+  // One rabbit leads them (darkBrain 'rabbit', 2026-10-13): a Rabbit on
+  // their King's head (one given in their lineup, or a new one), with a
+  // trait and an intelligence. Their pieces think as it says (leaderMind).
+  let lead = null;
+  if (S.darkBrain === 'rabbit' && foes.length) {
+    const king = foes.find((f) => f.type === 'king' && f.x !== undefined) || foes.find((f) => f.type !== 'bunny' && f.x !== undefined);
+    let r = foes.find((f) => f.type === 'bunny');
+    if (!r) { r = { type: 'bunny' }; foes.push(r); }
+    const trait = S.traits[Math.floor(rand() * S.traits.length)] || 'aggressive';
+    if (king) Object.assign(r, { x: king.x, y: king.y, rides: foes.indexOf(king) });
+    Object.assign(r, { brain: 'leader', mind: { iq: S.iq, trait }, patternName: TRAITS[trait].name, mx: 1, my: 1, i: 0 });
+    lead = leaderMind(trait, S.iq);
+  }
 
   // Statues (2026-10-07): in the middle of the board, between the two
   // sides' rows, never where anything starts. Placed last, so a level
@@ -632,7 +654,7 @@ export function makeLevel(settings, seed) {
       ...(day.statueOrder ? { statuesOpen: true } : {}),
       crumble: S.ground === 'crumble', shrink: S.ground === 'shrink' ? 'random' : S.ground === 'spiral' ? 'spiral' : null,
       shrinkEvery: S.shrinkEvery },
-    ai: { skill: +S.skill, style: S.style },
+    ai: lead || { skill: +S.skill, style: S.style },
     tracks: S.tracks
   });
 }
@@ -683,7 +705,7 @@ export function summary(S) {
   const ground = { solid: '', crumble: ', crumbling', shrink: `, shrinking every ${S.shrinkEvery}`, spiral: `, shrinking in a spiral every ${S.shrinkEvery}` }[S.ground];
   const rabbitsHere = S.rabbits > 0 || (S.foePool.includes('rabbit') && !S.mirror);
   const minds = S.rabbitMind === 'mind' ? ` with minds (intelligence ${S.iq}, ${S.traits.map((t) => TRAITS[t].name.toLowerCase()).join('/')})` : '';
-  const dark = S.darkBrain === 'possessed' ? `possessed by ${S.kinds} kind${S.kinds > 1 ? 's' : ''} of rabbit${minds}` : 'thinking';
+  const dark = S.darkBrain === 'possessed' ? `possessed by ${S.kinds} kind${S.kinds > 1 ? 's' : ''} of rabbit${minds}` : S.darkBrain === 'rabbit' ? `led by one rabbit (intelligence ${S.iq})` : 'thinking';
   const auto = S.mode === 'auto' ? `Autochess, with ${S.autoPool === 'all' ? 'every named kind of rabbit' : 'the rabbits you have caught'}. ` : '';
   return `${auto}${S.w} × ${S.h} ${shape}${ground}${statues}${S.lineup ? ', lined up' : ''}. You: ${S.hand ? S.hand.map(name).join(', ') : `${S.mine} from ${pool(S.minePool)}`}. ` +
     `Them: ${S.rabbits ? `${S.rabbits} rabbit${S.rabbits > 1 ? 's' : ''}, ` : ''}` +

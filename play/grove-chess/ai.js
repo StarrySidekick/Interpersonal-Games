@@ -40,6 +40,10 @@ function after(s, m) {
   const c = clone(s);
   foeMove(c, m);
   if (!lost(c)) patternHops(c);
+  // Both sides have moved: the first-turn cloud lifts, as it does in play
+  // (rules.js respond). Before 2026-10-13 it stayed up here, so on the
+  // first turn the side saw your pieces as blocked and left its King open.
+  if (c.cloudy) delete c.cloudy;
   c.t++;
   return c;
 }
@@ -69,6 +73,10 @@ function evaluate(s, budget) {
     alive++;
     v += PIECES[f.type].value * mood.keep * weight(f);
     if (threatened.has(f.y * W + f.x)) v -= PIECES[f.type].value * mood.danger * weight(f);
+    // A side led by a rabbit (2026-10-13) guards the thing it must keep: its
+    // King, when taking it is how you win. Only for that side, so the boards
+    // of the first dailies, which thought too, play as they always did.
+    if (s.day.ai.guard && f.target && threatened.has(f.y * W + f.x)) v -= WIN / 4;
     let near = 99;
     for (const p of s.pieces) if (!p.taken) near = Math.min(near, Math.max(Math.abs(p.x - f.x), Math.abs(p.y - f.y)));
     dist += near;

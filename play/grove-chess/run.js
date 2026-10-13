@@ -376,10 +376,12 @@ export function combineText(h, type, made = [], whose = 'their') {
 // kind makes a veteran with a heart more, another kind fuses), or, while the
 // row has a gap from a piece you lost, takes the gap.
 
-/** Suits their side can carry. The others are rules for a turn that you
-    play (cleave, a second move, a swap, treasure), and their pieces are
-    moved by rabbits, not turns of choices. */
-export const FOE_SUITS = ['hearts', 'spirits'];
+/** Suits their side can carry: all of them, from 2026-10-13 (Timothy:
+    "enemy pieces should be able to receive all the different suits"). Their
+    Swords and Stars take their extra move greedily (rules.js foeMove), a
+    Spirals piece's swap is one of the moves their side thinks about, and
+    Diamonds treasure is an upgrade more for them at the next board. */
+export const FOE_SUITS = Object.keys(SUITS);
 
 /** Pieces a board's piece card can be: findable, classic only while
     `fairy` is false, in `pool` if given, and never a King (a second King

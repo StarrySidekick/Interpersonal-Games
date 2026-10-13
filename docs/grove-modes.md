@@ -471,6 +471,69 @@ now with the roster. Gaps: a fused piece of theirs looks like the piece it
 started as (yours do too); a Hearts plinth on their side is a red close to
 some rabbit traits' glow.
 
+## The descent, second pass: one rabbit leads them (2026-10-13)
+
+Timothy: "no setting up piece placement by default in decent; no clouds
+anymore by default in decent; no losing pieces permanently in decent; the
+default pieces setup for decent should be like micro chess but on a 5x5
+board and no pawn; because of this the calculation for balancing and stuff
+for the level shouldn't need to happen every level ... enemy pieces should
+be able to receive all the different suits ... the rabbit should move every
+turn and be the color of its type of rabbit, and not a piece base on the
+model. it should start on enemy king ... the rabbit inhabiting each piece is
+no longer a thing in decent or daily and its just that one rabbit and their
+type/personality that defines the enemy team in difficulty and style."
+
+What it became:
+
+- **Microchess's pieces, no pawn.** Rook, bishop, knight, King, in that
+  order, on the first four files of a five by five board; theirs the same,
+  facing, so the Kings share a file (level setting `inOrder`: both lines
+  stand in the order given, centred). The fifth file is empty: a piece card
+  can fill it. Seven by seven from depth 6 adds two each, as before.
+- **No layout step, no clouds, nothing lost for good.** Every board starts
+  with your whole lineup; only losing your King ends the descent.
+- **No balancing search.** With both lineups fixed, the board is laid out
+  straight away from its seed: no solver, no measures, no par
+  (`findOnce` in `play/main.js`). What changes board to board is the
+  upgrades, the statue order and the rabbit.
+- **One rabbit leads them** (level setting `darkBrain: 'rabbit'`, "One
+  rabbit leads them"). Their pieces think (`ai.js`, a minimax search). A
+  single Rabbit starts on their King's head and sets how: its trait is
+  their mood (Aggressive and Hunter hunt, Shy flees, the rest weigh it up)
+  and its intelligence how far ahead they look (2 or less: at random; 3 to
+  5: one move; 6 to 8: two; 9 and 10: three; Messy one less). `leaderMind`
+  in `rules.js`. The trait is drawn each board; the intelligence climbs
+  with depth. The rabbit hops every turn by its own mind, after their piece
+  moves, and is drawn as a rabbit in its trait's fur, with no plinth. Tap
+  it, or open the pieces sheet, to read what kind it is.
+- **Every suit on their side.** Swords cleaves and Stars moves twice, each
+  extra move picked greedily (`foeMove`, `bestFollow`: the best capture,
+  else out of your reach and toward your King); the lookahead plays them
+  the same way. Spirals' swaps are among the moves they think about.
+  Diamonds treasure gives them an upgrade more at the next board (two at
+  most). Hearts and Spirits as before.
+- **The AI, two fixes.** A side led by a rabbit now guards its King when
+  taking it is how you win (`day.ai.guard`; only for that side, so the
+  first dailies, which thought too, play as before). And its lookahead
+  lifts the first-turn cloud as the real turn does: before, on turn one it
+  saw your pieces as blocked and left its King open.
+
+**The daily.** Rolled boards (the runner's daily practice, and
+`make-daily.mjs`) are now led by one rabbit too: no rabbits inside pieces,
+none loose, and none in their pool. Its intelligence is held to 3 to 5,
+one move ahead: the solver and the measures play each candidate thousands
+of times, and two moves ahead made dealing too slow (measured: one layout
+tried in six seconds). Boards to 2026-10-13 are untouched;
+see the dated note below for the boards after it.
+
+Paths moved: mastery (a fixed, readable opening, the same every descent, so
+skill carries from run to run; the rabbit's kind is a thing to read and
+play against: a Shy one's side plays safe, a Hunter's comes for you) and
+power (their side climbs by the same upgrades as yours, all six suits).
+Notated: the rabbit's fur (visual), its description on a tap and in the
+sheet (written), "Their piece of Swords takes again" (written).
+
 ## The modes
 
 **The daily.** One board a day, the same for everyone. Its own page and

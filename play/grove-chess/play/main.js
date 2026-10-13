@@ -10,7 +10,7 @@ import { rng } from '../../../engine/seed.js';
 import * as sfx from '../sounds.js';
 import {
   PIECES, descOf, CRUMBLE_DESC, SHRINK_DESC, STUMP_DESC, STATUE_ROW_DESC, statueAt, HOLE_DESC, cloudDesc, movesFor, playerMove, respond, isOver, outcome, initialState,
-  allMoves, holeOpen, crumbled, shrunk, apply, showdown, firstCaptures, onBoard
+  allMoves, holeOpen, crumbled, shrunk, apply, showdown, firstCaptures, onBoard, leaderDesc
 } from '../rules.js';
 import { solveLevel } from '../solve.js';
 import { scene, sceneFrame, sprite } from '../board.js';
@@ -110,11 +110,14 @@ function newSession() {
   session = { seed, n: 1, found: new Map(), seen: new Set(), strokes: [], lives: M.lives, wins: 0, caught: [], claimed: [], acorns: 0, deepestBefore: deepest() };
   // One upgrade a board (2026-10-12): they carry a lineup too, their King
   // and the rest dealt from their pool, as wide as the board.
+  // From 2026-10-13 the lineup is not dealt: it is "You start with", in its
+  // order (like Microchess: rook, bishop, knight, King), and theirs is the
+  // same, facing it.
   let foes = null;
   if (M.run === 'descent' && M.upgrades === 'each') {
-    const theirs = M.foePool.filter((k) => k !== 'king' && !catalog.vetoed.includes(k) && (M.fairyFrom <= 1 || PIECES[k]?.kind !== 'fairy'));
-    const pool2 = theirs.length ? theirs : ['pawn'];
-    foes = ['king', ...Array.from({ length: Math.max(0, M.w - 1) }, () => pool2[Math.floor(rand() * pool2.length)])];
+    const given = M.startPool.filter((k) => !catalog.vetoed.includes(k) || k === 'king');
+    start.splice(0, start.length, ...(given.includes('king') ? given : [...given, 'king']));
+    foes = start.slice();
   }
   if (M.run === 'descent' || M.run === 'rounds') session.run = newRun(start, M.maxPieces, foes);
   // The set you were dealt: laying out your pieces opens once it changes.
@@ -153,12 +156,14 @@ function findOnce(n, hand, attempt) {
   const settings = levelSettings(M, { depth: n, hole: n, round: n, hand, veto: catalog.vetoed, invented: catalog.invented },
     rng(`${modeId}:${session.seed}:${n}${attempt ? ':' + attempt : ''}`));
   if (session.run?.jokers.includes('overtime') && settings.maxMoves) settings.maxMoves += 5;
+  // One upgrade a board (2026-10-13, Timothy: "the calculation for balancing
+  // and stuff for the level shouldn't need to happen every level, as we will
+  // just deal with the random suits upgrades"): the board is the two lineups
+  // as they stand, so it is laid out straight away, with no search and no par.
+  if (M.upgrades === 'each') return Promise.resolve({ settings, seed: session.seed + n * 1000, par: null, measure: null, autoBest: null, setups: null, passed: true });
   const msg = { settings, seed: session.seed + n * 1000, parMin: settings.parMin, parMax: settings.parMax, maxMs: 15000,
     pool: rabbitPool(settings, myRabbits(), Math.max(1, settings.mine)) };
   if (M.roll !== 'fixed') msg.maxMs = 8000;
-  // Seven by seven, seven a side: measuring a layout takes seconds, so the
-  // search settles sooner for the best it has seen (2026-10-12).
-  if (M.upgrades === 'each' && settings.w * settings.h >= 49) msg.maxMs = 6000;
   return new Promise((resolve) => {
     const done = (data) => {
       if (data.type === 'progress') return;
@@ -236,7 +241,8 @@ function goalCard() {
   if (session.seen.has('goal')) return null;
   session.seen.add('goal');
   let text = {
-    descent: M.goal === 'king' ? 'Take their King to fall to the next level, where you find something. Keep yours: if they take your King, the descent is over. Any other piece of yours that is taken is gone for good.'
+    descent: M.upgrades === 'each' ? 'Take their King to fall to the next board, where each side gets an upgrade. Keep yours: if they take your King, the descent is over. Anything else of yours they take comes back on the next board. One rabbit leads their side, riding on their King: tap it to see what kind it is.'
+      : M.goal === 'king' ? 'Take their King to fall to the next level, where you find something. Keep yours: if they take your King, the descent is over. Any other piece of yours that is taken is gone for good.'
       : 'Take every piece of theirs to fall to the next level, where you find something. A piece of yours that is taken is gone for good; when they are all gone, so is the descent.',
     course: 'Sink the ball in the hole in as few strokes as you can. Each hole has its own ball; the pieces sheet says how it rolls.',
     rounds: 'Put rabbits in your pieces and let them fight. Win the round to grow your side; a lost round costs a life.',
@@ -454,7 +460,9 @@ function noteCatches(a, b) {
 
 function whatHappened(a, b) {
   const bits = [];
-  b.foes.forEach((f, k) => { if (f.taken && !a.foes[k].taken) bits.push(f.mind || f.brain === 'possessed' ? `You took their ${nameOf(f)}, and the rabbit inside is yours.` : `You took their ${nameOf(f)}.`); });
+  b.foes.forEach((f, k) => { if (f.taken && !a.foes[k].taken) bits.push(f.brain === 'leader' ? `You took the rabbit that leads them.` : f.mind || f.brain === 'possessed' ? `You took their ${nameOf(f)}, and the rabbit inside is yours.` : `You took their ${nameOf(f)}.`); });
+  if (b.foeBonus === 'swords') bits.push('Their piece of Swords takes again.');
+  if (b.foeBonus === 'stars') bits.push('Their piece of Stars moves twice.');
   b.foes.forEach((f) => {
     if (f.ate >= 0 && b.pieces[f.ate].taken && !a.pieces[f.ate].taken) bits.push(`Their ${nameOf(f)} took your ${nameOf(b.pieces[f.ate])}.`);
     if (f.wounded >= 0) bits.push(`Your ${nameOf(b.pieces[f.wounded])} lost a heart.`);
@@ -518,7 +526,9 @@ $('#board').addEventListener('click', (e) => {
   if (crumbled(s, x, y)) return info(CRUMBLE_DESC);
   if (shrunk(s, x, y)) return info(SHRINK_DESC);
   if (statueAt(s, y * s.day.W + x)) return info(s.day.statueOrder ? `${STUMP_DESC} ${STATUE_ROW_DESC}` : STUMP_DESC);
-  const f = s.foes.find((f) => !f.taken && f.x === x && f.y === y);
+  // A rider first: the rabbit on their King's head is what you see on top.
+  const f = s.foes.find((f) => !f.taken && f.x === x && f.y === y && f.rides != null) || s.foes.find((f) => !f.taken && f.x === x && f.y === y);
+  if (f?.brain === 'leader') return info(leaderDesc(f, s.day));
   if (f) info(f.mind ? `Their ${nameOf(f)}, with a ${f.patternName ? f.patternName.toLowerCase() + ' ' : ''}rabbit inside (intelligence ${f.mind.iq}).` : `Their ${nameOf(f)}. ${PIECES[f.type].desc}`);
 });
 
@@ -586,7 +596,9 @@ async function levelOver(end) {
   // A descent.
   const allGone = end.pieces.every((p) => p.taken);
   const kingGone = level.rules.royal && end.pieces.some((p) => p.taken && p.type === 'king');
-  afterLevel(session.run, end);
+  // Nothing is lost for good with one upgrade a board (2026-10-13): every
+  // board starts with your whole lineup again.
+  if (M.upgrades !== 'each') afterLevel(session.run, end);
   if (kingGone) { status('They took your King.'); await sleep(1600); return runOver('They took your King.'); }
   if (allGone) { status('They took everything.'); await sleep(1600); return runOver('Every piece you had is gone.'); }
   if (!won && M.outOfMoves === 'end') { status('Out of moves.'); await sleep(1600); return runOver('You ran out of moves.'); }
@@ -596,6 +608,7 @@ async function levelOver(end) {
     if (!test) { const r = mine(); r.best = Math.max(r.best || 0, session.n); saveRecords(); }
     status(won ? 'The floor gives way.' : 'Out of moves: the floor gives way anyway.');
     if (!calm()) { await sleep(400); if (board.collapse) await board.collapse(); }
+    session.foeTreasure = Math.min(2, end.foeTreasure || 0);
     return between({ note: `Depth ${session.n}`, board: true, fall: true });
   }
   // Recruiter: the first piece you took joins you, if there is room.
@@ -730,8 +743,13 @@ async function boardUpgrade() {
     sfx.fanfare(2); haptic([30, 40, 30]);
     lines.push(`The board opens to seven by seven.${got.length ? ` A ${got.join(' and a ')} join you, and two more join them.` : ''}`);
   }
-  const theirs = foeUpgrade(run, rand, { veto: catalog.vetoed, fairy, pool: M.findPool });
-  if (theirs) lines.push(`Their side: ${theirs}.`);
+  // Diamonds of theirs found treasure: an upgrade more for each piece one
+  // took, two at most.
+  for (let k = 0; k <= (session.foeTreasure || 0); k++) {
+    const theirs = foeUpgrade(run, rand, { veto: catalog.vetoed, fairy, pool: M.findPool });
+    if (theirs) lines.push(`${k ? '♦ Their treasure: ' : 'Their side: '}${theirs}.`);
+  }
+  session.foeTreasure = 0;
   $('#betweensub').textContent = [$('#betweensub').textContent, ...lines].filter(Boolean).join(' ');
   const room = run.hand.length < Math.min(width, run.maxPieces);
   const cards = boardCards(run, rand, { veto: catalog.vetoed, fairy, pool: M.findPool, royal: M.royal, room });
