@@ -269,6 +269,7 @@ async function startLevel() {
   board.reach = level.settings.showReach;
   board.reachMine = level.settings.showMyReach;
   board.guards = level.settings.showGuards;
+  board.safe = level.settings.showSafe;
   board.beacons = level.settings.showBeacons;
   board.pins = level.settings.showPins;
   board.redraw = draw;

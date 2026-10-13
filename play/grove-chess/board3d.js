@@ -38,7 +38,7 @@ import { rng } from '../../engine/seed.js';
 import { model } from './models.js';
 import { LOOK } from './config.js';
 import { Board, tileColour, PIT, TRACK, tweenPos, wraps } from './board.js';
-import { onBoard, brambleCount, holeOpen, nextShrink, statueKind, reachMaps, onHill, guarded, threats, pinned, ghostAt, gateUp, hiddenFrom } from './rules.js';
+import { onBoard, brambleCount, holeOpen, nextShrink, statueKind, reachMaps, onHill, guarded, guardedSquares, threats, pinned, ghostAt, gateUp, hiddenFrom } from './rules.js';
 import * as sfx from './sounds.js';
 import { haptic } from '../../engine/ui.js';
 
@@ -127,6 +127,41 @@ const lidModel = (() => {
 })();
 
 const ringModel = (col) => new Model().lathe([[4.2, 0.1], [4.2, 0.2]], col, { seg: 12, caps: true });
+// A flat shield, lying on a square one of yours would guard (2026-10-13),
+// drawn pixel by pixel so it stays crisp: the shape of the shields pieces
+// wear (models.js shieldModel), square above and pointed below, its face
+// and cross in the same silver, or gold for two guards or more, with a dark
+// edge so it reads on light squares and green alike. `h` pixels tall; each
+// size and colour is drawn once.
+const flatShields = new Map();
+function flatShield(h, gold) {
+  const key = `${h}:${gold}`;
+  if (flatShields.has(key)) return flatShields.get(key);
+  const w = 2 * Math.round(h * 0.4) + 1, t = Math.max(1, Math.round(h / 14));
+  const [face, mark] = gold ? ['#e8c048', '#fff0b0'] : ['#cfd3da', '#8e96a3'], edge = '#1c1a16';
+  const inside = (i, j) => {
+    if (i < 0 || j < 0 || i >= w || j >= h) return false;
+    const u = Math.abs(i + 0.5 - w / 2) / (w / 2), v = (j + 0.5) / h;
+    return v <= 0.62 ? true : u <= 1 - (v - 0.62) / 0.38;
+  };
+  const c = document.createElement('canvas');
+  c.width = w + 2; c.height = h + 2;
+  const g = c.getContext('2d');
+  for (let j = -1; j <= h; j++) for (let i = -1; i <= w; i++) {
+    const at = (col) => { g.fillStyle = col; g.fillRect(i + 1, j + 1, 1, 1); };
+    if (!inside(i, j)) {
+      if (inside(i - 1, j) || inside(i + 1, j) || inside(i, j - 1) || inside(i, j + 1)) at(edge);
+      continue;
+    }
+    const mid = Math.abs(i - (w - 1) / 2), v = j / h;
+    const rim = (j < t || i < t || i >= w - t) && v <= 0.62;            // top and sides, as on the model
+    const cross = (mid < Math.max(1, h * 0.07) && v >= 0.14 && v <= 0.8) || (v >= 0.3 && v < 0.3 + Math.max(1, h * 0.09) / h && mid < w * 0.3);
+    at(rim || cross ? mark : face);
+  }
+  flatShields.set(key, c);
+  return c;
+}
+
 const rings = new Map();
 const ring = (col) => rings.get(col) || (rings.set(col, ringModel(col)), rings.get(col));
 
@@ -339,11 +374,39 @@ export class Board3D extends Board {
       this.layer.width = w;
       this.lctx.putImageData(this.t3.img, 0, 0);
       g.drawImage(this.layer, 0, 0);
+      if (!this.tw?.collapse) this.safeShields(g, v, s);
       // 4. Puffs and leaves; Kung fu's resting rings, over the pieces.
       this.effects(g, at);
       this.resting(g, s);
       this.beacon(g, s, at, 'beam');
     }
+  }
+
+  /** A flat shield on each empty square in their reach that one of yours
+      would guard (2026-10-13): move a piece there and it is guarded. Laid
+      over the pieces, not under them: the square just in front of a piece,
+      the one it most often guards, is the one its own model stands over. */
+  safeShields(g, v, s) {
+    const SAFE = this.safeOf(s, v);
+    if (!SAFE) return;
+    const W = this.day.W, [ax, ay] = this.pt(0, 0, 0), [bx, by] = this.pt(1, 1, 0);
+    const side = Math.min(Math.abs(bx - ax), Math.abs(by - ay));
+    for (const [sq, guards] of SAFE) {
+      const [cx, cy] = this.pt((sq % W) + 0.5, Math.floor(sq / W) + 0.5, 0), img = flatShield(Math.max(9, Math.round(side * 0.58)), guards.length >= 2);
+      g.drawImage(img, Math.round(cx - img.width / 2), Math.round(cy - img.height / 2));
+    }
+  }
+
+  /** Empty squares in their reach that one of yours would guard (rules.js
+      guardedSquares), worked out once per state and piece picked up; null
+      when not shown. */
+  safeOf(s, v) {
+    if (this.safe === false || this.reach === false || this.guards === false) return null;
+    const R = this.reachOf(s);
+    if (!R) return null;
+    const sel = v.sel ?? null;
+    if (this.safeFor !== s || this.safeSel !== sel) { this.safeFor = s; this.safeSel = sel; this.safeMap = guardedSquares(s, R.theirs, sel, v.legal || []); }
+    return this.safeMap;
   }
 
   /** Where every piece can go in state s (rules.js reachMaps), worked out
@@ -706,6 +769,7 @@ export class Board3D extends Board {
       // Yours only when asked for (2026-10-11: off by default).
       if (this.reachMine === true) for (const sq of R.yours) ring(sq, 0.2, LOOK.reachYou);
     }
+
 
     // Crumbling ground: hairline cracks on every square, the same each time.
     if (day.rules.crumble)

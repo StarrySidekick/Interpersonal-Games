@@ -1421,6 +1421,49 @@ export function guarded(s) {
   return out;
 }
 
+/** Which of your pieces could take back on square sq if one of theirs
+    stood there (the test `guarded` makes, for any square). Indexes into
+    s.pieces. */
+function guardsOf(s, sq) {
+  const W = s.day.W, x = sq % W, y = Math.floor(sq / W), c = clone(s), by = [];
+  c.foes.push({ type: 'pawn', x, y, taken: false, brain: 'none' });
+  c.pieces.forEach((q, j) => { if (!q.taken && !q.flying && q.type !== 'ball' && pieceMoves(c, q, 'you').some((m) => m.cap && m.x === x && m.y === y)) by.push(j); });
+  return by;
+}
+
+/**
+ * Empty squares that would be guarded (Timothy, 2026-10-13: "if that
+ * piece's reach overlaps with the position present on the enemy's reaches
+ * outline, wherein if you moved a piece there, then that piece would be
+ * able to actually defend that slot, then put a flat shield icon onto that
+ * cell"). Of `squares` (y * W + x; their reach), the empty ones where, if a
+ * piece of yours stood there and they took it, another of yours could take
+ * back. With a piece `sel` selected, its own moves are tried for real: the
+ * piece is moved there, and only the others count, from where they then
+ * stand (it cannot guard itself, and leaving may open or close a line).
+ * Returns a Map of square to the indexes of the pieces that would guard it.
+ */
+export function guardedSquares(s, squares, sel = null, legal = []) {
+  s = seenBy(s, 'you'); // nothing hidden in a cloud is given away
+  const out = new Map();
+  if (s.won) return out;
+  const W = s.day.W, mine = new Map();
+  if (sel != null) for (const mv of legal) if (!mv.cap && !mv.swap && (mv.p == null || mv.p === sel)) mine.set(mv.y * W + mv.x, mv); // legal: the selected piece's moves
+  for (const sq of squares) {
+    const x = sq % W, y = Math.floor(sq / W);
+    if (look(s, x, y, 'you') !== EMPTY) continue;
+    let by;
+    if (mine.has(sq)) {
+      // Moved there and taken there: off its own square, and off this one.
+      const n = clone(s), p = n.pieces[sel];
+      p.x = x; p.y = y; p.taken = true;
+      by = guardsOf(n, sq);
+    } else by = guardsOf(s, sq);
+    if (by.length) out.set(sq, by);
+  }
+  return out;
+}
+
 /**
  * Pieces pinned to their King (2026-10-13, Timothy: "pieces that would be
  * considered absolutely pinned (as in they cannot move legally because it

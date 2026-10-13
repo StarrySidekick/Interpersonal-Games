@@ -200,6 +200,8 @@ export const SCHEMA = [
       help: 'A gold ring on every square one of your pieces could move to. Off by default (2026-10-11: "less useful and muddies the board"); tapping a piece still lights its own squares.' },
     { key: 'showGuards', label: 'Shields on guarded pieces', type: 'bool', def: true,
       help: 'A piece of yours that another of yours would avenge (if it were taken there, yours could take back on that square) wears a shield, which falls into place with a clink when it becomes guarded: silver for one guard, gold for two or more.' },
+    { key: 'showSafe', label: 'Shields on squares you guard', type: 'bool', def: true,
+      help: 'A flat shield on an empty square their pieces reach (a purple ring) that one of yours could take back on: move a piece there and it is guarded. Silver for one guard, gold for two or more. With a piece picked up, its own moves are tried for real: it cannot guard itself (Timothy, 2026-10-13).' },
     { key: 'showBeacons', label: 'Beacons on what can be taken', type: 'bool', def: true,
       help: 'A beam of light rises from what could be taken next: purple from a piece of yours they could take on their next move if it stays (on your King, that is check), green from a piece of theirs you can take now (Timothy, 2026-10-11).' },
     { key: 'showPins', label: 'Needles through pinned pieces', type: 'bool', def: true,
@@ -210,7 +212,7 @@ export const SCHEMA = [
 ];
 
 const FIELDS = SCHEMA.flatMap((g) => g.fields);
-export const SETTINGS_VERSION = 17;
+export const SETTINGS_VERSION = 18;
 export const defaults = () => ({ ...Object.fromEntries(FIELDS.map((f) => [f.key, Array.isArray(f.def) ? [...f.def] : f.def])), v: SETTINGS_VERSION });
 
 /** How each earlier version's defaults differ from today's. Settings saved
@@ -230,7 +232,9 @@ export const defaults = () => ({ ...Object.fromEntries(FIELDS.map((f) => [f.key,
 // Version 15 (2026-10-11): beacons on what can be taken.
 // Version 16 (2026-10-13): needles through pinned pieces.
 // Version 17 (2026-10-13): statues can be taken.
-const V17 = { statuesTake: false };
+// Version 18 (2026-10-13): shields on squares you guard.
+const V18 = { showSafe: false };
+const V17 = { statuesTake: false, ...V18 };
 const V16 = { showPins: false, ...V17 };
 const V15 = { showBeacons: false, ...V16 };
 const V14 = { showMyReach: true, showGuards: false, ...V15 };
@@ -243,6 +247,7 @@ const V9 = { mineRows: 2, foeRows: 3, ...V10 };
 // (goal 'king', royal), and two left brings on the showdown.
 const V8 = { goal: 'descent', royal: false, showdown: false, dealKing: false, ...V9 };
 const BEFORE = {
+  17: { ...V18 },
   16: { ...V17 },
   15: { ...V16 },
   14: { ...V15 },
