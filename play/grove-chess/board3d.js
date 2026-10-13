@@ -815,7 +815,9 @@ export class Board3D extends Board {
       const t = tw?.foes?.[k];
       if (t) { const q = tweenPos(t, at); x = q.x; y = q.y; h = t.hop ? Math.sin(Math.PI * q.k) * (t.blocked ? 1.2 : 3.5) : 0; }
       if (f.rides != null && !s.foes[f.rides]?.taken) h += HEAD * BIG; // a rabbit of theirs riding on a head
-      const mdl = f.suit ? model(f.type, 'foe', null, SUIT_COLOUR[f.suit]) : f.brain === 'possessed' ? model(f.type, 'foe', null, this.glowOf(f, k, at)) : model(f.type, 'foe', this.fur(f));
+      // The rabbit that leads them (2026-10-13) is a rabbit, not a piece: no
+      // plinth, in its trait's colour.
+      const mdl = f.brain === 'leader' ? model('rabbit', 'foe', this.fur(f)) : f.suit ? model(f.type, 'foe', null, SUIT_COLOUR[f.suit]) : f.brain === 'possessed' ? model(f.type, 'foe', null, this.glowOf(f, k, at)) : model(f.type, 'foe', this.fur(f));
       stand(mdl, x, y, h, 200 + k, collapse ? { s: away(at - collapse.t0 - collapse.delay(f.x, f.y)) } : {});
       if (day.rules.goal === 'target' && day.foes.length > 1 && f.target) stand(ring('#e3bd57'), x, y, 0, 200 + k);
     });

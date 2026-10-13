@@ -681,7 +681,7 @@ export function initialState(day) {
 export function clone(s) {
   return { day: s.day, t: s.t, pieces: s.pieces.map((p) => ({ ...p })), foes: s.foes.map((f) => ({ ...f })),
     hole: s.hole ? { ...s.hole } : null, gone: s.gone.slice(), shrunk: s.shrunk ? s.shrunk.slice() : [], open: s.open ? s.open.slice() : [], won: s.won, sunk: s.sunk,
-    bonus: s.bonus || null, treasure: s.treasure || 0, ft: s.ft || 0, ...(s.cloudy ? { cloudy: true } : {}) };
+    bonus: s.bonus || null, treasure: s.treasure || 0, foeTreasure: s.foeTreasure || 0, ft: s.ft || 0, ...(s.cloudy ? { cloudy: true } : {}) };
 }
 
 const youLook = (s) => (x, y) => look(s, x, y, 'you');
@@ -834,6 +834,9 @@ export function foeMovesFor(s, k) {
   const f = s.foes[k];
   if (f.taken || f.brain !== 'ai') return [];
   let ms = pieceMoves(s, f, 'foe');
+  // Spirals on a piece of theirs (2026-10-13): it may trade squares with any
+  // other piece of theirs, as its move.
+  if (f.suit === 'spirals') s.foes.forEach((q, j) => { if (j !== k && !q.taken && q.rides == null && q.type !== 'bunny') ms = [...ms, { x: q.x, y: q.y, cap: false, swap: true }]; });
   if (s.day.rules.noCheck) ms = ms.filter((m) => !givesCheck(s, 'foe', k, m));
   if (s.day.rules.ballMove === 'hit') return ms.filter((m) => hitOk(s, f, m) && (!m.cap || hitBall(s, m.x, m.y) || canTake(s.day.rules, f)));
   return canTake(s.day.rules, f) ? ms : ms.filter((m) => !m.cap);
@@ -939,6 +942,16 @@ function landFoe(s, f, x, y) {
   // A rabbit of theirs hopping onto one of their heads rides there.
   const mate = f.type === 'bunny' ? s.foes.find((q) => q !== f && !q.taken && q.x === x && q.y === y) : null;
   if (mate) { f.ate = -1; f.from = [f.x, f.y]; f.x = x; f.y = y; f.blocked = false; f.rides = s.foes.indexOf(mate); return; }
+  // Spirals: landing on another piece of theirs trades squares with it, and
+  // a rabbit riding either goes with its carrier.
+  const swap = f.suit === 'spirals' ? s.foes.find((q) => q !== f && !q.taken && q.rides == null && q.x === x && q.y === y) : null;
+  if (swap) {
+    const j = s.foes.indexOf(swap), fx = f.x, fy = f.y;
+    f.ate = -1; f.from = [fx, fy]; f.x = x; f.y = y; f.blocked = false;
+    swap.from = [x, y]; swap.x = fx; swap.y = fy;
+    s.foes.forEach((q) => { if (q.taken) return; if (q.rides === k) { q.x = x; q.y = y; } else if (q.rides === j) { q.x = fx; q.y = fy; } });
+    return;
+  }
   const b = hitBall(s, x, y);
   if (b) { knock(s, b, f.x, f.y); f.ate = -1; f.from = [f.x, f.y]; f.x = x; f.y = y; f.blocked = false; return; }
   f.ate = s.pieces.findIndex((p) => !p.taken && p.x === x && p.y === y);
@@ -955,6 +968,9 @@ function landFoe(s, f, x, y) {
     p.taken = true;
     // Taking a piece takes a rabbit riding on it too.
     s.pieces.forEach((q) => { if (!q.taken && q.x === x && q.y === y) q.taken = true; });
+    // Diamonds on a piece of theirs: treasure for them, an upgrade more at
+    // the next board.
+    if (f.suit === 'diamonds') s.foeTreasure = (s.foeTreasure || 0) + 1;
   }
   f.from = [f.x, f.y]; f.x = x; f.y = y; f.blocked = false; delete f.rides;
   s.foes.forEach((q) => { if (q.rides === k && !q.taken) { q.from = [q.x, q.y]; q.x = x; q.y = y; } });
@@ -981,7 +997,50 @@ function hop(s, f) {
 
 /** One move by a thinking foe: { k, x, y }. Mutates. */
 export function foeMove(s, m) {
-  if (m) landFoe(s, s.foes[m.k], m.x, m.y);
+  if (!m) return;
+  const f = s.foes[m.k], gone = () => s.pieces.filter((p) => p.taken).length;
+  const before = gone();
+  landFoe(s, f, m.x, m.y);
+  if (f.taken || lost(s)) return;
+  // Their suits that change a turn (2026-10-13, Timothy: "enemy pieces
+  // should be able to receive all the different suits"). Swords: after a
+  // capture it takes again while it can, the best thing in reach each time.
+  // Stars: once a level, its first move is followed by a second. Both pick
+  // their extra move greedily (bestFollow), the same on every phone, and the
+  // thinking side's lookahead plays them the same way (ai.js after).
+  if (f.suit === 'swords' && gone() > before) {
+    for (let n = 0; n < 8 && !lost(s); n++) {
+      const was = gone(), c = bestFollow(s, m.k, true);
+      if (!c) break;
+      landFoe(s, f, c.x, c.y);
+      if (gone() === was) break; // a heart took the blow
+      s.foeBonus = 'swords';
+    }
+  } else if (f.suit === 'stars' && !f.starUsed) {
+    f.starUsed = true;
+    const c = bestFollow(s, m.k, false);
+    if (c) { landFoe(s, f, c.x, c.y); s.foeBonus = 'stars'; }
+  }
+}
+
+/** The extra move a suit gives piece k of theirs: the most valuable piece
+    of yours it can take, or (not `capOnly`) failing that the move that
+    keeps it out of your reach and brings it nearest your King. */
+function bestFollow(s, k, capOnly) {
+  const f = s.foes[k], reach = reachOf(s, 'you');
+  const king = s.pieces.find((p) => !p.taken && p.type === 'king') || s.pieces.find((p) => !p.taken);
+  let best = null, bv = -Infinity;
+  for (const m of foeMovesFor(s, k)) {
+    if (m.swap) continue;
+    const victim = m.cap ? s.pieces.find((p) => !p.taken && p.x === m.x && p.y === m.y) : null;
+    if (capOnly && !victim) continue;
+    const royal = victim && s.day.rules.royal && victim.type === 'king';
+    let v = victim ? 100 + (royal ? 1000 : PIECES[victim.type].value * 10) : 0;
+    if (reach.has(m.y * s.day.W + m.x)) v -= PIECES[f.type].value * 5;
+    if (king) v -= Math.max(Math.abs(m.x - king.x), Math.abs(m.y - king.y));
+    if (v > bv) { bv = v; best = m; }
+  }
+  return best;
 }
 
 /** Does list a sort before list b, comparing item by item? */
@@ -1029,7 +1088,7 @@ function possessedStep(s, f, force = false) {
 export function patternHops(s) {
   s.foes.forEach((f, k) => {
     if (f.taken) return;
-    if (f.mind) { if (!lost(s)) mindStep(s, f, k, 'foe'); return; }
+    if (f.mind) { if (!lost(s)) mindStep(s, f, k, 'foe', f.brain === 'leader'); return; }
     if (f.brain === 'pattern') for (let h = 0; h < (f.hops || 1) && !lost(s); h++) hop(s, f);
     else if (f.brain === 'possessed' && !lost(s)) possessedStep(s, f);
   });
@@ -1070,6 +1129,27 @@ export const TRAITS = {
   pattern: { name: 'Habit', cap: 3, danger: -5, follow: 4, room: 0.4,
     desc: 'Keeps a habit you can learn, a pattern of ways it likes to go, but steps round trouble instead of walking into it.' }
 };
+
+/**
+ * One rabbit leads their side (darkBrain 'rabbit', 2026-10-13, Timothy:
+ * "its just that one rabbit and their type/personality that defines the
+ * enemy team in difficulty and style"). Their pieces think (ai.js); the
+ * rabbit's trait is their mood and its intelligence how far ahead they look.
+ */
+export function leaderMind(trait, iq) {
+  const style = { aggressive: 'hunt', hunter: 'hunt', shy: 'flee' }[trait] || 'balanced';
+  let skill = iq <= 2 ? 0 : iq <= 5 ? 1 : iq <= 8 ? 2 : 3;
+  if (trait === 'messy') skill = Math.max(0, skill - 1);
+  return { skill, style, guard: true };
+}
+
+/** The rabbit that leads their side, in words, for a tap on it. */
+export function leaderDesc(f, day) {
+  const T = TRAITS[f.mind.trait] || TRAITS.aggressive;
+  const mood = { hunt: 'they hunt your pieces', flee: 'they keep out of reach', balanced: 'they weigh it up' }[day.ai?.style] || 'they weigh it up';
+  const ahead = ['at random', 'one move ahead', 'two moves ahead', 'three moves ahead'][day.ai?.skill] ?? 'one move ahead';
+  return `The rabbit that leads them: ${T.name.toLowerCase()}, intelligence ${f.mind.iq}. ${T.desc} With it in charge ${mood}, thinking ${ahead}. It hops every turn, up to two squares, and never takes anything.`;
+}
 
 /** A number in [0, 1) from a string, the same everywhere (FNV-1a). */
 function hash01(str) {
@@ -1305,7 +1385,7 @@ function oneFoeActs(s) {
   for (const f of s.foes) f.wounded = -1;
   if (s.foes.some((f) => !f.taken && f.brain === 'ai')) foeMove(s, think(s));
   else {
-    const side = s.foes.map((f, k) => k).filter((k) => !s.foes[k].taken && s.foes[k].type !== 'rabbit' && (s.foes[k].mind || s.foes[k].brain === 'possessed'));
+    const side = s.foes.map((f, k) => k).filter((k) => !s.foes[k].taken && s.foes[k].type !== 'rabbit' && s.foes[k].brain !== 'leader' && (s.foes[k].mind || s.foes[k].brain === 'possessed'));
     if (side.length) {
       const before = (c) => c.pieces.filter((p) => p.taken).length + c.foes.filter((f) => f.wounded >= 0).length;
       const takes = side.find((k) => { const c = clone(s); foeStep(c, k); return before(c) > before(s); });
@@ -1325,6 +1405,9 @@ function oneFoeActs(s) {
       s.ft = (s.ft || 0) + 1;
     }
   }
+  // The rabbit that leads them (darkBrain 'rabbit', 2026-10-13) hops every
+  // turn, by its own mind, after their piece has moved.
+  s.foes.forEach((f, k) => { if (!f.taken && f.brain === 'leader' && f.mind && !lost(s)) mindStep(s, f, k, 'foe', true); });
   // Loose rabbits, as before.
   s.foes.forEach((f, k) => {
     if (f.taken || f.type !== 'rabbit' || lost(s)) return;
@@ -1689,7 +1772,7 @@ export function stateKey(s) {
   if (s.cloudy) k += '|c';
   if (s.day.rules.oneMove) k += `|f${s.ft || 0}`; // whose turn it is on their side
   k += '|';
-  for (const f of s.foes) k += f.taken ? '--' : f.x + ',' + f.y + ',' + f.i + (f.lives > 1 ? 'L' + f.lives : '') + (f.mx > 0 ? '+' : '-') + (f.my > 0 ? '+' : '-') + (f.idle ? 'i' + f.idle : '') + ';';
+  for (const f of s.foes) k += f.taken ? '--' : f.x + ',' + f.y + ',' + f.i + (f.lives > 1 ? 'L' + f.lives : '') + (f.starUsed ? '*' : '') + (f.mx > 0 ? '+' : '-') + (f.my > 0 ? '+' : '-') + (f.idle ? 'i' + f.idle : '') + ';';
   if (s.hole) k += `|h${s.hole.x},${s.hole.y},${s.hole.i}${s.hole.mx > 0 ? '+' : '-'}${s.hole.my > 0 ? '+' : '-'}`;
   // Which squares are gone matters; the order they went in does not.
   if (s.gone.length) k += '|g' + s.gone.slice().sort((a, b) => a - b).join(',');

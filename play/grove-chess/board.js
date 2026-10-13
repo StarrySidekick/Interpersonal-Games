@@ -455,7 +455,7 @@ export class Board {
         x = q.x; y = q.y;
         lift = t.hop ? Math.sin(Math.PI * q.k) * (t.blocked ? 3 : 9) : 0;
       }
-      things.push({ img: sprite(f.type, 'foe', this.fur(f)), x, y, lift, ring: marked && f.target ? 'rgba(227,189,87,.9)' : null });
+      things.push({ img: sprite(f.brain === 'leader' ? 'rabbit' : f.type, 'foe', this.fur(f)), x, y, lift, ring: marked && f.target ? 'rgba(227,189,87,.9)' : null });
     });
     things.sort((a, b) => b.y - a.y || (b.under ? 1 : 0) - (a.under ? 1 : 0));
     for (const t of things) this.spriteAt(t.img, t.x, t.y, t.lift || 0, t.ring);
