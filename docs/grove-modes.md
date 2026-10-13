@@ -968,6 +968,18 @@ shield icon on it".
   `rules.js`: stand a piece of theirs there, and see which of yours could
   take it). Your own pieces never show their reach; this is the one place
   it shows, where it meets theirs.
+- **Two of yours, not one** (later the same day, Timothy: "the shield
+  only shows if two friendly pieces are able to go to that spot in some
+  way and then also if it's three then put a gold shield"). A square only
+  guarded had a shield even when nothing of yours could move onto it, so
+  picking a piece up showed there was no way there. Now a square needs a
+  piece that can really move there, and another that would take back:
+  each piece that can move there is moved there for real (and taken
+  there), and only the others count, from where they then stand. Silver
+  is two of your pieces meeting there (one to move, one to guard), gold
+  is three or more (one to move, two guarding). In his first example, the
+  rook alone puts no shield on the square in front of it; a knight that
+  can step onto that square makes it silver.
 - **With a piece picked up**, its own moves are tried for real. A piece
   cannot guard the square it moves to, and leaving its square can open or
   close a line, so on its destinations the shield counts only the others,
@@ -975,8 +987,8 @@ shield icon on it".
   takes its own shield off the square in front of it, unless something
   else guards that square too.
 - **The look.** Flat, square above and pointed below like the shields
-  pieces wear, with the same cross: silver for one guard, gold for two or
-  more. Drawn pixel by pixel, so it is as crisp as the board. It lies over
+  pieces wear, with the same cross: silver for two of your pieces there
+  (one to move in, one to guard), gold for three or more. Drawn pixel by pixel, so it is as crisp as the board. It lies over
   the pieces rather than under them: the square just in front of a piece,
   the one it most often guards, is the one its model stands over, and
   underneath it would be hidden.

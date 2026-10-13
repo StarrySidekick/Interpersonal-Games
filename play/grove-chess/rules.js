@@ -1797,30 +1797,50 @@ function guardsOf(s, sq) {
  * piece's reach overlaps with the position present on the enemy's reaches
  * outline, wherein if you moved a piece there, then that piece would be
  * able to actually defend that slot, then put a flat shield icon onto that
- * cell"). Of `squares` (y * W + x; their reach), the empty ones where, if a
- * piece of yours stood there and they took it, another of yours could take
- * back. With a piece `sel` selected, its own moves are tried for real: the
- * piece is moved there, and only the others count, from where they then
- * stand (it cannot guard itself, and leaving may open or close a line).
+ * cell"). Of `squares` (y * W + x; their reach), the empty ones one of
+ * yours could move to and, taken there, another of yours could take back.
+ *
+ * Since later that day ("the shield only shows if two friendly pieces are
+ * able to go to that spot in some way and then also if it's three then put
+ * a gold shield"), a square needs a piece that can really move there: one
+ * that only guards it, with nothing of yours able to step in, has no
+ * shield. Each piece that can move there is tried for real: moved there
+ * and taken there, and only the others count, from where they then stand
+ * (it cannot guard itself, and leaving may open or close a line). The one
+ * guarded best counts: one guard is two of your pieces (silver), two
+ * guards are three (gold). With a piece `sel` selected, on its own moves
+ * only it is tried.
  * Returns a Map of square to the indexes of the pieces that would guard it.
  */
 export function guardedSquares(s, squares, sel = null, legal = []) {
   s = seenBy(s, 'you'); // nothing hidden in a cloud is given away
   const out = new Map();
   if (s.won) return out;
-  const W = s.day.W, mine = new Map();
-  if (sel != null) for (const mv of legal) if (!mv.cap && !mv.swap && (mv.p == null || mv.p === sel)) mine.set(mv.y * W + mv.x, mv); // legal: the selected piece's moves
+  const W = s.day.W;
+  // Where each piece of yours can move, onto an empty square, this turn.
+  const movers = new Map(); // square: indexes of the pieces that can go there
+  const add = (sq, j) => { const l = movers.get(sq) || movers.set(sq, []).get(sq); if (!l.includes(j)) l.push(j); };
+  const ok = (mv) => !mv.cap && !mv.swap;
+  s.pieces.forEach((q, j) => {
+    if (q.taken || q.flying || q.type === 'ball' || q.brain === 'carrier') return;
+    const ms = j === sel && legal.length ? legal.filter((mv) => mv.p == null || mv.p === sel) : movesFor(s, j);
+    for (const mv of ms) if (ok(mv)) add(mv.y * W + mv.x, j);
+  });
   for (const sq of squares) {
     const x = sq % W, y = Math.floor(sq / W);
     if (look(s, x, y, 'you') !== EMPTY) continue;
-    let by;
-    if (mine.has(sq)) {
+    let who = movers.get(sq);
+    if (!who) continue;
+    if (sel != null && who.includes(sel)) who = [sel];
+    let best = [];
+    for (const j of who) {
       // Moved there and taken there: off its own square, and off this one.
-      const n = clone(s), p = n.pieces[sel];
+      const n = clone(s), p = n.pieces[j];
       p.x = x; p.y = y; p.taken = true;
-      by = guardsOf(n, sq);
-    } else by = guardsOf(s, sq);
-    if (by.length) out.set(sq, by);
+      const by = guardsOf(n, sq);
+      if (by.length > best.length) best = by;
+    }
+    if (best.length) out.set(sq, best);
   }
   return out;
 }
