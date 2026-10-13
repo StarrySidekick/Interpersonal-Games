@@ -218,7 +218,7 @@ export const SCHEMA = [
     { key: 'showGuards', label: 'Shields on guarded pieces', type: 'bool', def: true,
       help: 'A piece of yours that another of yours would avenge (if it were taken there, yours could take back on that square) wears a shield, which falls into place with a clink when it becomes guarded: silver for one guard, gold for two or more.' },
     { key: 'showSafe', label: 'Shields on squares you guard', type: 'bool', def: true,
-      help: 'A flat shield on an empty square their pieces reach (a purple ring) that one of yours could take back on: move a piece there and it is guarded. Silver for one guard, gold for two or more. With a piece picked up, its own moves are tried for real: it cannot guard itself (Timothy, 2026-10-13).' },
+      help: 'A flat shield on an empty square their pieces reach (a purple ring) where one of yours can move and another would take back: move that piece there and it is guarded. Silver when two of your pieces come together there (one to move, one to guard), gold for three or more. A square only guarded, with nothing of yours able to move onto it, has none. With a piece picked up, its own moves are tried for real: it cannot guard itself (Timothy, 2026-10-13).' },
     { key: 'showBeacons', label: 'Beacons on what can be taken', type: 'bool', def: true,
       help: 'A beam of light rises from what could be taken next: purple from a piece of yours they could take on their next move if it stays (on your King, that is check), green from a piece of theirs you can take now (Timothy, 2026-10-11).' },
     { key: 'showPins', label: 'Needles through pinned pieces', type: 'bool', def: true,

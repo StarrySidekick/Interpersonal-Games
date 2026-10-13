@@ -12,6 +12,12 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
+## 2026-10-13, after release 54: shields need two of your pieces
+
+From Timothy: a flat shield only where two of your pieces come together on
+a square in their reach (one that can move there, one to guard it), gold
+for three. Built (`docs/grove-modes.md`, "Shields on squares you guard").
+
 ## 2026-10-13, latest: rabbits to take, new suits, weapons, golf with sliders
 
 From Timothy, all built (`docs/grove-modes.md`, "Rabbits to take, new
