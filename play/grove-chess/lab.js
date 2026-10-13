@@ -180,8 +180,10 @@ export const SCHEMA = [
       help: 'Capture: take as many of theirs as "How many" says. Take the rabbit’s piece: a rabbit rides their pieces and hops from one to another; take the one it is on. Capture the rabbit, bring it home: a rabbit waits in the middle; take it and it rides your piece, take that piece and it rides theirs; carry it back to your first row (Timothy, 2026-10-13). Catch them, then the ball: the hole stays shut until every possessed piece and loose rabbit is caught, then sink the ball in it. King and rabbit make sure they have one. Sink the ball gives you a ball and a moving hole. Mix picks capture, King or rabbit per layout.' },
     { key: 'captureN', label: 'How many', type: 'int', min: 0, max: 8, def: 1, unit: 'of theirs',
       help: 'For Capture: take this many of their pieces to win, from one to every one (0).' },
+    { key: 'rabbitMove', label: 'The rabbit is moved', type: 'choice', def: 'choose', options: opts(['choose', 'By its side, as a turn'], ['random', 'By itself, at random']),
+      help: 'For Take the rabbit’s piece. By its side: moving the rabbit onto another of that side’s pieces is that side’s move for the turn, chosen like any other (Timothy, 2026-10-13: "moving the rabbit is now purposeful and costs a turn to do for the side that has one. It is no longer random"). By itself: it hops to another of their pieces at random, every so many turns, the first way.' },
     { key: 'rabbitHop', label: 'The rabbit hops every', type: 'int', min: 1, max: 5, def: 3, unit: 'turns',
-      help: 'For Take the rabbit’s piece: it never moves by itself, only from one of their pieces to another, at random, this often (Timothy, 2026-10-13: "anywhere from every turn to every five turns. By default, it’s three turns").' },
+      help: 'For a rabbit that hops by itself: from one of their pieces to another, at random, this often (Timothy, 2026-10-13: "anywhere from every turn to every five turns. By default, it’s three turns").' },
     { key: 'rabbitSides', label: 'Rabbits ride', type: 'choice', def: 'theirs', options: opts(['theirs', 'Their pieces'], ['both', 'Both sides’ pieces']),
       help: 'Both: you have one too, hopping round your pieces; if they take the piece yours is on, you lose.' },
     { key: 'royal', label: 'Your King is royal', type: 'bool', def: true, help: 'Lose the King, lose the game.' },
@@ -229,7 +231,7 @@ export const SCHEMA = [
 ];
 
 const FIELDS = SCHEMA.flatMap((g) => g.fields);
-export const SETTINGS_VERSION = 19;
+export const SETTINGS_VERSION = 20;
 export const defaults = () => ({ ...Object.fromEntries(FIELDS.map((f) => [f.key, Array.isArray(f.def) ? [...f.def] : f.def])), v: SETTINGS_VERSION });
 
 /** How each earlier version's defaults differ from today's. Settings saved
@@ -253,7 +255,10 @@ export const defaults = () => ({ ...Object.fromEntries(FIELDS.map((f) => [f.key,
 // Version 19 (2026-10-13): the suits renamed (Swords is Vines, Spirals is
 // Gears) and two gone (Diamonds, Spirits); weapons. No default changed:
 // pieceMod reads an older link's suits by their old names.
-const V19 = {};
+// Version 20 (2026-10-13): the riding rabbit is moved by its side, as a
+// turn (`rabbitMove: 'choose'`); before, it hopped by itself at random.
+const V20 = { rabbitMove: 'random' };
+const V19 = { ...V20 };
 const V18 = { showSafe: false, ...V19 };
 const V17 = { statuesTake: false, ...V18 };
 const V16 = { showPins: false, ...V17 };
@@ -268,6 +273,7 @@ const V9 = { mineRows: 2, foeRows: 3, ...V10 };
 // (goal 'king', royal), and two left brings on the showdown.
 const V8 = { goal: 'descent', royal: false, showdown: false, dealKing: false, ...V9 };
 const BEFORE = {
+  19: { ...V20 },
   18: { ...V19 },
   17: { ...V18 },
   16: { ...V17 },
@@ -802,7 +808,7 @@ export function makeLevel(settings, seed) {
       ...(S.movesPerTurn === 2 ? { movesPerTurn: 2 } : {}), ...(S.lazyFoes ? { lazyFoes: true } : {}),
       ...(day.statueOrder ? { statuesOpen: true } : {}),
       ...(S.statuesTake && !S.realtime ? { statuesTake: true } : {}),
-      ...(goal === 'capture' ? { captureN: S.captureN } : {}), ...(goal === 'carrier' ? { rabbitHop: S.rabbitHop, rabbitSides: S.rabbitSides } : {}),
+      ...(goal === 'capture' ? { captureN: S.captureN } : {}), ...(goal === 'carrier' ? { rabbitHop: S.rabbitHop, rabbitSides: S.rabbitSides, rabbitMove: S.rabbitMove } : {}),
       ...(S.promote === 'copy' ? { promote: 'copy' } : {}),
       crumble: S.ground === 'crumble', shrink: S.ground === 'shrink' ? 'random' : S.ground === 'spiral' ? 'spiral' : null,
       shrinkEvery: S.shrinkEvery },

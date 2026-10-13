@@ -166,10 +166,10 @@ export const MODES = {
     // from one to another every three turns, whose piece is the one to take;
     // pawns that become a copy of another of yours; and a draft of suits and
     // weapons only.
-    name: 'The descent', blurb: 'Rook, bishop, King, knight and pawn each, a full row on a five by six board; theirs stand opposite, each facing its twin, as in chess. In front of each side stands a row of ghosts: yours let your pieces through and vanish as they pass, theirs stop you. A rabbit rides their pieces and hops from one to another every three turns: take the piece it is on to fall to the next board, where you choose a suit or a weapon, one of two, and they get one too. A pawn that reaches the far row becomes a copy of another of yours. From depth 6 the board is seven by seven. If they take your King the descent is over.',
+    name: 'The descent', blurb: 'Rook, bishop, King, knight and pawn each, a full row on a five by six board; theirs stand opposite, each facing its twin, as in chess. In front of each side stands a row of ghosts: yours let your pieces through and vanish as they pass, theirs stop you. A rabbit rides their pieces; moving it to another of their pieces costs them their turn. Take the piece it is on to fall to the next board, where you choose a suit or a weapon, one of two, and they get one too. A pawn that reaches the far row becomes a copy of another of yours. From depth 6 the board is seven by seven. If they take your King the descent is over.',
     settings: {
       run: 'descent', roll: 'fixed', startPieces: 5, maxPieces: 7, startPool: ['rook', 'bishop', 'king', 'knight', 'pawn'], foeLine: 'mirror', rewards: true, jokers: false, ramp: 'steady', outOfMoves: 'fall', upgrades: 'each', growAt: 6, carry: false,
-      goal: 'carrier', rabbitHop: 3, rabbitSides: 'theirs', promote: 'copy', royal: true, showdown: true, w: 5, h: 6, foes: 4, foePool: ['knight', 'bishop', 'rook'], darkBrain: 'think', skill: '1', style: 'balanced', rabbitMind: 'mind', iq: 3, kinds: 1,
+      goal: 'carrier', rabbitMove: 'choose', rabbitHop: 3, rabbitSides: 'theirs', promote: 'copy', royal: true, showdown: true, w: 5, h: 6, foes: 4, foePool: ['knight', 'bishop', 'rook'], darkBrain: 'think', skill: '1', style: 'balanced', rabbitMind: 'mind', iq: 3, kinds: 1,
       foesCapture: true, statues: 0, statueRow: false, ghosts: true, maxMoves: 20, lineup: true, inOrder: true, arrange: false, cloud: false, parMin: 3, parMax: 10, difficulty: 'any'
     }
   },
@@ -275,13 +275,13 @@ const SHOWN = {
   iq: (S) => S.rabbitMind === 'mind', traits: (S) => S.rabbitMind === 'mind',
   kinds: (S) => S.darkBrain === 'possessed', skill: (S) => S.darkBrain === 'think', style: (S) => S.darkBrain === 'think',
   goal: (S) => S.run !== 'course',
-  captureN: (S) => S.goal === 'capture', rabbitHop: (S) => S.goal === 'carrier', rabbitSides: (S) => S.goal === 'carrier',
+  captureN: (S) => S.goal === 'capture', rabbitMove: (S) => S.goal === 'carrier', rabbitHop: (S) => S.goal === 'carrier' && S.rabbitMove === 'random', rabbitSides: (S) => S.goal === 'carrier',
   holeMoves: hasBall, ballMove: (S) => hasBall(S) && S.run !== 'course', ballCaptures: hasBall, ballStops: hasBall, sand: hasBall, water: hasBall
 };
 
 /** Does this setting matter for these settings (the mode included)? */
 // With no mode (the workshop), only the rules between settings apply.
-const DEPENDS = ['kfStep', 'kfCool', 'kfFoeCool', 'kfFoeGap', 'cloudOwn', 'shrinkEvery', 'iq', 'traits', 'kinds', 'skill', 'style', 'holeMoves', 'ballMove', 'ballCaptures', 'ballStops', 'dealKing', 'captureN', 'rabbitHop', 'rabbitSides'];
+const DEPENDS = ['kfStep', 'kfCool', 'kfFoeCool', 'kfFoeGap', 'cloudOwn', 'shrinkEvery', 'iq', 'traits', 'kinds', 'skill', 'style', 'holeMoves', 'ballMove', 'ballCaptures', 'ballStops', 'dealKing', 'captureN', 'rabbitMove', 'rabbitHop', 'rabbitSides'];
 const VARIANT_KEYS = ['variant', 'skill', 'style', 'maxMoves', 'showReach', 'showMyReach', 'showGuards', 'showSafe', 'showBeacons', 'showPins', 'realtime', 'kfStep', 'kfCool', 'kfFoeCool', 'kfFoeGap', 'iq'];
 export const settingShown = (key, S) => {
   // A chess variant brings its own board, pieces and rules: only how they
@@ -408,7 +408,7 @@ export function describe(S) {
   const win = V?.rules?.race ? 'Race your King to the far row' : V?.rules?.hill ? 'Take their King, or bring yours to the middle'
     : V ? 'Take their King' : run === 'course' ? 'Sink the ball in no more strokes than par'
     : S.goal === 'capture' ? (S.captureN ? `Capture ${S.captureN === 1 ? 'any one' : `${S.captureN}`} of theirs` : 'Capture every one of theirs')
-    : S.goal === 'carrier' ? `Take the piece their rabbit rides; it hops to another of theirs every ${S.rabbitHop === 1 ? 'turn' : `${S.rabbitHop} turns`}${S.rabbitSides === 'both' ? ', and one rides yours: lose that piece and you lose' : ''}`
+    : S.goal === 'carrier' ? `Take the piece their rabbit rides; ${S.rabbitMove === 'random' ? `it hops to another of theirs at random every ${S.rabbitHop === 1 ? 'turn' : `${S.rabbitHop} turns`}` : 'they can move it to another of theirs, as their turn'}${S.rabbitSides === 'both' ? `, and one rides yours${S.rabbitMove === 'random' ? '' : ' (moving it is your turn)'}: lose that piece and you lose` : ''}`
     : S.goal === 'flag' ? 'Take the rabbit from the middle and carry it back to your first row; take the piece carrying it and it rides yours'
     : GOAL_PILL[S.goal] || 'A goal that changes with each board';
   const lose = !V && S.royal && run !== 'course' ? '; lose your King and you lose' : '';

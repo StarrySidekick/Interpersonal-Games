@@ -538,20 +538,37 @@ function flagHome(s) {
 }
 
 /** The rabbit that rides one side's pieces (goal 'carrier', 2026-10-13):
-    it hops from the piece it is on to another of that side's, at random. */
+    it hops from the piece it is on to another of that side's. Since later
+    that day (Timothy: "moving the rabbit is now purposeful and costs a turn
+    to do for the side that has one. It is no longer random. However,
+    there's a setting that exists that allows it to be random again") its
+    side moves it, as that side's move for the turn (`rabbitMove:
+    'choose'`); with 'random' it hops by itself every `rabbitHop` turns, at
+    random. A side whose pieces do not think (nothing to choose with) keeps
+    the random hop. */
 export const carrierOf = (s, side) => (side === 'you' ? s.pieces : s.foes).find((q) => q.brain === 'carrier' && !q.taken) || null;
+/** Is the riding rabbit moved by its side, as a turn? */
+export const rabbitChosen = (rules) => rules.goal === 'carrier' && rules.rabbitMove !== 'random';
+/** The pieces of `list` the rabbit r could hop onto: any other of its side. */
+const perches = (list, r) => list.map((q, j) => j).filter((j) => j !== r.rides && list[j] !== r && !list[j].taken && !list[j].flying && list[j].rides == null && !['bunny', 'ball'].includes(list[j].type) && list[j].x >= 0);
+/** The rabbit's moves when its side moves it: onto any other of its pieces. */
+function hopMoves(s, side, r) {
+  const list = side === 'you' ? s.pieces : s.foes;
+  return perches(list, r).map((j) => ({ x: list[j].x, y: list[j].y, cap: false, hop: true }));
+}
 function carrierHop(s, side) {
   const list = side === 'you' ? s.pieces : s.foes, r = list.find((q) => q.brain === 'carrier' && !q.taken);
   if (!r) return;
-  const at = list.map((q, j) => j).filter((j) => j !== r.rides && list[j] !== r && !list[j].taken && !list[j].flying && list[j].rides == null && !['bunny', 'ball'].includes(list[j].type) && list[j].x >= 0);
+  const at = perches(list, r);
   if (!at.length) return;
   const j = at[Math.floor(hash01(`rabbit:${s.day.seed ?? 0}:${s.t}:${side}`) * at.length)];
   r.from = [r.x, r.y]; r.x = list[j].x; r.y = list[j].y; r.rides = j; r.hopped = true;
 }
-/** How many more of your moves until the riding rabbits hop. */
+/** How many more of your moves until the riding rabbits hop by themselves
+    (only when they hop at random). */
 export function hopIn(s) {
   const n = s.day.rules.rabbitHop;
-  return s.day.rules.goal === 'carrier' && n > 0 ? n - (s.t % n) : null;
+  return s.day.rules.goal === 'carrier' && !rabbitChosen(s.day.rules) && n > 0 ? n - (s.t % n) : null;
 }
 
 /** A spirals piece sees the board with its left and right edges joined
@@ -1281,9 +1298,11 @@ export function movesFor(s, i) {
   // A turn left open by a suit (below): only that piece moves, and after a
   // Vines capture only to take again.
   if (s.bonus && s.bonus.p !== i) return [];
-  // Stunned by a mace (2026-10-13): it sits out this turn. A rabbit riding
-  // your pieces (goal 'carrier') never moves by itself.
-  if (p.stun || p.brain === 'carrier') return [];
+  // A rabbit riding your pieces (goal 'carrier'): moved by you, onto
+  // another of your pieces, as your move; or never, if it hops at random.
+  if (p.brain === 'carrier') return rabbitChosen(s.day.rules) ? hopMoves(s, 'you', p) : [];
+  // Stunned by a mace (2026-10-13): it sits out this turn.
+  if (p.stun) return [];
   let ms = pieceMoves(s, p, 'you');
   if (s.day.rules.ballMove === 'hit') ms = ms.filter((m) => hitOk(s, p, m));
   if (s.bonus?.cap) return ms.filter(takesAny);
@@ -1334,6 +1353,8 @@ export function foeMovesAny(s, k) {
 export function foeMovesFor(s, k) {
   if (s.clouds?.length) { const v = seenBy(s, 'foe'); if (v !== s) return withGrid(v, () => foeMovesFor(v, k)); }
   const f = s.foes[k];
+  // Their riding rabbit: moved by them, as their move (goal 'carrier').
+  if (!f.taken && f.brain === 'carrier') return rabbitChosen(s.day.rules) && s.foes.some((q) => !q.taken && q.brain === 'ai') ? hopMoves(s, 'foe', f) : [];
   if (f.taken || f.brain !== 'ai' || f.stun) return [];
   let ms = pieceMoves(s, f, 'foe');
   if (s.day.rules.promote === 'copy' && f.type === 'pawn') ms = promoteChoices(s, 'foe', k, ms);
@@ -1495,7 +1516,7 @@ function foeLand(s, k, m) {
   landFoe(s, f, m.x, m.y, m);
   took += armsAfter(s, 'foe', k, m);
   settleRevivals(s);
-  if (!m.swap) passGhosts(s, 'foe', fx, fy, m.x, m.y, m.wrapped);
+  if (!m.swap && !m.hop) passGhosts(s, 'foe', fx, fy, m.x, m.y, m.wrapped);
   flagHome(s);
   return Math.max(took, gone() - was);
 }
@@ -1703,7 +1724,7 @@ function hash01(str) {
 export function reachMaps(s, pattern = false) {
   s = seenBy(s, 'you'); // a piece hidden in a cloud shows no reach (2026-10-13)
   const W = s.day.W, yours = new Set(), theirs = new Set();
-  if (s.won) return { yours, theirs };
+  if (s.won) return { yours, theirs, threat: theirs };
   s.pieces.forEach((p, i) => {
     if (p.taken || p.flying) return;
     for (const m of movesFor(s, i)) if (!m.swap) { yours.add(m.y * W + m.x); for (const q of capturesOf(m, W)) yours.add(q); }
@@ -1725,7 +1746,42 @@ export function reachMaps(s, pattern = false) {
     }
     if (pattern && f.weapon !== 'sword' && f.weapon !== 'lance') for (const k of patternReach(s, f, 'foe', canTake(s.day.rules, f))) theirs.add(k);
   }
-  return { yours, theirs };
+  if (!pattern) return { yours, theirs, threat: theirs };
+  // What they can reach this turn (`threat`, for the shields) and, for the
+  // rings, their whole move set on an open board (moveSet, below).
+  const threat = new Set(theirs);
+  for (const f of s.foes) {
+    if (f.taken || f.flying || f.brain === 'pattern' || f.brain === 'leader' || f.brain === 'carrier' || !PIECES[f.type]?.moves) continue;
+    for (const k of moveSet(s, f, 'foe')) theirs.add(k);
+  }
+  return { yours, theirs, threat };
+}
+
+/**
+ * The squares piece f's move set covers on an open board (2026-10-13,
+ * Timothy: "the purple reach outlines should reflect the move set of the
+ * enemy pieces, even if they end up displaying those outlines underneath
+ * friendly pieces. It's just supposed to show where they could go
+ * regardless of whether or not they actually could on that turn ... so
+ * that you can kind of use that to aid in your predictions"). Every piece,
+ * ghost, statue and gate is looked through, so a slider's line runs on to
+ * the edge, and a move that only takes (a pawn's diagonal, a hop over a
+ * piece) counts too: the moves are found twice, once with every square
+ * empty and once with every square holding something to take. Only the
+ * board's own shape (its edge, a square gone) stops it.
+ */
+function moveSet(s, f, side) {
+  if (f.suit === 'spirals' && !s.day.rules.wrap) s = wrapView(s);
+  const day = s.day, W = day.W, wrap = !!day.rules.wrap, fwd = side === 'you' ? 1 : -1;
+  const spot = (x, y) => (wrap ? fold(day, x, y) : [x, y]);
+  const gap = (x, y) => { const [a, b] = spot(x, y); return !onBoard(day, a, b) || shrunk(s, a, b) || crumbled(s, a, b) || (wrap && a === f.x && b === f.y); };
+  const open = (x, y) => (gap(x, y) ? OFF : EMPTY), full = (x, y) => (gap(x, y) ? OFF : ENEMY);
+  const out = new Set();
+  for (const L of [open, full]) for (const m of PIECES[f.type].moves(L, f, fwd, day)) {
+    const [x, y] = spot(m.x, m.y);
+    if (onBoard(day, x, y) && (x !== f.x || y !== f.y)) out.add(y * W + x);
+  }
+  return out;
 }
 
 // Pieces with moves that only take, never step (a pawn's diagonals, a
@@ -2229,7 +2285,7 @@ export function playerMove(s, mv) {
     landMine(n, mv.p, m.x, m.y, m);
     armsAfter(n, 'you', mv.p, m);
     settleRevivals(n);
-    if (!m.swap) passGhosts(n, 'you', fx, fy, m.x, m.y, m.wrapped);
+    if (!m.swap && !m.hop) passGhosts(n, 'you', fx, fy, m.x, m.y, m.wrapped);
     flagHome(n);
     const took = gone() > before || n.foes.reduce((t, f) => t + (f.lives || 1), 0) < lives;
     openBonus(n, mv.p, took, was);
@@ -2409,7 +2465,11 @@ function afterMove(n) {
   // only between other enemy pieces and not on its own ... anywhere from
   // every turn to every five turns"): every rabbitHop turns, to another of
   // that side's pieces, at random (the same on every phone).
-  if (r.goal === 'carrier' && r.rabbitHop > 0 && n.t % r.rabbitHop === 0) { carrierHop(n, 'foe'); carrierHop(n, 'you'); }
+  if (r.goal === 'carrier' && r.rabbitHop > 0 && n.t % r.rabbitHop === 0) {
+    if (!rabbitChosen(r)) { carrierHop(n, 'foe'); carrierHop(n, 'you'); }
+    // Chosen, but their side cannot choose (nothing of theirs thinks).
+    else if (!n.foes.some((q) => !q.taken && q.brain === 'ai')) carrierHop(n, 'foe');
+  }
 }
 
 /**

@@ -2,7 +2,7 @@
 // main: one more for every push (2026-10-11). Shown at the foot of the home
 // page and of every Grove Chess page's menu. Do not edit by hand.
 export const RELEASE = {
-  "number": 55,
+  "number": 56,
   "date": "2026-10-13",
-  "note": "Shields on squares need two of your pieces: one that can move there and one to guard it (gold for three)"
+  "note": "Their reach rings show each piece's whole move set, shields lie under the pieces, the riding rabbit has no plinth, and moving the rabbit is a chosen move that costs the turn (a setting brings back the random hop)"
 };
