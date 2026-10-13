@@ -111,7 +111,7 @@ export function cleanMode(raw = {}) {
     if (f.type === 'bool') run[f.key] = !!v;
     if (f.type === 'choice' && f.options.some((o) => o.v === String(v))) run[f.key] = String(v);
     if ((f.type === 'multi' || f.type === 'pieces') && Array.isArray(v)) {
-      const ok = v.filter((k) => (f.type === 'pieces' ? !!PIECES[k] : f.options.some((o) => o.v === k)));
+      const ok = v.filter((k) => (f.type === 'pieces' ? !!PIECES[k] && PIECES[k].kind !== 'neutral' : f.options.some((o) => o.v === k)));
       if (ok.length) run[f.key] = [...new Set(ok)];
     }
   }
@@ -132,12 +132,15 @@ export const MODES = {
     // upgrade a board for each side, nothing lost for good, no layout step,
     // no clouds, no balancing search; seven by seven from depth 6. The line
     // (later on 2026-10-13): "tall rook, bishop, king, knight, short rook.
-    // the enemy side is the same but reversed".
-    name: 'The descent', blurb: 'Tall rook, bishop, King, knight and short rook each, a full row on a five by five board; theirs is yours reversed. The middle row is statues, and one sinks away every turn. One rabbit leads their side: its kind is how they play. Take their King to fall to the next board, where each side gets an upgrade: you choose one of two. From depth 6 the board is seven by seven. If they take your King the descent is over.',
+    // the enemy side is the same but reversed". Then (later the same day)
+    // five by six, with a row of ghosts in front of each side in place of
+    // the statues and the clouds: "decent games also now start on a 5x6
+    // board to allow a bit more room".
+    name: 'The descent', blurb: 'Tall rook, bishop, King, knight and short rook each, a full row on a five by six board; theirs is yours reversed. In front of each side stands a row of ghosts: yours let your pieces through and vanish as they pass, theirs stop you. One rabbit leads their side: its kind is how they play. Take their King to fall to the next board, where each side gets an upgrade: you choose one of two. From depth 6 the board is seven by seven. If they take your King the descent is over.',
     settings: {
       run: 'descent', roll: 'fixed', startPieces: 5, maxPieces: 7, startPool: ['tallrook', 'bishop', 'king', 'knight', 'shortrook'], foeLine: 'turned', rewards: true, jokers: false, ramp: 'steady', outOfMoves: 'fall', upgrades: 'each', growAt: 6, carry: false,
-      goal: 'king', royal: true, showdown: true, w: 5, h: 5, foes: 4, foePool: ['knight', 'bishop', 'rook'], darkBrain: 'rabbit', rabbitMind: 'mind', iq: 3, kinds: 1,
-      foesCapture: true, statues: 0, statueRow: true, maxMoves: 20, lineup: true, inOrder: true, arrange: false, cloud: false, parMin: 3, parMax: 10, difficulty: 'any'
+      goal: 'king', royal: true, showdown: true, w: 5, h: 6, foes: 4, foePool: ['knight', 'bishop', 'rook'], darkBrain: 'rabbit', rabbitMind: 'mind', iq: 3, kinds: 1,
+      foesCapture: true, statues: 0, statueRow: false, ghosts: true, maxMoves: 20, lineup: true, inOrder: true, arrange: false, cloud: false, parMin: 3, parMax: 10, difficulty: 'any'
     }
   },
   kungfu: {
@@ -156,7 +159,7 @@ export const MODES = {
     name: 'Golf', blurb: 'A course of holes. Your pieces are the walls, the ramps and, with some balls, the clubs; sink the ball in as few strokes as you can.',
     settings: {
       run: 'course', roll: 'fixed', courseName: 'meadow', courseHoles: 9, goal: 'hole', royal: false, showdown: false, fullRow: false, cloud: false, foes: 0, rabbits: 1, rabbitsEat: false, rabbitMind: 'mind', traits: ['messy', 'shy', 'guard'], iq: 4,
-      mine: 3, minePool: ['rook', 'bishop', 'knight', 'king', 'wazir', 'ferz', 'grasshopper'], statues: 2, ballCaptures: false, holeMoves: 'still',
+      mine: 3, minePool: ['rook', 'bishop', 'knight', 'king', 'wazir', 'ferz', 'grasshopper'], statues: 2, statuesTake: false, ballCaptures: false, holeMoves: 'still',
       maxMoves: 15, parMin: 3, parMax: 9, w: 6, h: 6, lineup: false, mineRows: 2, foeRows: 3, difficulty: 'any'
     }
   },

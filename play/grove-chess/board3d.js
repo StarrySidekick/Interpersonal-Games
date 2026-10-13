@@ -36,7 +36,7 @@ import { rng } from '../../engine/seed.js';
 import { model } from './models.js';
 import { LOOK } from './config.js';
 import { Board, tileColour, PIT, TRACK, tweenPos, wraps } from './board.js';
-import { onBoard, brambleCount, holeOpen, nextShrink, statueKind, reachMaps, onHill, guarded, threats, pinned } from './rules.js';
+import { onBoard, brambleCount, holeOpen, nextShrink, statueKind, reachMaps, onHill, guarded, threats, pinned, ghostAt, gateUp, hiddenFrom } from './rules.js';
 import * as sfx from './sounds.js';
 import { haptic } from '../../engine/ui.js';
 
@@ -811,6 +811,12 @@ export class Board3D extends Board {
       }
       stand(model(statueKind(day, sq), 'stone'), x, y, 0, 400, c ? { s: away(at - c.t0 - c.delay(x, y)) } : {});
     }
+    // Neutral pieces (2026-10-13): ghosts in their side's colour, and gates,
+    // up or down.
+    if (!tw?.collapse) {
+      for (const [sq] of day.ghosts || []) { const g = ghostAt(s, sq); if (g) stand(model('ghost', g), sq % day.W, Math.floor(sq / day.W), 0, 450 + sq); }
+      for (const [sq] of day.gates || []) stand(model(gateUp(s, sq) ? 'gateUp' : 'gateDown', 'you'), sq % day.W, Math.floor(sq / day.W), 0, 470 + sq);
+    }
     // The first-turn cloud over the second rows.
     if (s.cloudy && day.cloud && !tw?.collapse) for (const sq of day.cloud) stand(model('cloud'), sq % day.W, Math.floor(sq / day.W), 0, 402);
     for (let i = 0; i < brambleCount(day, s.t); i++) stand(model('bramble'), day.bramble[i] % day.W, Math.floor(day.bramble[i] / day.W), 0, 401 + i);
@@ -885,9 +891,12 @@ export class Board3D extends Board {
       stand(model(gold ? 'shieldGold' : 'shield', 'you'), x, y, h, 100 + f.from, { s: 1 + 0.3 * e, ry: (1 - e) * 0.9 * Math.sign(b.x - a.x || 1) });
       this.settleSoon();
     }
-    // Theirs.
+    // Theirs. One hidden under a cloud is not drawn: you cannot see it, nor
+    // its move into the cloud (2026-10-13).
+    const HID = hiddenFrom(s, 'you');
     s.foes.forEach((f, k) => {
       if (f.taken && !(tw?.caught?.has(k) && at < tw.caughtAt)) return;
+      if (HID.has(k) && !f.taken) return;
       let x = f.x, y = f.y, h = 0;
       const t = tw?.foes?.[k];
       if (t) { const q = tweenPos(t, at); x = q.x; y = q.y; h = t.hop ? Math.sin(Math.PI * q.k) * (t.blocked ? 1.2 : 3.5) : 0; }
@@ -898,6 +907,13 @@ export class Board3D extends Board {
       stand(mdl, x, y, h, 200 + k, collapse ? { s: away(at - collapse.t0 - collapse.delay(f.x, f.y)) } : {});
       if (day.rules.goal === 'target' && day.foes.length > 1 && f.target) stand(ring('#e3bd57'), x, y, 0, 200 + k);
       if (PIN?.theirs.has(k) && !f.taken && this.needle(stand, x, y, h, 200 + k, 't' + k, at)) this.settleSoon();
+    });
+    // Wandering clouds, high over everything, drifting at the end of a turn.
+    if (!tw?.collapse) (s.clouds || []).forEach((c, i) => {
+      let { x, y } = c;
+      if (tw?.clouds?.[i]) { ({ x, y } = tweenPos(tw.clouds[i], at)); this.settleSoon(); }
+      stand(model('cloudShade'), x, y, 0, 490 + i);
+      stand(model('cloud'), x, y, 3, 490 + i, { s: 1.3 });
     });
     // Needles pulled out of pieces no longer pinned: straight up and away.
     for (const u of this.unpins || []) {

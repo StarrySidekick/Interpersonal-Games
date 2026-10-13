@@ -7,7 +7,7 @@
 
 import { Mesh, Model, snapshot } from '../../engine/lowpoly.js';
 import { model } from './models.js';
-import { brambleCount, onBoard, movesFor, holeOpen, nextShrink, PIECES, statueKind, reachMaps } from './rules.js';
+import { brambleCount, onBoard, movesFor, holeOpen, nextShrink, PIECES, statueKind, reachMaps, ghostAt, gateUp, hiddenFrom } from './rules.js';
 import * as sfx from './sounds.js';
 import { LOOK } from './config.js';
 
@@ -427,6 +427,10 @@ export class Board {
     // Everything that stands up, drawn back to front.
     const things = [];
     for (const sq of day.stumps) if (!s.open?.includes(sq)) things.push({ img: sprite(statueKind(day, sq), 'stone'), x: sq % day.W, y: Math.floor(sq / day.W) });
+    // Neutral pieces (2026-10-13): ghosts, gates, and clouds over everything.
+    for (const [sq] of day.ghosts || []) { const g = ghostAt(s, sq); if (g) things.push({ img: sprite('ghost', g), x: sq % day.W, y: Math.floor(sq / day.W) }); }
+    for (const [sq] of day.gates || []) things.push({ img: sprite(gateUp(s, sq) ? 'gateUp' : 'gateDown', 'you'), x: sq % day.W, y: Math.floor(sq / day.W), under: !gateUp(s, sq) });
+    const hidden = hiddenFrom(s, 'you');
     for (let i = 0; i < bc; i++) {
       const sq = day.bramble[i];
       things.push({ img: sprite('bramble'), x: sq % day.W, y: Math.floor(sq / day.W), under: true });
@@ -448,6 +452,7 @@ export class Board {
     s.foes.forEach((f, k) => {
       // A caught foe stays until your piece arrives.
       if (f.taken && !(tw?.caught?.has(k) && at < tw.caughtAt)) return;
+      if (hidden.has(k) && !f.taken) return; // under a cloud: you cannot see it
       let x = f.x, y = f.y, lift = 0;
       const t = tw?.foes?.[k];
       if (t) {
@@ -456,6 +461,11 @@ export class Board {
         lift = t.hop ? Math.sin(Math.PI * q.k) * (t.blocked ? 3 : 9) : 0;
       }
       things.push({ img: sprite(f.brain === 'leader' ? 'rabbit' : f.type, 'foe', this.fur(f)), x, y, lift, ring: marked && f.target ? 'rgba(227,189,87,.9)' : null });
+    });
+    (s.clouds || []).forEach((c, i) => {
+      let { x, y } = c;
+      if (tw?.clouds?.[i]) ({ x, y } = tweenPos(tw.clouds[i], at));
+      things.push({ img: sprite('cloud'), x, y: y - 0.01, lift: 3 });
     });
     things.sort((a, b) => b.y - a.y || (b.under ? 1 : 0) - (a.under ? 1 : 0));
     for (const t of things) this.spriteAt(t.img, t.x, t.y, t.lift || 0, t.ring);
@@ -625,10 +635,31 @@ export class Board {
       t = tw.vanish.t0 + tw.vanish.dur;
     }
     // A statue row (2026-10-12): one statue sinks away, with a grind of stone.
-    if ((b.open?.length || 0) > (a.open?.length || 0)) {
-      tw.sinkStatue = { sq: b.open[b.open.length - 1], t0: t + 60 * slow, dur: 520 * slow };
+    // A statue that was taken (2026-10-13) breaks where the piece landed.
+    const opened = (b.open || []).filter((q) => !(a.open || []).includes(q));
+    const onIt = (q) => [...b.pieces, ...b.foes].some((p) => !p.taken && p.y * this.day.W + p.x === q);
+    for (const q of opened.filter(onIt)) {
+      tw.poofs.push({ x: q % this.day.W, y: Math.floor(q / this.day.W), t0: tw.caughtAt ?? t, dur: 520, c1: '#8e918c', c2: '#d8d4c8' });
+      sfx.smash(at(tw.caughtAt ?? t));
+    }
+    const sinking = opened.filter((q) => !onIt(q));
+    if (sinking.length) {
+      tw.sinkStatue = { sq: sinking[sinking.length - 1], t0: t + 60 * slow, dur: 520 * slow };
       sfx.shrink(at(tw.sinkStatue.t0));
       t = tw.sinkStatue.t0 + tw.sinkStatue.dur;
+    }
+    // Ghosts (2026-10-13): one passed through is gone, in a pale puff.
+    const ghostsGone = (b.ghostGone || []).filter((q) => !(a.ghostGone || []).includes(q));
+    if (ghostsGone.length) {
+      for (const q of ghostsGone) tw.poofs.push({ x: q % this.day.W, y: Math.floor(q / this.day.W), t0: tw.caughtAt ?? t, dur: 620, c1: '#f4f1ff', c2: '#c9c2e8' });
+      sfx.ghost(at(tw.caughtAt ?? t));
+    }
+    // Gates swap as the turn ends, with a clank.
+    if (this.day.gates?.size && b.t !== a.t) sfx.gate(at(t));
+    // Wandering clouds drift a square once the turn is over.
+    if (b.clouds?.length && a.clouds?.length) {
+      tw.clouds = b.clouds.map((c, i) => ({ from: [a.clouds[i].x, a.clouds[i].y], to: [c.x, c.y], t0: t, dur: 520 * slow }));
+      t += 520 * slow;
     }
     // A geared board turns a quarter turn once the whole turn is over.
     if (this.day.rules.geared && !b.won && b.t !== a.t) {

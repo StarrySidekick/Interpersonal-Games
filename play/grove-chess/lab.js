@@ -97,7 +97,15 @@ export const SCHEMA = [
     { key: 'statues', label: 'Statues', type: 'int', min: 0, max: 8, def: 2,
       help: 'Standing stones, each with a spiral cut in it, in the middle of the board. They never move and nothing can take them. Sliders stop at them, leapers jump them, and the grasshopper and the cannon can hop over them.' },
     { key: 'statueRow', label: 'A row of statues that opens', type: 'bool', def: false,
-      help: 'The middle row is all statues (in place of the count above), and after every turn one of them, at random, sinks away and opens its square (Timothy, 2026-10-12).' }
+      help: 'The middle row is all statues (in place of the count above), and after every turn one of them, at random, sinks away and opens its square (Timothy, 2026-10-12).' },
+    { key: 'statuesTake', label: 'Statues can be taken', type: 'bool', def: true,
+      help: 'Statues are neutral pieces (Timothy, 2026-10-13): they never move or do anything, but either side can take one, and then it is gone. Sliders stop at them; leapers and hoppers go over them. Off: nothing can take them, the first way. Golf keeps them off.' },
+    { key: 'ghosts', label: 'A row of ghosts in front of each side', type: 'bool', def: false,
+      help: 'Ghosts fill the row in front of each side, where pawns stand in chess (Timothy, 2026-10-13). A ghost never moves and never takes. Its own side moves through it as if it were not there, and once one of them passes through or onto it, it is gone for good. The other side cannot pass it or land on it, though a leaper can jump over. So at first neither side can reach the other: you open your own wall as you go.' },
+    { key: 'gates', label: 'Gates', type: 'int', min: 0, max: 6, def: 0,
+      help: 'Gates between the two sides, up one turn and down the next (Timothy, 2026-10-13). Down, a gate is open ground; up, nothing passes it and nothing can stand there. A gate with a piece on it stays down until the piece leaves.' },
+    { key: 'clouds', label: 'Wandering clouds', type: 'int', min: 0, max: 4, def: 0,
+      help: 'Clouds that drift a square a turn, any way, on their own (Timothy, 2026-10-13). A piece under a cloud is hidden from the other side, and so is its move into the cloud. A move that runs into a hidden piece stops there and takes it. You always see your own pieces, cloud or not.' }
   ] },
   { group: 'Your side', fields: [
     { key: 'fullRow', label: 'A full row each', type: 'bool', def: true,
@@ -183,7 +191,7 @@ export const SCHEMA = [
 ];
 
 const FIELDS = SCHEMA.flatMap((g) => g.fields);
-export const SETTINGS_VERSION = 16;
+export const SETTINGS_VERSION = 17;
 export const defaults = () => ({ ...Object.fromEntries(FIELDS.map((f) => [f.key, Array.isArray(f.def) ? [...f.def] : f.def])), v: SETTINGS_VERSION });
 
 /** How each earlier version's defaults differ from today's. Settings saved
@@ -202,7 +210,9 @@ export const defaults = () => ({ ...Object.fromEntries(FIELDS.map((f) => [f.key,
 // pieces.
 // Version 15 (2026-10-11): beacons on what can be taken.
 // Version 16 (2026-10-13): needles through pinned pieces.
-const V16 = { showPins: false };
+// Version 17 (2026-10-13): statues can be taken.
+const V17 = { statuesTake: false };
+const V16 = { showPins: false, ...V17 };
 const V15 = { showBeacons: false, ...V16 };
 const V14 = { showMyReach: true, showGuards: false, ...V15 };
 const V13 = { cloudOwn: false, ...V14 };
@@ -214,6 +224,7 @@ const V9 = { mineRows: 2, foeRows: 3, ...V10 };
 // (goal 'king', royal), and two left brings on the showdown.
 const V8 = { goal: 'descent', royal: false, showdown: false, dealKing: false, ...V9 };
 const BEFORE = {
+  16: { ...V17 },
   15: { ...V16 },
   14: { ...V15 },
   13: { ...V14 },
@@ -259,7 +270,7 @@ export function clean(raw) {
       if (ok.length) s[f.key] = [...new Set(ok)];
     }
     if (f.type === 'pieces' && Array.isArray(v)) {
-      const ok = v.filter((k) => PIECES[k] && (k !== 'rabbit' || f.rabbit));
+      const ok = v.filter((k) => PIECES[k] && PIECES[k].kind !== 'neutral' && (k !== 'rabbit' || f.rabbit));
       if (ok.length) s[f.key] = [...new Set(ok)];
     }
   }
@@ -291,6 +302,19 @@ export function clean(raw) {
     // and its suit (a rule it carries, and its colour).
     if (Array.isArray(raw.handMods)) s.handMods = raw.handMods.filter((m, i) => keep[i]).map((m) => ({
       ...(m?.lives > 1 ? { lives: Math.min(9, m.lives | 0) } : {}), ...(SUITS[m?.suit] ? { suit: m.suit } : {}) }));
+  }
+  // Both sides square by square (the piece trials, 2026-10-13): `cells` is
+  // yours, your back row first, left to right, then the row in front;
+  // `foeCells` theirs, their back row first, in the same files as yours
+  // (so a mirrored line has the same order). A null is an empty square;
+  // `cellMods` and `foeCellMods` are each piece's suit and hearts. Not on
+  // the page.
+  if (Array.isArray(raw?.cells) && Array.isArray(raw?.foeCells)) {
+    const ok = (a) => a.slice(0, 2 * s.w).map((t) => (typeof t === 'string' && PIECES[t] && t !== 'rabbit' && t !== 'ball' ? t : null));
+    const mod = (m) => ({ ...(m?.lives > 1 ? { lives: Math.min(9, m.lives | 0) } : {}), ...(SUITS[m?.suit] ? { suit: m.suit } : {}) });
+    s.cells = ok(raw.cells); s.foeCells = ok(raw.foeCells);
+    s.cellMods = s.cells.map((_, i) => mod(raw.cellMods?.[i])); s.foeCellMods = s.foeCells.map((_, i) => mod(raw.foeCellMods?.[i]));
+    s.mine = s.cells.filter(Boolean).length; s.foes = s.foeCells.filter(Boolean).length;
   }
   // Their side given outright (the descent from 2026-10-12: they carry a
   // lineup down too, with its own upgrades), not dealt. Not on the page.
@@ -497,11 +521,21 @@ export function makeLevel(settings, seed) {
     return Array.from({ length: n }, (_, i) => { const c = row[at + i]; if (!c || !free(c)) return place([y]); taken.add(c[1] * W + c[0]); return { x: c[0], y: c[1] }; });
   };
   const ordered = S.inOrder && S.hand && S.foeHand;
-  const mySpots = ordered ? inRow(rows[0], myTypes.length) : S.lineup ? lineUp(rows, myTypes.length) : null;
-  const pieces = myTypes.map((type, i) => ({ type, ...(mySpots ? mySpots[i] : place(bottom)), ...(S.handMods?.[i] || {}) }));
+  // Square by square (cells, the piece trials): no dice at all.
+  const exact = S.cells && S.foeCells;
+  const fromCells = (list, mods, side) => list.map((type, i) => {
+    if (!type) return null;
+    const x = i % W, r = Math.floor(i / W), y = side === 'you' ? rows[r] : rows[rows.length - 1 - r];
+    if (y === undefined || !onBoard(day, x, y)) return null;
+    taken.add(y * W + x);
+    return { type, x, y, ...(mods?.[i] || {}) };
+  }).filter(Boolean);
+  const mySpots = exact ? null : ordered ? inRow(rows[0], myTypes.length) : S.lineup ? lineUp(rows, myTypes.length) : null;
+  const pieces = exact ? fromCells(S.cells, S.cellMods, 'you') : myTypes.map((type, i) => ({ type, ...(mySpots ? mySpots[i] : place(bottom)), ...(S.handMods?.[i] || {}) }));
 
   let foes;
-  if (S.mirror) {
+  if (exact) foes = fromCells(S.foeCells, S.foeCellMods, 'foe');
+  else if (S.mirror) {
     foes = pieces.map((p) => {
       const my = H - 1 - p.y, sq = my * W + p.x;
       const spot = onBoard(day, p.x, my) && !taken.has(sq) ? (taken.add(sq), { x: p.x, y: my }) : place(top);
@@ -596,6 +630,16 @@ export function makeLevel(settings, seed) {
     lead = leaderMind(trait, S.iq);
   }
 
+  // Ghosts (2026-10-13): the row in front of each side's line, where pawns
+  // would stand, every square of it that nothing else stands on. No random
+  // numbers, so a level without them is dealt as it always was.
+  if (S.ghosts && !S.realtime && rows.length >= 4) {
+    day.ghosts = new Map();
+    const at = new Set([...pieces, ...foes].filter((p) => p.x !== undefined).map((p) => p.y * W + p.x));
+    for (const [y, side] of [[rows[1], 'you'], [rows[rows.length - 2], 'foe']])
+      for (const [x, cy] of cells) if (cy === y && !at.has(y * W + x)) { day.ghosts.set(y * W + x, side); taken.add(y * W + x); }
+  }
+
   // Statues (2026-10-07): in the middle of the board, between the two
   // sides' rows, never where anything starts. Placed last, so a level
   // without them comes out exactly as it did before they existed.
@@ -649,6 +693,17 @@ export function makeLevel(settings, seed) {
     });
   }
 
+  // Gates and wandering clouds (2026-10-13), drawn last so a level without
+  // them is dealt as it always was: on free squares between the two sides
+  // (inside the ghosts, if there are any).
+  if ((S.gates || S.clouds) && !S.realtime) {
+    const lo = S.ghosts ? 2 : 1, mid = rows.slice(lo, Math.max(lo, rows.length - lo));
+    const pool = cells.filter((c) => (mid.length ? mid.includes(c[1]) : true) && free(c) && !day.ghosts?.has(c[1] * W + c[0]) && !day.stumps.has(c[1] * W + c[0]));
+    const pick = () => { const [x, y] = pool.splice(Math.floor(rand() * pool.length), 1)[0]; taken.add(y * W + x); return { x, y }; };
+    if (S.gates) { day.gates = new Map(); for (let i = 0; i < S.gates && pool.length; i++) { const { x, y } = pick(); day.gates.set(y * W + x, i % 2); } }
+    if (S.clouds) { day.clouds = []; for (let i = 0; i < S.clouds && pool.length; i++) day.clouds.push(pick()); }
+  }
+
   return Object.assign(day, {
     seed, settings: S, shrinkKey: seed,
     pieces: pieces.filter((p) => p.x !== undefined),
@@ -661,6 +716,7 @@ export function makeLevel(settings, seed) {
       ...(S.geared ? { geared: true } : {}),
       ...(S.movesPerTurn === 2 ? { movesPerTurn: 2 } : {}), ...(S.lazyFoes ? { lazyFoes: true } : {}),
       ...(day.statueOrder ? { statuesOpen: true } : {}),
+      ...(S.statuesTake && !S.realtime ? { statuesTake: true } : {}),
       crumble: S.ground === 'crumble', shrink: S.ground === 'shrink' ? 'random' : S.ground === 'spiral' ? 'spiral' : null,
       shrinkEvery: S.shrinkEvery },
     ai: lead || { skill: +S.skill, style: S.style },
@@ -738,13 +794,22 @@ export function summary(S) {
   const hand = S.mirror ? S.minePool : S.foePool;
   const made = S.goal === 'king' && !hand.includes('king') ? ', one of them made a King'
     : S.goal === 'rabbit' && !hand.includes('rabbit') ? ', one of them made a rabbit' : '';
-  const statues = (S.statues ? `, ${S.statues} statue${S.statues > 1 ? 's' : ''}` : '') +
+  const statues = (S.statueRow ? ', a row of statues that opens' : S.statues ? `, ${S.statues} statue${S.statues > 1 ? 's' : ''}` : '') +
+    (S.ghosts ? ', a row of ghosts in front of each side' : '') + (S.gates ? `, ${S.gates} gate${S.gates > 1 ? 's' : ''}` : '') +
+    (S.clouds ? `, ${S.clouds} wandering cloud${S.clouds > 1 ? 's' : ''}` : '') +
     (S.magic === 'sides' ? ', magic sides' : S.magic === 'all' ? ', magic on all four sides' : '') + (S.geared ? ', geared' : '');
   const ground = { solid: '', crumble: ', crumbling', shrink: `, shrinking every ${S.shrinkEvery}`, spiral: `, shrinking in a spiral every ${S.shrinkEvery}` }[S.ground];
   const rabbitsHere = S.rabbits > 0 || (S.foePool.includes('rabbit') && !S.mirror);
   const minds = S.rabbitMind === 'mind' ? ` with minds (intelligence ${S.iq}, ${S.traits.map((t) => TRAITS[t].name.toLowerCase()).join('/')})` : '';
   const dark = S.darkBrain === 'possessed' ? `possessed by ${S.kinds} kind${S.kinds > 1 ? 's' : ''} of rabbit${minds}` : S.darkBrain === 'rabbit' ? `led by one rabbit (intelligence ${S.iq})` : 'thinking';
   const auto = S.mode === 'auto' ? `Autochess, with ${S.autoPool === 'all' ? 'every named kind of rabbit' : 'the rabbits you have caught'}. ` : '';
+  // Both sides square by square (the piece trials and Custom's armies).
+  if (S.cells) {
+    const line = (c, mods) => c.map((t, i) => (t ? `${name(t)}${mods?.[i]?.suit ? ` of ${mods[i].suit[0].toUpperCase()}${mods[i].suit.slice(1)}` : ''}` : null)).filter(Boolean).join(', ');
+    const turned = S.cells.map((_, i) => S.cells[Math.floor(i / S.w) * S.w + (S.w - 1 - (i % S.w))]);
+    const theirs = S.foeCells.join() === S.cells.join() ? 'the same, mirrored' : S.foeCells.join() === turned.join() ? 'the same, turned' : line(S.foeCells, S.foeCellMods);
+    return `${S.w} × ${S.h} ${shape}${ground}${statues}. You: ${line(S.cells, S.cellMods)}. Them: ${theirs}, ${dark}. Win by ${GOAL_TEXT[S.goal]}${S.maxMoves ? ` in ${S.maxMoves} moves` : ''}.`;
+  }
   return `${auto}${S.w} × ${S.h} ${shape}${ground}${statues}${S.lineup ? ', lined up' : ''}. You: ${S.hand ? S.hand.map(name).join(', ') : `${S.mine} from ${pool(S.minePool)}`}. ` +
     `Them: ${S.rabbits ? `${S.rabbits} rabbit${S.rabbits > 1 ? 's' : ''}, ` : ''}` +
     `${S.mirror ? 'a mirror of you' : S.foes ? `${S.foes} from ${pool(S.foePool)}, ${dark}` : 'no pieces'}${made}` +

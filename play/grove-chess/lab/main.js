@@ -1,13 +1,16 @@
-// The lab page (called Chaos on the page since 2026-10-07): edit settings,
-// have the solver check the level, see it turn, play it, rate it. In
-// autochess you set up your pieces and the game plays itself.
+// The lab page: the workshop, called Custom from 2026-10-13 (Timothy:
+// "combine all the custom chess setting stuff like chaos and piece trials
+// into one central just custom mode"). Edit settings, have the solver check
+// the level, see it turn, play it, rate it; set both armies square by square,
+// simulate the level with bots, or find its most playable layout
+// (custom.js). In autochess you set up your pieces and the game plays itself.
 
 import { settingShown } from '../modes.js';
 import { $, el, show, haptic, keepAwake, themeToggle } from '../../../engine/ui.js';
 import { soundToggle } from '../../../engine/sound.js';
 import * as sfx from '../sounds.js';
 import { makeTarget, render } from '../../../engine/lowpoly.js';
-import { PIECES, descOf, HOLE_DESC, CRUMBLE_DESC, SHRINK_DESC, STUMP_DESC, movesFor, playerMove, respond, isOver, outcome, initialState, allMoves, replay, crumbled, shrunk, holeOpen } from '../rules.js';
+import { PIECES, descOf, HOLE_DESC, CRUMBLE_DESC, SHRINK_DESC, STUMP_DESC, statueDesc, GHOST_DESC, GATE_DESC, WANDER_DESC, ghostAt, gateUp, cloudOver, hiddenFrom, statueAt, movesFor, playerMove, respond, isOver, outcome, initialState, allMoves, replay, crumbled, shrunk, holeOpen } from '../rules.js';
 import { setupPanel, setupState, playOut } from '../autosetup.js';
 import { FUR, caughtRabbits } from '../rabbits.js';
 import { Board, scene, sceneFrame, sprite, patternPicture } from '../board.js';
@@ -20,6 +23,7 @@ import { loadCatalog, registerInvented } from '../invented.js';
 import { makeBoard } from '../board3d.js';
 import { playIntro } from '../intro.js';
 import { describeSteps } from '../day.js';
+import { mountCustom } from './custom.js';
 import {
   SCHEMA, defaults, clean, crazy, makeLevel, summary, encodeLevelWithPar, decodeLevel,
   loadLab, saveLab, searchLayouts, GOAL_PILL, FAIRY,
@@ -71,7 +75,7 @@ function set(key, value) {
 
 // --- Dealing a level: settings + seed, checked by the solver if asked. ----
 
-let job = null, autoplay = false;
+let job = null, autoplay = false, custom = null;
 // What the board shows can run ahead of the game for a moment (your move is
 // drawn while they are still thinking), or show the solver's line instead.
 let shown = null, watching = null;
@@ -93,6 +97,8 @@ function searching(on) {
 function deal({ reseed = false, fixed = false } = {}) {
   stopJob();
   if (!fixed) settings = clean({ ...settings, veto: catalog.vetoed, invented: catalog.invented });
+  // Both armies square by square, when Custom says so (custom.js).
+  if (custom) settings = custom.apply(settings);
   watching = null;
   if (reseed) seed = newSeed();
   par = null; exactPar = false; line = null; autoBest = null; showBalance(null);
@@ -444,8 +450,14 @@ $('#board').addEventListener('click', (e) => {
   if (s.hole && s.hole.x === x && s.hole.y === y) return info(HOLE_DESC);
   if (crumbled(s, x, y)) return info(CRUMBLE_DESC);
   if (shrunk(s, x, y)) return info(SHRINK_DESC);
-  if (s.day.stumps.has(y * s.day.W + x)) return info(STUMP_DESC);
-  const f = s.foes.find((f) => !f.taken && f.x === x && f.y === y);
+  const sq = y * s.day.W + x;
+  if (statueAt(s, sq)) return info(statueDesc(s.day.rules));
+  // Neutral pieces (2026-10-13). What is under a cloud stays hidden.
+  if (ghostAt(s, sq)) return info(GHOST_DESC.replace('{side}', ghostAt(s, sq) === 'you' ? 'yours' : 'theirs'));
+  if (s.day.gates?.has(sq)) return info(`${GATE_DESC} It is ${gateUp(s, sq) ? 'up' : 'down'} now.`);
+  const hidden = hiddenFrom(s, 'you');
+  if (cloudOver(s, sq) && !s.foes.some((f, k) => !f.taken && f.x === x && f.y === y && !hidden.has(k))) return info(WANDER_DESC);
+  const f = s.foes.find((f, k) => !f.taken && f.x === x && f.y === y && !hidden.has(k));
   if (f) info(f.brain === 'pattern' ? 'A rabbit on a hidden pattern. Watch its tracks.' : `Their ${nameOf(f)}, thinking for itself. ${PIECES[f.type].desc}`);
 });
 
@@ -575,7 +587,7 @@ $('#play').onclick = () => startGame();
 $('#asdescent').onclick = () => { location.href = `../play/?mode=descent#${encodeLevel(settings, seed)}`; };
 // Every piece there is, with its patent, to read through.
 $('#allpieces').onclick = () => {
-  const kinds = Object.keys(PIECES).filter((k) => k !== 'rabbit');
+  const kinds = Object.keys(PIECES).filter((k) => k !== 'rabbit' && PIECES[k].kind !== 'neutral');
   const all = { pieces: kinds.map((type) => ({ type })), foes: [], rules: {}, hole: null, bramble: [], stumps: new Set() };
   $('#sheet-list').replaceChildren();
   piecesSheet($('#sheet'), $('#sheet-list'), all, { when: 'Every piece' })();
@@ -619,7 +631,12 @@ $('#link').onclick = async () => {
 };
 
 $('.topbar .pill').before(soundToggle(), themeToggle());
-fillMenu($('#modes'), 'workshop', '../');
+fillMenu($('#modes'), 'custom', '../');
+custom = mountCustom({
+  lab, catalog, settings: () => settings, seed: () => seed, note,
+  use: (S, sd) => { stopJob(); settings = S; seed = sd; deal({ fixed: true }); },
+  play: () => { if ($('#play').disabled) autoplay = true; else startGame(); }
+});
 buildFormHere();
 buildCrazyPool();
 updaters.forEach((u) => u());

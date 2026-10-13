@@ -16,8 +16,9 @@ and a short history (`history.js`, kept to what is well attested).
 - **Inventing**: a name, a Betza code (checked as you type, with a live
   diagram and its patent), the look of an existing piece, and a
   description. Saved, it is a real piece (`invented.js` makes it from its
-  code): Chaos can deal it, and "Try it in Chaos" sets a level up around
-  it. Its strength is estimated from its moves (mobility on an empty 8 × 8
+  code): Chaos can deal it, "Try it in Custom" (until 2026-10-13, "Try it
+  in Chaos") sets a level up around it, and "Weave it into an army" opens
+  Custom's weave with it chosen. Its strength is estimated from its moves (mobility on an empty 8 × 8
   board, about 0.38 of a pawn per square sliding and 0.55 leaping, plus a
   pawn and a half for pieces that both slide and leap; within about a pawn
   of the listed strengths of the real pieces).
@@ -261,3 +262,25 @@ The models say which way each slides: the tall rook is a tall, thin tower
 with a slit up its front, the short rook squat and wide with a band round
 it. A record now survives a piece being named by Timothy (`record` in its
 entry in `rules.js`), so the catalog says "In fairy chess: the side mover".
+
+## Neutral pieces: ghosts, gates, wandering clouds, statues (2026-10-13)
+
+Timothy asked for ghosts, gates, and clouds and statues "as neutral fairy
+pieces". They belong to nobody, never appear in a pool, and have no Betza
+patent (they do not move as pieces; a cloud drifts on its own). The catalog
+shows them under their own filter, Neutral, with what each does; the rules
+are in `docs/grove-modes.md` ("Ghosts, gates, wandering clouds, and
+Custom").
+
+| Piece | What it does | Its look |
+|---|---|---|
+| Ghost | its own side passes through it, and it is gone; the other side cannot pass or land | a low pale figure with a scalloped hem and two eyes, in its side's colour |
+| Gate | up one turn, down the next; up, nothing passes or stands | iron railings between two stone posts, lying flat when down |
+| Wandering cloud | drifts a square a turn; hides what is under it from the other side | a heap of white puffs, with a shade on the square it covers |
+| Statue | a solid square; sliders stop, leapers and hoppers pass; either side can take it | the standing stones with spiral cuts, as before |
+
+Their records (`history.js`): the ghost and the gate are Grove Chess's
+own; the hidden pieces under a cloud follow kriegspiel (Henry Michael
+Temple, 1899), which hides the whole other side, and Dark Chess, which
+shows only the squares your pieces can reach. The names and
+looks are placeholders for Timothy to theme.

@@ -8,7 +8,7 @@ import { soundToggle } from '../../engine/sound.js';
 import { makeTarget, render } from '../../engine/lowpoly.js';
 import {
   PIECES, descOf, rabbitDesc, CRUMBLE_DESC, SHRINK_DESC, STUMP_DESC, HOLE_DESC, movesFor, apply, playerMove, respond, isOver, outcome,
-  isBramble, brambleCount, replay, crumbled, shrunk, holeOpen, allMoves, cloudDesc, leaderDesc
+  isBramble, brambleCount, replay, crumbled, shrunk, holeOpen, allMoves, cloudDesc, leaderDesc, statueDesc
 } from './rules.js';
 import { todayStr, describePattern, fairyFor } from './day.js';
 import { loadDay } from './daily4.js';
@@ -201,7 +201,7 @@ board.el.addEventListener('click', (e) => {
     if (s.cloudy && s.day.cloud?.has(y * s.day.W + x)) return info(cloudDesc(s.day.rules));
     if (crumbled(s, x, y)) return info(CRUMBLE_DESC);
     if (shrunk(s, x, y)) return info(SHRINK_DESC);
-    if (s.day.stumps.has(y * s.day.W + x)) return info(STUMP_DESC);
+    if (s.day.stumps.has(y * s.day.W + x)) return info(statueDesc(s.day.rules));
     const f = s.foes.find((f) => !f.taken && f.x === x && f.y === y && f.rides != null) || s.foes.find((f) => !f.taken && f.x === x && f.y === y);
     if (f?.brain === 'leader') return info(leaderDesc(f, s.day));
     if (f) info(f.mind ? `Their ${nameOf(f)}, with a ${f.patternName ? f.patternName.toLowerCase() + ' ' : ''}rabbit inside (intelligence ${f.mind.iq}).` : `Their ${nameOf(f)}. ${PIECES[f.type].desc}`);
