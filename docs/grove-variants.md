@@ -90,9 +90,10 @@ As built:
 - In the descent: their rest gets shorter each level down (3.5 seconds at
   first, 0.2 less a level on the steady ramp, never under 0.8); the
   ground stays solid and there is no cloud or showdown (all count turns).
-  Suits: Hearts a second life, Swords no rest after a capture, Stars no
-  rest after the level's first move, Diamonds treasure, Spirals an
-  instant swap, Spirits through anything. Jokers: Double Time halves your
+  Suits: Hearts a second life, Vines no rest after a capture, Stars no
+  rest after the level's first move, Gears an instant swap, Spirals round
+  the sides. Weapons are set aside (they strike, pierce and push as a turn
+  resolves), and the descent's pawns stay pawns on the far row. Jokers: Double Time halves your
   rest, Lazy Rabbits doubles theirs. The clock stops when the page is not
   drawing (the phone put away).
 - The level search still uses the turn-based solver to pick a fair

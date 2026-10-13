@@ -25,6 +25,10 @@ export const groundOf = (day) => (day.rules?.shrink ? 'shrink' : day.rules?.crum
 // A named daily (version 4) may bring its own colours for solid ground; the
 // other grounds keep theirs, since those colours say what the ground does.
 export const tileColour = (day, x, y) => {
+  // Golf's hazards (2026-10-13): water blue, sand gold.
+  const sq = y * day.W + x;
+  if (day.water?.has(sq)) return (x + y) % 2 === 0 ? '#4c9bd0' : '#5ba9db';
+  if (day.sand?.has(sq)) return (x + y) % 2 === 0 ? '#e2b452' : '#eec46a';
   const kind = groundOf(day), g = kind === 'solid' && day.theme ? day.theme : GROUND[kind];
   return (x + y) % 2 === 0 ? g.light : g.dark;
 };

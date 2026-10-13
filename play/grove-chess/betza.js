@@ -90,6 +90,21 @@ function suits(dirs, dx, dy, fwd) {
   return [...dirs].some((d) => (d === 'f' && f) || (d === 'b' && b) || (d === 's' && side) || (d === 'v' && vert));
 }
 
+/** The directions a piece written in Betza slides in (2026-10-13, for
+    weapons: a lance passes through what is in a slide's way, a mace pushes
+    it): one unit step per direction, for each term that rides and moves
+    (not a grasshopper's or a cannon's hop, not a rose's circle). `fwd` as
+    for the moves. */
+export function rideVecs(code, fwd = 1) {
+  const out = [];
+  for (const { mods, dirs, jump, ride } of parseBetza(code)) {
+    if (!ride || /[gpq]/.test(mods) || (mods.includes('c') && !mods.includes('m'))) continue;
+    for (const [dx, dy] of orient(...jump).filter(([a, b]) => suits(dirs, a, b, fwd)))
+      if (!out.some(([x, y]) => x === dx && y === dy)) out.push([dx, dy]);
+  }
+  return out;
+}
+
 /**
  * The move function for a piece written in Betza notation, in the shape
  * rules.js uses: (L, p, fwd) -> [{ x, y, cap }]. `L(x, y)` says what a

@@ -16,15 +16,15 @@
 // cores to spare, so the page stays responsive.
 
 import { $, el } from '../../../engine/ui.js';
-import { PIECES, statueKind, ghostAt, gateUp } from '../rules.js';
+import { PIECES, statueKind, ghostAt, gateUp, canArm } from '../rules.js';
 import { sprite } from '../board.js';
 import { LOOK } from '../config.js';
 import { powers } from '../power.js';
-import { SUITS } from '../run.js';
+import { SUITS, WEAPONS, WEAPON_ORDER } from '../run.js';
 import { makeLevel, clean, saveLab } from '../lab.js';
 import { replayLine } from '../sim.js';
 import {
-  trialPiece, givenCells, facingCells, cellSettings, runTrial, runWeave, runSeeds, simulate, runJob, MEASURE_WORDS, EFFORT, pieceName
+  trialPiece, givenCells, facingCells, cellSettings, runTrial, runWeave, runSeeds, simulate, runJob, MEASURE_WORDS, EFFORT, pieceName, keyOf, asItem
 } from '../trials.js';
 
 // --- The workers. ----------------------------------------------------------
@@ -76,7 +76,7 @@ function makePool() {
 // --- What Custom keeps, with the workshop's notebook. --------------------------
 
 const DEFAULT = {
-  on: false, army: [{ t: 'tallrook' }, { t: 'bishop' }, { t: 'king' }, { t: 'knight' }, { t: 'shortrook' }], facing: 'mirror',
+  on: false, army: [{ t: 'rook' }, { t: 'bishop' }, { t: 'king' }, { t: 'knight' }, { t: 'pawn' }], facing: 'mirror',
   pawnsFront: true, spread: true, findFacing: 'all', firstCapture: true, mine: true, effort: 'quick', weave: null, layout: null
 };
 // Each with the rules it is played by: a board with nothing on it but the
@@ -84,7 +84,7 @@ const DEFAULT = {
 // and its showdown).
 const PLAIN = { ghosts: false, statueRow: false, statues: 0, gates: 0, clouds: 0, cloud: false, showdown: false, shape: 'rect', holes: 0, ground: 'solid', magic: 'none', geared: false, rabbits: 0 };
 const PRESETS = [
-  { name: 'The descent’s', army: ['tallrook', 'bishop', 'king', 'knight', 'shortrook'], w: 5, h: 6, facing: 'mirror', rules: { ...PLAIN, ghosts: true, showdown: true, maxMoves: 20 } },
+  { name: 'The descent’s', army: ['rook', 'bishop', 'king', 'knight', 'pawn'], w: 5, h: 6, facing: 'mirror', rules: { ...PLAIN, ghosts: true, showdown: true, maxMoves: 20 } },
   { name: 'Microchess', army: ['rook', 'bishop', 'knight', 'king', 'pawn'], w: 4, h: 5, facing: 'mirror', rules: { ...PLAIN, maxMoves: 40 } },
   { name: 'Gardner minichess', army: ['rook', 'knight', 'bishop', 'queen', 'king', ...Array(5).fill('pawn')], w: 5, h: 5, facing: 'mirror', rules: { ...PLAIN, maxMoves: 50 } },
   { name: 'Los Alamos', army: ['rook', 'knight', 'queen', 'king', 'knight', 'rook', ...Array(6).fill('pawn')], w: 6, h: 6, facing: 'mirror', rules: { ...PLAIN, maxMoves: 60 } },
@@ -92,8 +92,14 @@ const PRESETS = [
   { name: 'Shogi’s generals', army: ['silver', 'gold', 'king', 'gold', 'silver'], w: 5, h: 6, facing: 'turned', rules: { ...PLAIN, ghosts: true, maxMoves: 40 } }
 ];
 const SUIT_ORDER = [null, ...Object.keys(SUITS)];
-const name = (a) => pieceName(a.t + (a.suit ? `:${a.suit}` : ''));
-const key = (a) => a.t + (a.suit ? `:${a.suit}` : '');
+const WEAPON_CHOICES = [null, ...WEAPON_ORDER];
+const name = (a) => pieceName(keyOf(a));
+const key = (a) => keyOf(a);
+// Saved before the suits were renamed (2026-10-13): Swords is Vines now,
+// Spirals (the swap) is Gears, and Diamonds and Spirits are gone.
+const OLD_SUITS = { swords: 'vines', spirals: 'gears', diamonds: null, spirits: null };
+const renamed = (a) => { if (!(a.suit in OLD_SUITS)) return a; const { suit, ...b } = a; return OLD_SUITS[suit] ? { ...b, suit: OLD_SUITS[suit] } : b; };
+const renamedKey = (k) => (k === '.' ? k : keyOf(renamed(asItem(k))));
 
 /**
  * Mount Custom on the workshop page. `hooks`: lab (the saved workshop),
@@ -103,16 +109,22 @@ const key = (a) => a.t + (a.suit ? `:${a.suit}` : '');
 export function mountCustom(hooks) {
   const { lab, catalog } = hooks;
   const C = lab.custom = { ...DEFAULT, ...(lab.custom || {}) };
-  C.army = (C.army || []).filter((a) => trialPiece(a.t));
+  if (!(C.v >= 19)) {
+    C.army = (C.army || []).map(renamed);
+    if (C.weave) C.weave = renamed(C.weave);
+    if (C.layout) C.layout = { ...C.layout, cells: C.layout.cells.map(renamedKey), foeCells: C.layout.foeCells.map(renamedKey) };
+    C.v = 19;
+  }
+  C.army = (C.army || []).filter((a) => trialPiece(a.t)).map((a) => (a.weapon && !canArm(a.t, a.weapon) ? (({ weapon, wl, ...b }) => b)(a) : a));
   if (!C.army.some((a) => a.t === 'king')) C.army.push({ t: 'king' });
   // A level that arrives with both sides square by square (a link, or the
   // one last worked on) keeps them: its layout is the armies.
   const S0 = hooks.settings();
   if (S0.cells && S0.foeCells) {
-    const keys = (c, m) => c.map((t, i) => (t ? t + (m?.[i]?.suit ? `:${m[i].suit}` : '') : '.'));
+    const keys = (c, m) => c.map((t, i) => (t ? keyOf({ t, ...m?.[i] }) : '.'));
     C.on = true;
     C.layout = { w: S0.w, h: S0.h, cells: keys(S0.cells, S0.cellMods), foeCells: keys(S0.foeCells, S0.foeCellMods) };
-    const army = keys(S0.cells, S0.cellMods).filter((k) => k !== '.').map((k) => ({ t: k.split(':')[0], ...(k.includes(':') ? { suit: k.split(':')[1] } : {}) }));
+    const army = keys(S0.cells, S0.cellMods).filter((k) => k !== '.').map(asItem);
     if (army.length) C.army = army;
   }
   const save = () => saveLab(lab);
@@ -141,7 +153,7 @@ export function mountCustom(hooks) {
   // --- Drawing. ----------------------------------------------------------------
 
   const canvas = (t, side = 'you') => { const cv = el('canvas', { class: 'pix', width: 30, height: 36 }); cv.getContext('2d').drawImage(sprite(t, side), 0, 0); return cv; };
-  const suitMark = (a) => (a.suit ? SUITS[a.suit].mark : '');
+  const suitMark = (a) => `${a.suit ? SUITS[a.suit].mark : ''}${a.weapon ? WEAPONS[a.weapon].mark + (a.wl || 1) : ''}`;
 
   function paintArmy() {
     const box = $('#army');
@@ -159,6 +171,13 @@ export function mountCustom(hooks) {
       el('p', { class: 'small', style: 'margin:0 0 6px' }, el('b', {}, name(a)), a.t === 'king' ? ' (every army has its one King)' : ''),
       el('div', { class: 'seg' }, ...SUIT_ORDER.map((s) => el('button', { class: 'quiet', 'aria-pressed': String((a.suit || null) === s), title: s ? SUITS[s].desc : 'No suit',
         onclick: () => { if (s) a.suit = s; else delete a.suit; changed(); } }, s ? `${SUITS[s].mark} ${SUITS[s].name}` : 'No suit'))),
+      // Its weapon and the weapon's level (2026-10-13). A lance only on a
+      // piece that slides.
+      el('div', { class: 'seg', style: 'margin-top:6px' }, ...WEAPON_CHOICES.map((w) => el('button', { class: 'quiet', 'aria-pressed': String((a.weapon || null) === w),
+        disabled: w && !canArm(a.t, w) || null, title: w ? WEAPONS[w].desc(a.wl || 1) : 'No weapon',
+        onclick: () => { if (w) { a.weapon = w; a.wl = a.wl || 1; } else { delete a.weapon; delete a.wl; } changed(); } }, w ? `${WEAPONS[w].mark} ${WEAPONS[w].name}` : 'No weapon'))),
+      a.weapon ? el('div', { class: 'seg', style: 'margin-top:6px' }, ...[1, 2, 3].map((lv) => el('button', { class: 'quiet', 'aria-pressed': String((a.wl || 1) === lv), title: WEAPONS[a.weapon].desc(lv),
+        onclick: () => { a.wl = lv; changed(); } }, `Level ${lv}`))) : null,
       el('div', { class: 'seg', style: 'margin-top:6px' },
         el('button', { class: 'quiet', disabled: picked === 0 || null, onclick: () => { [C.army[picked - 1], C.army[picked]] = [C.army[picked], C.army[picked - 1]]; picked--; changed(); } }, '◀ Left'),
         el('button', { class: 'quiet', disabled: picked === C.army.length - 1 || null, onclick: () => { [C.army[picked + 1], C.army[picked]] = [C.army[picked], C.army[picked + 1]]; picked++; changed(); } }, 'Right ▶'),
@@ -322,7 +341,7 @@ export function mountCustom(hooks) {
   }
 
   const lineText = (S) => {
-    const row = (c, mods, from, n) => c.slice(from, from + n).map((t, i) => (t ? `${PIECES[t].name}${mods?.[from + i]?.suit ? ` of ${SUITS[mods[from + i].suit].name}` : ''}` : 'gap')).join(', ');
+    const row = (c, mods, from, n) => c.slice(from, from + n).map((t, i) => (t ? pieceName(keyOf({ t, ...mods?.[from + i] })) : 'gap')).join(', ');
     if (!S.cells) return '';
     const W = S.w, two = S.cells.length > W;
     const facing = S.foeCells.join() === S.cells.join() ? 'theirs mirrored' : S.foeCells.join() === facingCells(S.cells.map((t) => t || '.'), W, 'turned').map((k) => (k === '.' ? null : k)).join() ? 'theirs turned' : `theirs in their own order: ${row(S.foeCells, S.foeCellMods, 0, W)}`;
@@ -383,8 +402,8 @@ export function mountCustom(hooks) {
   function load(r) {
     if (r.settings.cells) {
       C.on = true;
-      C.layout = { found: true, w: r.settings.w, h: r.settings.h, cells: r.cells || r.settings.cells.map((t, i) => (t ? t + (r.settings.cellMods?.[i]?.suit ? `:${r.settings.cellMods[i].suit}` : '') : '.')),
-        foeCells: r.foeCells || r.settings.foeCells.map((t, i) => (t ? t + (r.settings.foeCellMods?.[i]?.suit ? `:${r.settings.foeCellMods[i].suit}` : '') : '.')) };
+      C.layout = { found: true, w: r.settings.w, h: r.settings.h, cells: r.cells || r.settings.cells.map((t, i) => (t ? keyOf({ t, ...r.settings.cellMods?.[i] }) : '.')),
+        foeCells: r.foeCells || r.settings.foeCells.map((t, i) => (t ? keyOf({ t, ...r.settings.foeCellMods?.[i] }) : '.')) };
       save(); paint();
       hooks.use(apply(clean(r.settings)), r.sample.levelSeed ?? 1);
     } else hooks.use(clean(r.settings), r.levelSeed ?? r.seed ?? 1);

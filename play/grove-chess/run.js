@@ -6,17 +6,16 @@
 // again. Once the hand is full, finishing a level offers upgrades instead:
 //
 // - Suits, one per piece, each a rule the piece carries (Timothy chose
-//   what each does, 2026-10-08; rules.js plays them):
-//   Hearts, a second life ("Knight of Hearts": the first capture costs the
-//   heart, and the attacker bounces off). Swords, cleave: after it takes a
-//   piece it may take again, the same turn. Stars, it moves twice: once a
-//   level, its first move is followed by another. Diamonds, treasure: each
-//   piece it takes adds a pick when the level is done. Spirals, swap: it
-//   may trade squares with any other piece of yours, as its move. Spirits
-//   (2026-10-09), passes through: it moves through pieces, statues and
-//   stumps as if they were not there, even if it is not a piece that hops.
-//   (Before that, swords, stars and spirals rewrote the piece's Betza and
-//   diamonds made it hard to take; those were proposals and are gone.)
+//   them, 2026-10-08, and replaced them, 2026-10-13; rules.js plays them):
+//   Hearts, a life more (taken, it goes back to your first row, on a square
+//   you choose). Spirals, it goes round the left and right edges, like
+//   Pac-Man. Gears, swap: it may trade squares with any other piece of
+//   yours, as its move (this was Spirals). Stars, it moves twice: once a
+//   level, its first move is followed by another. Vines, chain captures:
+//   after it takes a piece it may take again, the same turn (this was
+//   Swords). Diamonds and Spirits are gone.
+// - Weapons (2026-10-13), one per piece as well as its suit, at level 1 to
+//   3: a Sword, a Lance or a Mace (rules.js, "Weapons").
 // - Fusing two pieces into one with both their moves (a rook and a knight
 //   make the chancellor). It frees a slot.
 // - Promotion: a piece becomes the next piece up in strength.
@@ -27,19 +26,38 @@
 // (invented.js), so everything else (drawing, diagrams, the solver) works
 // on it unchanged.
 
-import { PIECES } from './rules.js';
+import { PIECES, canArm } from './rules.js';
 import { parseBetza, betzaMoves } from './betza.js';
 import { registerInvented, newId, estimateStrength } from './invented.js';
 import { powerOf } from './power.js';
 
 export const SUITS = {
-  hearts: { name: 'Hearts', mark: '♥', colour: '#e0445a', desc: 'A second life: the first time it is taken it loses the heart instead, and whatever took it bounces off.' },
-  swords: { name: 'Swords', mark: '♠', colour: '#7f9fc0', desc: 'Cleave: after it takes a piece, it may take another the same turn, and another after that.' },
+  hearts: { name: 'Hearts', mark: '♥', colour: '#e0445a', desc: 'A life more: when it is taken it goes back to your first row instead, on a free square you choose (the second row if the first is full, and so on), and the heart is spent.' },
+  spirals: { name: 'Spirals', mark: '@', colour: '#f0903a', desc: 'Round the sides: off the left edge it comes back on at the right, and the other way, like Pac-Man.' },
+  gears: { name: 'Gears', mark: '⚙', colour: '#8fa6bd', desc: 'Swap: as its move, it can trade squares with any other piece of yours.' },
   stars: { name: 'Stars', mark: '★', colour: '#e8c547', desc: 'Moves twice: once a level, its first move is followed straight away by a second.' },
-  diamonds: { name: 'Diamonds', mark: '♦', colour: '#5fd0d8', desc: 'Treasure: each piece it takes adds another pick when the level is done (two at most).' },
-  spirals: { name: 'Spirals', mark: '@', colour: '#f0903a', desc: 'Swap: as its move, it can trade squares with any other piece of yours.' },
-  spirits: { name: 'Spirits', mark: '✧', colour: '#b9a7ff', desc: 'Passes through: it moves through pieces, statues and stumps as if they were not there, and lands as usual.' }
+  vines: { name: 'Vines', mark: '❦', colour: '#2fb8a0', desc: 'Chain captures: after it takes a piece, it may take another the same turn, and another after that.' }
 };
+
+/** Weapons (Timothy, 2026-10-13), each at level 1 to 3. `desc(lv)` says
+    what it does at that level. A lance only on a piece that slides. */
+export const WEAPONS = {
+  sword: { name: 'Sword', mark: '†', colour: '#d4dbe3', desc: (lv) => `Strikes instead of landing: it cannot move onto a piece, but takes what stands ${['', 'in front of', 'in front of or beside', 'in front of, beside or diagonally in front of'][lv]} where it lands.` },
+  lance: { name: 'Lance', mark: '↟', colour: '#c9a46a', desc: (lv) => `Takes what it slides through, up to ${['', 'one piece', 'two pieces', 'three pieces'][lv]}, and lands on an empty square beyond; it cannot move onto a piece. Only on a piece that slides.` },
+  mace: { name: 'Mace', mark: '✸', colour: '#a07a5a', desc: (lv) => `Sliding, it pushes up to ${['', 'one piece', 'two pieces', 'three pieces'][lv]} ahead of it; theirs it pushes are stunned, and one already stunned is taken. Stepping or leaping, it stuns what stands ${['', 'in front of and behind', 'round the sides of', 'all round'][lv]} where it lands. A stunned piece misses its next turn.` }
+};
+export const WEAPON_ORDER = Object.keys(WEAPONS);
+/** A weapon's name with its level: "Sword 2". */
+export const weaponName = (w, lv = 1) => `${WEAPONS[w].name} ${lv}`;
+/** What a piece on the board carries, in words, for tapping it: its suit,
+    its weapon, and whether it is stunned. Starts with a space, or is empty. */
+export function carriesText(p) {
+  const bits = [];
+  if (SUITS[p.suit]) bits.push(`${SUITS[p.suit].mark} ${SUITS[p.suit].name}: ${SUITS[p.suit].desc}${p.suit === 'hearts' && (p.lives || 1) < 2 ? ' (Spent.)' : ''}`);
+  if (WEAPONS[p.weapon]) bits.push(`${WEAPONS[p.weapon].mark} ${weaponName(p.weapon, p.wl || 1)}: ${WEAPONS[p.weapon].desc(p.wl || 1)}`);
+  if (p.stun) bits.push('Stunned: it sits out its side’s next turn.');
+  return bits.length ? ' ' + bits.join(' ') : '';
+}
 
 export const JOKERS = {
   double: { name: 'Double Time', desc: 'You move twice for every move of theirs.' },
@@ -95,7 +113,7 @@ export function pieceOf(h, made = []) {
   const real = h.fused ? sameAs(code) : h.base;
   const fusedName = h.fused ? (real ? PIECES[real].name : bases.map((b) => PIECES[b].name).join('-')) : null;
   const plain = fusedName || PIECES[h.base].name;
-  const name = h.suit ? `${plain} of ${SUITS[h.suit].name}` : plain;
+  const name = (h.suit && SUITS[h.suit] ? `${plain} of ${SUITS[h.suit].name}` : plain) + (WEAPONS[h.weapon] ? `, ${weaponName(h.weapon, h.wl)}` : '');
   let type = real;
   if (!type) {
     // A made piece: named for what it became, looking like what it was.
@@ -115,7 +133,7 @@ export function strengthOf(h, made) {
   const { type } = pieceOf(h, made);
   registerInvented(made);
   const P = PIECES[type];
-  return (P?.strength ?? estimateStrength(P.betza)) + (h.lives > 1 ? 1 : 0) + (h.suit && h.suit !== 'hearts' ? 0.5 : 0);
+  return (P?.strength ?? estimateStrength(P.betza)) + (h.lives > 1 ? 1 : 0) + (h.suit && h.suit !== 'hearts' ? 0.5 : 0) + (h.weapon ? 0.5 * (h.wl || 1) : 0);
 }
 
 // --- Rewards. --------------------------------------------------------------
@@ -164,6 +182,8 @@ export function rewardsFor(run, rand, veto = [], fairy = true) {
   const cards = [];
   const suitless = run.hand.filter((h) => !h.suit);
   if (suitless.length) cards.push({ kind: 'suit', suit: pick(Object.keys(SUITS)) });
+  const w = weaponCard(run, rand);
+  if (w) cards.push(w);
   if (run.hand.length >= 2) cards.push({ kind: 'fuse' });
   // Promotion is no longer offered (2026-10-09): the next piece up in
   // strength was often no upgrade where it plays (a rook to a cannon).
@@ -182,8 +202,9 @@ export function applyReward(run, card, targets = [], veto = []) {
   if (card.kind === 'suit') {
     const h = run.hand[targets[0]];
     h.suit = card.suit;
-    if (card.suit === 'hearts') h.lives = 2;
+    if (card.suit === 'hearts') h.lives = Math.max(2, h.lives || 1);
   }
+  if (card.kind === 'weapon') armHand(run.hand[targets[0]], card.weapon);
   if (card.kind === 'promote') {
     const h = run.hand[targets[0]], up = promotion(h.base, veto);
     if (up) h.base = up;
@@ -202,6 +223,7 @@ export function applyReward(run, card, targets = [], veto = []) {
 export function cardText(card) {
   if (card.kind === 'piece') return { title: PIECES[card.type].name, text: PIECES[card.type].desc, tag: PIECES[card.type].kind === 'fairy' ? 'A fairy piece' : 'A classic piece' };
   if (card.kind === 'suit') return { title: `${SUITS[card.suit].mark} ${SUITS[card.suit].name}`, text: SUITS[card.suit].desc + ' Choose a piece to give it to.', tag: 'A suit' };
+  if (card.kind === 'weapon') return { title: `${WEAPONS[card.weapon].mark} ${WEAPONS[card.weapon].name}`, text: `${WEAPONS[card.weapon].desc(1)} Choose a piece to give it to; on one that has a ${WEAPONS[card.weapon].name.toLowerCase()} already, it goes up a level (to 3 at most).`, tag: 'A weapon' };
   if (card.kind === 'fuse') return { title: 'Fuse', text: 'Two of your pieces become one, with every move of both. It frees a slot for a new find.', tag: 'An item' };
   if (card.kind === 'promote') return { title: 'Promotion', text: 'One of your pieces becomes the next piece up in strength.', tag: 'An item' };
   return { title: JOKERS[card.joker].name, text: JOKERS[card.joker].desc, tag: 'A joker, for the rest of the run' };
@@ -211,12 +233,15 @@ export function cardText(card) {
 
 /** The hand as `hand`, `handMods` and `invented` for a level's settings,
     with the jokers that are rules. */
+/** What a hand piece carries, for a level: hearts, suit, weapon. */
+const modOf = (h) => ({ ...(h.lives > 1 ? { lives: h.lives } : {}), ...(h.suit ? { suit: h.suit } : {}), ...(h.weapon ? { weapon: h.weapon, wl: h.wl || 1 } : {}) });
+
 export function handSettings(run) {
   const types = [], mods = [];
   for (const h of run.hand) {
     const { type } = pieceOf(h, run.made);
     types.push(type);
-    mods.push({ ...(h.lives > 1 ? { lives: h.lives } : {}), ...(h.suit ? { suit: h.suit } : {}) });
+    mods.push(modOf(h));
   }
   // Their lineup, when they carry one (2026-10-12), and a Rabbit with it.
   const foe = {};
@@ -224,7 +249,7 @@ export function handSettings(run) {
     foe.foeHand = []; foe.foeMods = [];
     for (const h of run.foes) {
       foe.foeHand.push(pieceOf(h, run.made).type);
-      foe.foeMods.push({ ...(h.lives > 1 ? { lives: h.lives } : {}), ...(h.suit ? { suit: h.suit } : {}) });
+      foe.foeMods.push(modOf(h));
     }
     if (run.foeRabbit) { foe.foeHand.push('bunny'); foe.foeMods.push({}); }
   }
@@ -242,15 +267,33 @@ export function newRun(start = ['knight', 'bishop', 'rook', 'king'], maxPieces =
     ...(foes ? { foes: foes.map((base) => ({ base })), foeRabbit: true } : {}) };
 }
 
-/** After a level: pieces taken are gone, hearts spent stay spent. */
+/** After a level: pieces taken are gone, hearts spent stay spent, and a
+    pawn that became a copy of another piece (2026-10-13) stays that piece. */
 export function afterLevel(run, end) {
   const keep = [];
   run.hand.forEach((h, i) => {
     const p = end.pieces[i];
     if (!p || p.taken) { run.lost.push(h); return; }
-    keep.push({ ...h, ...(h.lives > 1 ? { lives: p.lives ?? h.lives } : {}) });
+    keep.push({ ...h, ...(h.lives > 1 ? { lives: p.lives ?? h.lives } : {}), ...(p.promoted && PIECES[p.type] ? { base: p.type, fused: undefined } : {}), ...(p.promoted && !p.weapon ? { weapon: undefined, wl: undefined } : {}) });
   });
   run.hand = keep;
+}
+
+/** The type a hand piece plays as, for weapons: a lance only on one that
+    slides. */
+const typeOf = (h, made) => pieceOf(h, made.slice()).type;
+/** Can hand piece h take weapon w: one it can carry, and either none yet or
+    the same one below level 3? */
+export const canTakeWeapon = (h, w, made = []) => canArm(typeOf(h, made), w) && (!h.weapon || (h.weapon === w && (h.wl || 1) < 3));
+/** Give hand piece h weapon w, or a level more of the one it has. Mutates. */
+export function armHand(h, w) {
+  if (h.weapon === w) h.wl = Math.min(3, (h.wl || 1) + 1);
+  else { h.weapon = w; h.wl = 1; }
+}
+/** A weapon card some piece of the hand could take, or null. */
+function weaponCard(run, rand) {
+  const ok = WEAPON_ORDER.filter((w) => run.hand.some((h) => canTakeWeapon(h, w, run.made)));
+  return ok.length ? { kind: 'weapon', weapon: ok[Math.floor(rand() * ok.length)] } : null;
 }
 
 // --- What carries between descents (2026-10-08). ---------------------------
@@ -287,8 +330,10 @@ export function startChoices(startPool, roster = [], veto = []) {
 export function keepsakeCards(run, rand, veto = [], jokers = true) {
   const pick = (a) => a[Math.floor(rand() * a.length)];
   const cards = [{ kind: 'suit', suit: pick(Object.keys(SUITS)) }];
+  const w = weaponCard(run, rand);
+  if (w) cards.push(w);
   const free = Object.keys(JOKERS).filter((j) => !run.jokers.includes(j));
-  if (jokers && free.length) cards.push({ kind: 'joker', joker: pick(free) });
+  if (jokers && free.length && cards.length < 3) cards.push({ kind: 'joker', joker: pick(free) });
   // A second suit, different from the first, if there is room for one.
   if (cards.length < 3) cards.push({ kind: 'suit', suit: pick(Object.keys(SUITS).filter((k) => k !== cards[0].suit)) });
   return cards.slice(0, 3);
@@ -305,7 +350,7 @@ export const acornsFor = (won, taken = 0) => (won ? 3 : 1) + taken;
 /** What a card costs in the shop. */
 export function priceOf(card) {
   if (card.kind === 'piece') return Math.max(2, Math.round(powerOf(card.type)));
-  return { suit: 4, promote: 4, fuse: 3, joker: 5 }[card.kind] ?? 3;
+  return { suit: 4, weapon: 4, promote: 4, fuse: 3, joker: 5 }[card.kind] ?? 3;
 }
 
 /** The shop's shelf: two pieces (if there is room), a suit, fusing and a
@@ -322,6 +367,8 @@ export function shopStock(run, rand, { veto = [], findPool = null, jokers = fals
     if (b !== a) out.push({ kind: 'piece', type: b });
   }
   if (run.hand.some((h) => !h.suit)) out.push({ kind: 'suit', suit: pick(Object.keys(SUITS)) });
+  const w = weaponCard(run, rand);
+  if (w) out.push(w);
   if (run.hand.length >= 2) out.push({ kind: 'fuse' });
   const free = Object.keys(JOKERS).filter((j) => !run.jokers.includes(j));
   if (jokers && free.length) out.push({ kind: 'joker', joker: pick(free) });
@@ -378,9 +425,8 @@ export function combineText(h, type, made = [], whose = 'their') {
 
 /** Suits their side can carry: all of them, from 2026-10-13 (Timothy:
     "enemy pieces should be able to receive all the different suits"). Their
-    Swords and Stars take their extra move greedily (rules.js foeMove), a
-    Spirals piece's swap is one of the moves their side thinks about, and
-    Diamonds treasure is an upgrade more for them at the next board. */
+    Vines and Stars take their extra move greedily (rules.js foeMove), and a
+    Gears piece's swap is one of the moves their side thinks about. */
 export const FOE_SUITS = Object.keys(SUITS);
 
 /** Pieces a board's piece card can be: findable, classic only while
@@ -403,19 +449,20 @@ function adds(h, type, made) {
   return sig(h) !== sig({ ...h, fused: [...bases, type] });
 }
 
-/** Your two cards for a new board: each a piece or a suit, at random, never
-    the same twice, and only what can be used. `room`: is there a gap in the
-    row a piece could take? */
-export function boardCards(run, rand, { veto = [], fairy = true, pool = null, royal = true, room = false } = {}) {
+/** Your two cards for a new board (Timothy, 2026-10-13: "In the descent
+    mode, you don't find anything but suits and weapons in your draft pick
+    after each round, out of two"): each a suit or a weapon, at random, never
+    the same twice, and only what some piece of yours can take. */
+export function boardCards(run, rand) {
   const pick = (a) => a[Math.floor(rand() * a.length)];
-  const pieces = piecePool(veto, fairy, pool).filter((k) => room || mergeTargets(run.hand, k, royal, run.made).length);
-  const suitless = run.hand.some((h) => !h.suit);
+  const suits = run.hand.some((h) => !h.suit) ? Object.keys(SUITS) : [];
+  const weapons = WEAPON_ORDER.filter((w) => run.hand.some((h) => canTakeWeapon(h, w, run.made)));
   const out = [];
-  for (let n = 0; n < 8 && out.length < 2; n++) {
-    const wantPiece = pieces.length && (!suitless || rand() < 0.5);
-    const card = wantPiece ? { kind: 'merge', type: pick(pieces) } : suitless ? { kind: 'suit', suit: pick(Object.keys(SUITS)) } : null;
+  for (let n = 0; n < 12 && out.length < 2; n++) {
+    const wantSuit = suits.length && (!weapons.length || rand() < 0.5);
+    const card = wantSuit ? { kind: 'suit', suit: pick(suits) } : weapons.length ? { kind: 'weapon', weapon: pick(weapons) } : null;
     if (!card) break;
-    if (!out.some((c) => c.kind === card.kind && c.type === card.type && c.suit === card.suit)) out.push(card);
+    if (!out.some((c) => c.kind === card.kind && c.suit === card.suit && c.weapon === card.weapon)) out.push(card);
   }
   return out;
 }
@@ -427,29 +474,27 @@ export function applyMerge(run, i, type) {
   return applyCombine(run, i, type);
 }
 
-/** Their upgrade for a new board, at random: a piece fused onto one of
-    theirs (the same kind: a heart more), or a suit on one without. Never
-    their King, which stays the King. Mutates the run; returns plain words
-    for it, or null if nothing could be given. */
-export function foeUpgrade(run, rand, { veto = [], fairy = true, pool = null } = {}) {
+/** Their upgrade for a new board, at random, as yours: a suit on a piece
+    without one, or a weapon (or a level more of one). Never their King.
+    Mutates the run; returns plain words for it, or null if nothing could be
+    given. */
+export function foeUpgrade(run, rand) {
   if (!run.foes) return null;
   const pick = (a) => a[Math.floor(rand() * a.length)];
   const open = run.foes.map((h, i) => i).filter((i) => run.foes[i].base !== 'king' || run.foes[i].fused);
   const suitless = open.filter((i) => !run.foes[i].suit);
-  const types = piecePool(veto, fairy, pool);
   for (let n = 0; n < 12; n++) {
     if (suitless.length && rand() < 0.5) {
       const i = pick(suitless), suit = pick(FOE_SUITS), before = pieceOf(run.foes[i], run.made).name;
       run.foes[i].suit = suit;
-      if (suit === 'hearts') run.foes[i].lives = 2;
+      if (suit === 'hearts') run.foes[i].lives = Math.max(2, run.foes[i].lives || 1);
       return `their ${before} takes ${SUITS[suit].name}: ${SUITS[suit].desc.split(':')[0].toLowerCase()}`;
     }
-    const type = pick(types), at = open.filter((i) => canCombine(run.foes[i], type, false) && adds(run.foes[i], type, run.made));
+    const w = pick(WEAPON_ORDER), at = open.filter((i) => canTakeWeapon(run.foes[i], w, run.made));
     if (!at.length) continue;
     const i = pick(at), before = pieceOf(run.foes[i], run.made).name;
-    const how = applyCombine({ hand: run.foes }, i, type);
-    return how === 'veteran' ? `their ${before} becomes a veteran, with a heart more`
-      : `their ${before} gains every move of a ${PIECES[type].name.toLowerCase()} and becomes the ${pieceOf(run.foes[i], run.made).name}`;
+    armHand(run.foes[i], w);
+    return `their ${before} takes ${run.foes[i].wl > 1 ? 'a level more of its' : 'a'} ${WEAPONS[w].name.toLowerCase()}${run.foes[i].wl > 1 ? ` (${run.foes[i].wl})` : ''}`;
   }
   return null;
 }

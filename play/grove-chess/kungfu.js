@@ -24,9 +24,9 @@
 //   reaction time. A move is scored for what it takes, what it dodges, the
 //   danger it walks into and how close it gets to your King, with a little
 //   noise that sharper rabbits (higher intelligence) have less of.
-// - Suits keep their meaning where they can: Hearts a second life, Swords no
-//   rest after a capture, Stars no rest after the level's first move,
-//   Diamonds treasure, Spirals an instant swap, Spirits through anything.
+// - Suits keep their meaning where they can: Hearts a second life, Vines no
+//   rest after a capture, Stars no rest after the level's first move, Gears
+//   an instant swap, Spirals round the sides. (Weapons are not played here.)
 //
 // The clock only runs while the page is drawing (requestAnimationFrame), so
 // it stops when the phone is put away.
@@ -46,6 +46,9 @@ const worth = (type) => (type === 'king' ? KING : PIECES[type]?.value ?? 3);
  */
 export function startKungFu({ board, level, state, iq = 5, myCool = 2000, foeCool = 5000, step = 300, gap = 1800, onEnd, onStatus, onInfo, onClock }) {
   const s = clone(state);
+  // Weapons (2026-10-13) strike, pierce and push as a turn resolves; with no
+  // turns here, they are set aside, and a piece takes by landing as before.
+  for (const p of [...s.pieces, ...s.foes]) { delete p.weapon; delete p.wl; delete p.stun; }
   s.t = 0; s.treasure = 0;
   const all = (side) => (side === 'you' ? s.pieces : s.foes);
   for (const p of [...s.pieces, ...s.foes]) { p.ready = 0; p.flying = false; }
@@ -75,7 +78,7 @@ export function startKungFu({ board, level, state, iq = 5, myCool = 2000, foeCoo
   function launch(side, i, m) {
     const p = all(side)[i], dist = Math.max(Math.abs(m.x - p.x), Math.abs(m.y - p.y));
     const rest = side === 'you' ? (firstMove && p.suit === 'stars' ? 0 : myCool) : foeCool;
-    if (m.swap) { // Spirals: an instant trade of squares with a piece of yours
+    if (m.swap) { // Gears: an instant trade of squares with a piece of yours
       const q = s.pieces.find((o) => !o.taken && !o.flying && o.x === m.x && o.y === m.y);
       if (q) { q.x = p.x; q.y = p.y; q.ready = t + rest; }
       p.x = m.x; p.y = m.y; p.ready = t + rest;
@@ -110,15 +113,15 @@ export function startKungFu({ board, level, state, iq = 5, myCool = 2000, foeCoo
       theirs.forEach((q) => { if (!q.taken && !q.flying && q.x === f.tx && q.y === f.ty) q.taken = true; }); // and a rabbit riding on it
       if (f.side === 'you') {
         sfx.capture(); haptic([30, 20, 40]);
-        if (p.suit === 'diamonds') s.treasure++;
-        if (p.suit === 'swords') p.ready = t; // Swords: no rest after a capture
+        if (p.suit === 'vines') p.ready = t; // Vines: no rest after a capture
         onStatus?.(`You took their ${PIECES[v.type].name}.`);
       } else { sfx.eat(); haptic([40, 30, 40]); onStatus?.(`Their ${PIECES[p.type].name} took your ${PIECES[v.type].name}.`); }
       if (sel != null && f.side === 'foe' && v === s.pieces[sel]) { sel = null; legal = []; }
     }
     p.x = f.tx; p.y = f.ty;
-    // A pawn on the far row becomes a queen, where the level says so.
-    if (level.rules.promote && p.type === 'pawn' && p.y === (f.side === 'you' ? level.H - 1 : 0)) p.type = 'queen';
+    // A pawn on the far row becomes a queen, where the level says so (the
+    // descent's copies are chosen on a turn, so here it stays a pawn).
+    if (level.rules.promote === true && p.type === 'pawn' && p.y === (f.side === 'you' ? level.H - 1 : 0)) p.type = 'queen';
     sfx.drop(f.i);
     if (sel != null) legal = selectable(sel) ? movesFor(s, sel) : [];
   }

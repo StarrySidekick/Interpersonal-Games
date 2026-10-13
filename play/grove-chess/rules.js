@@ -22,7 +22,7 @@
 
 import { think } from './ai.js';
 import { rng } from '../../engine/seed.js';
-import { betzaMoves } from './betza.js';
+import { betzaMoves, rideVecs } from './betza.js';
 import { CONFIG } from './config.js';
 
 const ORTH = [[1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -150,6 +150,16 @@ export function gateUp(s, sq) {
   return !s.pieces.some(on) && !s.foes.some(on);
 }
 
+/** Golf's hazards (Timothy, 2026-10-13: "there can be obstacles like gates
+    and clouds and various things of that nature"). Sand: a hit ball stops
+    dead in it; pieces cross it as ground. Water: no piece crosses it or
+    stands in it, and a ball that rolls in goes back to the tee (if the tee
+    is taken, it stops at the water's edge). */
+export const sandAt = (s, sq) => !!s.day.sand?.has(sq);
+export const waterAt = (s, sq) => !!s.day.water?.has(sq);
+export const SAND_DESC = 'Sand: a ball hit into it stops dead there. Your pieces cross it like grass.';
+export const WATER_DESC = 'Water: nothing of yours can cross it or stand in it, and a ball that rolls in goes back to the tee, where it started the hole (if something stands there, it stops at the water\u2019s edge).';
+
 /** Is a wandering cloud over square sq? */
 export const cloudOver = (s, sq) => s.clouds?.length > 0 && s.clouds.some((c) => c.y * s.day.W + c.x === sq);
 
@@ -197,16 +207,16 @@ function contact(s, side, p, m) {
   if (!hidden.size) return m;
   const other = side === 'you' ? s.foes : s.pieces, W = s.day.W;
   const there = (sq) => [...hidden].some((j) => other[j].y * W + other[j].x === sq);
-  if (p.suit !== 'spirits' && !s.day.rules.wrap) for (const sq of between(W, p.x, p.y, m.x, m.y)) if (there(sq)) return { ...m, x: sq % W, y: Math.floor(sq / W), cap: true, bumped: true };
+  if (!s.day.rules.wrap && !m.wrapped) for (const sq of between(W, p.x, p.y, m.x, m.y)) if (there(sq)) return { ...m, x: sq % W, y: Math.floor(sq / W), cap: true, bumped: true };
   return there(m.y * W + m.x) ? { ...m, cap: true, bumped: true } : m;
 }
 
 /** A piece of `side` moved from (fx, fy) to (tx, ty): its own ghosts on the
     way, and on the square it lands on, are gone for good. Mutates. */
-function passGhosts(s, side, fx, fy, tx, ty) {
+function passGhosts(s, side, fx, fy, tx, ty, wrapped = false) {
   if (!s.day.ghosts?.size) return;
   const W = s.day.W;
-  for (const sq of [...(s.day.rules.wrap ? [] : between(W, fx, fy, tx, ty)), ty * W + tx])
+  for (const sq of [...(s.day.rules.wrap || wrapped ? [] : between(W, fx, fy, tx, ty)), ty * W + tx])
     if (s.day.ghosts.get(sq) === side && !s.ghostGone.includes(sq)) { s.ghostGone.push(sq); s.ghostsLost = (s.ghostsLost || 0) + 1; }
 }
 
@@ -227,6 +237,326 @@ export const holeOpen = (s) => s.day.rules.goal !== 'descent' || s.foes.every((f
 export function canTake(rules, f) {
   return f.type === 'rabbit' ? (rules.rabbitsEat ?? rules.foesCapture) : rules.foesCapture;
 }
+
+// --- Weapons (Timothy, 2026-10-13). ----------------------------------------
+// A piece may carry one weapon as well as one suit: p.weapon ('sword',
+// 'lance' or 'mace') at level p.wl, 1 to 3. They change its moves (armed,
+// below, for either side) and what a move does (armsBefore, armsAfter):
+// - Sword: it no longer takes where it lands, so it cannot move onto
+//   anything. It strikes round where it lands instead: the square in front
+//   (1), and to each side (2), and diagonally in front (3). Front is toward
+//   the other side.
+// - Lance: only on a piece that slides. It takes what it slides through, up
+//   to 1, 2 or 3 pieces, and lands on an empty square beyond; it no longer
+//   takes where it lands either.
+// - Mace: on a slide it may go on into what is in its way, pushing it ahead,
+//   up to 1, 2 or 3 pieces in a row, one square for each square it goes on.
+//   A piece of the other side it pushes is stunned; one that was stunned
+//   already is taken. Its own side's pieces can be pushed, never stunned.
+//   On a step or a leap it stuns what stands round where it lands: in front
+//   and behind (1), and to each side (2), and on the diagonals (3). It still
+//   takes where it lands.
+// Stunned (p.stun): it cannot move on its side's next turn.
+// A move carries what it does with it: `strike` and `pass` (squares taken),
+// `push` ([{ from, to }], to -1 when the pushed piece is taken), `stun`.
+
+const SWORD = { 1: [[0, 1]], 2: [[0, 1], [-1, 0], [1, 0]], 3: [[0, 1], [-1, 0], [1, 0], [-1, 1], [1, 1]] };
+const MACE = { 1: [[0, 1], [0, -1]], 2: [[0, 1], [0, -1], [-1, 0], [1, 0]], 3: [[0, 1], [0, -1], [-1, 0], [1, 0], [-1, 1], [1, 1], [-1, -1], [1, -1]] };
+export const WEAPON_KINDS = ['sword', 'lance', 'mace'];
+
+const rideCache = new Map();
+/** The directions piece type t slides in, for a side moving `fwd`. */
+function slideVecs(t, fwd) {
+  const k = `${t}|${fwd}|${PIECES[t]?.betza}`;
+  if (!rideCache.has(k)) rideCache.set(k, PIECES[t]?.betza ? rideVecs(PIECES[t].betza, fwd) : []);
+  return rideCache.get(k);
+}
+/** Does piece type t slide (so a lance suits it, and its mace pushes)? */
+export const slides = (t) => slideVecs(t, 1).length > 0;
+/** Can piece type t carry weapon w? Any real piece can; a lance only one that slides. */
+export const canArm = (t, w) => !!PIECES[t]?.betza && WEAPON_KINDS.includes(w) && (w !== 'lance' || slides(t));
+
+/** The piece of the other side of `side` standing on square sq (not a rabbit
+    riding a head, not a ball), or null. */
+function enemyOn(s, side, sq) {
+  const W = s.day.W, x = sq % W, y = (sq / W) | 0;
+  return (side === 'you' ? s.foes : s.pieces).find((q) => !q.taken && !q.flying && q.rides == null && q.type !== 'ball' && q.x === x && q.y === y) || null;
+}
+/** The rabbit to capture is free on square sq. */
+const flagFree = (s, sq) => !!s.flag && !s.flag.by && s.flag.y * s.day.W + s.flag.x === sq;
+/** Is there something on sq that `side` could take: a piece of the other
+    side, a statue that can be taken, or the free rabbit? */
+const takeable = (s, side, sq) => !!enemyOn(s, side, sq) || (s.day.rules.statuesTake && statueAt(s, sq)) || flagFree(s, sq);
+
+/** The squares a move takes on: where it lands, if it takes there; a
+    sword's strikes; a lance's passes; a mace's pushes that take. */
+export function capturesOf(m, W) {
+  const out = m.cap ? [m.y * W + m.x] : [];
+  if (m.strike) out.push(...m.strike);
+  if (m.pass) out.push(...m.pass);
+  if (m.push) for (const e of m.push) if (e.to < 0) out.push(e.from);
+  return out;
+}
+/** Does this move take anything at all? */
+export const takesAny = (m) => !!(m.cap || m.strike?.length || m.pass?.length || m.push?.some((e) => e.to < 0));
+
+/** Piece p's moves as its weapon changes them, from `side`. */
+function armed(s, p, side, ms) {
+  const lv = Math.max(1, Math.min(3, p.wl || 1)), fwd = side === 'you' ? 1 : -1, W = s.day.W, L = sight(s, p, side), home = p.y * W + p.x;
+  const sqOf = (x, y) => { const [a, b] = fold(s.day, x, y); return onBoard(s.day, a, b) ? b * W + a : -1; };
+  const around = (m, pat) => pat.map(([dx, dy]) => sqOf(m.x + dx, m.y + dy * fwd)).filter((q) => q >= 0 && q !== home);
+  if (p.weapon === 'sword') {
+    return ms.filter((m) => m.swap || !m.cap).map((m) => {
+      if (m.swap) return m;
+      const strike = around(m, SWORD[lv]).filter((q) => takeable(s, side, q));
+      return strike.length ? { ...m, strike } : m;
+    });
+  }
+  const vecs = slideVecs(p.type, fwd);
+  if (p.weapon === 'lance') {
+    if (!vecs.length) return ms;
+    const out = ms.filter((m) => m.swap || !m.cap), seen = new Set(out.map((m) => m.y * W + m.x));
+    for (const [dx, dy] of vecs) {
+      const pass = [];
+      let x = p.x, y = p.y;
+      for (let n = 0; n < MAX_SLIDE; n++) {
+        x += dx; y += dy;
+        const q = sqOf(x, y);
+        if (q < 0 || q === home) break;
+        const c = L(x, y);
+        if (c === EMPTY) { if (pass.length && !seen.has(q)) { seen.add(q); out.push({ x: q % W, y: (q / W) | 0, cap: false, pass: pass.slice() }); } continue; }
+        if (c === ENEMY && pass.length < lv && enemyOn(s, side, q)) { pass.push(q); continue; }
+        break;
+      }
+    }
+    return out;
+  }
+  if (p.weapon === 'mace') {
+    const along = (m) => vecs.some(([dx, dy]) => {
+      const ex = m.x - p.x, ey = m.y - p.y, k = dx ? ex / dx : ey / dy;
+      return Number.isInteger(k) && k >= 1 && ex === k * dx && ey === k * dy;
+    });
+    const out = ms.map((m) => {
+      if (m.swap || m.wrapped || along(m)) return m;
+      const stun = around(m, MACE[lv]).filter((q) => enemyOn(s, side, q));
+      return stun.length ? { ...m, stun } : m;
+    });
+    const seen = new Set(out.map((m) => m.y * W + m.x));
+    for (const [dx, dy] of vecs) pushes(s, p, side, dx, dy, lv, out, seen);
+    return out;
+  }
+  return ms;
+}
+
+/** A mace's slide along (dx, dy) that goes on into what is in its way,
+    pushing up to lv pieces in a row ahead of it. Every square it could stop
+    on is added to `out`, with what it pushed. A piece of the other side
+    that was stunned before the move is taken when it is pushed; the rest go
+    one square on for each square the mace goes on, and need open ground to
+    go onto (not the edge, a statue, a ghost, a raised gate or the hole). */
+function pushes(s, p, side, dx, dy, lv, out, seen) {
+  const W = s.day.W, home = p.y * W + p.x, own = side === 'you' ? s.pieces : s.foes, line = [];
+  let x = p.x, y = p.y;
+  for (let n = 0; n < MAX_SLIDE; n++) {
+    x += dx; y += dy;
+    const [a, b] = fold(s.day, x, y), q = b * W + a;
+    if (!onBoard(s.day, a, b) || q === home) break;
+    const mine = own.find((o) => !o.taken && !o.flying && o.rides == null && o.type !== 'ball' && o.x === a && o.y === b), theirs = enemyOn(s, side, q);
+    if (mine || theirs) { line.push({ q, piece: { from: q, own: !!mine, stunned: !!(theirs && theirs.stun) } }); continue; }
+    const c = look(s, a, b, side);
+    line.push({ q, walk: c === EMPTY, open: c === EMPTY && !ghostAt(s, q) && !flagFree(s, q) });
+    if (c !== EMPTY) break;
+  }
+  const at = line.map((c) => c.piece || null), log = new Map();
+  for (let k = 0; k < line.length; k++) {
+    if (at[k]) {
+      let j = k;
+      while (j < line.length && at[j]) j++;
+      if (j - k > lv || j >= line.length || !line[j].open) return;
+      for (let i = j - 1; i >= k; i--) {
+        const c = at[i];
+        at[i] = null;
+        if (!c.own && c.stunned) log.set(c.from, -1);
+        else { at[i + 1] = c; log.set(c.from, line[i + 1].q); }
+      }
+    } else if (!line[k].walk) return;
+    if (!log.size) continue; // nothing pushed yet: an ordinary move, already listed
+    const q = line[k].q;
+    if (seen.has(q)) continue;
+    seen.add(q);
+    out.push({ x: q % W, y: (q / W) | 0, cap: false, push: [...log].map(([from, to]) => ({ from, to })) });
+  }
+}
+
+/** What a weapon does before its piece lands: a lance takes what it passed
+    through, a mace pushes. Mutates; returns how many it took. */
+function armsBefore(n, side, i, m) {
+  let took = 0;
+  for (const q of m.pass || []) if (takeAt(n, side, i, q)) took++;
+  if (m.push?.length) {
+    const W = n.day.W, all = [...n.pieces.map((q) => ['you', q]), ...n.foes.map((q) => ['foe', q])];
+    const moving = m.push.map((e) => ({ e, hit: all.find(([, q]) => !q.taken && !q.flying && q.rides == null && q.type !== 'ball' && q.y * W + q.x === e.from) }));
+    for (const { e, hit } of moving) {
+      if (!hit) continue;
+      const [who, q] = hit;
+      if (e.to < 0) { if (takeAt(n, side, i, e.from)) took++; continue; }
+      const list = who === 'you' ? n.pieces : n.foes, j = list.indexOf(q), tx = e.to % W, ty = (e.to / W) | 0;
+      q.from = [q.x, q.y]; q.x = tx; q.y = ty; q.pushed = true;
+      list.forEach((r) => { if (!r.taken && r.rides === j) { r.x = tx; r.y = ty; } });
+      if (who !== side) q.stun = true;
+    }
+  }
+  return took;
+}
+
+/** What a weapon does once its piece has landed: a sword strikes, a mace
+    on a step or a leap stuns. Mutates; returns how many it took. */
+function armsAfter(n, side, i, m) {
+  let took = 0;
+  for (const q of m.strike || []) if (takeAt(n, side, i, q)) took++;
+  for (const q of m.stun || []) { const e = enemyOn(n, side, q); if (e) e.stun = true; }
+  return took;
+}
+
+/** Side `side`'s piece i takes whatever stands on square sq, away from where
+    it lands (a weapon). Mutates; returns true if it took something. */
+function takeAt(n, side, i, sq) {
+  const e = enemyOn(n, side, sq);
+  if (e) { if (side === 'you') captureFoe(n, e, i); else capturePiece(n, e, i); return true; }
+  if (n.day.rules.statuesTake && statueAt(n, sq)) { n.open = [...(n.open || []), sq]; n.broke = sq; return true; }
+  if (flagFree(n, sq)) { n.flag.by = side; n.flag.i = i; return true; }
+  return false;
+}
+
+/** Your piece p is taken by their piece k (k -1: by nothing in particular).
+    The rabbit to capture, if p carried it, goes to the taker. Hearts: a
+    life more sends it home instead (respawn). Anything riding on it is
+    taken with it. Mutates; true if it is gone. */
+function capturePiece(s, p, k) {
+  const i = s.pieces.indexOf(p), x = p.x, y = p.y;
+  if (s.flag?.by === 'you' && s.flag.i === i) { if (k >= 0) { s.flag.by = 'foe'; s.flag.i = k; } else { s.flag.by = null; s.flag.x = x; s.flag.y = y; } }
+  if ((p.lives || 1) > 1) { p.lives--; p.reviving = true; return false; }
+  p.taken = true;
+  s.pieces.forEach((q) => { if (!q.taken && q.x === x && q.y === y) q.taken = true; });
+  return true;
+}
+/** Their piece f is taken by your piece i: the same, the other way. Taking
+    it may win. Mutates; true if it is gone. */
+function captureFoe(n, f, i) {
+  const k = n.foes.indexOf(f), x = f.x, y = f.y;
+  if (n.flag?.by === 'foe' && n.flag.i === k) { if (i >= 0) { n.flag.by = 'you'; n.flag.i = i; } else { n.flag.by = null; n.flag.x = x; n.flag.y = y; } }
+  if ((f.lives || 1) > 1) { f.lives--; f.reviving = true; return false; }
+  f.taken = true;
+  n.foes.forEach((q) => { if (!q.taken && q.x === x && q.y === y) q.taken = true; });
+  if (goalMet(n)) n.won = true;
+  return true;
+}
+
+/**
+ * Hearts (Timothy, 2026-10-13: "extra life, when hit placed in first row in
+ * space of choice, if no slot present pick from second row, and so on").
+ * A piece taken with a life to spare goes back to its own side's first row,
+ * on a free square, or the second row if the first is full, and so on. The
+ * squares it could go to are kept (s.revived) so you can choose among them
+ * for one of yours (placeRevived); it starts on the one nearest the middle.
+ * Mutates.
+ */
+function settleRevivals(s) {
+  for (const [side, list] of [['you', s.pieces], ['foe', s.foes]]) list.forEach((p, i) => {
+    if (!p.reviving) return;
+    delete p.reviving;
+    const options = homeSquares(s, side, p), W = s.day.W;
+    if (!options.length) { p.taken = true; list.forEach((q) => { if (!q.taken && q.rides === i) q.taken = true; }); if (side === 'foe' && goalMet(s)) s.won = true; return; }
+    const from = [p.x, p.y], q = options[0];
+    p.from = from; p.x = q % W; p.y = (q / W) | 0;
+    list.forEach((r) => { if (!r.taken && r.rides === i) { r.x = p.x; r.y = p.y; } });
+    s.revived = { side, i, options, from };
+  });
+}
+/** Free squares on side's first row, or the first row from its end with any:
+    nearest the middle first. */
+function homeSquares(s, side, p) {
+  const W = s.day.W, H = s.day.H;
+  for (let r = 0; r < H; r++) {
+    const y = side === 'you' ? r : H - 1 - r, row = [];
+    for (let x = 0; x < W; x++) {
+      const q = y * W + x;
+      if (!onBoard(s.day, x, y) || crumbled(s, x, y) || shrunk(s, x, y) || statueAt(s, q) || s.day.ghosts?.get(q) || (s.day.gates?.size && gateUp(s, q))) continue;
+      if (s.hole && s.hole.x === x && s.hole.y === y) continue;
+      if (flagFree(s, q)) continue;
+      if ([...s.pieces, ...s.foes].some((o) => o !== p && !o.taken && !o.flying && o.x === x && o.y === y)) continue;
+      row.push(q);
+    }
+    if (row.length) return row.sort((a, b) => Math.abs((a % W) - (W - 1) / 2) - Math.abs((b % W) - (W - 1) / 2) || a - b);
+  }
+  return [];
+}
+/** Put your piece that came back from a heart on another of its squares.
+    A new state; the same one if that is not one of its squares. */
+export function placeRevived(s, sq) {
+  const r = s.revived;
+  if (!r || r.side !== 'you' || !r.options.includes(sq)) return s;
+  const n = clone(s), W = s.day.W, p = n.pieces[r.i];
+  p.x = sq % W; p.y = (sq / W) | 0;
+  n.pieces.forEach((q) => { if (!q.taken && q.rides === r.i) { q.x = p.x; q.y = p.y; } });
+  n.revived = { ...r, placed: sq };
+  return n;
+}
+
+/** Pawns in the descent (Timothy, 2026-10-13: they "can turn into any
+    duplicate of any one of your other pieces on the board when they reach
+    the other side"): a pawn's move onto the far row is one move for each
+    kind of piece its side has on the board (not a pawn, not the King), and
+    it becomes that kind. None to copy: it stays a pawn. */
+function promoteChoices(s, side, i, ms) {
+  const list = side === 'you' ? s.pieces : s.foes, last = side === 'you' ? s.day.H - 1 : 0;
+  const kinds = [...new Set(list.filter((q, j) => j !== i && !q.taken && !q.flying && q.rides == null && q.x >= 0 && !['pawn', 'king', 'bunny', 'ball', 'rabbit'].includes(q.type)).map((q) => q.type))]
+    .sort((a, b) => (PIECES[b].strength ?? 0) - (PIECES[a].strength ?? 0));
+  if (!kinds.length) return ms;
+  return ms.flatMap((m) => (m.y === last && !m.swap ? kinds.map((t) => ({ ...m, promote: t })) : [m]));
+}
+/** Becoming what it promotes into; a lance goes if it no longer slides. */
+function promoteTo(p, t) {
+  p.type = t; p.promoted = true;
+  if (p.weapon && !canArm(t, p.weapon)) { delete p.weapon; delete p.wl; }
+}
+
+/** The rabbit to capture (goal 'flag'): where it is, on the ground or on the
+    head of whoever carries it. */
+export function flagAt(s) {
+  if (!s.flag) return null;
+  if (!s.flag.by) return { x: s.flag.x, y: s.flag.y, by: null };
+  const p = (s.flag.by === 'you' ? s.pieces : s.foes)[s.flag.i];
+  return p && !p.taken ? { x: p.x, y: p.y, by: s.flag.by, i: s.flag.i } : { x: s.flag.x, y: s.flag.y, by: null };
+}
+/** Carried home, the rabbit wins: yours on your first row, theirs on theirs. */
+function flagHome(s) {
+  const f = flagAt(s);
+  if (!f?.by) return;
+  if (f.by === 'you' && f.y === 0) s.won = true;
+  if (f.by === 'foe' && f.y === s.day.H - 1) s.flagLost = true;
+}
+
+/** The rabbit that rides one side's pieces (goal 'carrier', 2026-10-13):
+    it hops from the piece it is on to another of that side's, at random. */
+export const carrierOf = (s, side) => (side === 'you' ? s.pieces : s.foes).find((q) => q.brain === 'carrier' && !q.taken) || null;
+function carrierHop(s, side) {
+  const list = side === 'you' ? s.pieces : s.foes, r = list.find((q) => q.brain === 'carrier' && !q.taken);
+  if (!r) return;
+  const at = list.map((q, j) => j).filter((j) => j !== r.rides && list[j] !== r && !list[j].taken && !list[j].flying && list[j].rides == null && !['bunny', 'ball'].includes(list[j].type) && list[j].x >= 0);
+  if (!at.length) return;
+  const j = at[Math.floor(hash01(`rabbit:${s.day.seed ?? 0}:${s.t}:${side}`) * at.length)];
+  r.from = [r.x, r.y]; r.x = list[j].x; r.y = list[j].y; r.rides = j; r.hopped = true;
+}
+/** How many more of your moves until the riding rabbits hop. */
+export function hopIn(s) {
+  const n = s.day.rules.rabbitHop;
+  return s.day.rules.goal === 'carrier' && n > 0 ? n - (s.t % n) : null;
+}
+
+/** A spirals piece sees the board with its left and right edges joined
+    (wrapView): the state as that piece's moves are listed. */
+const wrapView = (s) => ({ ...s, day: { ...s.day, rules: { ...s.day.rules, wrap: 'sides' } } });
 
 // Where everything stands, square by square, for one state while its moves
 // are listed (2026-10-13, for speed: look() otherwise searches both sides'
@@ -279,6 +609,9 @@ export function look(s, x, y, side = 'you') {
     }
   if (gridFor !== s) for (const f of s.foes)
     if (!f.taken && f.x === x && f.y === y) return side === 'foe' ? OWN : bram ? HIDDEN : ENEMY;
+  // The rabbit to capture (goal 'flag', 2026-10-13), while nobody carries
+  // it: something either side can take.
+  if (s.flag && !s.flag.by && s.flag.x === x && s.flag.y === y) return ENEMY;
   if (s.hole && s.hole.x === x && s.hole.y === y && holeOpen(s)) return HOLE;
   const sq = y * s.day.W + x;
   // A statue that can be taken reads as something to take, to either side
@@ -289,6 +622,8 @@ export function look(s, x, y, side = 'you') {
   if (ghost) return ghost === side ? EMPTY : STUMP;
   // A gate that is up: nothing passes and nothing stands there.
   if (s.day.gates?.size && gateUp(s, sq)) return OFF;
+  // Water (golf): nothing passes or stands there either.
+  if (s.day.water?.has(sq)) return OFF;
   return bram ? BRAMBLE : EMPTY;
 }
 
@@ -756,7 +1091,7 @@ export const RABBIT_AI_DESC = 'Thinks for itself and steps one square in any dir
 export const BRAMBLE_DESC = 'Creeps across the board. Nothing can enter it and nothing slides through it. Anything caught inside is safe until it leaves.';
 export const GHOST_DESC = 'A ghost of {side}. It never moves and never takes. Its own side moves through it as if it were not there, and once one of them passes through or onto it, it is gone for good. The other side cannot pass it or land on it; a leaper can jump over it.';
 export const GATE_DESC = 'A gate: up one turn and down the next. Down, it is open ground; up, nothing passes it and nothing can stand there. With a piece on it, it stays down until the piece leaves.';
-export const WANDER_DESC = 'A cloud, drifting one square a turn on its own. A piece under it is hidden from the other side, and so is its move into the cloud. A move that runs into a hidden piece stops there and takes it. You see your own pieces under it.';
+export const WANDER_DESC = 'A cloud, drifting one square a turn on its own. A piece under it is hidden from the other side, and so is its move into the cloud. A move that runs into a hidden piece stops there and takes it. You see your own pieces under it. A ball hit into a cloud stops dead there.';
 export const STATUE_TAKE_DESC = 'A statue: a standing stone with a spiral cut in it. It never moves and belongs to nobody. Sliders stop at it; leapers and hoppers go over it. Either side can take it, and then it is gone.';
 /** A statue, in words, for this level's rules. */
 export const statueDesc = (rules) => (rules?.statuesTake ? STATUE_TAKE_DESC : STUMP_DESC);
@@ -833,6 +1168,8 @@ export function initialState(day) {
   // wandering clouds are.
   if (day.ghosts?.size) s.ghostGone = [];
   if (day.clouds?.length) s.clouds = day.clouds.map((c) => ({ ...c }));
+  // The rabbit to capture (goal 'flag'), on its square.
+  if (day.flag) s.flag = { x: day.flag.x, y: day.flag.y, by: null, i: -1 };
   if (day.rules.first === 'them') { foesAct(s); s.opened = true; }
   return s;
 }
@@ -841,7 +1178,8 @@ export function clone(s) {
   return { day: s.day, t: s.t, pieces: s.pieces.map((p) => ({ ...p })), foes: s.foes.map((f) => ({ ...f })),
     hole: s.hole ? { ...s.hole } : null, gone: s.gone.slice(), shrunk: s.shrunk ? s.shrunk.slice() : [], open: s.open ? s.open.slice() : [], won: s.won, sunk: s.sunk,
     bonus: s.bonus || null, treasure: s.treasure || 0, foeTreasure: s.foeTreasure || 0, ft: s.ft || 0, ...(s.cloudy ? { cloudy: true } : {}),
-    ...(s.ghostGone ? { ghostGone: s.ghostGone.slice(), ghostsLost: s.ghostsLost || 0 } : {}), ...(s.clouds ? { clouds: s.clouds.map((c) => ({ ...c })) } : {}) };
+    ...(s.ghostGone ? { ghostGone: s.ghostGone.slice(), ghostsLost: s.ghostsLost || 0 } : {}), ...(s.clouds ? { clouds: s.clouds.map((c) => ({ ...c })) } : {}),
+    ...(s.flag ? { flag: { ...s.flag } } : {}), ...(s.flagLost ? { flagLost: true } : {}) };
 }
 
 const youLook = (s) => (x, y) => look(s, x, y, 'you');
@@ -905,6 +1243,9 @@ function throughCloud(B, W, p, m) {
 
 /** Piece p's moves, from `side`, folded back onto a magic board. */
 function pieceMoves0(s, p, side) {
+  // Spirals (2026-10-13): this piece goes round the left and right edges,
+  // as on a board whose sides join (Pac-Man's tunnel).
+  if (p.suit === 'spirals' && !s.day.rules.wrap) return pieceMoves0(wrapView(s), p, side);
   let ms;
   if (p.type === 'ball') { ballView = true; try { ms = PIECES[p.type].moves(sight(s, p, side), p, 1, s.day); } finally { ballView = false; } }
   else ms = PIECES[p.type].moves(sight(s, p, side), p, side === 'you' ? 1 : -1, s.day);
@@ -920,26 +1261,14 @@ function pieceMoves0(s, p, side) {
     const f = side === 'you' ? 1 : -1, L = sight(s, p, side);
     if (p.y === (f > 0 ? 1 : s.day.H - 2) && L(p.x, p.y + f) === EMPTY && L(p.x, p.y + 2 * f) === EMPTY) ms = [...ms, { x: p.x, y: p.y + 2 * f, cap: false }];
   }
-  // Spirits (a suit, 2026-10-09): it passes through pieces, statues and
-  // stumps as if they were not there, and lands as usual: on an empty
-  // square, or taking a piece of theirs. Its own moves, read on a board
-  // with nothing on it, are where it can go; what is really there decides
-  // whether it may land.
-  if (p.suit === 'spirits') {
-    const real = sight(s, p, side), clear = (x, y) => (real(x, y) === OFF ? OFF : EMPTY);
-    const seen = new Set(ms.map((m) => m.y * s.day.W + m.x));
-    for (const m of PIECES[p.type].moves(clear, p, side === 'you' ? 1 : -1, s.day)) {
-      const c = real(m.x, m.y), k = m.y * s.day.W + m.x;
-      if (seen.has(k) || !(c === EMPTY || c === BRAMBLE || c === ENEMY || c === HIDDEN)) continue;
-      seen.add(k);
-      ms.push({ x: m.x, y: m.y, cap: c === ENEMY || c === HIDDEN });
-    }
-  }
+  // Weapons (2026-10-13): a sword, a lance or a mace changes what its
+  // moves do (armed, above).
+  if (p.weapon && PIECES[p.type]?.betza) ms = armed(s, p, side, ms);
   if (!s.day.rules.wrap) return ms;
   const out = new Map();
   for (const m of ms) {
     const [x, y] = fold(s.day, m.x, m.y), k = y * s.day.W + x;
-    if (!out.has(k)) out.set(k, { ...m, x, y });
+    if (!out.has(k)) out.set(k, { ...m, x, y, ...(x !== m.x || y !== m.y ? { wrapped: true } : {}) });
   }
   return [...out.values()];
 }
@@ -950,15 +1279,20 @@ export function movesFor(s, i) {
   const p = s.pieces[i];
   if (s.won || p.taken) return [];
   // A turn left open by a suit (below): only that piece moves, and after a
-  // Swords capture only to take again.
+  // Vines capture only to take again.
   if (s.bonus && s.bonus.p !== i) return [];
+  // Stunned by a mace (2026-10-13): it sits out this turn. A rabbit riding
+  // your pieces (goal 'carrier') never moves by itself.
+  if (p.stun || p.brain === 'carrier') return [];
   let ms = pieceMoves(s, p, 'you');
   if (s.day.rules.ballMove === 'hit') ms = ms.filter((m) => hitOk(s, p, m));
-  if (s.bonus?.cap) return ms.filter((m) => onFoe(s, m));
+  if (s.bonus?.cap) return ms.filter(takesAny);
   if (s.day.rules.noCheck) ms = ms.filter((m) => !givesCheck(s, 'you', i, m));
-  // Spirals: it may trade squares with any other piece of yours.
-  if (p.suit === 'spirals') {
-    s.pieces.forEach((q, k) => { if (k !== i && !q.taken && q.type !== 'ball') ms.push({ x: q.x, y: q.y, cap: false, swap: true }); });
+  if (s.day.rules.promote === 'copy' && p.type === 'pawn') ms = promoteChoices(s, 'you', i, ms);
+  // Gears (Spirals until 2026-10-13): it may trade squares with any other
+  // piece of yours.
+  if (p.suit === 'gears') {
+    s.pieces.forEach((q, k) => { if (k !== i && !q.taken && q.type !== 'ball' && q.rides == null && q.brain !== 'carrier') ms.push({ x: q.x, y: q.y, cap: false, swap: true }); });
   }
   return ms;
 }
@@ -966,11 +1300,12 @@ export function movesFor(s, i) {
 const onFoe = (s, m) => s.foes.some((f) => !f.taken && f.x === m.x && f.y === m.y);
 
 /*
- * The descent's suits that are rules, not moves (Timothy, 2026-10-08):
- * Swords cleaves (after it takes a piece it may take again, the same turn),
- * Stars moves twice (once a level, its first move is followed by another),
- * Spirals swaps (movesFor, above), and Diamonds is treasure (each capture it
- * makes is counted, and the run turns the count into reward picks).
+ * The suits that are rules, not moves (Timothy, 2026-10-08; renamed and
+ * changed 2026-10-13): Vines chain captures (after it takes a piece it may
+ * take again, the same turn; until 2026-10-13 this was Swords), Stars moves
+ * twice (once a level, its first move is followed by another), Gears swaps
+ * (movesFor, above; it was Spirals), Spirals goes round the left and right
+ * edges (pieceMoves0), and Hearts is a life more (settleRevivals).
  *
  * A turn left open is `s.bonus = { p, cap, why }`: the next move must be that
  * piece's, or waiting, which ends the turn. While it is open they do not
@@ -981,7 +1316,7 @@ const onFoe = (s, m) => s.foes.some((f) => !f.taken && f.x === m.x && f.y === m.
 function openBonus(n, i, took, wasBonus) {
   const p = n.pieces[i];
   if (n.won || p.taken || lost(n)) return;
-  if (p.suit === 'swords' && took && pieceMoves(n, p, 'you').some((m) => onFoe(n, m))) { n.bonus = { p: i, cap: true, why: 'swords' }; return; }
+  if (p.suit === 'vines' && took && pieceMoves(n, p, 'you').some(takesAny)) { n.bonus = { p: i, cap: true, why: 'vines' }; return; }
   if (p.suit === 'stars' && !p.starUsed && !wasBonus) { p.starUsed = true; n.bonus = { p: i, cap: false, why: 'stars' }; }
 }
 
@@ -991,22 +1326,23 @@ function openBonus(n, i, took, wasBonus) {
     time (kungfu.js). */
 export function foeMovesAny(s, k) {
   const f = s.foes[k];
-  if (f.taken || f.flying) return [];
+  if (f.taken || f.flying || f.stun) return [];
   const ms = pieceMoves(s, f, 'foe');
-  return canTake(s.day.rules, f) ? ms : ms.filter((m) => !m.cap);
+  return canTake(s.day.rules, f) ? ms : ms.filter((m) => !takesAny(m));
 }
 
 export function foeMovesFor(s, k) {
   if (s.clouds?.length) { const v = seenBy(s, 'foe'); if (v !== s) return withGrid(v, () => foeMovesFor(v, k)); }
   const f = s.foes[k];
-  if (f.taken || f.brain !== 'ai') return [];
+  if (f.taken || f.brain !== 'ai' || f.stun) return [];
   let ms = pieceMoves(s, f, 'foe');
-  // Spirals on a piece of theirs (2026-10-13): it may trade squares with any
-  // other piece of theirs, as its move.
-  if (f.suit === 'spirals') s.foes.forEach((q, j) => { if (j !== k && !q.taken && q.rides == null && q.type !== 'bunny') ms = [...ms, { x: q.x, y: q.y, cap: false, swap: true }]; });
+  if (s.day.rules.promote === 'copy' && f.type === 'pawn') ms = promoteChoices(s, 'foe', k, ms);
+  // Gears on a piece of theirs (Spirals until 2026-10-13): it may trade
+  // squares with any other piece of theirs, as its move.
+  if (f.suit === 'gears') s.foes.forEach((q, j) => { if (j !== k && !q.taken && q.rides == null && q.type !== 'bunny') ms = [...ms, { x: q.x, y: q.y, cap: false, swap: true }]; });
   if (s.day.rules.noCheck) ms = ms.filter((m) => !givesCheck(s, 'foe', k, m));
   if (s.day.rules.ballMove === 'hit') return ms.filter((m) => hitOk(s, f, m) && (!m.cap || hitBall(s, m.x, m.y) || canTake(s.day.rules, f)));
-  return canTake(s.day.rules, f) ? ms : ms.filter((m) => !m.cap);
+  return canTake(s.day.rules, f) ? ms : ms.filter((m) => !takesAny(m));
 }
 
 /**
@@ -1023,7 +1359,8 @@ export function firstCaptures(s) {
   const onMine = (m) => s.pieces.some((p) => !p.taken && p.type !== 'ball' && p.x === m.x && p.y === m.y) ||
     s.pieces.some((p) => !p.taken && p.type === 'ball' && p.x === m.x && p.y === m.y && s.day.rules.ballMove !== 'hit');
   const yours = [], theirs = [];
-  s.pieces.forEach((p, i) => { if (!p.taken && pieceMoves(s, p, 'you').some((m) => m.cap && onFoe(m))) yours.push(i); });
+  const W = s.day.W, onFoeSq = (q) => s.foes.some((f) => !f.taken && f.y * W + f.x === q), onMineSq = (q) => onMine({ x: q % W, y: (q / W) | 0 });
+  s.pieces.forEach((p, i) => { if (!p.taken && pieceMoves(s, p, 'you').some((m) => capturesOf(m, W).some(onFoeSq))) yours.push(i); });
   s.foes.forEach((f, k) => {
     if (f.taken || !canTake(s.day.rules, f)) return;
     if (f.brain === 'pattern') {
@@ -1033,7 +1370,7 @@ export function firstCaptures(s) {
       if (onMine({ x: tx, y: ty })) theirs.push(k);
       return;
     }
-    if (pieceMoves(s, f, 'foe').some((m) => m.cap && onMine(m))) theirs.push(k);
+    if (pieceMoves(s, f, 'foe').some((m) => capturesOf(m, W).some(onMineSq))) theirs.push(k);
   });
   return { yours, theirs };
 }
@@ -1080,8 +1417,16 @@ export function isLegal(s, mv) {
 
 function goalMet(s) {
   const g = s.day.rules.goal, F = s.foes;
-  if (g === 'hole' || g === 'descent') return false; // only the ball in the hole wins
+  if (g === 'hole' || g === 'descent' || g === 'flag') return false; // only the ball in the hole, or the rabbit brought home, wins
   if (g === 'any') return F.some((f) => f.taken);
+  // Capturing (2026-10-13): any number of theirs, from one to every one
+  // (captureN 0). The rabbit riding them is not one of them.
+  if (g === 'capture') {
+    const army = F.filter((f) => f.type !== 'bunny'), need = s.day.rules.captureN || army.length;
+    return army.filter((f) => f.taken).length >= Math.min(need, army.length);
+  }
+  // Their rabbit's carrier taken (and the rabbit with it).
+  if (g === 'carrier') return F.some((f) => f.brain === 'carrier' && f.taken);
   if (g === 'target' && F.some((f) => f.target)) return F.every((f) => !f.target || f.taken);
   return F.every((f) => f.taken);
 }
@@ -1099,20 +1444,24 @@ const theyArrived = (s) => (s.day.rules.hill || s.day.rules.race) &&
 
 export function lost(s) {
   return allTaken(s) || (s.day.rules.royal && s.pieces.some((p) => p.taken && p.type === 'king')) || theyArrived(s) ||
-    ((s.day.rules.goal === 'hole' || s.day.rules.goal === 'descent') && s.pieces.some((p) => p.taken && p.type === 'ball'));
+    ((s.day.rules.goal === 'hole' || s.day.rules.goal === 'descent') && s.pieces.some((p) => p.taken && p.type === 'ball')) ||
+    // Your own rabbit's carrier taken (both sides with a rabbit), or theirs
+    // carrying the rabbit home (2026-10-13).
+    (s.day.rules.goal === 'carrier' && s.pieces.some((p) => p.brain === 'carrier' && p.taken)) || !!s.flagLost;
 }
 
 // --- Their turn. -----------------------------------------------------------
 
-/** A foe lands on (x, y), taking whatever of yours is there. Mutates. */
-function landFoe(s, f, x, y) {
+/** A foe lands on (x, y), taking whatever of yours is there. `m`, the move
+    it made, if it made one: it may promote. Mutates. */
+function landFoe(s, f, x, y, m = null) {
   const k = s.foes.indexOf(f);
   // A rabbit of theirs hopping onto one of their heads rides there.
   const mate = f.type === 'bunny' ? s.foes.find((q) => q !== f && !q.taken && q.x === x && q.y === y) : null;
   if (mate) { f.ate = -1; f.from = [f.x, f.y]; f.x = x; f.y = y; f.blocked = false; f.rides = s.foes.indexOf(mate); return; }
-  // Spirals: landing on another piece of theirs trades squares with it, and
+  // Gears: landing on another piece of theirs trades squares with it, and
   // a rabbit riding either goes with its carrier.
-  const swap = f.suit === 'spirals' ? s.foes.find((q) => q !== f && !q.taken && q.rides == null && q.x === x && q.y === y) : null;
+  const swap = f.suit === 'gears' ? s.foes.find((q) => q !== f && !q.taken && q.rides == null && q.x === x && q.y === y) : null;
   if (swap) {
     const j = s.foes.indexOf(swap), fx = f.x, fy = f.y;
     f.ate = -1; f.from = [fx, fy]; f.x = x; f.y = y; f.blocked = false;
@@ -1122,28 +1471,33 @@ function landFoe(s, f, x, y) {
   }
   const b = hitBall(s, x, y);
   if (b) { knock(s, b, f.x, f.y); f.ate = -1; f.from = [f.x, f.y]; f.x = x; f.y = y; f.blocked = false; return; }
-  f.ate = s.pieces.findIndex((p) => !p.taken && p.x === x && p.y === y);
+  f.ate = s.pieces.findIndex((p) => !p.taken && p.x === x && p.y === y && p.rides == null);
   f.wounded = -1;
-  if (f.ate >= 0) {
-    const p = s.pieces[f.ate];
-    // Hearts, from the descent (2026-10-08): a second life; the first
-    // capture costs the heart instead, and the attacker bounces off.
-    if ((p.lives || 1) > 1) {
-      p.lives--; f.wounded = f.ate;
-      f.ate = -1; f.from = [f.x, f.y]; f.blocked = true;
-      return;
-    }
-    p.taken = true;
-    // Taking a piece takes a rabbit riding on it too.
-    s.pieces.forEach((q) => { if (!q.taken && q.x === x && q.y === y) q.taken = true; });
-    // Diamonds on a piece of theirs: treasure for them, an upgrade more at
-    // the next board.
-    if (f.suit === 'diamonds') s.foeTreasure = (s.foeTreasure || 0) + 1;
-  }
+  // Taking it, or (Hearts, 2026-10-13) sending it home with a life less.
+  if (f.ate >= 0 && !capturePiece(s, s.pieces[f.ate], k)) { f.wounded = f.ate; f.ate = -1; }
   f.from = [f.x, f.y]; f.x = x; f.y = y; f.blocked = false; delete f.rides;
   s.foes.forEach((q) => { if (q.rides === k && !q.taken) { q.from = [q.x, q.y]; q.x = x; q.y = y; } });
-  // Chess variants (2026-10-11): a pawn of theirs on your back row is a queen.
-  if (s.day.rules.promote && f.type === 'pawn' && y === 0) f.type = 'queen';
+  // The rabbit to capture, picked up where it sits.
+  if (flagFree(s, y * s.day.W + x)) { s.flag.by = 'foe'; s.flag.i = k; }
+  // A pawn of theirs on your first row: a copy of one of theirs (the
+  // descent), or a queen (chess variants, 2026-10-11).
+  if (m?.promote && f.type === 'pawn' && PIECES[m.promote]) promoteTo(f, m.promote);
+  else if (s.day.rules.promote === true && f.type === 'pawn' && y === 0) f.type = 'queen';
+}
+
+/** Their piece k makes move m: what its weapon does, landing, and what
+    follows. Mutates; returns how many it took. */
+function foeLand(s, k, m) {
+  const f = s.foes[k], fx = f.x, fy = f.y, gone = () => s.pieces.filter((p) => p.taken).length + (s.revived?.side === 'you' ? 1 : 0);
+  const was = gone();
+  delete s.revived;
+  let took = armsBefore(s, 'foe', k, m);
+  landFoe(s, f, m.x, m.y, m);
+  took += armsAfter(s, 'foe', k, m);
+  settleRevivals(s);
+  if (!m.swap) passGhosts(s, 'foe', fx, fy, m.x, m.y, m.wrapped);
+  flagHome(s);
+  return Math.max(took, gone() - was);
 }
 
 /** A pattern foe's hop. Mutates `s`. Landing on one of your pieces eats it
@@ -1170,31 +1524,28 @@ export function foeMove(s, m) {
   const before = gone();
   // Under clouds they choose from what they can see, and may run into one
   // of yours that hides there.
-  const fx = f.x, fy = f.y;
   m = contact(s, 'foe', f, m);
   if (m.bumped) s.bumped = 'foe';
   if (!m.swap) breakStatue(s, m.x, m.y);
-  landFoe(s, f, m.x, m.y);
-  if (!m.swap) passGhosts(s, 'foe', fx, fy, m.x, m.y);
+  const took = foeLand(s, m.k, m);
   if (f.taken || lost(s)) return;
   // Their suits that change a turn (2026-10-13, Timothy: "enemy pieces
-  // should be able to receive all the different suits"). Swords: after a
+  // should be able to receive all the different suits"). Vines: after a
   // capture it takes again while it can, the best thing in reach each time.
   // Stars: once a level, its first move is followed by a second. Both pick
   // their extra move greedily (bestFollow), the same on every phone, and the
   // thinking side's lookahead plays them the same way (ai.js after).
-  if (f.suit === 'swords' && gone() > before) {
-    for (let n = 0; n < 8 && !lost(s); n++) {
-      const was = gone(), c = bestFollow(s, m.k, true);
+  if (f.suit === 'vines' && (took > 0 || gone() > before)) {
+    for (let n = 0; n < 8 && !lost(s) && !f.taken; n++) {
+      const c = bestFollow(s, m.k, true);
       if (!c) break;
-      landFoe(s, f, c.x, c.y);
-      if (gone() === was) break; // a heart took the blow
-      s.foeBonus = 'swords';
+      if (!foeLand(s, m.k, c)) break;
+      s.foeBonus = 'vines';
     }
   } else if (f.suit === 'stars' && !f.starUsed) {
     f.starUsed = true;
     const c = bestFollow(s, m.k, false);
-    if (c) { landFoe(s, f, c.x, c.y); s.foeBonus = 'stars'; }
+    if (c) { foeLand(s, m.k, c); s.foeBonus = 'stars'; }
   }
 }
 
@@ -1205,12 +1556,13 @@ function bestFollow(s, k, capOnly) {
   const f = s.foes[k], reach = reachOf(s, 'you');
   const king = s.pieces.find((p) => !p.taken && p.type === 'king') || s.pieces.find((p) => !p.taken);
   let best = null, bv = -Infinity;
+  const W = s.day.W;
   for (const m of foeMovesFor(s, k)) {
     if (m.swap) continue;
-    const victim = m.cap ? s.pieces.find((p) => !p.taken && p.x === m.x && p.y === m.y) : null;
-    if (capOnly && !victim) continue;
-    const royal = victim && s.day.rules.royal && victim.type === 'king';
-    let v = victim ? 100 + (royal ? 1000 : PIECES[victim.type].value * 10) : 0;
+    const victims = capturesOf(m, W).map((q) => enemyOn(s, 'foe', q)).filter(Boolean);
+    if (capOnly && !takesAny(m)) continue;
+    const royal = victims.some((v) => s.day.rules.royal && v.type === 'king');
+    let v = victims.length ? 100 + (royal ? 1000 : victims.reduce((n, p) => n + PIECES[p.type].value * 10, 0)) : 0;
     if (reach.has(m.y * s.day.W + m.x)) v -= PIECES[f.type].value * 5;
     if (king) v -= Math.max(Math.abs(m.x - king.x), Math.abs(m.y - king.y));
     if (v > bv) { bv = v; best = m; }
@@ -1255,14 +1607,14 @@ function possessedStep(s, f, force = false) {
     if (!bk || before(key, bk)) { best = m; bk = key; }
   }
   if (!best) { f.blocked = true; return; }
-  landFoe(s, f, best.x, best.y);
+  foeLand(s, s.foes.indexOf(f), best);
 }
 
 /** The pattern foes all hop, the possessed pieces take their steps, and
     every rabbit with a mind thinks for itself. Mutates. */
 export function patternHops(s) {
   s.foes.forEach((f, k) => {
-    if (f.taken) return;
+    if (f.taken || f.stun) return;
     if (f.mind) { if (!lost(s)) mindStep(s, f, k, 'foe', f.brain === 'leader'); return; }
     if (f.brain === 'pattern') for (let h = 0; h < (f.hops || 1) && !lost(s); h++) hop(s, f);
     else if (f.brain === 'possessed' && !lost(s)) possessedStep(s, f);
@@ -1354,16 +1706,24 @@ export function reachMaps(s, pattern = false) {
   if (s.won) return { yours, theirs };
   s.pieces.forEach((p, i) => {
     if (p.taken || p.flying) return;
-    for (const m of movesFor(s, i)) if (!m.swap) yours.add(m.y * W + m.x);
+    for (const m of movesFor(s, i)) if (!m.swap) { yours.add(m.y * W + m.x); for (const q of capturesOf(m, W)) yours.add(q); }
     if (pattern && p.type !== 'ball') for (const k of patternReach(s, p, 'you', true)) yours.add(k);
   });
   for (const f of s.foes) {
     // The rabbit that leads them never takes anything, so its hops are no
     // danger to show (Timothy, 2026-10-13: "the rabbit shouldn't have its
-    // moveset present as a purple reach outline").
-    if (f.taken || f.flying || f.brain === 'pattern' || f.brain === 'leader') continue;
-    for (const m of pieceMoves(s, f, 'foe')) theirs.add(m.y * W + m.x);
-    if (pattern) for (const k of patternReach(s, f, 'foe', canTake(s.day.rules, f))) theirs.add(k);
+    // moveset present as a purple reach outline"); nor does a rabbit that
+    // rides their pieces.
+    if (f.taken || f.flying || f.brain === 'pattern' || f.brain === 'leader' || f.brain === 'carrier') continue;
+    const ms = pieceMoves(s, f, 'foe');
+    for (const m of ms) { theirs.add(m.y * W + m.x); for (const q of capturesOf(m, W)) theirs.add(q); }
+    // A sword strikes round every square it could land on: all of those are
+    // dangerous to stand on.
+    if (f.weapon === 'sword') for (const m of ms) for (const [dx, dy] of SWORD[Math.max(1, Math.min(3, f.wl || 1))]) {
+      const [x, y] = fold(s.day, m.x + dx, m.y - dy);
+      if (onBoard(s.day, x, y)) theirs.add(y * W + x);
+    }
+    if (pattern && f.weapon !== 'sword' && f.weapon !== 'lance') for (const k of patternReach(s, f, 'foe', canTake(s.day.rules, f))) theirs.add(k);
   }
   return { yours, theirs };
 }
@@ -1415,7 +1775,8 @@ export function guarded(s) {
     c.pieces.forEach((q) => { if (!q.taken && q.x === p.x && q.y === p.y) q.taken = true; });
     c.foes.push({ type: 'pawn', x: p.x, y: p.y, taken: false, brain: 'none' });
     const by = [];
-    c.pieces.forEach((q, j) => { if (!q.taken && !q.flying && q.type !== 'ball' && pieceMoves(c, q, 'you').some((m) => m.cap && m.x === p.x && m.y === p.y)) by.push(j); });
+    const sq = p.y * s.day.W + p.x;
+    c.pieces.forEach((q, j) => { if (!q.taken && !q.flying && q.type !== 'ball' && q.brain !== 'carrier' && pieceMoves(c, q, 'you').some((m) => capturesOf(m, s.day.W).includes(sq))) by.push(j); });
     if (by.length) out.set(i, by);
   });
   return out;
@@ -1427,7 +1788,7 @@ export function guarded(s) {
 function guardsOf(s, sq) {
   const W = s.day.W, x = sq % W, y = Math.floor(sq / W), c = clone(s), by = [];
   c.foes.push({ type: 'pawn', x, y, taken: false, brain: 'none' });
-  c.pieces.forEach((q, j) => { if (!q.taken && !q.flying && q.type !== 'ball' && pieceMoves(c, q, 'you').some((m) => m.cap && m.x === x && m.y === y)) by.push(j); });
+  c.pieces.forEach((q, j) => { if (!q.taken && !q.flying && q.type !== 'ball' && q.brain !== 'carrier' && pieceMoves(c, q, 'you').some((m) => capturesOf(m, W).includes(sq))) by.push(j); });
   return by;
 }
 
@@ -1491,8 +1852,9 @@ export function pinned(s) {
   /** Which pieces of `side`'s enemies could take its King in state c. */
   const attackers = (c, side, king) => {
     const out = [];
-    if (side === 'you') c.foes.forEach((f, k) => { if (!f.taken && !f.flying && f.brain !== 'pattern' && canTake(r, f) && pieceMoves(c, f, 'foe').some((m) => m.cap && m.x === king.x && m.y === king.y)) out.push(k); });
-    else c.pieces.forEach((p, i) => { if (!p.taken && !p.flying && p.type !== 'ball' && pieceMoves(c, p, 'you').some((m) => m.cap && m.x === king.x && m.y === king.y)) out.push(i); });
+    const sq = king.y * c.day.W + king.x, hits = (m) => capturesOf(m, c.day.W).includes(sq);
+    if (side === 'you') c.foes.forEach((f, k) => { if (!f.taken && !f.flying && f.brain !== 'pattern' && canTake(r, f) && pieceMoves(c, f, 'foe').some(hits)) out.push(k); });
+    else c.pieces.forEach((p, i) => { if (!p.taken && !p.flying && p.type !== 'ball' && pieceMoves(c, p, 'you').some(hits)) out.push(i); });
     return out;
   };
   const sides = [
@@ -1526,11 +1888,11 @@ export function threats(s) {
   s = seenBy(s, 'you'); // nothing hidden in a cloud is given away
   const mine = new Set(), theirs = new Set();
   if (s.won) return { mine, theirs };
-  const at = (list, x, y, out) => list.forEach((q, k) => { if (!q.taken && !q.flying && q.x === x && q.y === y) out.add(k); });
-  s.pieces.forEach((p, i) => { if (!p.taken && !p.flying) for (const m of movesFor(s, i)) if (m.cap && !m.swap) at(s.foes, m.x, m.y, theirs); });
+  const W = s.day.W, at = (list, q, out) => list.forEach((o, k) => { if (!o.taken && !o.flying && o.y * W + o.x === q) out.add(k); });
+  s.pieces.forEach((p, i) => { if (!p.taken && !p.flying) for (const m of movesFor(s, i)) if (!m.swap) for (const q of capturesOf(m, W)) at(s.foes, q, theirs); });
   s.foes.forEach((f) => {
     if (f.taken || f.flying || f.brain === 'pattern' || !canTake(s.day.rules, f)) return;
-    for (const m of pieceMoves(s, f, 'foe')) if (m.cap) at(s.pieces, m.x, m.y, mine);
+    for (const m of pieceMoves(s, f, 'foe')) for (const q of capturesOf(m, W)) at(s.pieces, q, mine);
   });
   for (const k of [...mine]) if (s.pieces[k].type === 'ball') mine.delete(k);
   return { mine, theirs };
@@ -1542,7 +1904,7 @@ function reachOf(s, who) {
   for (const p of list) {
     if (p.taken || p.type === 'ball') continue;
     if (who === 'foe' && !canTake(s.day.rules, p)) continue;
-    for (const m of pieceMoves(s, p, who)) out.add(m.y * W + m.x);
+    for (const m of pieceMoves(s, p, who)) { out.add(m.y * W + m.x); for (const q of capturesOf(m, W)) out.add(q); }
   }
   return out;
 }
@@ -1613,8 +1975,8 @@ function mindStep(s, f, k, side, force = false) {
   f.from = [f.x, f.y];
   if (best.x === f.x && best.y === f.y) { f.rested = true; f.blocked = false; f.idle = (f.idle || 0) + 1; return; }
   f.rested = false; f.idle = 0;
-  if (side === 'foe') landFoe(s, f, best.x, best.y);
-  else landMine(s, k, best.x, best.y);
+  if (side === 'foe') foeLand(s, k, best);
+  else { armsBefore(s, 'you', k, best); landMine(s, k, best.x, best.y, best); armsAfter(s, 'you', k, best); settleRevivals(s); }
 }
 
 /** The hole's hop: its pattern, bouncing off the edges like a rabbit, and
@@ -1661,7 +2023,7 @@ function oneFoeActs(s, chosen) {
   for (const f of s.foes) f.wounded = -1;
   if (s.foes.some((f) => !f.taken && f.brain === 'ai')) foeMove(s, chosen !== undefined ? chosen : think(seenBy(s, 'foe')));
   else {
-    const side = s.foes.map((f, k) => k).filter((k) => !s.foes[k].taken && s.foes[k].type !== 'rabbit' && s.foes[k].brain !== 'leader' && (s.foes[k].mind || s.foes[k].brain === 'possessed'));
+    const side = s.foes.map((f, k) => k).filter((k) => !s.foes[k].taken && !s.foes[k].stun && s.foes[k].type !== 'rabbit' && s.foes[k].brain !== 'leader' && (s.foes[k].mind || s.foes[k].brain === 'possessed'));
     if (side.length) {
       const before = (c) => c.pieces.filter((p) => p.taken).length + c.foes.filter((f) => f.wounded >= 0).length;
       const takes = side.find((k) => { const c = clone(s); foeStep(c, k); return before(c) > before(s); });
@@ -1715,6 +2077,15 @@ function knockPath(s, b, fx, fy) {
     // no move at all.
     const [nx, ny] = fold(s.day, x + sx, y + sy);
     if (nx === b.x && ny === b.y) return null;
+    const nq = ny * s.day.W + nx;
+    // Water (golf, 2026-10-13): in it goes, and back to the tee, unless
+    // something stands there (the hitter takes the ball's square).
+    if (s.day.water?.has(nq)) {
+      const tee = s.day.pieces[s.pieces.indexOf(b)];
+      const busy = !tee || (tee.x === b.x && tee.y === b.y) || [...s.pieces, ...s.foes].some((q) => q !== b && !q.taken && q.x === tee.x && q.y === tee.y);
+      if (!busy) return { x: tee.x, y: tee.y, sunk: false, takes: -1, splash: [nx, ny] };
+      break;
+    }
     // The hitter has left its square by the time the ball gets there.
     const c = nx === fx && ny === fy ? EMPTY : look(s, x + sx, y + sy, 'you');
     if (c === ENEMY && s.day.rules.ballCaptures) {
@@ -1724,6 +2095,8 @@ function knockPath(s, b, fx, fy) {
     if (c !== EMPTY && c !== HOLE) break;
     x = nx; y = ny;
     if (c === HOLE && !s.day.rules.ballStops) { sunk = true; break; }
+    // Sand, or a wandering cloud over the square: it stops dead there.
+    if (s.day.sand?.has(nq) || cloudOver(s, nq)) break;
   }
   if (!sunk && s.day.rules.ballStops && s.hole && holeOpen(s) && x === s.hole.x && y === s.hole.y) sunk = true;
   return x === b.x && y === b.y ? null : { x, y, sunk, takes };
@@ -1745,6 +2118,8 @@ function knock(s, b, fx, fy) {
   const to = knockPath(s, b, fx, fy);
   if (!to) return false;
   b.from = [b.x, b.y]; b.x = to.x; b.y = to.y;
+  // A splash is kept with the turn it happened on, so the page can say so.
+  if (to.splash) b.splash = { at: to.splash, t: s.t };
   if (to.takes >= 0) {
     s.foes[to.takes].taken = true;
     if (goalMet(s)) s.won = true;
@@ -1754,8 +2129,9 @@ function knock(s, b, fx, fy) {
 }
 
 /** Your piece i lands on (x, y): the square it left may crumble, anything
-    of theirs there is caught, and the game may be won. Mutates. */
-function landMine(n, i, x, y) {
+    of theirs there is caught, and the game may be won. `m`, the move it
+    made, if it made one: it may promote. Mutates. */
+function landMine(n, i, x, y, m = null) {
   const p = n.pieces[i], riding = p.rides != null;
   const mate = n.pieces.find((q, k) => k !== i && !q.taken && q.type !== 'ball' && q.x === x && q.y === y);
   // A rabbit hopping onto a head rides there (2026-10-11).
@@ -1764,12 +2140,14 @@ function landMine(n, i, x, y) {
     p.x = x; p.y = y; p.rides = n.pieces.indexOf(mate);
     return null;
   }
-  // Spirals: landing on a piece of yours trades squares with it.
-  if (mate) { mate.x = p.x; mate.y = p.y; p.x = x; p.y = y; return null; }
-  // Hearts on a piece of theirs (the descent, 2026-10-12: they get upgrades
-  // too): the first capture costs the heart, and your piece bounces off.
-  const hurt = n.foes.find((f) => !f.taken && f.x === x && f.y === y && f.rides == null && (f.lives || 1) > 1);
-  if (hurt) { hurt.lives--; n.bounced = n.foes.indexOf(hurt); return null; }
+  // Gears: landing on a piece of yours trades squares with it, and a rabbit
+  // riding either goes with its carrier.
+  if (mate) {
+    const j = n.pieces.indexOf(mate), px = p.x, py = p.y;
+    mate.x = px; mate.y = py; p.x = x; p.y = y;
+    n.pieces.forEach((q) => { if (q.taken) return; if (q.rides === i) { q.x = x; q.y = y; } else if (q.rides === j) { q.x = px; q.y = py; } });
+    return null;
+  }
   const hit = hitBall(n, x, y);
   if (hit && hit !== p) knock(n, hit, p.x, p.y);
   // Crumbling ground: the square you leave falls away behind you (not when
@@ -1778,16 +2156,17 @@ function landMine(n, i, x, y) {
   p.x = x; p.y = y; delete p.rides;
   // A rabbit riding on this piece goes with it.
   n.pieces.forEach((q) => { if (q.rides === i && !q.taken) { q.x = x; q.y = y; } });
-  // Chess variants (2026-10-11): a pawn on the far row becomes a queen; a
-  // King on the hill, or on the top row in a race, wins.
-  if (n.day.rules.promote && p.type === 'pawn' && y === n.day.H - 1) p.type = 'queen';
+  // A pawn on the far row: a copy of one of yours (the descent,
+  // 2026-10-13), or a queen (chess variants, 2026-10-11). A King on the
+  // hill, or on the top row in a race, wins.
+  if (m?.promote && p.type === 'pawn' && PIECES[m.promote]) promoteTo(p, m.promote);
+  else if (n.day.rules.promote === true && p.type === 'pawn' && y === n.day.H - 1) p.type = 'queen';
   if (p.type === 'king' && (onHill(n, p) || (n.day.rules.race && y === n.day.H - 1))) n.won = true;
-  const f = n.foes.find((f) => !f.taken && f.x === x && f.y === y);
-  if (f) f.taken = true;
-  // Taking a piece takes a rabbit riding on it too.
-  if (f) n.foes.forEach((q) => { if (!q.taken && q.x === x && q.y === y) q.taken = true; });
-  if (f && p.suit === 'diamonds') n.treasure = (n.treasure || 0) + 1;
-  if (f && goalMet(n)) n.won = true;
+  // Taking what is there (and a rabbit riding on it); with a heart, it goes
+  // home instead (captureFoe). Or picking up the rabbit to capture.
+  const f = n.foes.find((f) => !f.taken && f.x === x && f.y === y && f.rides == null);
+  if (f) captureFoe(n, f, i);
+  if (flagFree(n, y * n.day.W + x)) { n.flag.by = 'you'; n.flag.i = i; }
   if (p.type === 'ball' && n.hole && p.x === n.hole.x && p.y === n.hole.y && holeOpen(n)) n.won = n.sunk = true;
   // Catching the last rabbit opens the hole; a ball already resting on
   // the shut hole drops straight in.
@@ -1797,18 +2176,42 @@ function landMine(n, i, x, y) {
 }
 
 /** Only your move, with no reply yet. Returns a new state. */
+/** The whole of a move given only as { p, x, y } (a link's, a page's): what
+    its weapon does, and the promotion if one is named (the strongest if
+    not). Moves of pieces with nothing of the kind are left as they are. */
+function fullMove(s, mv) {
+  const p = s.pieces[mv.p];
+  if (!p || mv.strike || mv.pass || mv.push || mv.stun || (!p.weapon && !(s.day.rules.promote === 'copy' && p.type === 'pawn'))) return mv;
+  const same = movesFor(s, mv.p).filter((m) => m.x === mv.x && m.y === mv.y && !!m.swap === !!mv.swap);
+  const m = same.find((q) => !mv.promote || q.promote === mv.promote) || same[0];
+  return m ? { ...m, ...mv, ...(m.strike ? { strike: m.strike } : {}), ...(m.pass ? { pass: m.pass } : {}), ...(m.push ? { push: m.push } : {}), ...(m.stun ? { stun: m.stun } : {}), promote: mv.promote || m.promote } : mv;
+}
+
 export function playerMove(s, mv) {
+  // Hearts (2026-10-13): where you put a piece of yours that came back,
+  // carried with your next move so a replay puts it there too.
+  if (mv.place != null && s.revived?.side === 'you') s = placeRevived(s, mv.place);
+  if (mv.p >= 0) mv = fullMove(s, mv);
   const n = clone(s), was = n.bonus;
   n.bonus = null;
-  delete n.broke; delete n.bumped;
+  delete n.broke; delete n.bumped; delete n.revived;
   if (mv.p >= 0) {
     // A move chosen under clouds may run into a hidden piece and take it.
     const m = contact(s, 'you', s.pieces[mv.p], mv);
     if (m.bumped) n.bumped = 'you';
     const p = n.pieces[mv.p], fx = p.x, fy = p.y;
     if (!m.swap) breakStatue(n, m.x, m.y);
-    const took = landMine(n, mv.p, m.x, m.y);
-    if (!m.swap) passGhosts(n, 'you', fx, fy, m.x, m.y);
+    const gone = () => n.foes.filter((f) => f.taken).length;
+    const before = gone(), lives = n.foes.reduce((t, f) => t + (f.lives || 1), 0);
+    // A weapon's work before it lands (a lance's passes, a mace's pushes),
+    // landing, and its work after (a sword's strikes, a mace's stuns).
+    armsBefore(n, 'you', mv.p, m);
+    landMine(n, mv.p, m.x, m.y, m);
+    armsAfter(n, 'you', mv.p, m);
+    settleRevivals(n);
+    if (!m.swap) passGhosts(n, 'you', fx, fy, m.x, m.y, m.wrapped);
+    flagHome(n);
+    const took = gone() > before || n.foes.reduce((t, f) => t + (f.lives || 1), 0) < lives;
     openBonus(n, mv.p, took, was);
   }
   return n;
@@ -1844,7 +2247,10 @@ function mineStep(n, i) {
     if (!bk || before(key, bk)) { best = m; bk = key; }
   }
   if (!best) { p.blocked = true; return; }
-  landMine(n, i, best.x, best.y);
+  armsBefore(n, 'you', i, best);
+  landMine(n, i, best.x, best.y, best);
+  armsAfter(n, 'you', i, best);
+  settleRevivals(n);
 }
 
 /** Is this one of your pieces with a rabbit inside? */
@@ -1979,6 +2385,11 @@ function afterMove(n) {
   }
   if (r.shrink && n.t % (r.shrinkEvery || 2) === 0) shrinkStep(n);
   else if (showdown(n)) shrinkStep(n);
+  // The rabbit that rides a side's pieces (goal 'carrier', 2026-10-13: "hops
+  // only between other enemy pieces and not on its own ... anywhere from
+  // every turn to every five turns"): every rabbitHop turns, to another of
+  // that side's pieces, at random (the same on every phone).
+  if (r.goal === 'carrier' && r.rabbitHop > 0 && n.t % r.rabbitHop === 0) { carrierHop(n, 'foe'); carrierHop(n, 'you'); }
 }
 
 /**
@@ -2014,10 +2425,21 @@ function theyMove(s) {
   return !r.lazyFoes || (k / per) % 2 === 1;
 }
 
+/** Stunned pieces sit out one turn of their side: yours are free again
+    once your turn is over, theirs once theirs is (2026-10-13). Mutates. */
+const unstun = (list) => { for (const q of list) if (q.stun) delete q.stun; };
+/** Their turn, with the stuns that it ends. Mutates. */
+function theirTurn(c, chosen) {
+  unstun(c.pieces);
+  if (c.won || !theyMove(c)) return;
+  foesAct(c, chosen);
+  unstun(c.foes);
+}
+
 export function apply(s, mv) {
   const n = playerMove(s, mv);
   if (n.bonus) return n;
-  if (!n.won && theyMove(n)) foesAct(n);
+  theirTurn(n);
   if (n.cloudy) delete n.cloudy; // as in respond(): the cloud lifts
   n.t++;
   afterMove(n);
@@ -2030,7 +2452,7 @@ export function apply(s, mv) {
 export function respond(n) {
   const c = clone(n);
   if (c.bonus) return c;
-  if (!c.won && theyMove(c)) foesAct(c);
+  theirTurn(c);
   // Both sides have had their first move: the cloud lifts.
   if (c.cloudy) delete c.cloudy;
   c.t++;
@@ -2045,7 +2467,7 @@ export function respond(n) {
 export function respondWith(n, m) {
   const c = clone(n);
   if (c.bonus) return c;
-  if (!c.won && theyMove(c)) foesAct(c, m);
+  theirTurn(c, m);
   if (c.cloudy) delete c.cloudy;
   c.t++;
   afterMove(c);
@@ -2074,12 +2496,13 @@ export function replay(day, moves) {
 
 export function stateKey(s) {
   let k = '';
-  for (const p of s.pieces) k += p.taken ? '--' : p.x + ',' + p.y + (p.lives > 1 ? 'L' + p.lives : '') + (p.starUsed ? '*' : '') + ';';
+  for (const p of s.pieces) k += p.taken ? '--' : p.x + ',' + p.y + (p.lives > 1 ? 'L' + p.lives : '') + (p.starUsed ? '*' : '') + (p.stun ? 'z' : '') + (p.promoted ? p.type : '') + ';';
   if (s.bonus) k += `|b${s.bonus.p}${s.bonus.cap ? 'c' : ''}`;
   if (s.cloudy) k += '|c';
   if (s.day.rules.oneMove) k += `|f${s.ft || 0}`; // whose turn it is on their side
   k += '|';
-  for (const f of s.foes) k += f.taken ? '--' : f.x + ',' + f.y + ',' + f.i + (f.lives > 1 ? 'L' + f.lives : '') + (f.starUsed ? '*' : '') + (f.mx > 0 ? '+' : '-') + (f.my > 0 ? '+' : '-') + (f.idle ? 'i' + f.idle : '') + ';';
+  for (const f of s.foes) k += f.taken ? '--' : f.x + ',' + f.y + ',' + f.i + (f.lives > 1 ? 'L' + f.lives : '') + (f.starUsed ? '*' : '') + (f.mx > 0 ? '+' : '-') + (f.my > 0 ? '+' : '-') + (f.idle ? 'i' + f.idle : '') + (f.stun ? 'z' : '') + (f.promoted ? f.type : '') + ';';
+  if (s.flag) k += `|F${s.flag.by || ''}${s.flag.i},${s.flag.x},${s.flag.y}`;
   if (s.hole) k += `|h${s.hole.x},${s.hole.y},${s.hole.i}${s.hole.mx > 0 ? '+' : '-'}${s.hole.my > 0 ? '+' : '-'}`;
   // Which squares are gone matters; the order they went in does not.
   if (s.gone.length) k += '|g' + s.gone.slice().sort((a, b) => a - b).join(',');

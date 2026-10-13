@@ -15,7 +15,7 @@
 //   gets the same move on every phone.
 
 import {
-  PIECES, movesFor, foeMovesFor, clone, foeMove, patternHops, playerMove, lost, allMoves
+  PIECES, movesFor, foeMovesFor, clone, foeMove, patternHops, playerMove, lost, allMoves, takesAny, capturesOf, carrierOf, flagAt
 } from './rules.js';
 import { rng } from '../../engine/seed.js';
 
@@ -32,7 +32,7 @@ function foeOptions(s) {
   const out = [];
   s.foes.forEach((f, k) => { for (const m of foeMovesFor(s, k)) out.push({ k, ...m }); });
   // Captures first: alpha-beta prunes far more when good moves come early.
-  return out.sort((a, b) => b.cap - a.cap);
+  return out.sort((a, b) => takesAny(b) - takesAny(a));
 }
 
 /** Their move plus the pattern hops that follow it, as a new state. */
@@ -56,23 +56,26 @@ function evaluate(s, budget) {
   const r = s.day.rules, mood = MOOD[s.day.ai.style] || MOOD.balanced, W = s.day.W;
   if (r.maxMoves > 0 && s.t >= r.maxMoves) return WIN / 2; // they lasted till dusk
   const marked = r.goal === 'target' && s.foes.some((f) => f.target);
-  const weight = (f) => (marked && f.target ? 4 : 1) * (r.goal === 'any' ? 3 : 1);
+  // The piece their rabbit rides (goal 'carrier', 2026-10-13) is the game
+  // for them, and yours for you when both sides have one.
+  const theirRabbit = r.goal === 'carrier' ? carrierOf(s, 'foe') : null, myRabbit = r.goal === 'carrier' ? carrierOf(s, 'you') : null;
+  const weight = (f, k) => (marked && f.target ? 4 : 1) * (r.goal === 'any' || (r.goal === 'capture' && r.captureN === 1) ? 3 : 1) * (theirRabbit && theirRabbit.rides === k ? 10 : 1);
 
   let v = 0;
   const threatened = new Set();
   s.pieces.forEach((p, i) => {
-    if (p.taken) return;
+    if (p.taken || p.brain === 'carrier') return;
     // A royal King, or the ball on a hole level, is the game: worth far more.
-    const vital = (r.royal && p.type === 'king') || (r.goal === 'hole' && p.type === 'ball');
+    const vital = (r.royal && p.type === 'king') || (r.goal === 'hole' && p.type === 'ball') || (myRabbit && myRabbit.rides === i);
     v -= PIECES[p.type].value * mood.kill * (vital ? 10 : 1);
-    for (const m of movesFor(s, i)) if (m.cap) threatened.add(m.y * W + m.x);
+    for (const m of movesFor(s, i)) for (const q of capturesOf(m, W)) threatened.add(q);
   });
   let dist = 0, alive = 0;
-  for (const f of s.foes) {
-    if (f.taken) continue;
+  for (const [k, f] of s.foes.entries()) {
+    if (f.taken || f.brain === 'carrier') continue;
     alive++;
-    v += PIECES[f.type].value * mood.keep * weight(f);
-    if (threatened.has(f.y * W + f.x)) v -= PIECES[f.type].value * mood.danger * weight(f);
+    v += PIECES[f.type].value * mood.keep * weight(f, k);
+    if (threatened.has(f.y * W + f.x)) v -= PIECES[f.type].value * mood.danger * weight(f, k);
     // A side led by a rabbit (2026-10-13) guards the thing it must keep: its
     // King, when taking it is how you win. Only for that side, so the boards
     // of the first dailies, which thought too, play as they always did.
@@ -82,6 +85,16 @@ function evaluate(s, budget) {
     dist += near;
   }
   if (alive) v -= mood.close * (dist / alive);
+  // The rabbit to capture (goal 'flag', 2026-10-13): get to it first, then
+  // carry it home; and keep yours from doing the same.
+  if (r.goal === 'flag') {
+    const fl = flagAt(s), H = s.day.H, cheb = (a) => Math.max(Math.abs(a.x - fl.x), Math.abs(a.y - fl.y));
+    if (!fl.by) {
+      const near = (list) => Math.min(99, ...list.filter((q) => !q.taken && q.type !== 'bunny').map(cheb));
+      v += 1.2 * (near(s.pieces) - near(s.foes));
+    } else if (fl.by === 'foe') v += 12 - 2 * (H - 1 - fl.y);
+    else v -= 12 - 2 * fl.y;
+  }
   // Chess variants (2026-10-11): a King's way to win by getting somewhere.
   // How far each King has still to go counts, theirs for them and yours
   // against them: the hill's middle squares, or the top row in a race.

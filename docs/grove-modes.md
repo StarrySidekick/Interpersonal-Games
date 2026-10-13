@@ -821,6 +821,135 @@ things in the catalog). Gaps: different armies on each side are only
 "any order" of the same pieces; Kung fu descent (real time) has none of the
 new pieces.
 
+## Rabbits to take, new suits, weapons, and golf with sliders (2026-10-13, after the shields)
+
+Timothy, in one message: a **capturing** win condition, from one piece to
+all of them; a rabbit that **hops between their pieces** every one to five
+turns, three by default, where taking the piece it rides wins (and a
+version with one on each side); the descent's line **rook, bishop, King,
+knight, pawn**, mirrored, with that rabbit, and pawns that become **a copy
+of another of your pieces** on the far row; **capture the rabbit**, a
+rabbit in the middle of a seven by seven board to carry home; golf with
+**sliders only**, a ball that moves only when hit, **par or better** to
+win, and obstacles; **five suits** in place of the old; and **weapons**.
+
+### Three goals
+
+- **Capture** (`goal: 'capture'`, `captureN` 1 to 8, or 0 for every one of
+  theirs). The rabbits of the old goals never count.
+- **Take the rabbit's piece** (`goal: 'carrier'`). A Rabbit rides one of
+  their pieces, drawn at random. It never moves by itself: every
+  `rabbitHop` turns (1 to 5, default 3) it hops to another of their
+  pieces, at random from the level's seed and the turn, so a game replays
+  the same. Take the piece it rides and you win. With `rabbitSides:
+  'both'`, one rides yours too, and losing that piece loses. A piece with a
+  heart that is taken goes home with its rabbit still on it. The bar under
+  the board says "the rabbit hops in N".
+- **Capture the rabbit** (`goal: 'flag'`). A rabbit sits on the middle
+  square, seven by seven by default. Either side takes it like a piece; it
+  then rides on the head of the piece that took it, and whoever takes that
+  piece takes the rabbit. Bring it to your first row to win; if they bring
+  it to theirs, you lose.
+
+### The descent
+
+`startPool` rook, bishop, King, knight, pawn; `foeLine: 'mirror'`; `goal:
+'carrier'`, every three turns, theirs only. **A pawn on the far row**
+becomes a copy of any other piece of yours on the board (level rule
+`promote: 'copy'`): one move per kind it could become, and tapping that
+square asks which (`choose.js`). Never a King or a pawn. The copy keeps
+its suit and weapon (a lance it could not carry is dropped), and it stays
+that piece for the rest of the run. **The draft** after each board is two
+cards, suits and weapons only; their side gets one of either. Their skill
+climbs one step every three boards.
+
+### The suits, replaced
+
+| Suit | What it does |
+|---|---|
+| ♥ Hearts | a life more: taken, it goes back to your first row, on a free square you choose (the second row if the first is full, and so on). It starts on the free square nearest the middle; tap a lit square to move it. |
+| @ Spirals | Pac-Man sides: off the left edge it comes back on at the right, and the other way |
+| ⚙ Gears | as its move, it swaps squares with any other piece of yours |
+| ★ Stars | moves twice: once a level, its first move is followed by a second |
+| ❦ Vines | chain captures: after it takes, it may take again, the same turn |
+
+Swords is Vines now and the old Spirals (the swap) is Gears. Diamonds
+(treasure) and Spirits (through anything) are gone. Links before settings
+version 19 read the old names that way (`pieceMod` in `lab.js`), and
+Custom's saved armies are renamed once.
+
+### Weapons
+
+One per piece, beside one suit, each at level 1 to 3, drawn standing
+beside the piece with a gold pip per level. Where suits are found, weapons
+are too: the descent's draft, rewards, the shop, keepsakes, their side's
+upgrades, and Custom's armies (`lab/custom.js`, by piece, with a level).
+
+| Weapon | Level 1 | Level 2 | Level 3 |
+|---|---|---|---|
+| † Sword | takes the piece in front of where it lands | and the two beside | and the two diagonally in front |
+| ↟ Lance | takes one piece it slides through | two | three |
+| ✸ Mace, sliding | pushes one piece ahead of it | two | three |
+| ✸ Mace, leaping or stepping | stuns in front of and behind where it lands | and beside | and the diagonals |
+
+- **A sword or a lance takes no piece by landing on it**, so it cannot move
+  onto one. A sword strikes after it lands; a lance lands on an empty
+  square beyond what it went through. A lance only on a piece that slides.
+- **A pushed piece of theirs is stunned**: it cannot move on its side's
+  next turn (stars over its head). Yours can be pushed but never stunned.
+  A stunned piece that is pushed again is taken. A push needs open ground:
+  a line blocked at the far end is not pushed.
+- Rules: `capturesOf`, `armed`, `pushes` and `takeAt` in `rules.js`; every
+  hint (reach rings, shields, pins, threats) counts what a weapon takes,
+  not where it lands.
+
+### Golf, reworked
+
+"The only pieces in the game should be sliders, as leapers don't really
+make any sense. sliders move the ball, the ball doesn't move on its own.
+There's no such thing as a sticky ball. the win condition is reaching par
+or better ... there can be obstacles like gates and clouds."
+
+- **Sliders only**: rook, bishop, queen, short rook, tall rook
+  (`GOLF_POOL`). No rabbits.
+- **Every ball is hit** (`ballMove: 'hit'`): move a piece into the ball and
+  it slides on the same way until something stops it. The sticky ball is
+  gone (a link that names it still reads).
+- **Par or better wins the hole.** Par is the fewest strokes the solver
+  finds plus two on the first two holes and one after, and it is the
+  hole's stroke limit. Under par (a birdie, an eagle) means finding the
+  best line or near it. Over par, the same hole again, as many times as
+  it takes; the scorecard counts the tries. A hole the solver found no
+  par for keeps the old limit of 15.
+- **Hazards**, two new (level settings `sand` and `water`, Board,
+  Neutral): **sand** stops the ball dead, pieces cross it; **water** is a
+  wall to pieces, and a ball that rolls in goes back to the tee (or stops
+  at the edge if the tee is taken). **Gates** stop it while up, and
+  **wandering clouds** now stop it too, drifting a square a turn.
+- **The courses** are told apart by hazards now: The Meadow (statues, then
+  sand), The Lily Pond (water; the sides join), The Gatehouse (gates; was
+  the Billiard Hall), The Clockwork Links (the board turns, sand), The
+  Haunted Hollow (clouds, crumbling ground, water late). Mixed brings each
+  hazard in turn.
+
+### Decisions made where the message was open
+
+- The sword strikes after it lands, from where it lands.
+- A mace pushing a piece of theirs that was already stunned takes it; one
+  push off the board or into a wall is not a move.
+- Hearts: the piece comes back on the free first-row square nearest the
+  middle, and you may tap another.
+- The carrier starts on a random piece of theirs, not always the King.
+- Capture the rabbit: the rabbit passes to whoever takes its carrier.
+- Golf's par slack (two, then one) is mine; a proposal.
+
+Paths moved: mastery (golf's par is now a bar to clear, replayed until
+cleared; the rabbit's hop count is a clock to plan against) and power
+(weapons are a second ladder beside suits, levels 1 to 3, on both sides).
+Notated: weapons and stun stars on the board (visual), a tap on a piece
+says what it carries (written), the hop count and the hole's hazards in
+the bar and chips (written), the tries column on the scorecard (written).
+
 ## Shields on squares you guard (2026-10-13, after the small changes)
 
 Timothy: "while we don't show friendly pieces reach unless you tap on the
@@ -1090,24 +1219,25 @@ then upgrades (`run.js`):
 
 | Upgrade | What it does | Name |
 |---|---|---|
-| ♥ Hearts | a second life: the first capture costs the heart, and the attacker bounces off | Knight of Hearts |
-| ♠ Swords | cleave: after it takes a piece it may take again, the same turn, as long as a capture is open | Rook of Swords |
+| ♥ Hearts | a life more: taken, it goes back to your first row, on a square you choose | Knight of Hearts |
+| @ Spirals | Pac-Man sides: off one side edge, back on at the other | Rook of Spirals |
+| ⚙ Gears | swap: as its move, it trades squares with any other piece of yours | Knight of Gears |
 | ★ Stars | moves twice: once a level, its first move is followed straight away by a second | Knight of Stars |
-| ♦ Diamonds | treasure: each piece it takes adds a reward pick when the level is done (two extra at most) | Bishop of Diamonds |
-| @ Spirals | swap: as its move, it trades squares with any other piece of yours | Knight of Spirals |
+| ❦ Vines | chain captures: after it takes a piece it may take again, the same turn | Rook of Vines |
+| Weapons | a sword, a lance or a mace, level 1 to 3, one per piece beside its suit (see "Rabbits to take, new suits, weapons") | |
 | Fuse | two pieces become one with both move sets; it frees a slot | rook + knight = Chancellor, bishop + knight = Archbishop, rook + bishop = Queen |
 | Promotion | a piece becomes the next piece up in strength | |
 | Jokers | rules for the rest of the run: Double Time (two moves to their one), Foresight (see where every rabbit goes next), Recruiter (your first catch each level joins you), Lazy Rabbits (they move every other turn), Overtime (five more moves) | |
 
 **Every suit is Timothy's** (2026-10-08: he chose cleave, moves twice,
-treasure and swap over the first proposals, which rewrote a piece's Betza
-or made it hard to take). A suit is now a rule the piece carries, not a
+treasure and swap over the first proposals; 2026-10-13 he replaced the
+set with the five above). A suit is a rule the piece carries, not a
 change to its moves, so a Knight of Stars is still a knight. In
-`rules.js`, Swords and Stars leave the turn open (`s.bonus`): only that
+`rules.js`, Vines and Stars leave the turn open (`s.bonus`): only that
 piece may move, waiting ends the turn, and the rabbits do not reply and
 the clock does not tick until it closes. Par counts moves on the clock,
-not plies, so a bonus move is free (`solve.js`). Spirals adds swap moves
-to `movesFor`; Diamonds counts `s.treasure`. A stronger hand makes the
+not plies, so a bonus move is free (`solve.js`). Gears adds swap moves
+to `movesFor`; Spirals folds a move off a side edge back on. A stronger hand makes the
 tester throw out more layouts ("the Wazir had no job"); the runner falls
 back on the best it saw. A suit shows as the plinth's colour. A
 piece taken is gone for good. Running out of moves falls on with nothing
@@ -1138,27 +1268,27 @@ completely random mix of every rule and setting. The only rules: it is
 winnable, balanced, and as hard as the Difficulty setting asks (measured,
 `metrics.js`).
 
-**Golf.** Five **courses**, each a place with its own balls, ground and
-turns (`COURSES` in `modes.js`), chosen on the title. Finishing a course,
-at any score, opens the next; each keeps its own best.
+**Golf.** Five **courses**, each a place with its own hazards
+(`COURSES` in `modes.js`), chosen on the title. Finishing a course, at any
+score, opens the next; each keeps its own best. Your pieces are sliders
+(rook, bishop, queen, short rook, tall rook), and the ball moves only when
+one of them hits it: it slides on the same way until something stops it.
+Sink it at par or better to go on; over par, play the hole again (since
+2026-10-13; see "Golf, reworked").
 
-| Course | Holes | Balls | Its character |
-|---|---|---|---|
-| The Meadow | 6 | putt, sticky | open grass, a statue or two, an L late on |
-| The Frozen Pond | 9 | ice, sticky | round ponds; the sides join from hole 3 |
-| The Billiard Hall | 9 | billiard, hit | many statues to bank off; the hole wanders late |
-| The Clockwork Links | 9 | putt, billiard, ice | the board turns; the hole wanders; edges join late |
-| The Haunted Hollow | 9 | ghost, sticky | rabbits on the fairways, crumbling ground, odd shapes |
+| Course | Holes | Its character |
+|---|---|---|
+| The Meadow | 6 | open grass, a statue or two, then sand; an L late on |
+| The Lily Pond | 9 | water your pieces cannot cross; the sides join from hole 3 |
+| The Gatehouse | 9 | gates that rise and fall every turn; the hole wanders late |
+| The Clockwork Links | 9 | the board turns; the hole wanders; sand; edges join late |
+| The Haunted Hollow | 9 | clouds that drift and stop the ball, crumbling ground, odd shapes, water late |
 
-"Mixed" in the settings is the old course: a course of holes (nine by
-default). Each hole has its own ball,
-in turn, from the six (ice, putting, billiard, hit by the pieces, and two
-made for golf: sticky, which stops beside the first thing it passes, and
-ghost, which rolls through pieces). As the course goes round: statues to
-bank off, a moving hole, magic edges, a board that turns, a loose rabbit
-or two in the way. A scorecard at the end, strokes against par, with the
-golf words. A hole not sunk in time counts the limit and two, as if picked
-up.
+"Mixed" in the settings is a course of holes (nine by default) bringing
+each hazard in turn (sand, water, gates, clouds), more as it goes round,
+with statues, a moving hole, magic edges and a board that turns. A
+scorecard at the end: strokes against par, with the golf words and the
+tries each hole took.
 
 **Autochess.** Rounds. Put rabbits (patterns or minds) in your pieces and
 let them fight; lose a round and it costs a life (three by default).
