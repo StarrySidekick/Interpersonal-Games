@@ -250,6 +250,18 @@ theming."
   to version 3, so **make boards well ahead**: `node
   play/grove-chess/make-daily.mjs 2027-01-01 31` adds January, and never
   touches a date already made.
+- **From 2026-10-14, one rabbit leads them** (Timothy, 2026-10-13: "the
+  rabbit inhabiting each piece is no longer a thing in decent or daily").
+  Every roll is `darkBrain: 'rabbit'`: their pieces think, a single Rabbit
+  rides their King and sets their mood and how far ahead they look, held
+  to one move ahead (intelligence 3 to 5) so the solver and the measures
+  can play it. No rabbits inside pieces, none loose. The boards stored for
+  2026-10-14 to 17 were dealt again this way before their day came (they
+  had been made with rabbits inside pieces; no one had been given them).
+  Such boards pass about one roll in 250, half an hour of a laptop core
+  each: run several dates side by side, and `DAILY_STREAM=5 node
+  play/grove-chess/make-daily.mjs <date> 1` carries on past a date's first
+  320 rolls.
 - The page (`game.js`) plays any level now: the old dailies keep their
   rabbit-and-pattern words and ending; a named one says what winning was
   ("Cleared in 6", "Sunk in 5") and ends with its name, its line, and how a

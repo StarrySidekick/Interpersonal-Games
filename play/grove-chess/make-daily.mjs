@@ -86,8 +86,11 @@ function good(m, par, S) {
 /** One day's board, or null if nothing passed. */
 function deal(date) {
   // Rolls come in streams of 80; a rare day where none passes goes on to a
-  // second stream, and so on.
-  for (let stream = 1; stream <= 4; stream++) {
+  // second stream, and so on. DAILY_STREAM=5 starts at the fifth, for a day
+  // whose first four passed nothing (2026-10-13: boards led by one rabbit
+  // pass about one roll in 250).
+  const first = Math.max(1, +process.env.DAILY_STREAM || 1);
+  for (let stream = first; stream < first + 4; stream++) {
     const b = dealStream(date, stream);
     if (b) return b;
   }

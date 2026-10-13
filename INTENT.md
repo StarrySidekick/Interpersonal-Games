@@ -12,6 +12,17 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
+## 2026-10-13: one rabbit leads them
+
+From Timothy: the descent with Microchess's pieces (no pawn) on five by
+five, no layout step, no clouds, nothing lost for good, no balancing
+search, every suit for their side, and one Rabbit, starting on their King,
+whose kind is how their side plays; the same one rabbit for the daily, with
+no rabbits inside pieces. Built; see `docs/grove-modes.md` ("The descent,
+second pass"). Daily boards led by one rabbit pass the daily's bar about
+one roll in 250 and take half an hour each to deal, so make them well
+ahead (`make-daily.mjs`, `DAILY_STREAM` to go past the first 320 rolls).
+
 ## 2026-10-12: the descent, rebuilt small
 
 From Timothy: the descent on five by five, five a side and a Rabbit with

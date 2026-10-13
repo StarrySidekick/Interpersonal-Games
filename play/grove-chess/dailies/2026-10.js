@@ -86,71 +86,71 @@ export default {
   "print": "fdc702aa4d19078c"
  },
  "2026-10-14": {
-  "name": "Mrs Odgerly’s Ladder",
-  "theme": "moth",
-  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsImFpbSI6NCwibWluRW5nYWdlIjo1MCwibWluQ2VpbGluZyI6NiwiZ3JvdW5kIjoiY3J1bWJsZSIsInNocmlua0V2ZXJ5IjoxLCJzdGF0dWVzIjo0LCJtaW5lIjo2LCJtaW5lUG9vbCI6WyJrbmlnaHQiLCJiaXNob3AiLCJyb29rIiwicXVlZW4iLCJjaGFuY2VsbG9yIiwid29vZHkiXSwibWluZUR1cGVzIjp0cnVlLCJpcSI6NiwidHJhaXRzIjpbImFnZ3Jlc3NpdmUiLCJzaHkiLCJodW50ZXIiLCJndWFyZCJdLCJyYWJiaXRCcmFpbiI6ImFpIiwicGF0dGVybnMiOiJtaWQiLCJmb2VzIjo2LCJraW5kcyI6MywiZm9lUG9vbCI6WyJraW5nIiwicGF3biIsImtuaWdodCIsImJpc2hvcCIsInJvb2siLCJjaGFuY2VsbG9yIl0sInN0eWxlIjoiaHVudCIsImhvbGVNb3ZlcyI6InN0aWxsIiwibWF4TW92ZXMiOjI1LCJwYXJNaW4iOjR9",
-  "v": 13,
-  "seed": 699502,
+  "name": "An Unwilling Matter of Owls",
+  "theme": "honey",
+  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsImFpbSI6NCwibWluRW5nYWdlIjo1MCwibWluQ2VpbGluZyI6NiwidyI6NSwic3RhdHVlcyI6NCwibWluZSI6NSwibWluZVBvb2wiOlsia25pZ2h0IiwiYmlzaG9wIiwicm9vayIsInF1ZWVuIiwiZ3Jhc3Nob3BwZXIiXSwibWluZUR1cGVzIjp0cnVlLCJpcSI6NCwidHJhaXRzIjpbIm1lc3N5Iiwic2h5IiwicGF0dGVybiIsImh1bnRlciJdLCJmb2VzIjo1LCJkYXJrQnJhaW4iOiJyYWJiaXQiLCJmb2VQb29sIjpbImtpbmciLCJwYXduIiwia25pZ2h0IiwiYmlzaG9wIiwicm9vayIsImdyYXNzaG9wcGVyIl0sInNraWxsIjoiMSIsInN0eWxlIjoiZmxlZSIsImhvbGVNb3ZlcyI6InNob3J0IiwiYmFsbE1vdmUiOiJoaXQiLCJtYXhNb3ZlcyI6MjUsInBhck1pbiI6NH0",
+  "v": 15,
+  "seed": 524519,
   "par": 3,
   "measure": {
    "difficulty": 4,
-   "ceiling": 1.13,
-   "engagement": 58,
-   "winRate": 0.54,
-   "winLen": 6.4
+   "ceiling": 0.83,
+   "engagement": 75,
+   "winRate": 0.5,
+   "winLen": 5.5
   },
-  "rolls": 5,
-  "print": "6f9cae3980823340"
+  "rolls": 319,
+  "print": "86c657bf06b1b700"
  },
  "2026-10-15": {
-  "name": "Where the Marrow Listens",
-  "theme": "dusk",
-  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsImFpbSI6NCwibWluRW5nYWdlIjo1MCwibWluQ2VpbGluZyI6NiwiZ3JvdW5kIjoic3BpcmFsIiwic3RhdHVlcyI6MCwibWluZSI6NiwibWluZVBvb2wiOlsia25pZ2h0IiwiYmlzaG9wIiwicm9vayIsInF1ZWVuIiwid2F6aXIiLCJhbWF6b24iXSwibWluZUR1cGVzIjp0cnVlLCJpcSI6NywidHJhaXRzIjpbImd1YXJkIiwiaHVudGVyIiwic2h5Il0sInBhdHRlcm5zIjoibWlkIiwiaG9wcyI6MiwiZm9lcyI6Niwia2luZHMiOjMsImZvZVBvb2wiOlsia2luZyIsInBhd24iLCJrbmlnaHQiLCJiaXNob3AiLCJyb29rIiwid2F6aXIiXSwiYmFsbE1vdmUiOiJoaXQiLCJtYXhNb3ZlcyI6MjUsInBhck1pbiI6NH0",
-  "v": 13,
-  "seed": 646207,
-  "par": 4,
-  "measure": {
-   "difficulty": 4,
-   "ceiling": 0.85,
-   "engagement": 69,
-   "winRate": 0.54,
-   "winLen": 7.4
-  },
-  "rolls": 7,
-  "print": "68f437c9cc245162"
- },
- "2026-10-16": {
-  "name": "The Lodger’s Hatstand",
+  "name": "Where the Hatstand Argues",
   "theme": "coral",
-  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsImFpbSI6NCwibWluRW5nYWdlIjo1MCwibWluQ2VpbGluZyI6Niwic2hyaW5rRXZlcnkiOjMsInN0YXR1ZXMiOjQsIm1pbmUiOjYsIm1pbmVQb29sIjpbImtuaWdodCIsImJpc2hvcCIsInJvb2siLCJxdWVlbiIsImFsZmlsIiwiYXJjaGJpc2hvcCJdLCJtaW5lRHVwZXMiOnRydWUsImlxIjoyLCJ0cmFpdHMiOlsiaHVudGVyIiwibWVzc3kiXSwicmFiYml0QnJhaW4iOiJhaSIsImZvZXMiOjYsImtpbmRzIjoyLCJmb2VQb29sIjpbImtpbmciLCJwYXduIiwia25pZ2h0IiwiYmlzaG9wIiwicm9vayIsImFsZmlsIl0sInNraWxsIjoiMyIsInN0eWxlIjoiZmxlZSIsImhvbGVNb3ZlcyI6InN0aWxsIiwicGFyTWluIjo0fQ",
-  "v": 13,
-  "seed": 256213,
+  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsImFpbSI6NCwibWluRW5nYWdlIjo1MCwibWluQ2VpbGluZyI6NiwidyI6NSwiZ3JvdW5kIjoiY3J1bWJsZSIsInN0YXR1ZXMiOjEsIm1pbmUiOjUsIm1pbmVQb29sIjpbImtuaWdodCIsImJpc2hvcCIsInJvb2siLCJxdWVlbiIsInZhbyIsInplYnJhIl0sIm1pbmVEdXBlcyI6dHJ1ZSwidHJhaXRzIjpbIm1lc3N5Il0sInBhdHRlcm5zIjoic2hvcnQiLCJ0cmFja3MiOmZhbHNlLCJmb2VzIjo1LCJkYXJrQnJhaW4iOiJyYWJiaXQiLCJmb2VQb29sIjpbImtpbmciLCJwYXduIiwia25pZ2h0IiwiYmlzaG9wIiwicm9vayIsInZhbyJdLCJza2lsbCI6IjMiLCJob2xlTW92ZXMiOiJzdGlsbCIsImJhbGxNb3ZlIjoiaGl0IiwiYmFsbFN0b3BzIjp0cnVlLCJtYXhNb3ZlcyI6MTgsInBhck1pbiI6NH0",
+  "v": 15,
+  "seed": 147228,
   "par": 3,
   "measure": {
-   "difficulty": 4,
-   "ceiling": 1.25,
-   "engagement": 63,
-   "winRate": 0.5,
-   "winLen": 6.8
+   "difficulty": 3,
+   "ceiling": 2.55,
+   "engagement": 74,
+   "winRate": 0.71,
+   "winLen": 10.6
   },
-  "rolls": 3,
-  "print": "1f70ec460b01f413"
+  "rolls": 385,
+  "print": "018fbedc5dd38801"
+ },
+ "2026-10-16": {
+  "name": "Where the Spindle Argues",
+  "theme": "mint",
+  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsImFpbSI6NCwibWluRW5nYWdlIjo1MCwibWluQ2VpbGluZyI6NiwidyI6NSwiZ3JvdW5kIjoiY3J1bWJsZSIsInNocmlua0V2ZXJ5IjozLCJzdGF0dWVzIjo0LCJtaW5lIjo1LCJtaW5lUG9vbCI6WyJrbmlnaHQiLCJiaXNob3AiLCJyb29rIiwicXVlZW4iLCJnb2xkIiwidmFvIl0sIm1pbmVEdXBlcyI6dHJ1ZSwiaXEiOjMsInRyYWl0cyI6WyJtZXNzeSJdLCJwYXR0ZXJucyI6ImxvbmciLCJob3BzIjozLCJmb2VzIjo1LCJkYXJrQnJhaW4iOiJyYWJiaXQiLCJmb2VQb29sIjpbImtpbmciLCJwYXduIiwia25pZ2h0IiwiYmlzaG9wIiwicm9vayIsImdvbGQiXSwic2tpbGwiOiIxIiwic3R5bGUiOiJmbGVlIiwiYmFsbE1vdmUiOiJpY2UiLCJiYWxsU3RvcHMiOnRydWUsIm1heE1vdmVzIjozMCwicGFyTWluIjo0fQ",
+  "v": 15,
+  "seed": 491159,
+  "par": 3,
+  "measure": {
+   "difficulty": 3,
+   "ceiling": 1.11,
+   "engagement": 64,
+   "winRate": 0.75,
+   "winLen": 6.3
+  },
+  "rolls": 232,
+  "print": "e8949892831686ac"
  },
  "2026-10-17": {
-  "name": "The Reluctant Spindle",
-  "theme": "lichen",
-  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsImFpbSI6NCwibWluRW5nYWdlIjo1MCwibWluQ2VpbGluZyI6Niwic2hyaW5rRXZlcnkiOjEsIm1hZ2ljIjoic2lkZXMiLCJtaW5lIjo2LCJtaW5lUG9vbCI6WyJrbmlnaHQiLCJiaXNob3AiLCJyb29rIiwicXVlZW4iLCJkYWJiYWJhIiwiYXJjaGJpc2hvcCJdLCJtaW5lRHVwZXMiOnRydWUsImlxIjozLCJ0cmFpdHMiOlsibWVzc3kiLCJndWFyZCJdLCJyYWJiaXRCcmFpbiI6ImFpIiwiZm9lcyI6Niwia2luZHMiOjMsImZvZVBvb2wiOlsia2luZyIsInBhd24iLCJrbmlnaHQiLCJiaXNob3AiLCJyb29rIiwiZGFiYmFiYSJdLCJzdHlsZSI6ImZsZWUiLCJob2xlTW92ZXMiOiJzdGlsbCIsImJhbGxNb3ZlIjoiaWNlIiwiYmFsbFN0b3BzIjp0cnVlLCJwYXJNaW4iOjR9",
-  "v": 13,
-  "seed": 707764,
-  "par": 4,
+  "name": "A Gentle Matter of Radishes",
+  "theme": "plum",
+  "lab": "eyJhdXRvUG9vbCI6ImFsbCIsImFpbSI6NCwibWluRW5nYWdlIjo1MCwibWluQ2VpbGluZyI6Niwic2hyaW5rRXZlcnkiOjMsIm1pbmUiOjYsIm1pbmVQb29sIjpbImtuaWdodCIsImJpc2hvcCIsInJvb2siLCJxdWVlbiIsImFtYXpvbiJdLCJtaW5lRHVwZXMiOnRydWUsInJhYmJpdE1pbmQiOiJwYXR0ZXJuIiwidHJhaXRzIjpbIm1lc3N5Il0sInBhdHRlcm5zIjoibWlkIiwicmFiYml0c0VhdCI6dHJ1ZSwiZm9lcyI6NiwiZGFya0JyYWluIjoicmFiYml0IiwiZm9lUG9vbCI6WyJraW5nIiwicGF3biIsImtuaWdodCIsImJpc2hvcCIsInJvb2siLCJhbWF6b24iXSwic3R5bGUiOiJodW50IiwiYmFsbE1vdmUiOiJoaXQiLCJiYWxsU3RvcHMiOnRydWUsInBhck1pbiI6NH0",
+  "v": 15,
+  "seed": 812664,
+  "par": 3,
   "measure": {
-   "difficulty": 4,
-   "ceiling": 0.87,
-   "engagement": 67,
-   "winRate": 0.54,
-   "winLen": 7.5
+   "difficulty": 3,
+   "ceiling": 1.8,
+   "engagement": 70,
+   "winRate": 0.63,
+   "winLen": 8.4
   },
-  "rolls": 10,
-  "print": "ee3a36f9fcdc4ddb"
+  "rolls": 1065,
+  "print": "e3451f2fdbe0d9a2"
  }
 };
