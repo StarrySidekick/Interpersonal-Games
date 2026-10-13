@@ -12,6 +12,15 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
+## 2026-10-13, after release 55: move sets, shields underfoot, the rabbit moved on purpose
+
+From Timothy: shields on squares under the pieces; their purple rings
+showing each piece's move set, through anything in the way; the riding
+rabbit without a plinth; moving the rabbit a chosen move that costs the
+turn, with a setting for the old random hop. All built
+(`docs/grove-modes.md`, "Their move sets, shields underfoot, and a rabbit
+moved on purpose").
+
 ## 2026-10-13, after release 54: shields need two of your pieces
 
 From Timothy: a flat shield only where two of your pieces come together on

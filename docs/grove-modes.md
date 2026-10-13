@@ -821,6 +821,47 @@ things in the catalog). Gaps: different armies on each side are only
 "any order" of the same pieces; Kung fu descent (real time) has none of the
 new pieces.
 
+## Their move sets, shields underfoot, and a rabbit moved on purpose (2026-10-13, after release 55)
+
+Timothy: "shields that are on board spaces should be underneath pieces,
+even if they may be occluded to some extent ... the purple reach outlines
+should reflect the move set of the enemy pieces, even if they end up
+displaying those outlines underneath friendly pieces. It's just supposed
+to show where they could go regardless of whether or not they actually
+could on that turn ... The rabbit that hops on heads should not have a
+piece base ... moving the rabbit is now purposeful and costs a turn to do
+for the side that has one. It is no longer random. However, there's a
+setting that exists that allows it to be random again."
+
+- **Their rings are their move sets.** Each piece's moves on an open board
+  (`moveSet` in `rules.js`): every piece, ghost, statue and gate is looked
+  through, so a rook's file runs on under your pieces to the edge, and a
+  pawn's diagonals show with nothing on them. Only the board's own edge
+  and gaps stop a line. A stunned piece still shows its set. What they
+  can reach this turn is kept apart (`reachMaps(...).threat`), and the
+  flat shields still go by that: a shield says a square is attacked now.
+- **Flat shields lie under the pieces**, drawn on the squares before the
+  models, so a piece standing in front hides part of one and the rest
+  shows round it.
+- **The riding rabbit is just a rabbit**, no plinth: pale lavender for
+  theirs, pale green for yours, like the rabbit that leads them.
+- **Moving the rabbit is a move** (level setting `rabbitMove`, Goal: "By
+  its side, as a turn", the default, or "By itself, at random", the first
+  way, every `rabbitHop` turns). Chosen, the rabbit can hop onto any other
+  piece of its side, and that is the side's whole move. Your own (with
+  "Rabbits ride: both") is picked by tapping it (the rabbit first, then
+  the piece under it) and then tapping another of your pieces. Their side
+  weighs it like any move: the piece it rides counts ten times, so they
+  move it off a piece you are about to take, if nothing better saves it.
+  A side whose pieces do not think keeps the random hop. Settings version
+  20: older links read "at random".
+- The descent plays it the new way: no hop count under the board.
+
+Paths moved: mastery. The rings now show what a piece threatens once the
+way is clear, so lines can be read a move ahead (a discovered attack, a
+ghost about to go), and the rabbit is something both sides spend tempo
+on, a choice to read rather than a dice roll.
+
 ## Rabbits to take, new suits, weapons, and golf with sliders (2026-10-13, after the shields)
 
 Timothy, in one message: a **capturing** win condition, from one piece to

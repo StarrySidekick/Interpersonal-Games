@@ -10,7 +10,7 @@ import { rng } from '../../../engine/seed.js';
 import * as sfx from '../sounds.js';
 import {
   PIECES, descOf, CRUMBLE_DESC, SHRINK_DESC, STUMP_DESC, STATUE_ROW_DESC, statueAt, statueDesc, GHOST_DESC, GATE_DESC, WANDER_DESC, ghostAt, gateUp, cloudOver, hiddenFrom, HOLE_DESC, cloudDesc, sandAt, waterAt, SAND_DESC, WATER_DESC, movesFor, playerMove, respond, isOver, outcome, initialState,
-  allMoves, holeOpen, crumbled, shrunk, apply, showdown, firstCaptures, onBoard, leaderDesc, placeRevived, hopIn, flagAt, carrierOf
+  allMoves, holeOpen, crumbled, shrunk, apply, showdown, firstCaptures, onBoard, leaderDesc, placeRevived, hopIn, flagAt, carrierOf, rabbitChosen
 } from '../rules.js';
 import { pickMove } from '../choose.js';
 import { solveLevel } from '../solve.js';
@@ -246,7 +246,7 @@ function goalCard() {
   if (session.seen.has('goal')) return null;
   session.seen.add('goal');
   let text = {
-    descent: M.upgrades === 'each' && M.goal === 'carrier' ? `A rabbit rides one of their pieces, and every ${M.rabbitHop === 1 ? 'turn' : `${M.rabbitHop} turns`} it hops to another. Take the piece it is on to fall to the next board, where you choose a suit or a weapon and they get one too. Keep your King: if they take it, the descent is over. Anything else of yours they take comes back on the next board.${M.promote === 'copy' ? ' A pawn that reaches the far row becomes a copy of another of your pieces.' : ''}`
+    descent: M.upgrades === 'each' && M.goal === 'carrier' ? `A rabbit rides one of their pieces. ${M.rabbitMove === 'random' ? `Every ${M.rabbitHop === 1 ? 'turn' : `${M.rabbitHop} turns`} it hops to another, at random.` : 'They can move it to another of their pieces, but that is their move for the turn.'} Take the piece it is on to fall to the next board, where you choose a suit or a weapon and they get one too. Keep your King: if they take it, the descent is over. Anything else of yours they take comes back on the next board.${M.promote === 'copy' ? ' A pawn that reaches the far row becomes a copy of another of your pieces.' : ''}`
       : M.upgrades === 'each' ? 'Take their King to fall to the next board, where each side gets an upgrade. Keep yours: if they take your King, the descent is over. Anything else of yours they take comes back on the next board. One rabbit leads their side, riding on their King: tap it to see what kind it is.'
       : M.goal === 'king' ? 'Take their King to fall to the next level, where you find something. Keep yours: if they take your King, the descent is over. Any other piece of yours that is taken is gone for good.'
       : 'Take every piece of theirs to fall to the next level, where you find something. A piece of yours that is taken is gone for good; when they are all gone, so is the descent.',
@@ -444,6 +444,12 @@ function arrange() {
   });
 }
 
+/** Their riding rabbit, in words, for a tap on it. */
+function carrierText(s, f) {
+  const hop = hopIn(s);
+  return `The rabbit riding their ${nameOf(s.foes[f.rides])}: take that piece to win. ${hop ? `It never moves by itself; ${hop === 1 ? 'next turn' : `in ${hop} turns`} it hops to another of their pieces.` : 'They can move it onto another of their pieces, but that is their whole move for the turn.'}`;
+}
+
 /** What a turn a suit left open says. */
 function bonusLine(s) {
   const p = s.pieces[s.bonus.p], name = nameOf(p);
@@ -462,7 +468,8 @@ function select(i) {
   if (i == null) info(level.hole ? (holeOpen(now()) ? 'Tap a piece to see where it can go. The hole is open.' : 'Tap a piece to see where it can go. The hole opens once every rabbit is caught.') : 'Tap a piece to light up where it can go.');
   else {
     const p = now().pieces[i], type = p.type;
-    info(`${nameOf({ type })}: ${descOf(type, now().day.rules)}${carriesText(p)}${legal.length || p.stun ? '' : ' It has nowhere to go right now.'}`);
+    if (p.brain === 'carrier') info(`Your rabbit, riding your ${nameOf(now().pieces[p.rides] || p)}: if they take the piece it rides, you lose. ${legal.length ? 'Tap another of your pieces to move it there; that is your move for the turn.' : hopIn(now()) ? 'It hops by itself, at random.' : 'It has nowhere to go right now.'}`);
+    else info(`${nameOf({ type })}: ${descOf(type, now().day.rules)}${carriesText(p)}${legal.length || p.stun ? '' : ' It has nowhere to go right now.'}`);
   }
   draw();
 }
@@ -492,7 +499,7 @@ function whatHappened(a, b) {
   b.pieces.forEach((p, i) => { if (p.stun && !a.pieces[i].stun) bits.push(`Your ${nameOf(p)} is stunned and sits out your next turn.`); });
   b.foes.forEach((f, k) => { if (f.stun && !a.foes[k].stun) bits.push(`Their ${nameOf(f)} is stunned and sits out their next turn.`); });
   const ra = carrierOf(a, 'foe'), rb = carrierOf(b, 'foe');
-  if (ra && rb && ra.rides !== rb.rides) bits.push(`The rabbit hops to their ${nameOf(b.foes[rb.rides])}.`);
+  if (ra && rb && ra.rides !== rb.rides) bits.push(rabbitChosen(b.day.rules) ? `They move the rabbit to their ${nameOf(b.foes[rb.rides])}.` : `The rabbit hops to their ${nameOf(b.foes[rb.rides])}.`);
   const ma = carrierOf(a, 'you'), mb = carrierOf(b, 'you');
   if (ma && mb && ma.rides !== mb.rides) bits.push(`Your rabbit hops to your ${nameOf(b.pieces[mb.rides])}.`);
   const fa = flagAt(a), fb = flagAt(b);
@@ -609,7 +616,7 @@ $('#board').addEventListener('click', async (e) => {
   const seen = (f) => !f.taken && f.x === x && f.y === y && !hidden.has(s.foes.indexOf(f));
   const f = s.foes.find((f) => seen(f) && f.rides != null) || s.foes.find(seen);
   if (f?.brain === 'leader') return info(leaderDesc(f, s.day));
-  if (f?.brain === 'carrier') return info(`The rabbit riding their ${nameOf(s.foes[f.rides])}: take that piece to win. It never moves by itself; ${hopIn(s) === 1 ? 'next turn' : `in ${hopIn(s)} turns`} it hops to another of their pieces.`);
+  if (f?.brain === 'carrier') return info(carrierText(s, f));
   if (f) info(f.mind ? `Their ${nameOf(f)}, with a ${f.patternName ? f.patternName.toLowerCase() + ' ' : ''}rabbit inside (intelligence ${f.mind.iq}).` : `Their ${nameOf(f)}. ${PIECES[f.type].desc}${carriesText(f)}`);
   const fl = flagAt(s);
   if (!f && fl && !fl.by && fl.x === x && fl.y === y) info('The rabbit to capture: take it, and the piece that took it carries it. Bring it back to your first row to win; if they take the piece carrying it, it is theirs to bring home.');

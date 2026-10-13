@@ -10,7 +10,7 @@ import { $, el, show, haptic, keepAwake, themeToggle } from '../../../engine/ui.
 import { soundToggle } from '../../../engine/sound.js';
 import * as sfx from '../sounds.js';
 import { makeTarget, render } from '../../../engine/lowpoly.js';
-import { PIECES, descOf, HOLE_DESC, CRUMBLE_DESC, SHRINK_DESC, STUMP_DESC, statueDesc, GHOST_DESC, GATE_DESC, WANDER_DESC, ghostAt, gateUp, cloudOver, hiddenFrom, statueAt, movesFor, playerMove, respond, isOver, outcome, initialState, allMoves, replay, crumbled, shrunk, holeOpen, placeRevived, hopIn, flagAt, carrierOf, sandAt, waterAt, SAND_DESC, WATER_DESC } from '../rules.js';
+import { PIECES, descOf, HOLE_DESC, CRUMBLE_DESC, SHRINK_DESC, STUMP_DESC, statueDesc, GHOST_DESC, GATE_DESC, WANDER_DESC, ghostAt, gateUp, cloudOver, hiddenFrom, statueAt, movesFor, playerMove, respond, isOver, outcome, initialState, allMoves, replay, crumbled, shrunk, holeOpen, placeRevived, hopIn, flagAt, carrierOf, rabbitChosen, sandAt, waterAt, SAND_DESC, WATER_DESC } from '../rules.js';
 import { pickMove } from '../choose.js';
 import { carriesText } from '../run.js';
 import { setupPanel, setupState, playOut } from '../autosetup.js';
@@ -398,7 +398,8 @@ function select(i) {
     : 'Tap a piece to light up where it can go. Gold rings mark what you have to catch.');
   else {
     const p = now().pieces[i], type = p.type;
-    info(`${PIECES[type].name}: ${descOf(type, now().day.rules)}${carriesText(p)}${legal.length || p.stun ? '' : ' It has nowhere to go right now.'}`);
+    if (p.brain === 'carrier') info(`Your rabbit, riding your ${PIECES[(now().pieces[p.rides] || p).type].name}: if they take the piece it rides, you lose. ${legal.length ? 'Tap another of your pieces to move it there; that is your move for the turn.' : hopIn(now()) ? 'It hops by itself, at random.' : 'It has nowhere to go right now.'}`);
+    else info(`${PIECES[type].name}: ${descOf(type, now().day.rules)}${carriesText(p)}${legal.length || p.stun ? '' : ' It has nowhere to go right now.'}`);
   }
   draw();
 }
@@ -421,7 +422,7 @@ function whatHappened(a, b, mv) {
   b.pieces.forEach((p, i) => { if (p.stun && !a.pieces[i].stun) bits.push(`Your ${nameOf(p)} is stunned and sits out your next turn.`); });
   b.foes.forEach((f, k) => { if (f.stun && !a.foes[k].stun) bits.push(`Their ${nameOf(f)} is stunned and sits out their next turn.`); });
   const ra = carrierOf(a, 'foe'), rb = carrierOf(b, 'foe');
-  if (ra && rb && ra.rides !== rb.rides) bits.push(`The rabbit hops to their ${nameOf(b.foes[rb.rides])}.`);
+  if (ra && rb && ra.rides !== rb.rides) bits.push(rabbitChosen(b.day.rules) ? `They move the rabbit to their ${nameOf(b.foes[rb.rides])}.` : `The rabbit hops to their ${nameOf(b.foes[rb.rides])}.`);
   const ma = carrierOf(a, 'you'), mb = carrierOf(b, 'you');
   if (ma && mb && ma.rides !== mb.rides) bits.push(`Your rabbit hops to your ${nameOf(b.pieces[mb.rides])}.`);
   const fa = flagAt(a), fb = flagAt(b);
@@ -498,10 +499,12 @@ $('#board').addEventListener('click', async (e) => {
     const m = here.length > 1 ? await pickMove(here, s.pieces[sel]) : here[0];
     if (here.length) { if (m) return play({ p: sel, ...m, ...(pendingPlace != null ? { place: pendingPlace } : {}) }); return; }
   }
-  // A rabbit of yours riding a piece (the rabbit on both sides) never moves
-  // by itself: tapping that square picks the piece under it.
-  const i = s.pieces.findIndex((p) => !p.taken && p.x === x && p.y === y && p.rides == null);
-  if (i >= 0) return select(sel === i ? null : i);
+  // A square can hold two of yours: a rabbit on a piece's head (the rabbit
+  // on both sides). Tapping goes rabbit first, then the piece under it,
+  // then neither.
+  const here = s.pieces.map((p, k) => k).filter((k) => !s.pieces[k].taken && s.pieces[k].x === x && s.pieces[k].y === y)
+    .sort((a, b) => (s.pieces[b].rides != null) - (s.pieces[a].rides != null));
+  if (here.length) { const at = here.indexOf(sel); return select(at < 0 ? here[0] : at + 1 < here.length ? here[at + 1] : null); }
   select(null);
   if (s.hole && s.hole.x === x && s.hole.y === y) return info(HOLE_DESC);
   if (crumbled(s, x, y)) return info(CRUMBLE_DESC);
@@ -517,7 +520,7 @@ $('#board').addEventListener('click', async (e) => {
   if (sandAt(s, sq) && !s.foes.some((f) => !f.taken && f.x === x && f.y === y)) return info(SAND_DESC);
   const seen = (f) => !f.taken && f.x === x && f.y === y && !hidden.has(s.foes.indexOf(f));
   const f = s.foes.find((f) => seen(f) && f.rides != null) || s.foes.find(seen);
-  if (f?.brain === 'carrier') return info(`The rabbit riding their ${nameOf(s.foes[f.rides])}: take that piece to win. It never moves by itself; ${hopIn(s) === 1 ? 'next turn' : `in ${hopIn(s)} turns`} it hops to another of their pieces.`);
+  if (f?.brain === 'carrier') { const hop = hopIn(s); return info(`The rabbit riding their ${nameOf(s.foes[f.rides])}: take that piece to win. ${hop ? `It never moves by itself; ${hop === 1 ? 'next turn' : `in ${hop} turns`} it hops to another of their pieces.` : 'They can move it onto another of their pieces, but that is their whole move for the turn.'}`); }
   if (f) info(f.brain === 'pattern' ? 'A rabbit on a hidden pattern. Watch its tracks.' : `Their ${nameOf(f)}, thinking for itself. ${PIECES[f.type].desc}${carriesText(f)}`);
   const fl = flagAt(s);
   if (!f && fl && !fl.by && fl.x === x && fl.y === y) info('The rabbit to capture: take it, and the piece that took it carries it. Bring it back to your first row to win; if they take the piece carrying it, it is theirs to bring home.');

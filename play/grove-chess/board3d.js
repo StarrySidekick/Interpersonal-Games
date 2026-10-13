@@ -48,6 +48,10 @@ const TURN = -0.35;       // and a slight turn, so they read as solid
 const BIG = 1.25;         // pieces stand a little larger here than on the title
 const FOG = LOOK.fog;      // the forest, far off (config.js)
 const PALE = '#e9e4da';   // a possessed piece whose rabbit you do not know
+// The rabbit riding a side's pieces (goal 'carrier') is just a rabbit, with
+// no plinth (Timothy, 2026-10-13: "The rabbit that hops on heads should not
+// have a piece base"), in a pale shade of its side's colour.
+const CARRIER_FUR = { you: '#cfe6b4', foe: '#c7b2ea' };
 const SUIT_COLOUR = { hearts: '#e0445a', spirals: '#f0903a', gears: '#8fa6bd', stars: '#e8c547', vines: '#2fb8a0' }; // run.js SUITS
 const LIFT = 10 / 28;     // the flat board's pixels of height, in model units
 const HEAD = 9.5;         // how high a rider sits on a piece's head, in model units
@@ -358,7 +362,7 @@ export class Board3D extends Board {
     if (!fallen) {
       // 2. Marks on the surface (not once the floor starts to go).
       if (this.tw?.assemble && at < this.tw.assemble.end) return this.redrawSoon?.();
-      if (!this.tw?.collapse) { this.marks(g, v, s); this.beacon(g, s, at, 'pool'); }
+      if (!this.tw?.collapse) { this.marks(g, v, s); this.safeShields(g, v, s); this.beacon(g, s, at, 'pool'); }
       // 3. Everything standing up. This picture has gaps, so it goes onto a
       // canvas of its own first, which is then laid over the top.
       //
@@ -374,7 +378,6 @@ export class Board3D extends Board {
       this.layer.width = w;
       this.lctx.putImageData(this.t3.img, 0, 0);
       g.drawImage(this.layer, 0, 0);
-      if (!this.tw?.collapse) this.safeShields(g, v, s);
       // 4. Puffs and leaves; Kung fu's resting rings, over the pieces.
       this.effects(g, at);
       this.resting(g, s);
@@ -384,8 +387,10 @@ export class Board3D extends Board {
 
   /** A flat shield on each empty square in their reach that one of yours
       would guard (2026-10-13): move a piece there and it is guarded. Laid
-      over the pieces, not under them: the square just in front of a piece,
-      the one it most often guards, is the one its own model stands over. */
+      on the square, under the pieces (Timothy, later that day: "shields
+      that are on board spaces should be underneath pieces, even if they may
+      be occluded to some extent"): a model standing in front may hide part
+      of it, but the rest shows round it. */
   safeShields(g, v, s) {
     const SAFE = this.safeOf(s, v);
     if (!SAFE) return;
@@ -405,7 +410,7 @@ export class Board3D extends Board {
     const R = this.reachOf(s);
     if (!R) return null;
     const sel = v.sel ?? null;
-    if (this.safeFor !== s || this.safeSel !== sel) { this.safeFor = s; this.safeSel = sel; this.safeMap = guardedSquares(s, R.theirs, sel, v.legal || []); }
+    if (this.safeFor !== s || this.safeSel !== sel) { this.safeFor = s; this.safeSel = sel; this.safeMap = guardedSquares(s, R.threat || R.theirs, sel, v.legal || []); }
     return this.safeMap;
   }
 
@@ -960,7 +965,7 @@ export class Board3D extends Board {
       }
       // In autochess a piece of yours with a rabbit inside wears its colour;
       // in a descent, a piece with a suit wears the suit's.
-      stand(model(p.type, 'you', null, p.brain === 'possessed' ? this.fur(p) : SUIT_COLOUR[p.suit] || null), x, y, h, 100 + i, o);
+      stand(p.brain === 'carrier' ? model('rabbit', 'you', CARRIER_FUR.you) : model(p.type, 'you', null, p.brain === 'possessed' ? this.fur(p) : SUIT_COLOUR[p.suit] || null), x, y, h, 100 + i, o);
       where[i] = { x, y, h };
       armsOf(p, x, y, h, 100 + i, o, 1);
       // Guarded (2026-10-11): a shield in front. Since 2026-10-13 it flies
@@ -999,7 +1004,7 @@ export class Board3D extends Board {
       if (f.rides != null && !s.foes[f.rides]?.taken) h += HEAD * BIG; // a rabbit of theirs riding on a head
       // The rabbit that leads them (2026-10-13) is a rabbit, not a piece: no
       // plinth, in its trait's colour.
-      const mdl = f.brain === 'leader' ? model('rabbit', 'foe', this.fur(f)) : f.suit ? model(f.type, 'foe', null, SUIT_COLOUR[f.suit]) : f.brain === 'possessed' ? model(f.type, 'foe', null, this.glowOf(f, k, at)) : model(f.type, 'foe', this.fur(f));
+      const mdl = f.brain === 'leader' ? model('rabbit', 'foe', this.fur(f)) : f.brain === 'carrier' ? model('rabbit', 'foe', CARRIER_FUR.foe) : f.suit ? model(f.type, 'foe', null, SUIT_COLOUR[f.suit]) : f.brain === 'possessed' ? model(f.type, 'foe', null, this.glowOf(f, k, at)) : model(f.type, 'foe', this.fur(f));
       const fo = collapse ? { s: away(at - collapse.t0 - collapse.delay(f.x, f.y)) } : {};
       stand(mdl, x, y, h, 200 + k, fo);
       armsOf(f, x, y, h, 200 + k, fo, -1);
