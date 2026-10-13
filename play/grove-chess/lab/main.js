@@ -5,7 +5,7 @@
 // simulate the level with bots, or find its most playable layout
 // (custom.js). In autochess you set up your pieces and the game plays itself.
 
-import { settingShown } from '../modes.js';
+import { settingShown, describe, partLine } from '../modes.js';
 import { $, el, show, haptic, keepAwake, themeToggle } from '../../../engine/ui.js';
 import { soundToggle } from '../../../engine/sound.js';
 import * as sfx from '../sounds.js';
@@ -18,7 +18,7 @@ import { piecesSheet } from '../sheet.js';
 import { describeBalance } from '../solve.js';
 import { describeMeasure } from '../metrics.js';
 import { fillMenu } from '../menu.js';
-import { buildForm } from '../form.js';
+import { buildForm, partsList } from '../form.js';
 import { loadCatalog, registerInvented } from '../invented.js';
 import { makeBoard } from '../board3d.js';
 import { playIntro } from '../intro.js';
@@ -59,12 +59,18 @@ function remember() {
   history.replaceState(null, '', `#${encodeLevelWithPar(settings, seed, par)}`);
 }
 
+/** The level in a sentence, and in its eight parts (modes.js describe). */
+function showSummary() {
+  $('#summary').textContent = summary(settings);
+  $('#parts').replaceChildren(partsList(describe(settings)));
+}
+
 // --- The settings form, built from the schema (form.js). -------------------
 
 let updaters = [];
 
 function buildFormHere() {
-  const update = buildForm($('#settings'), SCHEMA, () => settings, set, (g) => g === 'Board' || g === 'How you play', { show: settingShown });
+  const update = buildForm($('#settings'), SCHEMA, () => settings, set, (g) => g === 'Board' || g === 'Armies', { show: settingShown, line: partLine });
   updaters = [update];
 }
 
@@ -104,7 +110,7 @@ function deal({ reseed = false, fixed = false } = {}) {
   par = null; exactPar = false; line = null; autoBest = null; showBalance(null);
   level = makeLevel(settings, seed);
   updaters.forEach((u) => u());
-  $('#summary').textContent = summary(settings);
+  showSummary();
   buildPreview();
   if (!settings.solve) { note('The solver is off, so this layout is untested.'); return ready(); }
 
@@ -231,7 +237,7 @@ function load(n) {
   settings = clean(n.settings); seed = n.seed; par = n.par ?? null; line = null; exactPar = false; showBalance(n.balance || null, n.measure || null);
   level = makeLevel(settings, seed);
   updaters.forEach((u) => u());
-  $('#summary').textContent = summary(settings);
+  showSummary();
   buildPreview();
   searching(false);
   note(par ? `Loaded. Par ${par}.` : 'Loaded.');
@@ -640,7 +646,7 @@ custom = mountCustom({
 buildFormHere();
 buildCrazyPool();
 updaters.forEach((u) => u());
-$('#summary').textContent = summary(settings);
+showSummary();
 buildPreview();
 // A level that arrives with its par needs no solving. One without, with the
 // solver on, gets this exact layout checked (not replaced).

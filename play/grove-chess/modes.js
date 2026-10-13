@@ -8,15 +8,19 @@
 //   jokers, lives, how fast it gets harder, and how each level is chosen
 //   (from these settings, rolled at random like Chaos, or rolled like the
 //   daily).
-// - Level settings: everything a single level is made of (lab.js SCHEMA:
-//   board, your side, rabbits, their pieces, winning, difficulty).
+// - Level settings: everything a single level is made of (lab.js SCHEMA).
+//
+// Both are grouped by the eight parts of a mode (lab.js PARTS, 2026-10-13):
+// format, board, armies, control, goal, growth, difficulty, information.
+// `describe` (below) says a mode in eight lines, one for each.
 //
 // The modes below are presets of both. Each mode's settings panel shows
 // them all, and a player's changes are kept per mode. A new mode is a new
 // preset. `levelSettings` turns a mode, and where a run has got to, into the
 // settings for its next level.
 
-import { clean, defaults as levelDefaults, crazy, SCHEMA, FAIRY } from './lab.js';
+import { clean, defaults as levelDefaults, crazy, SCHEMA, FAIRY, PARTS, part, GOAL_PILL } from './lab.js';
+import { VARIANTS, readFen } from './variants.js';
 import { PIECES } from './rules.js';
 import { CONFIG } from './config.js';
 
@@ -52,50 +56,57 @@ export const COURSES = {
 export const COURSE_ORDER = Object.keys(COURSES);
 
 export const RUN_SCHEMA = [
-  { group: 'The mode', fields: [
+  { ...part('format'), fields: [
     { key: 'run', label: 'A session is', type: 'choice', def: 'single', options: opts(
       ['single', 'One level'], ['descent', 'A descent'], ['course', 'A golf course'], ['rounds', 'Autochess rounds']),
       help: 'One level: play it, then another. A descent: level after level, harder each time down, until every piece you have is gone. A golf course: hole after hole, strokes against par. Autochess rounds: set up, watch, and keep going while you have lives.' },
     { key: 'roll', label: 'Each level', type: 'choice', def: 'fixed', options: opts(['fixed', 'Is made from these settings'], ['chaos', 'Rolls everything at random'], ['daily', 'Rolls like the daily']),
       help: 'Rolling at random keeps only the difficulty, the pieces you allow, and the rule that it must be winnable and balanced. Rolling like the daily also insists on a high skill ceiling.' },
-    { key: 'startPieces', label: 'Pieces to start with', type: 'int', min: 1, max: 8, def: 4, help: 'For a descent and autochess rounds.' },
+    { key: 'outOfMoves', label: 'Out of moves', type: 'choice', def: 'fall', options: opts(['fall', 'Fall on, with nothing found'], ['end', 'Ends the run']),
+      help: 'For a descent. Losing every piece always ends it.' },
+    { key: 'lives', label: 'Lives', type: 'int', min: 1, max: 5, def: 3, help: 'For autochess rounds: a lost round costs one.' },
+    { key: 'courseName', label: 'Course', type: 'choice', def: 'meadow', options: opts(...COURSE_ORDER.map((k) => [k, COURSES[k].name]), ['mixed', 'Mixed: every ball in turn']),
+      help: 'Each course has its own holes, balls and ground. The title screen offers the ones you have opened: finishing a course opens the next.' },
+    { key: 'courseHoles', label: 'Holes on a mixed course', type: 'int', min: 3, max: 18, def: 9 }
+  ] },
+  { ...part('armies'), fields: [
+    { key: 'startPieces', sub: 'yours', label: 'Pieces to start with', type: 'int', min: 1, max: 8, def: 4, help: 'For a descent and autochess rounds.' },
+    { key: 'startPool', sub: 'yours', label: 'You start with', type: 'pieces', def: ['knight', 'bishop', 'rook', 'king'], help: 'Dealt from these.' },
+    { key: 'foeLine', sub: 'theirs', label: 'Their line', type: 'choice', def: 'mirror', options: opts(['mirror', 'The same files as yours, like Microchess'], ['turned', 'Yours reversed, as if turned round the board']),
+      help: 'For a descent with one upgrade a board, where both sides start with "You start with". The same files: their first piece stands opposite your first, like Microchess. Reversed (Timothy, 2026-10-13): their line is yours read the other way, so each side, looking from its own end, has the same piece on its left.' },
+    { key: 'balls', sub: 'ball', label: 'Balls on a course', type: 'multi', def: BALLS.map((b) => b.v), options: BALLS,
+      help: 'Each hole uses one, in turn. Sticky stops beside the first thing it passes; a ghost rolls straight through pieces.' }
+  ] },
+  { ...part('growth'), fields: [
     { key: 'maxPieces', label: 'Most pieces you can carry', type: 'int', min: 1, max: 8, def: 6 },
-    { key: 'startPool', label: 'You start with', type: 'pieces', def: ['knight', 'bishop', 'rook', 'king'], help: 'Dealt from these.' },
     { key: 'rewards', label: 'Finishing a level finds you something', type: 'bool', def: true,
       help: 'A new piece while you have room; once your hand is full, an upgrade: a suit, fusing two pieces, or a joker. Pieces of theirs you take are claimed, and can be combined with yours after the level.' },
     { key: 'upgrades', label: 'Between levels', type: 'choice', def: 'finds', options: opts(['finds', 'Find pieces, then upgrades'], ['each', 'One upgrade a board, each side']),
       help: 'Find pieces, then upgrades: a new piece while you have room, then suits, fusing and jokers; pieces of theirs you take can be combined with yours. One upgrade a board, each side (Timothy, 2026-10-12): every new board you choose one of two, a piece to combine with one of yours or a suit for one, and they get one at random. They carry a lineup down as you do, and a Rabbit with it.' },
-    { key: 'foeLine', label: 'Their line', type: 'choice', def: 'mirror', options: opts(['mirror', 'The same files as yours, like Microchess'], ['turned', 'Yours reversed, as if turned round the board']),
-      help: 'For a descent with one upgrade a board, where both sides start with "You start with". The same files: their first piece stands opposite your first, like Microchess. Reversed (Timothy, 2026-10-13): their line is yours read the other way, so each side, looking from its own end, has the same piece on its left.' },
-    { key: 'growAt', label: 'The board is 7 by 7 from depth', type: 'int', min: 0, max: 30, def: 0,
-      help: 'For a descent with one upgrade a board. 0: never. From this depth the board is 7 by 7, and each side gets two more pieces to fill its row.' },
-    { key: 'jokers', label: 'Jokers can turn up', type: 'bool', def: true, help: 'Rules for the rest of a run: Double Time, Foresight, Recruiter, Lazy Rabbits, Overtime.' },
     { key: 'findPool', label: 'Pieces you can find', type: 'pieces', def: ['king', 'knight', 'bishop', 'rook', 'queen', 'wazir', 'ferz', 'alfil', 'dabbaba', 'mao', 'zebra', 'camel', 'grasshopper', 'cannon', 'silver', 'lance', 'squirrel', 'rose', 'nightrider', 'archbishop', 'chancellor',
       'gold', 'copper', 'leopard', 'tiger', 'kirin', 'phoenix', 'elephant', 'woody', 'alibaba', 'threeleaper', 'tripper', 'frog', 'vao', 'bunny', 'shortrook', 'tallrook'],
       help: 'What a run offers when it finds a piece. Pieces vetoed in the catalog are left out anyway.' },
-    { key: 'startDifficulty', label: 'First level\u2019s difficulty', type: 'int', min: 1, max: 10, def: 1, unit: 'of 10',
-      help: 'For a descent. The first level is found at this difficulty (measured: a novice bot plays it two dozen times), and every level after aims a little higher, as fast as "It gets harder" says.' },
-    { key: 'ramp', label: 'It gets harder', type: 'choice', def: 'steady', options: opts(['gentle', 'Gently'], ['steady', 'Steadily'], ['steep', 'Steeply']),
-      help: 'Each level down, or each round: a higher difficulty aimed at (gently 0.35 a level, steadily 0.6, steeply 1), more pieces of theirs and sharper rabbits.' },
-    { key: 'boardGrows', label: 'The board grows', type: 'bool', def: false,
-      help: 'For a descent. Off: every level is the board size set below (6 by 6). On: a row and a column more every few levels, up to 8 by 8.' },
+    { key: 'jokers', label: 'Jokers can turn up', type: 'bool', def: true, help: 'Rules for the rest of a run: Double Time, Foresight, Recruiter, Lazy Rabbits, Overtime.' },
+    { key: 'shop', label: 'Spend acorns in a shop', type: 'bool', def: false,
+      help: 'For autochess rounds. Each round earns acorns (three for a win, one for a loss, one per piece of theirs taken), spent between rounds on pieces and upgrades in place of a free pick.' },
     { key: 'carry', label: 'What you find carries over', type: 'bool', def: true,
       help: 'For a descent. Every piece you find joins your roster, and you can start a later descent with any of them. Going deeper lights waystones for good: at depth 4 every descent starts with an upgrade, at depth 7 with one more piece, at depth 10 with two upgrades.' },
     { key: 'keepsakes', label: 'Waystones give upgrades at the start', type: 'bool', def: false,
       help: 'For a descent. Off (Timothy, 2026-10-10: "decent mode should give no upgrade when starting"): every descent starts with only its pieces. On: the waystones at depth 4 and 10 each give an upgrade of your choice before the first level.' },
     { key: 'fairyFrom', label: 'Fairy pieces from depth', type: 'int', min: 1, max: 20, def: 4,
       help: 'For a descent. Above this depth only classic pieces turn up, on either side and among what you find, so a new player first meets pieces whose moves they know (Timothy, 2026-10-10). 1: fairy pieces from the start.' },
-    { key: 'shop', label: 'Spend acorns in a shop', type: 'bool', def: false,
-      help: 'For autochess rounds. Each round earns acorns (three for a win, one for a loss, one per piece of theirs taken), spent between rounds on pieces and upgrades in place of a free pick.' },
-    { key: 'outOfMoves', label: 'Out of moves', type: 'choice', def: 'fall', options: opts(['fall', 'Fall on, with nothing found'], ['end', 'Ends the run']),
-      help: 'For a descent. Losing every piece always ends it.' },
-    { key: 'courseName', label: 'Course', type: 'choice', def: 'meadow', options: opts(...COURSE_ORDER.map((k) => [k, COURSES[k].name]), ['mixed', 'Mixed: every ball in turn']),
-      help: 'Each course has its own holes, balls and ground. The title screen offers the ones you have opened: finishing a course opens the next.' },
-    { key: 'courseHoles', label: 'Holes on a mixed course', type: 'int', min: 3, max: 18, def: 9 },
-    { key: 'balls', label: 'Balls on a course', type: 'multi', def: BALLS.map((b) => b.v), options: BALLS,
-      help: 'Each hole uses one, in turn. Sticky stops beside the first thing it passes; a ghost rolls straight through pieces.' },
-    { key: 'lives', label: 'Lives', type: 'int', min: 1, max: 5, def: 3, help: 'For autochess rounds: a lost round costs one.' }
+    { key: 'growAt', label: 'The board is 7 by 7 from depth', type: 'int', min: 0, max: 30, def: 0,
+      help: 'For a descent with one upgrade a board. 0: never. From this depth the board is 7 by 7, and each side gets two more pieces to fill its row.' },
+    { key: 'boardGrows', label: 'The board grows', type: 'bool', def: false,
+      help: 'For a descent. Off: every level is the board size set under Board (6 by 6). On: a row and a column more every few levels, up to 8 by 8.' }
+  ] },
+  { ...part('difficulty'), fields: [
+    { key: 'startDifficulty', label: 'First level\u2019s difficulty', type: 'int', min: 1, max: 10, def: 1, unit: 'of 10',
+      help: 'For a descent. The first level is found at this difficulty (measured: a novice bot plays it two dozen times), and every level after aims a little higher, as fast as "It gets harder" says.' },
+    { key: 'ramp', label: 'It gets harder', type: 'choice', def: 'steady', options: opts(['gentle', 'Gently'], ['steady', 'Steadily'], ['steep', 'Steeply']),
+      help: 'Each level down, or each round: a higher difficulty aimed at (gently 0.35 a level, steadily 0.6, steeply 1), more pieces of theirs and sharper rabbits.' }
   ] }
+
 ];
 
 const RUN_FIELDS = RUN_SCHEMA.flatMap((g) => g.fields);
@@ -265,8 +276,159 @@ export const settingShown = (key, S) => {
 const CLIMBS = ['foes', 'iq', 'kinds', 'statues', 'foePool', 'parMin', 'parMax', 'traits', 'w', 'h'];
 export const settingNote = (key, S) => (S.run === 'descent' && CLIMBS.includes(key) && (key !== 'w' && key !== 'h' || S.boardGrows) ? ' (first level, then climbs)' : '');
 
-/** Every setting a mode's panel shows: the run's, then the level's. */
-export const PANEL = [...RUN_SCHEMA, ...SCHEMA];
+/** Every setting a mode's panel shows, part by part: the run's and the
+    level's together, each part's sub-headings in order. */
+export const PANEL = PARTS.map((p) => {
+  const at = (f) => (f.sub ? 1 + (p.subs || []).findIndex(([id]) => id === f.sub) : 0);
+  const fields = [...RUN_SCHEMA, ...SCHEMA].filter((g) => g.part === p.id).flatMap((g) => g.fields);
+  return { ...part(p.id), fields: fields.sort((a, b) => at(a) - at(b)) }; // sort is stable: the given order within a heading
+}).filter((g) => g.fields.length);
+
+// --- A mode in eight lines (2026-10-13). ------------------------------------
+// One line for each part (PARTS): the mode's answer to that part's question,
+// said from its settings, so it can never fall out of date.
+
+const FIELD = Object.fromEntries([...RUN_SCHEMA, ...SCHEMA].flatMap((g) => g.fields).map((f) => [f.key, f]));
+const label = (key, v) => FIELD[key]?.options?.find((o) => o.v === v)?.label ?? String(v);
+const named = (k) => (k === 'rabbit' ? 'Rabbit' : PIECES[k]?.name || k);
+const few = (a, n = 5) => (a.length > n ? `${a.slice(0, n).map(named).join(', ')} and ${a.length - n} more` : a.map(named).join(', '));
+const count = (n, one, many = `${one}s`) => `${n === 1 ? 'one' : n} ${n === 1 ? one : many}`;
+const and = (a) => (a.length < 2 ? a.join('') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`);
+const cap = (t) => (t ? t[0].toUpperCase() + t.slice(1) : t);
+/** An army as words: the King, then the kinds strongest first, with how many of each. */
+function army(types) {
+  const n = {};
+  for (const t of types) n[t] = (n[t] || 0) + 1;
+  const order = Object.keys(n).sort((a, b) => (b === 'king') - (a === 'king') || (PIECES[b]?.strength ?? 0) - (PIECES[a]?.strength ?? 0));
+  return and(order.map((t) => (n[t] > 1 ? `${n[t]} ${named(t)}s` : named(t))));
+}
+
+/**
+ * A mode, or a level's settings, in eight lines: [{ id, name, ask, text }],
+ * one for each part, in order. `S` is a mode's settings (modeSettings), or a
+ * level's alone (the workshop: no `run`).
+ */
+export function describe(S) {
+  const V = S.variant && S.variant !== 'none' && S.run !== 'descent' ? VARIANTS[S.variant] : null;
+  const run = S.run || 'single', rolled = S.roll === 'chaos' || S.roll === 'daily';
+  const course = run === 'course' ? (S.courseName === 'mixed' ? null : COURSES[S.courseName]) : undefined;
+  const full = S.fullRow && run !== 'course';
+  const theirsThink = { 0: 'at random', 1: 'greedily', 2: 'two moves ahead', 3: 'three moves ahead' }[S.skill] || 'ahead';
+  const L = {};
+
+  // Format.
+  L.format = run === 'descent' ? `A descent: board after board, deeper each time, until ${S.royal ? 'they take your King' : 'every piece of yours is gone'}. ${S.outOfMoves === 'end' ? 'Running out of moves ends it too.' : 'Running out of moves drops you to the next board, with nothing found.'}`
+    : run === 'course' ? `A golf course: ${course ? `${course.name}, ${course.holes} holes` : `${S.courseHoles} mixed holes`}, strokes against par.`
+    : run === 'rounds' ? `Autochess rounds, until you have lost ${S.lives === 1 ? 'your one life' : `${S.lives} lives`}.`
+    : V ? `One game of ${V.name}, from its own starting position.`
+    : S.position ? 'One game, from a set position.'
+    : S.run == null ? 'One game, made from these settings and a dice roll.'
+    : `One game at a time, ${S.roll === 'chaos' ? 'each rolled completely at random' : S.roll === 'daily' ? 'each rolled the way the daily is' : 'made from these settings'}.`;
+
+  // Board.
+  const shape = S.shape === 'L' ? 'L-shaped board' : S.shape === 'rect' ? (S.w === S.h ? 'square' : 'rectangle') : label('shape', S.shape).toLowerCase();
+  const on = [
+    S.ground === 'crumble' ? 'ground that crumbles behind you' : S.ground === 'shrink' ? `an edge that falls every ${S.shrinkEvery} moves` : S.ground === 'spiral' ? 'an edge that falls in a spiral' : '',
+    S.holes ? count(S.holes, 'square', 'squares') + ' missing' : '',
+    S.magic === 'sides' ? 'the sides joined' : S.magic === 'all' ? 'all four edges joined' : '',
+    S.geared ? 'a quarter turn after every turn' : '',
+    S.statueRow ? 'a middle row of statues that opens one a turn' : S.statues ? `${count(S.statues, 'statue')}${S.statuesTake ? ' either side can take' : ''}` : '',
+    S.ghosts ? 'a row of ghosts in front of each side' : '',
+    S.gates ? count(S.gates, 'gate') : '',
+    S.clouds ? count(S.clouds, 'wandering cloud') : '',
+    S.cloud ? 'a cloud over each second row for the first turn' : ''
+  ].filter(Boolean);
+  L.board = V ? `${V.size}, the variant’s own board.`
+    : S.position ? 'The position’s own board.'
+    : course ? `Each hole its own, ${course.base.w} × ${course.base.h} to start, changing as the course goes round.`
+    : S.roll === 'daily' ? 'Rolled: its size, its shape and everything on it.'
+    : S.roll === 'chaos' ? `${S.w} × ${S.h}; its shape and everything on it rolled.`
+    : `${S.w} × ${S.h} ${shape}${on.length ? `, with ${and(on)}` : ''}.`;
+
+  // Armies.
+  if (V) {
+    const F = readFen(V.fen), yours = army(F.pieces.map((p) => p.type)), theirs = army(F.foes.map((f) => f.type));
+    L.armies = `Yours: ${yours}. Theirs: ${theirs === yours ? 'the same' : theirs}. As the variant stands them.`;
+  } else if (S.position) L.armies = 'As the position stands them.';
+  else if (S.cells) {
+    const line = (c, mods) => c.filter(Boolean).map((t, i) => `${named(t)}${mods?.[i]?.suit ? ` (${mods[i].suit})` : ''}`).join(', ');
+    const turned = S.cells.map((_, i) => S.cells[Math.floor(i / S.w) * S.w + (S.w - 1 - (i % S.w))]);
+    L.armies = `Yours, square by square: ${line(S.cells)}. Theirs: ${S.foeCells.join() === S.cells.join() ? 'the same, mirrored' : S.foeCells.join() === turned.join() ? 'the same, turned' : line(S.foeCells)}.`;
+  } else if (rolled) L.armies = `Rolled with the board${full ? ', a full row each' : ''}${S.lineup ? ', lined up like chess' : ''}.`;
+  else {
+    const given = run === 'descent' || run === 'rounds';
+    const n = full ? S.w : run === 'course' ? S.mine : S.mine;
+    const yours = given ? (S.inOrder && S.startPool.length === S.startPieces ? `${few(S.startPool, 8)}, in that order` : `${S.startPieces} from ${few(S.startPool)}`)
+      : `${full ? 'a full row' : n} from ${few(S.minePool)}`;
+    const theirs = given && S.upgrades === 'each' ? (S.foeLine === 'turned' ? 'the same, reversed' : 'the same, on the same files')
+      : S.mirror ? 'a copy of yours' : S.foes || full ? `${full ? 'a full row' : S.foes} from ${few(S.foePool)}` : 'none';
+    const loose = S.rabbits ? `${theirs === 'none' ? ';' : ', and'} ${count(S.rabbits, 'loose rabbit')}` : '';
+    const ball = run === 'course' ? `, and a ball: ${and((course ? course.balls : S.balls).filter((b, i, a) => a.indexOf(b) === i).map((b) => BALLS.find((x) => x.v === b)?.label.toLowerCase()))}`
+      : ['hole', 'descent'].includes(S.goal) ? `, and a ball (${label('ballMove', S.ballMove).toLowerCase()})` : '';
+    const where = S.lineup ? 'lined up like chess' : `scattered in the first ${count(S.mineRows, 'row')}`;
+    L.armies = `Yours: ${cap(yours)}${ball}. Theirs: ${theirs}${loose}. ${cap(where)}${S.arrange && run !== 'rounds' ? '; you lay yours out first' : ''}.`;
+  }
+
+  // Control.
+  const mind = (many) => (S.rabbitMind === 'mind' ? `${many ? 'their own minds' : 'its own mind'} (intelligence ${S.iq})` : `${many ? 'hidden patterns' : 'a hidden pattern'}`);
+  const theirs = S.roll === 'daily' ? 'one rabbit leads theirs: their pieces think, and its mind (intelligence 3 to 5) sets their mood'
+    : S.roll === 'chaos' ? 'how theirs move is rolled'
+    : V ? `they think ${theirsThink}`
+    : S.darkBrain === 'think' ? `they think ${theirsThink}${S.style === 'hunt' ? ', hunting' : S.style === 'flee' ? ', fleeing' : ''}`
+    : S.darkBrain === 'rabbit' ? `one rabbit leads them: their pieces think, and its mind (intelligence ${S.iq}) sets their mood`
+    : `a rabbit inside each of theirs picks its way, by ${mind(false)}`;
+  const when = S.realtime || V?.rules?.realtime ? 'No turns: any piece moves when it is ready, and theirs too.'
+    : `Turns, ${S.first === 'them' ? 'theirs first' : 'yours first'}${V?.rules?.movesPerTurn ? `; you move ${V.rules.movesPerTurn} times a turn`
+      : rolled ? '' : S.mode === 'auto' ? `; every piece of yours moves, then ${S.oneMove ? 'one of theirs' : 'every piece of theirs'}`
+      : S.oneMove || V ? '; one piece a side each turn' : '; one piece of yours, then every piece of theirs'}.`;
+  L.control = `${S.mode === 'auto' ? 'Rabbits move yours, once you have set them up' : 'You move yours'}; ${!V && !S.foes && !full && !S.mirror ? (S.rabbits ? `${S.rabbits > 1 ? 'loose rabbits hop' : 'a loose rabbit hops'} by ${mind(S.rabbits > 1)}` : 'nobody moves theirs') : theirs}. ${when}`;
+
+  // Goal.
+  const win = V?.rules?.race ? 'Race your King to the far row' : V?.rules?.hill ? 'Take their King, or bring yours to the middle'
+    : V ? 'Take their King' : course ? 'Sink the ball in as few strokes as you can' : GOAL_PILL[S.goal] || 'A goal that changes with each board';
+  const lose = !V && S.royal && run !== 'course' ? '; lose your King and you lose' : '';
+  const stall = [S.roll === 'chaos' ? 'the move limit is rolled' : course !== undefined ? `at most ${S.maxMoves} strokes a hole` : S.maxMoves ? `a limit of ${S.maxMoves} moves` : 'no move limit',
+    !V && S.showdown && run !== 'course' ? 'with one piece left each, the board closes in' : ''].filter(Boolean);
+  L.goal = S.roll === 'daily' ? 'Rolled with the board, with at least 18 moves.' : `${win}${lose}. ${cap(stall.join('; '))}.`;
+
+  // Growth.
+  if (run === 'descent') {
+    const finds = S.upgrades === 'each' ? 'Each new board, both sides get an upgrade: you choose one of two (a piece to combine, or a suit), they get one at random'
+      : S.rewards ? `Finishing a board finds you a piece, up to ${S.maxPieces}, then upgrades${S.jokers ? ' and jokers' : ''}` : 'Nothing is found';
+    const more = [S.upgrades === 'each' && S.growAt ? `the board is 7 × 7 from depth ${S.growAt}` : '', S.boardGrows ? 'the board grows' : '',
+      S.fairyFrom > 1 ? `fairy pieces from depth ${S.fairyFrom}` : '', S.carry ? 'what you find carries over to later descents' : ''].filter(Boolean);
+    L.growth = `${finds}${more.length ? `; ${and(more)}` : ''}.`;
+  } else if (run === 'rounds') L.growth = `${S.rewards ? `Win rounds to grow your side, up to ${S.maxPieces}` : 'Nothing is found'}${S.shop ? ', buying pieces and upgrades with acorns' : ''}${S.jokers ? '; jokers' : ''}.`;
+  else if (run === 'course') L.growth = 'Nothing between holes; the course itself changes as it goes round.';
+  else L.growth = 'None: each game stands alone.';
+
+  // Difficulty.
+  const band = S.aim ? `aims at ${S.aim} of 10` : S.difficulty === 'any' ? 'any difficulty' : label('difficulty', S.difficulty).toLowerCase();
+  const pass = rolled ? [S.roll === 'daily' ? 'winnable in 4 to 10 moves' : 'winnable', 'balanced', ...(S.minEngage ? [`engaging (at least ${S.minEngage} of 100)`] : []), ...(S.roll === 'daily' ? ['with a high skill ceiling'] : [])]
+    : [S.solve ? (S.mode === 'auto' ? `won by some setup within ${S.maxMoves || 40} turns` : `winnable in ${S.parMin} to ${S.parMax} ${run === 'course' ? 'strokes' : 'moves'}`) : '', S.solve && S.balance !== 'off' ? (S.balance === 'strict' ? 'strictly balanced' : 'balanced') : '',
+      S.minEngage ? `engaging (at least ${S.minEngage} of 100)` : '', S.minCeiling ? 'with a high skill ceiling' : ''].filter(Boolean);
+  L.difficulty = V || S.position ? 'Not measured: it plays as it stands.'
+    // One upgrade a board takes each board as dealt (play/main.js findOnce):
+    // nothing is searched, and their rabbit's mind is what sharpens.
+    : run === 'descent' && S.upgrades === 'each' ? `Not searched: each board is the two lines as they stand. What climbs is their rabbit’s intelligence, from ${S.iq}, ${label('ramp', S.ramp).toLowerCase()}, and the upgrades they get.`
+    : run === 'descent' ? `Starts at ${S.startDifficulty} of 10 and climbs ${label('ramp', S.ramp).toLowerCase()}${S.realtime ? ', their pieces resting less each board' : ''}${pass.length ? `; each board searched to be ${and(pass)}` : ''}.`
+    : `${cap(band)}${run === 'rounds' ? `, climbing ${label('ramp', S.ramp).toLowerCase()}` : ''}${pass.length ? `; each ${run === 'course' ? 'hole' : 'board'} searched to be ${and(pass)}` : ''}.`;
+
+  // Information.
+  const hints = [S.showReach ? 'where theirs can go' : '', S.showMyReach ? 'where yours can go' : '', S.showGuards ? 'shields on guarded pieces' : '',
+    S.showBeacons ? 'beacons on what can be taken' : '', S.showPins ? 'needles through pinned pieces' : '',
+    S.tracks && (S.rabbits || S.darkBrain === 'possessed') && S.rabbitMind === 'pattern' ? 'rabbit tracks' : ''].filter(Boolean);
+  L.information = `${!V && S.clouds ? 'Each side sees all but what the clouds hide' : 'Both sides see the whole board'}. ${hints.length ? `Hints: ${and(hints)}.` : 'No hints.'}`;
+
+  return PARTS.map((p) => ({ id: p.id, name: p.name, ask: p.ask, text: L[p.id] }));
+}
+
+/** One part's line, for the settings form: described once per settings. */
+let lastS = null, lastLines = null;
+export function partLine(id, S) {
+  if (S !== lastS) { lastS = S; lastLines = describe(S); }
+  return lastLines.find((l) => l.id === id)?.text || '';
+}
 
 // --- The settings for the next level. ---------------------------------------
 

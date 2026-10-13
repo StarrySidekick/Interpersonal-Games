@@ -12,6 +12,19 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
+## 2026-10-13, last: the eight parts of a mode
+
+From Timothy: what a mode is made of (piece set, piece position, board,
+rounds, upgrades, win condition, turns or live or automatic, difficulty,
+the enemy side), to codify. Refined with him into eight parts, each a
+question: Format, Board, Armies, Control, Goal, Growth, Difficulty,
+Information. Built: every setting is in one part, every settings panel is
+grouped by them with Yours and Theirs inside, and `describe` says any mode
+in eight lines (title screens, Custom, the console, and
+`docs/grove-modes.md`, "The eight parts of a mode"). Nothing a setting does
+changed. Writing them showed the descent's boards are not searched at all
+now: only their rabbit's mind climbs.
+
 ## 2026-10-13, latest: ghosts, gates, clouds, statues, and Custom
 
 From Timothy: their side in the trials in any order, not only mirrored or

@@ -10,7 +10,7 @@
 import { PIECES } from './rules.js';
 import { patent } from './betza.js';
 import { powers } from './power.js';
-import { MODES, PANEL, modeDefaults, settingShown } from './modes.js';
+import { MODES, PANEL, modeDefaults, settingShown, describe } from './modes.js';
 import { DEFAULT_OFF } from './invented.js';
 import { HISTORY } from './history.js';
 import { CONFIG, LOOK_DEFAULTS } from './config.js';
@@ -28,8 +28,10 @@ const pieces = Object.keys(PIECES).filter((k) => ['classic', 'fairy'].includes(P
   };
 }).sort((a, b) => (a.power ?? 0) - (b.power ?? 0));
 
-const groups = PANEL.map((g) => ({ group: g.group, fields: g.fields.map((f) => ({
-  key: f.key, label: f.label, type: f.type, def: f.def, min: f.min, max: f.max, unit: f.unit || '', help: f.help || '',
+// Grouped by the eight parts of a mode (2026-10-13), with each part's
+// question and the headings inside it.
+const groups = PANEL.map((g) => ({ group: g.group, part: g.part, ask: g.ask, subs: g.subs, fields: g.fields.map((f) => ({
+  key: f.key, sub: f.sub || null, label: f.label, type: f.type, def: f.def, min: f.min, max: f.max, unit: f.unit || '', help: f.help || '',
   options: f.options ? f.options.map((o) => ({ v: o.v, label: o.label })) : undefined
 })) }));
 
@@ -37,7 +39,7 @@ const modes = Object.fromEntries(Object.keys(MODES).map((id) => {
   const S = modeDefaults(id);
   const shown = groups.flatMap((g) => g.fields.map((f) => f.key)).filter((k) => settingShown(k, S));
   const values = Object.fromEntries(shown.map((k) => [k, S[k]]));
-  return [id, { name: MODES[id].name, blurb: MODES[id].blurb, values, shown }];
+  return [id, { name: MODES[id].name, blurb: MODES[id].blurb, values, shown, parts: describe(S).map((l) => ({ id: l.id, name: l.name, text: l.text })) }];
 }));
 
 // config.js itself, with its CONFIG block cut out: the console fills it back

@@ -29,6 +29,14 @@
   /* Settings. */
   .group { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 4px 14px 10px; margin: 12px 0; }
   .group > summary { font-size: 17px; font-weight: 700; color: var(--text); padding: 10px 0; }
+  .group > summary .gline { display: block; font-size: 13px; font-weight: 400; color: var(--dim); margin-top: 2px; }
+  .group > summary .gline:empty { display: none; }
+  .gask { margin: 0 0 6px; font-size: 13px; font-style: italic; color: var(--dim); }
+  .fsub { margin: 14px 0 0; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }
+  .parts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 12px; margin: 8px 0 0; font-size: 14px; text-align: left; }
+  .parts dt { font-weight: 700; color: var(--text); }
+  .parts dd { margin: 0; color: var(--dim); }
+  details.partsbox > summary { font-size: 14px; font-weight: 600; color: var(--accent); cursor: pointer; }
   .field { display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
   .field.wide { grid-template-columns: 1fr; }
   .flabel { font-size: 15px; font-weight: 600; }
@@ -156,6 +164,7 @@
     <nav class="modes" id="modes" aria-label="Ways to play"></nav>
     <canvas id="preview" class="pix" aria-label="The level, turning"></canvas>
     <p class="small dim" id="summary"></p>
+    <details class="partsbox" id="partsbox"><summary>This game in eight parts</summary><div id="parts"></div></details>
     <div class="stack"><button class="primary" id="play">Play this level</button></div>
     <div class="row" style="margin-top:10px">
       <button class="quiet" id="asdescent">Play as a descent</button>

@@ -34,48 +34,35 @@ export const ALL = [...CLASSIC, ...FAIRY];
 
 const opts = (...pairs) => pairs.map(([v, label]) => ({ v, label }));
 
-/** Every setting: its group, label, kind and range. The page is built from this. */
+// --- The eight parts of a mode (Timothy, 2026-10-13). ----------------------
+// "a mode is a collection of settings": piece set, piece position, board,
+// rounds, upgrades, win condition, turns, difficulty, the enemy side. Refined
+// to eight parts, each a question every mode answers. Every setting belongs
+// to one, and every settings panel is grouped by them. The enemy side is not
+// a part of its own: Armies and Control are each set for both sides, and how
+// they compare to you is whether the two sides' answers match. `subs` are the
+// headings inside a part, in order.
+export const PARTS = [
+  { id: 'format', name: 'Format', ask: 'One match or a series, and what ends it?' },
+  { id: 'board', name: 'Board', ask: 'What is it played on?', subs: [['neutral', 'Neutral pieces']] },
+  { id: 'armies', name: 'Armies', ask: 'What does each side have, and where does it stand?', subs: [['yours', 'Yours'], ['theirs', 'Theirs'], ['ball', 'The ball']] },
+  { id: 'control', name: 'Control', ask: 'Who moves each side, and when?', subs: [['yours', 'Yours'], ['theirs', 'Theirs'], ['rabbits', 'Rabbits'], ['live', 'Real time']] },
+  { id: 'goal', name: 'Goal', ask: 'How do you win, how do you lose, and what ends a game that stalls?' },
+  { id: 'growth', name: 'Growth', ask: 'What changes between the games of a series?' },
+  { id: 'difficulty', name: 'Difficulty', ask: 'How hard is it, how does it climb, and what must every level pass?' },
+  { id: 'information', name: 'Information', ask: 'What can each side see, and which hints show?' }
+];
+/** A schema group's heading for one of the parts. */
+export const part = (id) => { const p = PARTS.find((q) => q.id === id); return { part: id, group: p.name, ask: p.ask, subs: p.subs || [] }; };
+
+/** Every level setting: its part, label, kind and range. The page is built
+    from this. `sub` is the heading it sits under within its part. */
 export const SCHEMA = [
-  { group: 'How you play', fields: [
-    { key: 'mode', label: 'Who moves your pieces', type: 'choice', def: 'hand', options: opts(['hand', 'You do'], ['auto', 'Rabbits (autochess)']),
-      help: 'Autochess: before the game you put rabbits you have caught into your pieces, choose which way each faces and the order of your line. Then it plays itself: each rabbit picks the way, its piece picks how, the same as theirs.' },
-    { key: 'showReach', label: 'Show where theirs can go', type: 'bool', def: true,
-      help: 'A purple ring on every square their pieces\u2019 moves cover, updating as pieces move: the squares that are dangerous to stand on (Timothy, 2026-10-10 and 11). It includes squares under their own pieces that another of theirs guards, and a pawn\u2019s diagonals even when empty (2026-10-12).' },
-    { key: 'showMyReach', label: 'Show where yours can go', type: 'bool', def: false,
-      help: 'A gold ring on every square one of your pieces could move to. Off by default (2026-10-11: "less useful and muddies the board"); tapping a piece still lights its own squares.' },
-    { key: 'showGuards', label: 'Shields on guarded pieces', type: 'bool', def: true,
-      help: 'A piece of yours that another of yours would avenge (if it were taken there, yours could take back on that square) wears a shield, which falls into place with a clink when it becomes guarded: silver for one guard, gold for two or more.' },
-    { key: 'showBeacons', label: 'Beacons on what can be taken', type: 'bool', def: true,
-      help: 'A beam of light rises from what could be taken next: purple from a piece of yours they could take on their next move if it stays (on your King, that is check), green from a piece of theirs you can take now (Timothy, 2026-10-11).' },
-    { key: 'showPins', label: 'Needles through pinned pieces', type: 'bool', def: true,
-      help: 'A piece pinned to its King (it stands between its King and a piece of the other side, so moving it would leave the King to be taken) has a sewing needle driven down through it, which drops in from above when the pin starts (Timothy, 2026-10-13). Yours and theirs, wherever losing the King loses. The rules still let it move: moving it loses.' },
-    { key: 'autoPool', label: 'Your rabbits', type: 'choice', def: 'caught', options: opts(['caught', 'The ones you have caught'], ['all', 'Every named kind']),
-      help: 'For autochess. Caught: one rabbit for every time you caught its kind, in the descent or the daily.' }
-  ] },
-  { group: 'Chess variant', fields: [
+  { ...part('format'), fields: [
     { key: 'variant', label: 'Play a chess variant', type: 'choice', def: 'none', options: opts(['none', 'No: a Grove Chess level'], ...VARIANT_ORDER.map((k) => [k, `${VARIANTS[k].name} (${VARIANTS[k].size})`])),
       help: 'A real chess variant from its starting position, against the thinking side (Timothy, 2026-10-11). The board, the pieces and the rules are the variant\u2019s; the settings that still matter are how they think and the move limit.' }
   ] },
-  { group: 'Kung fu', fields: [
-    { key: 'realtime', label: 'Kung fu: no turns', type: 'bool', def: false,
-      help: 'Real time, after Kung-Fu Chess (2002): move any piece of yours whenever it is ready, and so do they. A move takes time to travel, so a piece can dodge, and a piece that has moved rests before it moves again. Take their King.' },
-    { key: 'kfStep', label: 'Travel time a square', type: 'int', min: 60, max: 2000, def: 300, unit: 'ms', help: 'Kung-Fu Chess\u2019s lightning speed is 200; its standard speed is 1,000.' },
-    { key: 'kfCool', label: 'Your pieces rest for', type: 'int', min: 3, max: 100, def: 20, unit: 'tenths of a second', help: 'Lightning is 2 seconds (20); standard is 10 seconds (100).' },
-    { key: 'kfFoeCool', label: 'Theirs rest for', type: 'int', min: 3, max: 100, def: 50, unit: 'tenths of a second', help: 'In a descent, their first level\u2019s; they get quicker each level down.' },
-    { key: 'kfFoeGap', label: 'They start a move at most every', type: 'int', min: 2, max: 60, def: 18, unit: 'tenths of a second',
-      help: 'Their side plays like one opponent: one move at a time, this often at most. In a descent, their first level\u2019s; it shortens each level down.' }
-  ] },
-  { group: 'Difficulty', fields: [
-    { key: 'difficulty', label: 'Difficulty', type: 'choice', def: 'any', options: opts(['any', 'Any'], ['easy', 'Easy (1 to 3)'], ['normal', 'Normal (4 to 6)'], ['hard', 'Hard (7 to 8)'], ['brutal', 'Brutal (9 to 10)']),
-      help: 'Measured by a novice bot playing the level two dozen times (metrics.js): how often it loses, and how long the shortest win is. Needs the solver.' },
-    { key: 'aim', label: 'Aim for difficulty', type: 'int', min: 0, max: 10, def: 0, unit: 'of 10',
-      help: 'A number in place of a band: the level must measure within one of it (1 aims at 1 to 2). 0 uses the band above. The descent sets this itself, level by level.' },
-    { key: 'minEngage', label: 'Engaging, at least', type: 'int', min: 0, max: 90, def: 0, unit: 'of 100',
-      help: 'A first guess at how engaging a level is: choices that matter, pieces used, tension, comebacks. 0 lets anything through.' },
-    { key: 'minCeiling', label: 'Skill ceiling, at least', type: 'int', min: 0, max: 30, def: 0, unit: 'tenths',
-      help: 'How much faster an expert wins than a novice: 10 means twice as fast. A high ceiling is easy to win in many moves and hard to win in few. 0 lets anything through.' }
-  ] },
-  { group: 'Board', fields: [
+  { ...part('board'), fields: [
     { key: 'w', label: 'Width', type: 'int', min: 3, max: 10, def: 6 },
     { key: 'h', label: 'Height', type: 'int', min: 3, max: 10, def: 6 },
     { key: 'shape', label: 'Shape', type: 'choice', def: 'rect', options: opts(
@@ -90,104 +77,136 @@ export const SCHEMA = [
       help: 'Like Pac-Man: off one edge is on at the other. Joined edges glow. A piece that slides all the way round comes back to where it started, so it stops there; a ball rolling round with nothing to stop it arrives back where it began, which is no move.' },
     { key: 'geared', label: 'Geared', type: 'bool', def: false,
       help: 'After every turn the board turns a quarter turn clockwise, with everything on it. Your pieces turn with it, so they move as ever; the rabbits\u2019 patterns do not, so a rabbit that hops up the screen goes a different way across the board each turn. Square boards only.' },
-    { key: 'cloud', label: 'A cloud on the second rows, first turn', type: 'bool', def: true,
-      help: 'For the first turn, a cloud covers the row in front of each side. Each side moves through its own cloud freely; the other side\u2019s stops it (a piece can step in, not past), and nothing in a cloud can be taken by the other side. So nobody can take anything on the first move. It lifts once both sides have moved (Timothy, 2026-10-10 and 11: with no second row of pawns, this protects the Kings at the start).' },
-    { key: 'cloudOwn', label: 'Each cloud stops only the other side', type: 'bool', def: true,
-      help: 'On: your pieces go through your own cloud as if it were not there, and only theirs stops you (and the same for them). Off: both clouds stop everyone, the first version.' },
-    { key: 'statues', label: 'Statues', type: 'int', min: 0, max: 8, def: 2,
+    { key: 'statues', sub: 'neutral', label: 'Statues', type: 'int', min: 0, max: 8, def: 2,
       help: 'Standing stones, each with a spiral cut in it, in the middle of the board. They never move and nothing can take them. Sliders stop at them, leapers jump them, and the grasshopper and the cannon can hop over them.' },
-    { key: 'statueRow', label: 'A row of statues that opens', type: 'bool', def: false,
+    { key: 'statueRow', sub: 'neutral', label: 'A row of statues that opens', type: 'bool', def: false,
       help: 'The middle row is all statues (in place of the count above), and after every turn one of them, at random, sinks away and opens its square (Timothy, 2026-10-12).' },
-    { key: 'statuesTake', label: 'Statues can be taken', type: 'bool', def: true,
+    { key: 'statuesTake', sub: 'neutral', label: 'Statues can be taken', type: 'bool', def: true,
       help: 'Statues are neutral pieces (Timothy, 2026-10-13): they never move or do anything, but either side can take one, and then it is gone. Sliders stop at them; leapers and hoppers go over them. Off: nothing can take them, the first way. Golf keeps them off.' },
-    { key: 'ghosts', label: 'A row of ghosts in front of each side', type: 'bool', def: false,
+    { key: 'ghosts', sub: 'neutral', label: 'A row of ghosts in front of each side', type: 'bool', def: false,
       help: 'Ghosts fill the row in front of each side, where pawns stand in chess (Timothy, 2026-10-13). A ghost never moves and never takes. Its own side moves through it as if it were not there, and once one of them passes through or onto it, it is gone for good. The other side cannot pass it or land on it, though a leaper can jump over. So at first neither side can reach the other: you open your own wall as you go.' },
-    { key: 'gates', label: 'Gates', type: 'int', min: 0, max: 6, def: 0,
+    { key: 'gates', sub: 'neutral', label: 'Gates', type: 'int', min: 0, max: 6, def: 0,
       help: 'Gates between the two sides, up one turn and down the next (Timothy, 2026-10-13). Down, a gate is open ground; up, nothing passes it and nothing can stand there. A gate with a piece on it stays down until the piece leaves.' },
-    { key: 'clouds', label: 'Wandering clouds', type: 'int', min: 0, max: 4, def: 0,
-      help: 'Clouds that drift a square a turn, any way, on their own (Timothy, 2026-10-13). A piece under a cloud is hidden from the other side, and so is its move into the cloud. A move that runs into a hidden piece stops there and takes it. You always see your own pieces, cloud or not.' }
+    { key: 'clouds', sub: 'neutral', label: 'Wandering clouds', type: 'int', min: 0, max: 4, def: 0,
+      help: 'Clouds that drift a square a turn, any way, on their own (Timothy, 2026-10-13). A piece under a cloud is hidden from the other side, and so is its move into the cloud. A move that runs into a hidden piece stops there and takes it. You always see your own pieces, cloud or not.' },
+    { key: 'cloud', sub: 'neutral', label: 'A cloud on the second rows, first turn', type: 'bool', def: true,
+      help: 'For the first turn, a cloud covers the row in front of each side. Each side moves through its own cloud freely; the other side\u2019s stops it (a piece can step in, not past), and nothing in a cloud can be taken by the other side. So nobody can take anything on the first move. It lifts once both sides have moved (Timothy, 2026-10-10 and 11: with no second row of pawns, this protects the Kings at the start).' },
+    { key: 'cloudOwn', sub: 'neutral', label: 'Each cloud stops only the other side', type: 'bool', def: true,
+      help: 'On: your pieces go through your own cloud as if it were not there, and only theirs stops you (and the same for them). Off: both clouds stop everyone, the first version.' }
   ] },
-  { group: 'Your side', fields: [
+  { ...part('armies'), fields: [
     { key: 'fullRow', label: 'A full row each', type: 'bool', def: true,
-      help: 'Each side starts with as many pieces as the board is wide: six on a six by six board, yours and theirs (Timothy, 2026-10-10). Off: the counts set here and under their pieces.' },
-    { key: 'mine', label: 'Pieces', type: 'int', min: 1, max: 8, def: 4 },
-    { key: 'minePool', label: 'Dealt from', type: 'pieces', def: ['queen', 'knight', 'bishop', 'rook', 'grasshopper'] },
-    { key: 'mineDupes', label: 'Repeats allowed', type: 'bool', def: false },
-    { key: 'inOrder', label: 'Stand in the order given', type: 'bool', def: false,
-      help: 'For a run, whose sides are given rather than dealt (the descent): both lines stand in the order they were given, file by file, facing each other like chess, in the middle of the row. Off: where each piece stands is part of the dice roll.' },
+      help: 'Each side starts with as many pieces as the board is wide: six on a six by six board, yours and theirs (Timothy, 2026-10-10). Off: the counts set below, under Yours and Theirs.' },
     { key: 'lineup', label: 'Line up like chess', type: 'bool', def: true,
       help: 'Your pieces start in a line along the bottom edge, theirs along the top. Off: scattered within the rows below.' },
-    { key: 'mineRows', label: 'Start within the bottom', type: 'int', min: 1, max: 5, def: 1, unit: 'rows', help: 'When not lined up.' },
-    { key: 'arrange', label: 'Lay out your pieces first', type: 'bool', def: true,
+    { key: 'inOrder', label: 'Stand in the order given', type: 'bool', def: false,
+      help: 'For a run, whose sides are given rather than dealt (the descent): both lines stand in the order they were given, file by file, facing each other like chess, in the middle of the row. Off: where each piece stands is part of the dice roll.' },
+    { key: 'mine', sub: 'yours', label: 'Pieces', type: 'int', min: 1, max: 8, def: 4 },
+    { key: 'minePool', sub: 'yours', label: 'Dealt from', type: 'pieces', def: ['queen', 'knight', 'bishop', 'rook', 'grasshopper'] },
+    { key: 'mineDupes', sub: 'yours', label: 'Repeats allowed', type: 'bool', def: false },
+    { key: 'dealKing', sub: 'yours', label: 'Always dealt a King', type: 'bool', def: true, help: 'With a royal King: if the deal has none, your first piece becomes one.' },
+    { key: 'mineRows', sub: 'yours', label: 'Start within the bottom', type: 'int', min: 1, max: 5, def: 1, unit: 'rows', help: 'When not lined up.' },
+    { key: 'arrange', sub: 'yours', label: 'Lay out your pieces first', type: 'bool', def: true,
       help: 'Before the first move, put your pieces where you like in your first two rows (Timothy, 2026-10-10). Nowhere that lets either side take a piece on its first move. Par is worked out again for your layout.' },
-    { key: 'royal', label: 'Your King is royal', type: 'bool', def: true, help: 'Lose the King, lose the game.' },
-    { key: 'dealKing', label: 'Always dealt a King', type: 'bool', def: true, help: 'With a royal King: if the deal has none, your first piece becomes one.' },
-    { key: 'wait', label: 'Waiting allowed', type: 'bool', def: false,
-      help: 'Off: you must move a piece every turn (Timothy, 2026-10-10). A side with no move at all still passes.' }
-  ] },
-  { group: 'Rabbits', fields: [
-    { key: 'rabbitMind', label: 'Rabbits move by', type: 'choice', def: 'mind', options: opts(['mind', 'A mind of their own'], ['pattern', 'A fixed pattern']),
-      help: 'A mind: every rabbit, loose or inside a piece, picks its own move each turn, by its trait and its intelligence. A fixed pattern: the old way, a hidden pattern that repeats.' },
-    { key: 'iq', label: 'Intelligence', type: 'int', min: 1, max: 10, def: 5,
-      help: 'For rabbits with minds. Low: fumbling, half blind to danger. High: sharp, sees what you could take, never boxes itself in.' },
-    { key: 'traits', label: 'Traits', type: 'multi', def: Object.keys(TRAITS), options: Object.entries(TRAITS).map(([v, t]) => ({ v, label: t.name })),
-      help: 'Which kinds of mind can turn up. Aggressive goes for you; Hunter for your strongest piece; Shy keeps away; Guard stays with its own side; Messy is all over the place; Habit keeps a learnable pattern but steps round trouble.' },
-    { key: 'rabbits', label: 'Free rabbits', type: 'int', min: 0, max: 4, def: 0,
+    { key: 'foes', sub: 'theirs', label: 'Pieces', type: 'int', min: 0, max: 8, def: 3, help: 'Dark versions of chess and fairy pieces.' },
+    { key: 'foePool', sub: 'theirs', label: 'Dealt from', type: 'pieces', rabbit: true, def: ['king', 'knight', 'bishop', 'rook'] },
+    { key: 'foeDupes', sub: 'theirs', label: 'Repeats allowed', type: 'bool', def: true },
+    { key: 'mirror', sub: 'theirs', label: 'Mirror your pieces instead', type: 'bool', def: false, help: 'They get a copy of your hand, facing you, like chess.' },
+    { key: 'foeRows', sub: 'theirs', label: 'Start within the top', type: 'int', min: 1, max: 5, def: 1, unit: 'rows', help: 'Loose rabbits and the hole start up there too, lined up or not.' },
+    { key: 'rabbits', sub: 'theirs', label: 'Free rabbits', type: 'int', min: 0, max: 4, def: 0,
       help: 'Rabbits loose on the board, on top of the ones inside their pieces.' },
-    { key: 'rabbitBrain', label: 'Rabbits move by', type: 'choice', def: 'pattern', options: opts(['pattern', 'Hidden pattern'], ['ai', 'Thinking']) },
-    { key: 'patterns', label: 'Rabbit patterns', type: 'choice', def: 'all', options: opts(
+    { key: 'foesCapture', sub: 'theirs', label: 'They can take your pieces', type: 'bool', def: true },
+    { key: 'rabbitsEat', sub: 'theirs', label: 'Rabbits eat your pieces', type: 'bool', def: false,
+      help: 'Off: a rabbit that would land on one of your pieces waits instead.' },
+    { key: 'ballMove', sub: 'ball', label: 'The ball moves', type: 'choice', def: 'putt', options: opts(
+      ['ice', 'On ice'], ['putt', 'Like a putt'], ['bounce', 'Like a billiard ball'], ['hit', 'Hit by the pieces'], ['sticky', 'Sticky'], ['ghost', 'A ghost']),
+      help: 'On ice: up, down, left or right, and it rolls until something stops it. Like a putt: up, down, left or right, as far as you like. Like a billiard ball: diagonally, as far as you like, bouncing off the edges (the reflecting bishop from Billiards Chess). It never takes anything. Hit by the pieces: it never moves by itself; any piece, yours or theirs, that moves into it sends it sliding along the line of that move, like on ice, until something stops it. Sticky: like ice, but it stops beside the first thing it passes. A ghost: like ice, straight through pieces.' },
+    { key: 'ballCaptures', sub: 'ball', label: 'The ball captures', type: 'bool', def: true,
+      help: 'On: rolling or sliding into one of their pieces, the ball takes it and stops there. Off: it stops short, and never takes anything.' }
+  ] },
+  { ...part('control'), fields: [
+    { key: 'first', label: 'First move', type: 'choice', def: 'you', options: opts(['you', 'You'], ['them', 'Them']) },
+    { key: 'mode', sub: 'yours', label: 'Who moves your pieces', type: 'choice', def: 'hand', options: opts(['hand', 'You do'], ['auto', 'Rabbits (autochess)']),
+      help: 'Autochess: before the game you put rabbits you have caught into your pieces, choose which way each faces and the order of your line. Then it plays itself: each rabbit picks the way, its piece picks how, the same as theirs.' },
+    { key: 'autoPool', sub: 'yours', label: 'Your rabbits', type: 'choice', def: 'caught', options: opts(['caught', 'The ones you have caught'], ['all', 'Every named kind']),
+      help: 'For autochess. Caught: one rabbit for every time you caught its kind, in the descent or the daily.' },
+    { key: 'wait', sub: 'yours', label: 'Waiting allowed', type: 'bool', def: false,
+      help: 'Off: you must move a piece every turn (Timothy, 2026-10-10). A side with no move at all still passes.' },
+    { key: 'darkBrain', sub: 'theirs', label: 'Moved by', type: 'choice', def: 'possessed', options: opts(['possessed', 'A rabbit inside'], ['think', 'Thinking'], ['rabbit', 'One rabbit leads them']),
+      help: 'A rabbit inside: each piece is possessed by a rabbit, whose pattern decides which way it goes each turn (left, up, a pause); the piece\u2019s own moves decide how. One rabbit leads them (2026-10-13): their pieces think, and a single Rabbit, starting on their King, sets how: its trait is their mood (aggressive and hunter hunt, shy flees) and its intelligence how far ahead they look. It hops every turn by its own mind.' },
+    { key: 'skill', sub: 'theirs', label: 'Thinking skill', type: 'choice', def: '2', options: opts(
+      ['0', 'Random'], ['1', 'Greedy'], ['2', 'Two ahead'], ['3', 'Three ahead']), help: 'For pieces of theirs that think, and thinking rabbits.' },
+    { key: 'style', sub: 'theirs', label: 'Mood', type: 'choice', def: 'balanced', options: opts(['flee', 'Flee'], ['balanced', 'Balanced'], ['hunt', 'Hunt']) },
+    { key: 'kinds', sub: 'theirs', label: 'Kinds of rabbit inside', type: 'int', min: 1, max: 4, def: 1,
+      help: 'One kind: every piece moves to the same pattern (or has the same trait), so you can see it. More: each piece may have its own.' },
+    { key: 'oneMove', sub: 'theirs', label: 'They move one piece a turn', type: 'bool', def: true,
+      help: 'Like you. A piece that can take one of yours goes; otherwise their pieces take turns, in order. Off: every piece of theirs moves every turn. Loose rabbits always hop.' },
+    { key: 'foesWait', sub: 'theirs', label: 'They may stay put', type: 'bool', def: false,
+      help: 'Off: when they move one piece a turn, a piece of theirs always moves; if the one whose turn it is would rather stay, it moves anyway, and if it cannot, the next one goes. On: a rabbit may choose to stay where it is.' },
+    { key: 'rabbitMind', sub: 'rabbits', label: 'Rabbits move by', type: 'choice', def: 'mind', options: opts(['mind', 'A mind of their own'], ['pattern', 'A fixed pattern']),
+      help: 'A mind: every rabbit, loose or inside a piece, picks its own move each turn, by its trait and its intelligence. A fixed pattern: the old way, a hidden pattern that repeats.' },
+    { key: 'iq', sub: 'rabbits', label: 'Intelligence', type: 'int', min: 1, max: 10, def: 5,
+      help: 'For rabbits with minds. Low: fumbling, half blind to danger. High: sharp, sees what you could take, never boxes itself in.' },
+    { key: 'traits', sub: 'rabbits', label: 'Traits', type: 'multi', def: Object.keys(TRAITS), options: Object.entries(TRAITS).map(([v, t]) => ({ v, label: t.name })),
+      help: 'Which kinds of mind can turn up. Aggressive goes for you; Hunter for your strongest piece; Shy keeps away; Guard stays with its own side; Messy is all over the place; Habit keeps a learnable pattern but steps round trouble.' },
+    { key: 'rabbitBrain', sub: 'rabbits', label: 'Rabbits move by', type: 'choice', def: 'pattern', options: opts(['pattern', 'Hidden pattern'], ['ai', 'Thinking']) },
+    { key: 'patterns', sub: 'rabbits', label: 'Rabbit patterns', type: 'choice', def: 'all', options: opts(
       ['all', 'Every named kind'], ['daily', 'The daily set'], ['short', 'Random, 2 hops'], ['mid', 'Random, 3 to 4'], ['long', 'Random, 5 to 8'], ['wild', 'Random, big jumps']),
       help: 'For free rabbits and the ones inside pieces. Every named kind has its own colour; "every named kind" adds three that pause.' },
-    { key: 'hops', label: 'Rabbit hops per turn', type: 'int', min: 1, max: 3, def: 1 },
-    { key: 'tracks', label: 'Show rabbit tracks', type: 'bool', def: true },
-    { key: 'rabbitsEat', label: 'Rabbits eat your pieces', type: 'bool', def: false,
-      help: 'Off: a rabbit that would land on one of your pieces waits instead.' }
+    { key: 'hops', sub: 'rabbits', label: 'Rabbit hops per turn', type: 'int', min: 1, max: 3, def: 1 },
+    { key: 'realtime', sub: 'live', label: 'Kung fu: no turns', type: 'bool', def: false,
+      help: 'Real time, after Kung-Fu Chess (2002): move any piece of yours whenever it is ready, and so do they. A move takes time to travel, so a piece can dodge, and a piece that has moved rests before it moves again. Take their King.' },
+    { key: 'kfStep', sub: 'live', label: 'Travel time a square', type: 'int', min: 60, max: 2000, def: 300, unit: 'ms', help: 'Kung-Fu Chess\u2019s lightning speed is 200; its standard speed is 1,000.' },
+    { key: 'kfCool', sub: 'live', label: 'Your pieces rest for', type: 'int', min: 3, max: 100, def: 20, unit: 'tenths of a second', help: 'Lightning is 2 seconds (20); standard is 10 seconds (100).' },
+    { key: 'kfFoeCool', sub: 'live', label: 'Theirs rest for', type: 'int', min: 3, max: 100, def: 50, unit: 'tenths of a second', help: 'In a descent, their first level\u2019s; they get quicker each level down.' },
+    { key: 'kfFoeGap', sub: 'live', label: 'They start a move at most every', type: 'int', min: 2, max: 60, def: 18, unit: 'tenths of a second',
+      help: 'Their side plays like one opponent: one move at a time, this often at most. In a descent, their first level\u2019s; it shortens each level down.' }
   ] },
-  { group: 'Their pieces', fields: [
-    { key: 'foes', label: 'Pieces', type: 'int', min: 0, max: 8, def: 3, help: 'Dark versions of chess and fairy pieces.' },
-    { key: 'darkBrain', label: 'Moved by', type: 'choice', def: 'possessed', options: opts(['possessed', 'A rabbit inside'], ['think', 'Thinking'], ['rabbit', 'One rabbit leads them']),
-      help: 'A rabbit inside: each piece is possessed by a rabbit, whose pattern decides which way it goes each turn (left, up, a pause); the piece\u2019s own moves decide how. One rabbit leads them (2026-10-13): their pieces think, and a single Rabbit, starting on their King, sets how: its trait is their mood (aggressive and hunter hunt, shy flees) and its intelligence how far ahead they look. It hops every turn by its own mind.' },
-    { key: 'kinds', label: 'Kinds of rabbit inside', type: 'int', min: 1, max: 4, def: 1,
-      help: 'One kind: every piece moves to the same pattern (or has the same trait), so you can see it. More: each piece may have its own.' },
-    { key: 'foePool', label: 'Dealt from', type: 'pieces', rabbit: true, def: ['king', 'knight', 'bishop', 'rook'] },
-    { key: 'foeDupes', label: 'Repeats allowed', type: 'bool', def: true },
-    { key: 'mirror', label: 'Mirror your pieces instead', type: 'bool', def: false, help: 'They get a copy of your hand, facing you, like chess.' },
-    { key: 'foeRows', label: 'Start within the top', type: 'int', min: 1, max: 5, def: 1, unit: 'rows', help: 'Loose rabbits and the hole start up there too, lined up or not.' },
-    { key: 'skill', label: 'Thinking skill', type: 'choice', def: '2', options: opts(
-      ['0', 'Random'], ['1', 'Greedy'], ['2', 'Two ahead'], ['3', 'Three ahead']), help: 'For pieces of theirs that think, and thinking rabbits.' },
-    { key: 'style', label: 'Mood', type: 'choice', def: 'balanced', options: opts(['flee', 'Flee'], ['balanced', 'Balanced'], ['hunt', 'Hunt']) },
-    { key: 'foesCapture', label: 'They can take your pieces', type: 'bool', def: true },
-    { key: 'oneMove', label: 'They move one piece a turn', type: 'bool', def: true,
-      help: 'Like you. A piece that can take one of yours goes; otherwise their pieces take turns, in order. Off: every piece of theirs moves every turn. Loose rabbits always hop.' },
-    { key: 'foesWait', label: 'They may stay put', type: 'bool', def: false,
-      help: 'Off: when they move one piece a turn, a piece of theirs always moves; if the one whose turn it is would rather stay, it moves anyway, and if it cannot, the next one goes. On: a rabbit may choose to stay where it is.' }
-  ] },
-  { group: 'Winning', fields: [
+  { ...part('goal'), fields: [
     { key: 'goal', label: 'How you win', type: 'choice', def: 'king', options: opts(
       ['descent', 'Catch them, then the ball'], ['all', 'Capture them all'], ['king', 'Take their King'], ['rabbit', 'Catch the rabbit'],
       ['any', 'Catch any one'], ['target', 'A marked one'], ['hole', 'Sink the ball'], ['mix', 'Mix it up']),
       help: 'Catch them, then the ball: the hole stays shut until every possessed piece and loose rabbit is caught, then sink the ball in it. King and rabbit make sure they have one. Sink the ball gives you a ball and a moving hole. Mix picks capture, King or rabbit per layout.' },
+    { key: 'royal', label: 'Your King is royal', type: 'bool', def: true, help: 'Lose the King, lose the game.' },
     { key: 'holeMoves', label: 'The hole moves by', type: 'choice', def: 'daily', options: opts(
       ['still', 'Staying put'], ['daily', 'The daily set'], ['short', 'Random, 2 hops'], ['mid', 'Random, 3 to 4'], ['long', 'Random, 5 to 8']),
       help: 'Only when there is a hole. A hidden pattern, like a rabbit\u2019s.' },
-    { key: 'ballMove', label: 'The ball moves', type: 'choice', def: 'putt', options: opts(
-      ['ice', 'On ice'], ['putt', 'Like a putt'], ['bounce', 'Like a billiard ball'], ['hit', 'Hit by the pieces'], ['sticky', 'Sticky'], ['ghost', 'A ghost']),
-      help: 'On ice: up, down, left or right, and it rolls until something stops it. Like a putt: up, down, left or right, as far as you like. Like a billiard ball: diagonally, as far as you like, bouncing off the edges (the reflecting bishop from Billiards Chess). It never takes anything. Hit by the pieces: it never moves by itself; any piece, yours or theirs, that moves into it sends it sliding along the line of that move, like on ice, until something stops it. Sticky: like ice, but it stops beside the first thing it passes. A ghost: like ice, straight through pieces.' },
-    { key: 'ballCaptures', label: 'The ball captures', type: 'bool', def: true,
-      help: 'On: rolling or sliding into one of their pieces, the ball takes it and stops there. Off: it stops short, and never takes anything.' },
     { key: 'ballStops', label: 'Ball must stop on the hole', type: 'bool', def: false,
       help: 'Off: it drops in when it rolls over the hole. On: it has to come to rest there.' },
-    { key: 'showdown', label: 'Two left: the board closes in', type: 'bool', def: true,
-      help: 'Once only one piece of yours and one of theirs are left, the edge falls away every move, round and inward, until they meet. A square with a piece on it never falls.' },
     { key: 'maxMoves', label: 'Move limit', type: 'int', min: 0, max: 60, def: 20, help: '0 means no limit.' },
-    { key: 'first', label: 'First move', type: 'choice', def: 'you', options: opts(['you', 'You'], ['them', 'Them']) },
+    { key: 'showdown', label: 'Two left: the board closes in', type: 'bool', def: true,
+      help: 'Once only one piece of yours and one of theirs are left, the edge falls away every move, round and inward, until they meet. A square with a piece on it never falls.' }
+  ] },
+  { ...part('difficulty'), fields: [
+    { key: 'difficulty', label: 'Difficulty', type: 'choice', def: 'any', options: opts(['any', 'Any'], ['easy', 'Easy (1 to 3)'], ['normal', 'Normal (4 to 6)'], ['hard', 'Hard (7 to 8)'], ['brutal', 'Brutal (9 to 10)']),
+      help: 'Measured by a novice bot playing the level two dozen times (metrics.js): how often it loses, and how long the shortest win is. Needs the solver.' },
+    { key: 'aim', label: 'Aim for difficulty', type: 'int', min: 0, max: 10, def: 0, unit: 'of 10',
+      help: 'A number in place of a band: the level must measure within one of it (1 aims at 1 to 2). 0 uses the band above. The descent sets this itself, level by level.' },
+    { key: 'minEngage', label: 'Engaging, at least', type: 'int', min: 0, max: 90, def: 0, unit: 'of 100',
+      help: 'A first guess at how engaging a level is: choices that matter, pieces used, tension, comebacks. 0 lets anything through.' },
+    { key: 'minCeiling', label: 'Skill ceiling, at least', type: 'int', min: 0, max: 30, def: 0, unit: 'tenths',
+      help: 'How much faster an expert wins than a novice: 10 means twice as fast. A high ceiling is easy to win in many moves and hard to win in few. 0 lets anything through.' },
     { key: 'solve', label: 'Only deal winnable levels', type: 'bool', def: true,
       help: 'The solver plays each layout first and throws out any it cannot win in time. It also sets par.' },
     { key: 'parMax', label: 'Winnable within', type: 'int', min: 2, max: 15, def: 10, unit: 'moves' },
     { key: 'parMin', label: 'But not in fewer than', type: 'int', min: 1, max: 12, def: 3, unit: 'moves' },
     { key: 'balance', label: 'Balance rules', type: 'choice', def: 'on', options: opts(['off', 'Off'], ['on', 'On'], ['strict', 'Strict']),
       help: 'On: no piece on either side can capture on its first move, every piece of yours can move at the start, and every strange piece (fairy pieces, and the grasshopper-like ones that need the right circumstances) has a job: it makes a catch in the winning line, or the level is worse without it. Strict: every piece has a job. Needs the solver.' }
+  ] },
+  { ...part('information'), fields: [
+    { key: 'showReach', label: 'Show where theirs can go', type: 'bool', def: true,
+      help: 'A purple ring on every square their pieces\u2019 moves cover, updating as pieces move: the squares that are dangerous to stand on (Timothy, 2026-10-10 and 11). It includes squares under their own pieces that another of theirs guards, and a pawn\u2019s diagonals even when empty (2026-10-12).' },
+    { key: 'showMyReach', label: 'Show where yours can go', type: 'bool', def: false,
+      help: 'A gold ring on every square one of your pieces could move to. Off by default (2026-10-11: "less useful and muddies the board"); tapping a piece still lights its own squares.' },
+    { key: 'showGuards', label: 'Shields on guarded pieces', type: 'bool', def: true,
+      help: 'A piece of yours that another of yours would avenge (if it were taken there, yours could take back on that square) wears a shield, which falls into place with a clink when it becomes guarded: silver for one guard, gold for two or more.' },
+    { key: 'showBeacons', label: 'Beacons on what can be taken', type: 'bool', def: true,
+      help: 'A beam of light rises from what could be taken next: purple from a piece of yours they could take on their next move if it stays (on your King, that is check), green from a piece of theirs you can take now (Timothy, 2026-10-11).' },
+    { key: 'showPins', label: 'Needles through pinned pieces', type: 'bool', def: true,
+      help: 'A piece pinned to its King (it stands between its King and a piece of the other side, so moving it would leave the King to be taken) has a sewing needle driven down through it, which drops in from above when the pin starts (Timothy, 2026-10-13). Yours and theirs, wherever losing the King loses. The rules still let it move: moving it loses.' },
+    { key: 'tracks', label: 'Show rabbit tracks', type: 'bool', def: true }
   ] }
+
 ];
 
 const FIELDS = SCHEMA.flatMap((g) => g.fields);

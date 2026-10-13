@@ -21,9 +21,9 @@ import { FUR, FUR_WORD, caughtRabbits, recordCatch } from '../rabbits.js';
 import { makeBoard } from '../board3d.js';
 import { startFall } from '../fall.js';
 import { fillMenu } from '../menu.js';
-import { buildForm, FORM_CSS } from '../form.js';
+import { buildForm, FORM_CSS, partsList } from '../form.js';
 import { loadCatalog, registerInvented } from '../invented.js';
-import { MODES, modeSettings, saveModeSettings, resetModeSettings, cleanMode, PANEL, levelSettings, COURSES, COURSE_ORDER, holesOf, settingShown, settingNote } from '../modes.js';
+import { MODES, modeSettings, saveModeSettings, resetModeSettings, cleanMode, PANEL, levelSettings, COURSES, COURSE_ORDER, holesOf, settingShown, settingNote, describe, partLine } from '../modes.js';
 import {
   newRun, rewardsFor, applyReward, cardText, handSettings, afterLevel, pieceOf, SUITS, JOKERS,
   WAYSTONES, litWaystones, newlyLit, startChoices, keepsakeCards, acornsFor, priceOf, shopStock,
@@ -977,6 +977,7 @@ async function prepareTitle() {
   show('title');
   $('#modename').textContent = MODE.name;
   $('#modeblurb').textContent = MODE.blurb;
+  $('#modeparts').replaceChildren(partsList(describe(M)));
   $('#records').textContent = recordsLine();
   $('#testnote').hidden = !test;
   if (test) $('#testnote').textContent = 'Settings from Chaos: a test run. Nothing is kept.';
@@ -1068,7 +1069,7 @@ function openSettings() {
   if (!formBuilt) {
     formBuilt = true;
     updateForm = buildForm($('#form'), PANEL, () => M, (k, v) => { M = cleanMode({ ...M, [k]: v }); if (!test) saveModeSettings(modeId, M); updateForm(); },
-      (g) => g === 'The mode' || g === 'Difficulty', { show: settingShown, note: settingNote });
+      (g) => g === 'Format' || g === 'Difficulty', { show: settingShown, note: settingNote, line: partLine });
   } else updateForm();
 }
 
