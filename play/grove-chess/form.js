@@ -13,10 +13,12 @@ import { sprite } from './board.js';
  * which groups start open. Returns `update()`, which repaints every control
  * from get() (call it after the settings change from outside).
  */
-export function buildForm(root, groups, get, set, open = () => false, { show = () => true, note = () => '' } = {}) {
+export function buildForm(root, groups, get, set, open = () => false, { show = () => true, note = () => '', line = () => '' } = {}) {
   // `show(key, settings)` hides what does not apply (a mode's own settings
   // only, and a setting only when another one makes it matter); `note`
-  // adds words to a label (the descent's "first level, then climbs").
+  // adds words to a label (the descent's "first level, then climbs");
+  // `line(part, settings)` is a group's answer as it stands, shown under its
+  // name (the eight parts of a mode, 2026-10-13: modes.js describe).
   const updaters = [];
 
   function field(f) {
@@ -80,8 +82,24 @@ export function buildForm(root, groups, get, set, open = () => false, { show = (
   }
 
   for (const g of groups) {
-    const box = el('details', { class: 'group', open: open(g.group) }, el('summary', {}, g.group), ...g.fields.map(field));
-    updaters.push(() => { box.hidden = !g.fields.some((f) => show(f.key, get())); });
+    // Its fields, with a heading wherever the sub-heading changes (Yours,
+    // Theirs...), hidden with the last of its fields.
+    const rows = [];
+    let at = null, under = null;
+    for (const f of g.fields) {
+      if ((f.sub || null) !== at) {
+        at = f.sub || null;
+        const name = at && (g.subs || []).find(([id]) => id === at)?.[1];
+        under = name ? { head: el('p', { class: 'fsub' }, name), keys: [] } : null;
+        if (under) { const u = under; rows.push(u.head); updaters.push(() => { u.head.hidden = !u.keys.some((k) => show(k, get())); }); }
+      }
+      if (under) under.keys.push(f.key);
+      rows.push(field(f));
+    }
+    const now = el('span', { class: 'gline' });
+    const box = el('details', { class: 'group', open: open(g.group) },
+      el('summary', {}, el('span', { class: 'gname' }, g.group), now), g.ask ? el('p', { class: 'gask' }, g.ask) : null, ...rows);
+    updaters.push(() => { box.hidden = !g.fields.some((f) => show(f.key, get())); now.textContent = line(g.part, get()) || ''; });
     root.append(box);
   }
   const update = () => updaters.forEach((u) => u());
@@ -89,10 +107,24 @@ export function buildForm(root, groups, get, set, open = () => false, { show = (
   return update;
 }
 
+/** A mode's eight lines (modes.js describe) as a list: each part's name,
+    then its answer. */
+export function partsList(lines) {
+  return el('dl', { class: 'parts' }, ...lines.flatMap((l) => [el('dt', { title: l.ask }, l.name), el('dd', {}, l.text)]));
+}
+
 /** The form's styles, for pages that do not have them yet. */
 export const FORM_CSS = `
   .group { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 4px 14px 10px; margin: 12px 0; }
   .group > summary { font-size: 17px; font-weight: 700; color: var(--text); padding: 10px 0; }
+  .group > summary .gline { display: block; font-size: 13px; font-weight: 400; color: var(--dim); margin-top: 2px; }
+  .group > summary .gline:empty { display: none; }
+  .gask { margin: 0 0 6px; font-size: 13px; font-style: italic; color: var(--dim); }
+  .fsub { margin: 14px 0 0; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }
+  .parts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 12px; margin: 8px 0 0; font-size: 14px; text-align: left; }
+  .parts dt { font-weight: 700; color: var(--text); }
+  .parts dd { margin: 0; color: var(--dim); }
+  details.partsbox > summary { font-size: 14px; font-weight: 600; color: var(--accent); cursor: pointer; }
   .field { display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
   .field.wide { grid-template-columns: 1fr; }
   .flabel { font-size: 15px; font-weight: 600; }

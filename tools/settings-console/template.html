@@ -98,6 +98,11 @@ summary::-webkit-details-marker { display: none; }
 /* Modes */
 .group { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 4px 14px; }
 .group > h3 { padding: 10px 0 6px; }
+.group > .ask { margin: -2px 0 6px; font-size: 13px; font-style: italic; color: var(--dim); }
+.group > .sub { margin: 12px 0 2px; }
+.parts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px; margin: 0 0 12px; font-size: 14px; }
+.parts dt { font-weight: 600; }
+.parts dd { margin: 0; color: var(--dim); }
 .row { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 6px 16px; padding: 10px 0; border-top: 1px solid var(--line); align-items: start; }
 .row:first-of-type { border-top: 0; }
 .row .what { display: grid; gap: 2px; min-width: 0; }
@@ -160,6 +165,7 @@ pre.file { background: var(--sunk); border: 1px solid var(--line); border-radius
     <div class="intro"><p class="dim" style="margin:0">A mode is a collection of settings. Each mode below shows only the settings it uses, at its preset. Change one and it is marked; the game takes it as that mode's new preset.</p></div>
     <div class="chips" id="modechips"></div>
     <p id="modeblurb" class="dim" style="margin:0"></p>
+    <section class="group" aria-labelledby="partshead"><h3 id="partshead">The preset in eight parts</h3><dl class="parts" id="modeparts"></dl></section>
     <div id="modegroups" style="display:grid;gap:12px"></div>
   </main>
 
@@ -346,10 +352,20 @@ function paintModes() {
       C.modes[id] ? el('span', { class: 'mono', style: 'margin-left:5px' }, String(Object.keys(C.modes[id]).length)) : null)));
   const M = DATA.modes[mode];
   document.getElementById('modeblurb').textContent = M.blurb;
+  document.getElementById('modeparts').replaceChildren(...(M.parts || []).flatMap((l) => [el('dt', {}, l.name), el('dd', {}, l.text)]));
+  // The eight parts (2026-10-13): each with its question, and a heading
+  // wherever the settings move from yours to theirs and so on.
   const groups = DATA.groups.map((g) => {
     const keys = g.fields.map((f) => f.key).filter((k) => M.shown.includes(k));
     if (!keys.length) return null;
-    return el('section', { class: 'group' }, el('h3', {}, g.group), ...keys.map((k) => settingRow(FIELD[k], M)));
+    const rows = [];
+    let at = null;
+    for (const k of keys) {
+      const f = FIELD[k];
+      if ((f.sub || null) !== at) { at = f.sub || null; const name = at && (g.subs || []).find(([id]) => id === at)?.[1]; if (name) rows.push(el('p', { class: 'label sub' }, name)); }
+      rows.push(settingRow(f, M));
+    }
+    return el('section', { class: 'group' }, el('h3', {}, g.group), g.ask ? el('p', { class: 'ask' }, g.ask) : null, ...rows);
   }).filter(Boolean);
   document.getElementById('modegroups').replaceChildren(...groups);
 }

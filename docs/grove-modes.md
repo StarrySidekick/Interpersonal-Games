@@ -6,6 +6,9 @@ make some new modes easily."
 
 ## How it is built
 
+- **Eight parts.** Every setting belongs to one of the eight parts of a
+  mode (`PARTS` in `lab.js`, 2026-10-13; see "The eight parts of a mode"
+  below), and every settings panel is grouped by them.
 - **Two layers of settings, one flat set.** Run settings (`RUN_SCHEMA` in
   `modes.js`): what a session is (one level, a descent, a golf course,
   autochess rounds), how each level is chosen (from the settings, rolled
@@ -817,6 +820,197 @@ timing, ghosts make opening your own row a choice), discovery (four new
 things in the catalog). Gaps: different armies on each side are only
 "any order" of the same pieces; Kung fu descent (real time) has none of the
 new pieces.
+
+## The eight parts of a mode (2026-10-13, last)
+
+Timothy listed what a mode is made of: "piece set (what pieces are
+present), piece position (where they are placed) ... board size & shape &
+type, are there rounds/levels or just single matches, can pieces change
+over time like getting upgrades or stuff between rounds, what is the win
+condition, is it turn based, live, or automatic, how difficult is it, and
+does it get more difficult over time, is there an enemy side and how do
+they work as compared to you". Refined with him into eight parts, each a
+question every mode answers:
+
+| Part | The question | Settings (of 100) |
+|---|---|---|
+| Format | One match or a series, and what ends it? | 7 |
+| Board | What is it played on? | 16 |
+| Armies | What does each side have, and where does it stand? | 23 |
+| Control | Who moves each side, and when? | 21 |
+| Goal | How do you win, how do you lose, and what ends a game that stalls? | 6 |
+| Growth | What changes between the games of a series? | 11 |
+| Difficulty | How hard is it, how does it climb, and what must every level pass? | 10 |
+| Information | What can each side see, and which hints show? | 6 |
+
+What changed from his list, and why:
+
+- **Piece set and piece position are one part, Armies.** Where pieces
+  stand only means something next to which pieces they are. Placement
+  comes five ways: a fixed line (the descent's), dealt at random, laid out
+  by you before the first move, square by square (Custom), or found by the
+  search.
+- **The enemy side is not a part of its own.** Armies and Control are each
+  set for both sides (the panels say Yours and Theirs), so "how they
+  compare to you" is whether the two sides' answers match. That is
+  *symmetry*: chess is symmetric in both; the descent gives both sides the
+  same army but gives theirs a rabbit for a mind.
+- **"Turn based, live, or automatic" was two questions**: who moves a side
+  (you, a bot, rabbits) and when (turns, or real time). They are
+  independent, so both sit under Control: autochess is turn-based and
+  automatic, Kung fu live and by hand.
+- **Pieces that change within a game** (a suit that moves twice, the edge
+  falling away) are rules of Armies and Board. Growth is only what changes
+  between games.
+- **Difficulty is a target, not a dial.** The game builds a level from the
+  other seven, a bot plays it to measure it, and it is dealt again until it
+  lands (`metrics.js`). So Difficulty constrains the others: the band to
+  aim at, how it climbs, and what every level must pass (winnable, par,
+  balance).
+- **Information is new.** Wandering clouds made it a rule: the same board
+  with and without hidden pieces is a different game. It also holds the
+  hints (reach rings, shields, beacons, needles).
+
+Across all eight, each value has a **source**: fixed by the mode, chosen
+by you, rolled from a seed, or found by the search. That is what tells the
+modes apart as much as the values do. The daily rolls everything once from
+the date, so everyone gets the same board; Chaos rolls everything; the
+descent fixes its first board and rolls its upgrades; Custom lets you
+choose everything and hands placement to the search when you ask.
+
+In code (`lab.js`, `modes.js`, `form.js`):
+
+- `PARTS` lists the eight with their questions and the headings inside
+  them (Board: Neutral pieces; Armies: Yours, Theirs, The ball; Control:
+  Yours, Theirs, Rabbits, Real time). Each schema group is one part
+  (`part(id)`), each field may carry a `sub`, and `PANEL` merges the run
+  and level settings part by part. Regrouping changed no setting: every
+  default, every mode's preset and every link reads as before (checked
+  field by field), and only two help texts that said "below" or "under
+  their pieces" were reworded.
+- `describe(S)` says any mode or level in eight lines, one for each part,
+  from its settings, so it cannot go stale. Each part's line is shown
+  under its name in every settings panel and changes as you change a
+  setting; the runner's title screen has "This mode in eight parts" and
+  Custom "This game in eight parts"; the settings console shows each
+  mode's preset in eight parts and its settings grouped the same way.
+
+Writing the lines turned up one thing worth knowing: the descent's
+Difficulty is "not searched". Since one upgrade a board (2026-10-13), each
+board is the two lines as they stand, with no solver and no measure; what
+climbs is their rabbit's intelligence (from 3, about one point every three
+boards at the steady ramp) and the upgrades they collect. Its aim and par
+settings still exist but do nothing there.
+
+Every mode, at its preset, in eight parts (from `describe`):
+**The daily** (`daily`)
+
+| Part | The daily |
+|---|---|
+| Format | One game at a time, each rolled the way the daily is. |
+| Board | Rolled: its size, its shape and everything on it. |
+| Armies | Rolled with the board, a full row each, lined up like chess. |
+| Control | You move yours; one rabbit leads theirs: their pieces think, and its mind (intelligence 3 to 5) sets their mood. Turns, yours first. |
+| Goal | Rolled with the board, with at least 18 moves. |
+| Growth | None: each game stands alone. |
+| Difficulty | Aims at 4 of 10; each board searched to be winnable in 4 to 10 moves, balanced, engaging (at least 50 of 100) and with a high skill ceiling. |
+| Information | Both sides see the whole board. Hints: where theirs can go, shields on guarded pieces, beacons on what can be taken and needles through pinned pieces. |
+
+**The descent** (`descent`)
+
+| Part | The descent |
+|---|---|
+| Format | A descent: board after board, deeper each time, until they take your King. Running out of moves drops you to the next board, with nothing found. |
+| Board | 5 × 6 rectangle, with a row of ghosts in front of each side. |
+| Armies | Yours: Tall rook, Bishop, King, Knight, Short rook, in that order. Theirs: the same, reversed. Lined up like chess. |
+| Control | You move yours; one rabbit leads them: their pieces think, and its mind (intelligence 3) sets their mood. Turns, yours first; one piece a side each turn. |
+| Goal | Take their King; lose your King and you lose. A limit of 20 moves; with one piece left each, the board closes in. |
+| Growth | Each new board, both sides get an upgrade: you choose one of two (a piece to combine, or a suit), they get one at random; the board is 7 × 7 from depth 6 and fairy pieces from depth 4. |
+| Difficulty | Not searched: each board is the two lines as they stand. What climbs is their rabbit’s intelligence, from 3, steadily, and the upgrades they get. |
+| Information | Both sides see the whole board. Hints: where theirs can go, shields on guarded pieces, beacons on what can be taken and needles through pinned pieces. |
+
+**Kung fu descent** (`kungfu`)
+
+| Part | Kung fu descent |
+|---|---|
+| Format | A descent: board after board, deeper each time, until they take your King. Running out of moves drops you to the next board, with nothing found. |
+| Board | 6 × 6 square, with one statue either side can take. |
+| Armies | Yours: 6 from Knight, Bishop, Rook, King. Theirs: a full row from King, Pawn, Knight, Bishop. Lined up like chess; you lay yours out first. |
+| Control | You move yours; a rabbit inside each of theirs picks its way, by its own mind (intelligence 3). No turns: any piece moves when it is ready, and theirs too. |
+| Goal | Take their King; lose your King and you lose. No move limit. |
+| Growth | Finishing a board finds you a piece, up to 8, then upgrades and jokers; fairy pieces from depth 4 and what you find carries over to later descents. |
+| Difficulty | Starts at 1 of 10 and climbs steadily, their pieces resting less each board; each board searched to be winnable in 3 to 10 moves and balanced. |
+| Information | Both sides see the whole board. Hints: where theirs can go, shields on guarded pieces, beacons on what can be taken and needles through pinned pieces. |
+
+**Chaos** (`chaos`)
+
+| Part | Chaos |
+|---|---|
+| Format | One game at a time, each rolled completely at random. |
+| Board | 6 × 6; its shape and everything on it rolled. |
+| Armies | Rolled with the board, lined up like chess. |
+| Control | You move yours; how theirs move is rolled. Turns, yours first. |
+| Goal | Take their King; lose your King and you lose. The move limit is rolled; with one piece left each, the board closes in. |
+| Growth | None: each game stands alone. |
+| Difficulty | Normal (4 to 6); each board searched to be winnable and balanced. |
+| Information | Both sides see the whole board. Hints: where theirs can go, shields on guarded pieces, beacons on what can be taken and needles through pinned pieces. |
+
+**Golf** (`golf`)
+
+| Part | Golf |
+|---|---|
+| Format | A golf course: The Meadow, 6 holes, strokes against par. |
+| Board | Each hole its own, 6 × 6 to start, changing as the course goes round. |
+| Armies | Yours: 3 from Rook, Bishop, Knight, King, Wazir and 2 more, and a ball: putting and sticky. Theirs: none; one loose rabbit. Scattered in the first 2 rows; you lay yours out first. |
+| Control | You move yours; a loose rabbit hops by its own mind (intelligence 4). Turns, yours first; one piece a side each turn. |
+| Goal | Sink the ball in as few strokes as you can. At most 15 strokes a hole. |
+| Growth | Nothing between holes; the course itself changes as it goes round. |
+| Difficulty | Any difficulty; each hole searched to be winnable in 3 to 9 strokes and balanced. |
+| Information | Both sides see the whole board. Hints: where theirs can go, shields on guarded pieces, beacons on what can be taken and needles through pinned pieces. |
+
+**Chess variants** (`variants`)
+
+| Part | Chess variants |
+|---|---|
+| Format | One game of Gardner minichess, from its own starting position. |
+| Board | 5 × 5, the variant’s own board. |
+| Armies | Yours: King, Queen, Rook, Knight, Bishop and 5 Pawns. Theirs: the same. As the variant stands them. |
+| Control | You move yours; they think two moves ahead. Turns, yours first; one piece a side each turn. |
+| Goal | Take their King. No move limit. |
+| Growth | None: each game stands alone. |
+| Difficulty | Not measured: it plays as it stands. |
+| Information | Both sides see the whole board. Hints: where theirs can go, shields on guarded pieces, beacons on what can be taken and needles through pinned pieces. |
+
+**Piece trials** (`trials`)
+
+| Part | Piece trials |
+|---|---|
+| Format | One game, from a set position. |
+| Board | The position’s own board. |
+| Armies | As the position stands them. |
+| Control | You move yours; they think two moves ahead. Turns, yours first; one piece a side each turn. |
+| Goal | Take their King; lose your King and you lose. No move limit. |
+| Growth | None: each game stands alone. |
+| Difficulty | Not measured: it plays as it stands. |
+| Information | Both sides see the whole board. Hints: where theirs can go, shields on guarded pieces, beacons on what can be taken and needles through pinned pieces. |
+
+**Autochess** (`autochess`)
+
+| Part | Autochess |
+|---|---|
+| Format | Autochess rounds, until you have lost 3 lives. |
+| Board | 6 × 6 square, with one statue either side can take. |
+| Armies | Yours: 3 from Knight, Bishop, Rook, King. Theirs: 2 from King, Knight, Bishop, Wazir. Lined up like chess. |
+| Control | Rabbits move yours, once you have set them up; a rabbit inside each of theirs picks its way, by its own mind (intelligence 4). Turns, yours first; every piece of yours moves, then every piece of theirs. |
+| Goal | Capture them all. A limit of 20 moves. |
+| Growth | Win rounds to grow your side, up to 6, buying pieces and upgrades with acorns. |
+| Difficulty | Any difficulty, climbing steadily; each board searched to be won by some setup within 20 turns and balanced. |
+| Information | Both sides see the whole board. Hints: where theirs can go, shields on guarded pieces, beacons on what can be taken and needles through pinned pieces. |
+
+Paths moved: customization (Timothy's own bench: a mode is now eight
+answers he can read and change part by part), mastery a little (a player
+can see what a mode is before playing it). Out on purpose: the eight are
+his categories, kept in his words; no setting was renamed or removed.
 
 ## The modes
 
