@@ -836,6 +836,16 @@ export function scene(day, s = null, fur = () => null) {
 }
 
 /** The size of canvas a board's scene needs, and where its centre goes. */
+/** Show a pixel-art canvas on the page as big as fits in `room` CSS pixels
+    (its parent's width if not given), but only by a whole number of the
+    screen's pixels per pixel, so every pixel is the same size and square
+    (2026-10-13). */
+export function crispWidth(canvas, room = canvas.parentElement?.clientWidth || canvas.width) {
+  const dpr = window.devicePixelRatio || 1, k = Math.max(1, Math.floor((room * dpr) / canvas.width));
+  canvas.style.width = `${(canvas.width * k) / dpr}px`;
+  canvas.style.imageRendering = 'pixelated';
+}
+
 export function sceneFrame(day, pitch, scale) {
   const hd = (Math.max(day.W, day.H) * T / 2 + 3) * Math.SQRT2;
   const top = Math.ceil((hd * Math.sin(pitch) + 15 * Math.cos(pitch)) * scale + 10);

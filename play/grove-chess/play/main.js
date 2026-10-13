@@ -13,7 +13,7 @@ import {
   allMoves, holeOpen, crumbled, shrunk, apply, showdown, firstCaptures, onBoard, leaderDesc
 } from '../rules.js';
 import { solveLevel } from '../solve.js';
-import { scene, sceneFrame, sprite } from '../board.js';
+import { scene, sceneFrame, sprite, crispWidth } from '../board.js';
 import { piecesSheet } from '../sheet.js';
 import { playIntro } from '../intro.js';
 import { makeLevel, searchLayouts, decodeLevel, rabbitPool, GOAL_PILL, summary } from '../lab.js';
@@ -998,6 +998,7 @@ async function previewFirst() {
   const first = makeLevel(f.settings, f.seed);
   pframe = sceneFrame(first, pitch, pscale);
   pv.width = pframe.w; pv.height = pframe.h;
+  crispWidth(pv, Math.min(440, pv.parentElement?.clientWidth || 440));
   ptarget = makeTarget(pv.width, pv.height);
   pmesh = scene(first, initialState(first), furOf);
   $('#begin').disabled = false;

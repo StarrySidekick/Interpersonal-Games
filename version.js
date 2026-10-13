@@ -2,7 +2,7 @@
 // main: one more for every push (2026-10-11). Shown at the foot of the home
 // page and of every Grove Chess page's menu. Do not edit by hand.
 export const RELEASE = {
-  "number": 51,
+  "number": 52,
   "date": "2026-10-13",
-  "note": "Every setting grouped into the eight parts of a mode (Format, Board, Armies, Control, Goal, Growth, Difficulty, Information), and every mode described in eight lines"
+  "note": "Crisp pixels with no smoothing and no shadow over the board; the descent mirrored; no reach shown for the leading rabbit"
 };

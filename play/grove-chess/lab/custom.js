@@ -76,7 +76,7 @@ function makePool() {
 // --- What Custom keeps, with the workshop's notebook. --------------------------
 
 const DEFAULT = {
-  on: false, army: [{ t: 'tallrook' }, { t: 'bishop' }, { t: 'king' }, { t: 'knight' }, { t: 'shortrook' }], facing: 'turned',
+  on: false, army: [{ t: 'tallrook' }, { t: 'bishop' }, { t: 'king' }, { t: 'knight' }, { t: 'shortrook' }], facing: 'mirror',
   pawnsFront: true, spread: true, findFacing: 'all', firstCapture: true, mine: true, effort: 'quick', weave: null, layout: null
 };
 // Each with the rules it is played by: a board with nothing on it but the
@@ -84,7 +84,7 @@ const DEFAULT = {
 // and its showdown).
 const PLAIN = { ghosts: false, statueRow: false, statues: 0, gates: 0, clouds: 0, cloud: false, showdown: false, shape: 'rect', holes: 0, ground: 'solid', magic: 'none', geared: false, rabbits: 0 };
 const PRESETS = [
-  { name: 'The descent’s', army: ['tallrook', 'bishop', 'king', 'knight', 'shortrook'], w: 5, h: 6, facing: 'turned', rules: { ...PLAIN, ghosts: true, showdown: true, maxMoves: 20 } },
+  { name: 'The descent’s', army: ['tallrook', 'bishop', 'king', 'knight', 'shortrook'], w: 5, h: 6, facing: 'mirror', rules: { ...PLAIN, ghosts: true, showdown: true, maxMoves: 20 } },
   { name: 'Microchess', army: ['rook', 'bishop', 'knight', 'king', 'pawn'], w: 4, h: 5, facing: 'mirror', rules: { ...PLAIN, maxMoves: 40 } },
   { name: 'Gardner minichess', army: ['rook', 'knight', 'bishop', 'queen', 'king', ...Array(5).fill('pawn')], w: 5, h: 5, facing: 'mirror', rules: { ...PLAIN, maxMoves: 50 } },
   { name: 'Los Alamos', army: ['rook', 'knight', 'queen', 'king', 'knight', 'rook', ...Array(6).fill('pawn')], w: 6, h: 6, facing: 'mirror', rules: { ...PLAIN, maxMoves: 60 } },
@@ -198,7 +198,7 @@ export function mountCustom(hooks) {
         paint();
       } }, p.name)));
       $('#armyfields').replaceChildren(...[
-        field('Their side', 'Mirrored: each piece opposite its twin, like chess. Turned: yours read the other way, as if the board were spun round (the descent’s).', seg('facing', [['mirror', 'Mirrored'], ['turned', 'Turned']])),
+        field('Their side', 'Mirrored: each piece opposite its twin, like chess. Turned: yours read the other way, as if the board were spun round.', seg('facing', [['mirror', 'Mirrored'], ['turned', 'Turned']])),
         field('Pieces that never move back stand in front', 'As pawns do in chess. Off: your order fills the back row first.', seg('pawnsFront', [[true, 'On'], [false, 'Off']])),
         C.layout?.found ? el('p', { class: 'small', style: 'color:var(--warm);margin:8px 0 0' }, 'Using a layout the search found. Change the army, or ', el('button', { class: 'linkish', onclick: () => { C.layout = null; changed(); } }, 'go back to your order'), '.') : null].filter(Boolean));
     }

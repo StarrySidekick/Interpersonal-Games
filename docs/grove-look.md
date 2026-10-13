@@ -57,15 +57,28 @@ little blurry where 16-bit games look sharp and pixelly.
    pixel, or to the square under it; a lit square behind a tall piece still
    takes the tap. Seen from above, anything falling away shrinks into the
    dark. Add `?flat` to any page for the old board.
-2. **Soft, not crisp.** *Built.* The board is drawn about 260 pixels across
-   and smoothed up by the browser. On a phone it runs the full width of the
-   screen, past the page's margins, with only a thin band of forest round
-   it (Timothy, 2026-10-06: it read too small); its height is capped so the
-   status line under it stays on screen.
-3. **Fog.** *Built.* The board sits in a pool of light in a dark clearing,
-   ringed by the tops of low-poly pines, with fog toward the back and
-   darkness all round, in both modes. It sits over a pit in the forest
-   floor, which is where it falls in the descent.
+2. **Crisp, not soft** (2026-10-13; until then *soft, not crisp*). The
+   board is drawn about 260 pixels across and enlarged in square pixels,
+   with no smoothing. Timothy: "that anti-aliasing shouldn't be there."
+   Smoothing (*bilinear filtering*: each screen pixel blends the four
+   picture pixels nearest it) had blurred every edge, and a stretch of
+   1.45 times made pixels uneven too. Now the picture's resolution is
+   chosen from the screen so each pixel covers a whole number of the
+   screen's own (four on a 3x phone, three on a 2x one), the browser
+   enlarges it *nearest-neighbour* (each screen pixel takes the one
+   picture pixel under it), and the reach rings are filled as rectangles
+   on the picture's pixels rather than drawn as lines, which the browser
+   would anti-alias. The title's turning preview is enlarged the same way.
+   On a phone it runs nearly the full width of the screen, past the page's
+   margins, with only a thin band of forest round it (Timothy, 2026-10-06:
+   it read too small); its height is capped so the status line under it
+   stays on screen.
+3. **Fog.** *Built, then turned off* (2026-10-13). The board sits in a
+   clearing ringed by the tops of low-poly pines, over a pit in the forest
+   floor, which is where it falls in the descent. A layer of fog toward
+   the back and darkness all round (a *vignette*, up to 78% black at the
+   corners), "the pool of light", lay over the whole picture; Timothy saw
+   it as a shadow over the screen and asked for it off.
 4. **A camera that breathes.** Not built. It means drawing every frame all
    the time, which costs battery; worth trying once the frame rate is known
    on a real phone.
@@ -86,8 +99,9 @@ should not be possible). In each register:
 - **Written: say less.** Rules stay clear, but the world is not explained.
   The Descent's title already does this ("a board nobody remembers
   setting"). No lore dumps; a line here and there.
-- **Visual: darkness at the edges.** Fog, a pool of light on the board, the
-  dark where squares have fallen (built: crumbled and fallen squares are now
+- **Visual: darkness at the edges.** The dark forest round the clearing
+  (the fog and vignette were turned off on 2026-10-13), the dark where
+  squares have fallen (built: crumbled and fallen squares are now
   nothing but darkness), the shut hole's twig cover.
 - **Audial: the forest around you.** A quiet bed of wind and night insects,
   and a long echo on the notes, so the board sounds like it is somewhere

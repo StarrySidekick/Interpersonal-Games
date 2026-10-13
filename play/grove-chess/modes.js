@@ -143,13 +143,15 @@ export const MODES = {
     // upgrade a board for each side, nothing lost for good, no layout step,
     // no clouds, no balancing search; seven by seven from depth 6. The line
     // (later on 2026-10-13): "tall rook, bishop, king, knight, short rook.
-    // the enemy side is the same but reversed". Then (later the same day)
+    // the enemy side is the same but reversed" (and later still mirrored
+    // instead, on the same files like chess: "descent by default should
+    // have mirrors pieces, not reversed"). Then (later the same day)
     // five by six, with a row of ghosts in front of each side in place of
     // the statues and the clouds: "decent games also now start on a 5x6
     // board to allow a bit more room".
-    name: 'The descent', blurb: 'Tall rook, bishop, King, knight and short rook each, a full row on a five by six board; theirs is yours reversed. In front of each side stands a row of ghosts: yours let your pieces through and vanish as they pass, theirs stop you. One rabbit leads their side: its kind is how they play. Take their King to fall to the next board, where each side gets an upgrade: you choose one of two. From depth 6 the board is seven by seven. If they take your King the descent is over.',
+    name: 'The descent', blurb: 'Tall rook, bishop, King, knight and short rook each, a full row on a five by six board; theirs stand opposite, each piece facing its twin, as in chess. In front of each side stands a row of ghosts: yours let your pieces through and vanish as they pass, theirs stop you. One rabbit leads their side: its kind is how they play. Take their King to fall to the next board, where each side gets an upgrade: you choose one of two. From depth 6 the board is seven by seven. If they take your King the descent is over.',
     settings: {
-      run: 'descent', roll: 'fixed', startPieces: 5, maxPieces: 7, startPool: ['tallrook', 'bishop', 'king', 'knight', 'shortrook'], foeLine: 'turned', rewards: true, jokers: false, ramp: 'steady', outOfMoves: 'fall', upgrades: 'each', growAt: 6, carry: false,
+      run: 'descent', roll: 'fixed', startPieces: 5, maxPieces: 7, startPool: ['tallrook', 'bishop', 'king', 'knight', 'shortrook'], foeLine: 'mirror', rewards: true, jokers: false, ramp: 'steady', outOfMoves: 'fall', upgrades: 'each', growAt: 6, carry: false,
       goal: 'king', royal: true, showdown: true, w: 5, h: 6, foes: 4, foePool: ['knight', 'bishop', 'rook'], darkBrain: 'rabbit', rabbitMind: 'mind', iq: 3, kinds: 1,
       foesCapture: true, statues: 0, statueRow: false, ghosts: true, maxMoves: 20, lineup: true, inOrder: true, arrange: false, cloud: false, parMin: 3, parMax: 10, difficulty: 'any'
     }
@@ -360,7 +362,7 @@ export function describe(S) {
     const n = full ? S.w : run === 'course' ? S.mine : S.mine;
     const yours = given ? (S.inOrder && S.startPool.length === S.startPieces ? `${few(S.startPool, 8)}, in that order` : `${S.startPieces} from ${few(S.startPool)}`)
       : `${full ? 'a full row' : n} from ${few(S.minePool)}`;
-    const theirs = given && S.upgrades === 'each' ? (S.foeLine === 'turned' ? 'the same, reversed' : 'the same, on the same files')
+    const theirs = given && S.upgrades === 'each' ? (S.foeLine === 'turned' ? 'the same, reversed' : 'the same, mirrored, each piece facing its twin')
       : S.mirror ? 'a copy of yours' : S.foes || full ? `${full ? 'a full row' : S.foes} from ${few(S.foePool)}` : 'none';
     const loose = S.rabbits ? `${theirs === 'none' ? ';' : ', and'} ${count(S.rabbits, 'loose rabbit')}` : '';
     const ball = run === 'course' ? `, and a ball: ${and((course ? course.balls : S.balls).filter((b, i, a) => a.indexOf(b) === i).map((b) => BALLS.find((x) => x.v === b)?.label.toLowerCase()))}`

@@ -1358,7 +1358,10 @@ export function reachMaps(s, pattern = false) {
     if (pattern && p.type !== 'ball') for (const k of patternReach(s, p, 'you', true)) yours.add(k);
   });
   for (const f of s.foes) {
-    if (f.taken || f.flying || f.brain === 'pattern') continue;
+    // The rabbit that leads them never takes anything, so its hops are no
+    // danger to show (Timothy, 2026-10-13: "the rabbit shouldn't have its
+    // moveset present as a purple reach outline").
+    if (f.taken || f.flying || f.brain === 'pattern' || f.brain === 'leader') continue;
     for (const m of pieceMoves(s, f, 'foe')) theirs.add(m.y * W + m.x);
     if (pattern) for (const k of patternReach(s, f, 'foe', canTake(s.day.rules, f))) theirs.add(k);
   }

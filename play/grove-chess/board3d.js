@@ -21,11 +21,13 @@
 // 3. Everything standing on the board, in 3D again, from the pieces' angle,
 //    over the top. Pieces hide each other properly (nearer ones in front),
 //    and always stand over the marks.
-// 4. Puffs, leaves and flashes; then fog toward the back and darkness all
-//    round, the pool of light the board sits in.
+// 4. Puffs, leaves and flashes.
 //
-// It is drawn small and the browser smooths it up, so it comes out soft
-// rather than in crisp square pixels.
+// It is drawn small and enlarged in crisp square pixels: each of its pixels
+// covers a whole number of the screen's, with no smoothing (Timothy,
+// 2026-10-13: "that anti-aliasing shouldn't be there"). Until then the
+// browser smoothed it up, soft, and a layer of fog toward the back and
+// darkness all round lay over everything; he turned that off the same day.
 //
 // Taps: the renderer also keeps which object each pixel belongs to, so a tap
 // on a piece's head finds the piece. A tap on the board is a square by plain
@@ -135,17 +137,24 @@ export class Board3D extends Board {
     super(canvas, day);
     const W = day.W, H = day.H;
     this.cosS = Math.cos(STAND); this.sinS = Math.sin(STAND);
-    // A board about 260 pixels across whatever its size, drawn that small
-    // and smoothed up by the browser.
-    this.scale = 260 / (Math.max(W, H) * T);
-    const s = this.scale;
     // Round it, in model units, a thin band of forest: the board should fill
     // the picture. Above the board needs the most room, since the back
     // row's pieces stand up into it (a king there reaches about 9 units
     // past the far edge).
-    const half = (W * T) / 2 + 6, top = 13, bottom = 5;
-    canvas.width = Math.ceil(half * 2 * s);
-    canvas.height = Math.ceil((top + H * T + bottom) * s);
+    const half = (W * T) / 2 + 6, top = 13, bottom = 5, across = half * 2, tall = top + H * T + bottom;
+    // A board about 260 pixels across whatever its size, enlarged to fit
+    // its place on the page by a whole number of the screen's pixels per
+    // pixel, so every pixel comes out the same size and square. Its place:
+    // on a phone as wide as the screen, past the page's side margins, so
+    // the forest runs to the edges; never wider than 480; never so tall the
+    // status line under the board is pushed off the screen.
+    const dpr = window.devicePixelRatio || 1;
+    const room = Math.min(window.innerWidth, 480, (0.66 * window.innerHeight * across) / tall) * dpr; // in screen pixels
+    const k = Math.max(1, Math.round(room / ((260 / (Math.max(W, H) * T)) * across))); // screen pixels per pixel
+    canvas.width = Math.max(1, Math.floor(room / k));
+    this.scale = canvas.width / across;
+    const s = this.scale;
+    canvas.height = Math.ceil(tall * s);
     this.cx = canvas.width / 2;
     this.cy = (top + (H * T) / 2) * s;
     this.t3 = makeTarget(canvas.width, canvas.height);
@@ -153,16 +162,13 @@ export class Board3D extends Board {
     this.layer.width = canvas.width; this.layer.height = canvas.height;
     this.lctx = this.layer.getContext('2d');
     this.g = canvas.getContext('2d');
-    canvas.classList.remove('pix');
-    // On the page: on a phone, as wide as the screen, past the page's side
-    // margins, so the forest runs to the edges; but never so tall that the
-    // status line under the board is pushed off the screen. `svh` is the
-    // screen's height with the browser's bars showing.
-    const vh = window.CSS?.supports?.('height', '1svh') ? 'svh' : 'vh';
-    const wide = `min(100vw, 480px, ${((66 * canvas.width) / canvas.height).toFixed(1)}${vh})`;
+    this.g.imageSmoothingEnabled = false; this.lctx.imageSmoothingEnabled = false; // nothing drawn in it is smoothed either
+    // Exactly that size on the page; never wider than the screen, should it
+    // turn after the board was made.
+    const wide = `${(canvas.width * k) / dpr}px`;
     Object.assign(canvas.style, {
-      imageRendering: 'auto', display: 'block', maxWidth: 'none', width: wide,
-      marginLeft: `calc((100% - ${wide}) / 2)`, marginRight: '0'
+      imageRendering: 'pixelated', display: 'block', maxWidth: '100vw', width: wide,
+      marginLeft: `calc((100% - min(${wide}, 100vw)) / 2)`, marginRight: '0'
     });
     // The forest never changes, so its triangles are placed once.
     this.forest = new Mesh();
@@ -338,7 +344,6 @@ export class Board3D extends Board {
       this.resting(g, s);
       this.beacon(g, s, at, 'beam');
     }
-    this.air(g);
   }
 
   /** Where every piece can go in state s (rules.js reachMaps), worked out
@@ -680,9 +685,22 @@ export class Board3D extends Board {
     // light squares and the green alike.
     const R = this.reachOf(s);
     if (R) {
+      // Squares are seen from straight above, so on a board that is not
+      // turning a ring is a rectangle on the picture's own pixels: filled
+      // band by band, it comes out crisp, with none of the soft edge a
+      // drawn line gets (2026-10-13). A turning board draws it as lines.
+      const band = (x0, y0, x1, y1, t, col) => {
+        const h = t / 2;
+        g.fillStyle = col;
+        g.fillRect(x0 - h, y0 - h, x1 - x0 + t, t); g.fillRect(x0 - h, y1 - h, x1 - x0 + t, t);
+        g.fillRect(x0 - h, y0 + h, t, y1 - y0 - t); g.fillRect(x1 - h, y0 + h, t, y1 - y0 - t);
+      };
       const ring = (sq, inset, col) => {
-        const q = quad(sq % W, Math.floor(sq / W), inset), pts = [...q, q[0]];
-        line(pts, 'rgba(20,14,8,.45)', 3.6); line(pts, col, 2);
+        const q = quad(sq % W, Math.floor(sq / W), inset);
+        if (this.theta) { const pts = [...q, q[0]]; line(pts, 'rgba(20,14,8,.45)', 3.6); line(pts, col, 2); return; }
+        const xs = q.map((p) => Math.round(p[0])), ys = q.map((p) => Math.round(p[1]));
+        const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+        band(x0, y0, x1, y1, 4, 'rgba(20,14,8,.45)'); band(x0, y0, x1, y1, 2, col);
       };
       if (this.reach !== false) for (const sq of R.theirs) ring(sq, 0.07, LOOK.reachFoe);
       // Yours only when asked for (2026-10-11: off by default).
@@ -1001,24 +1019,6 @@ export class Board3D extends Board {
       g.strokeStyle = rgba(ps.fur, 1 - q); g.lineWidth = 2.5;
       g.beginPath(); g.ellipse(cx, cy, (6 + q * 22) * u, (6 + q * 22) * u, 0, 0, Math.PI * 2); g.stroke();
     }
-  }
-
-  /** Fog toward the back, and darkness all round: the pool of light. */
-  air(g) {
-    // The same every frame, so painted once onto a canvas of its own.
-    if (!this.airLayer) {
-      const w = this.el.width, h = this.el.height, top = this.cy - (this.day.H / 2) * T * this.scale;
-      const c = this.airLayer = document.createElement('canvas');
-      c.width = w; c.height = h;
-      const a = c.getContext('2d');
-      const f = a.createLinearGradient(0, 0, 0, top + 6);
-      f.addColorStop(0, 'rgba(27,38,32,.92)'); f.addColorStop(1, 'rgba(27,38,32,0)');
-      a.fillStyle = f; a.fillRect(0, 0, w, top + 6);
-      const r = a.createRadialGradient(w / 2, h * 0.58, Math.min(w, h) * 0.32, w / 2, h * 0.58, Math.max(w, h) * 0.78);
-      r.addColorStop(0, 'rgba(5,9,7,0)'); r.addColorStop(1, 'rgba(5,9,7,.78)');
-      a.fillStyle = r; a.fillRect(0, 0, w, h);
-    }
-    g.drawImage(this.airLayer, 0, 0);
   }
 
   // --- Moments of their own. -------------------------------------------------
