@@ -12,6 +12,13 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
+## 2026-10-13, later again: shields on squares you guard
+
+From Timothy: where your pieces' reach meets their reach, a flat shield on
+the square, so you can see that a piece moved there would be guarded.
+Built: silver for one guard, gold for two or more, exact for the piece you
+have picked up (`docs/grove-modes.md`, "Shields on squares you guard").
+
 ## 2026-10-13, after that: four small changes
 
 From Timothy: no purple reach for the descent's leading rabbit; the

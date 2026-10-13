@@ -296,6 +296,9 @@ function goalCard() {
 async function startGame({ intro = true } = {}) {
   game = { states: [initialState(level)], moves: [] };
   board = makeBoard($('#board'), level);
+  // The hints its settings ask for (until 2026-10-13 they were always on here).
+  Object.assign(board, { reach: level.settings.showReach, reachMine: level.settings.showMyReach, guards: level.settings.showGuards,
+    safe: level.settings.showSafe, beacons: level.settings.showBeacons, pins: level.settings.showPins });
   board.redraw = draw;
   board.fur = furOf;
   sel = null; legal = []; busy = false; rating = 0; shown = null; watching = null;

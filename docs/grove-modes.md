@@ -821,6 +821,47 @@ things in the catalog). Gaps: different armies on each side are only
 "any order" of the same pieces; Kung fu descent (real time) has none of the
 new pieces.
 
+## Shields on squares you guard (2026-10-13, after the small changes)
+
+Timothy: "while we don't show friendly pieces reach unless you tap on the
+piece before you move it, very specifically, if that piece's reach
+overlaps with the position present on the enemy's reaches outline, wherein
+if you moved a piece there, then that piece would be able to actually
+defend that slot, then put a flat shield icon onto that cell ... let's say
+there's a rook, and an enemy bishop crosses the rook's potential movement
+path in front of it at one space. that specific space would have a large
+shield icon on it".
+
+- **Which squares.** An empty square their pieces reach (it has a purple
+  ring) where, if a piece of yours stood there and they took it, one of
+  yours could take back: the same test that puts a shield on a guarded
+  piece (`guarded`), made for an empty square (`guardedSquares` in
+  `rules.js`: stand a piece of theirs there, and see which of yours could
+  take it). Your own pieces never show their reach; this is the one place
+  it shows, where it meets theirs.
+- **With a piece picked up**, its own moves are tried for real. A piece
+  cannot guard the square it moves to, and leaving its square can open or
+  close a line, so on its destinations the shield counts only the others,
+  from where they would then stand. In his example, picking up the rook
+  takes its own shield off the square in front of it, unless something
+  else guards that square too.
+- **The look.** Flat, square above and pointed below like the shields
+  pieces wear, with the same cross: silver for one guard, gold for two or
+  more. Drawn pixel by pixel, so it is as crisp as the board. It lies over
+  the pieces rather than under them: the square just in front of a piece,
+  the one it most often guards, is the one its model stands over, and
+  underneath it would be hidden.
+- **The setting:** "Shields on squares you guard" (Information, on;
+  settings version 18, so older links read it as off). It shows only with
+  their reach rings and the guard shields on. The flat board (`?flat`)
+  does not draw it.
+- Custom's board now follows its Information settings (until now its
+  hints were always on whatever the settings said).
+
+Paths moved: mastery. Defending a square before you step onto it is a
+real chess skill (a piece that is *protected*), and this teaches it by
+sight at the moment of choosing a move.
+
 ## Four small changes (2026-10-13, after the eight parts)
 
 Timothy: "in descent, the rabbit shouldn't have its moveset present as a
