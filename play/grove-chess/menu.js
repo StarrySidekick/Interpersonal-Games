@@ -1,7 +1,8 @@
 // The ways to play Grove Chess, and the pieces catalog: the menu every page
 // shows, from one list, so a new mode appears everywhere at once. Every
 // mode but the daily is played by the runner (play/), from its settings
-// (modes.js); the workshop (lab/) is where any setting can be tried.
+// (modes.js); Custom (lab/) is where any setting can be tried, simulated
+// and searched.
 
 import { el } from '../../engine/ui.js';
 import { releaseLine } from '../../engine/release.js';
@@ -11,12 +12,12 @@ export const MENU = [
   { id: 'daily', href: '', label: 'The daily' },
   { id: 'descent', href: 'play/?mode=descent', label: 'The descent' },
   { id: 'kungfu', href: 'play/?mode=kungfu', label: 'Kung fu descent' },
-  { id: 'chaos', href: 'play/?mode=chaos', label: 'Chaos' },
   { id: 'golf', href: 'play/?mode=golf', label: 'Golf' },
   { id: 'autochess', href: 'play/?mode=autochess', label: 'Autochess' },
   { id: 'variants', href: 'play/?mode=variants', label: 'Chess variants' },
-  { id: 'trials', href: 'trials/', label: 'Piece trials' },
-  { id: 'workshop', href: 'lab/', label: 'Workshop' },
+  // Custom (2026-10-13): the workshop, Chaos (Go crazy) and the piece
+  // trials in one place.
+  { id: 'custom', href: 'lab/', label: 'Custom' },
   { id: 'pieces', href: 'pieces/', label: 'The pieces' }
 ];
 

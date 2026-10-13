@@ -5,7 +5,7 @@
 <script>try{var t=localStorage.getItem('ig.theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0f1a13">
-<title>Grove Workshop</title>
+<title>Grove Custom</title>
 <link rel="stylesheet" href="../../../engine/app.css">
 <style>
   :root {
@@ -100,6 +100,44 @@
   .slot .acts { grid-column: 1 / -1; display: flex; gap: 6px; flex-wrap: wrap; }
   .slot .acts button { width: auto; min-height: 40px; padding: 6px 12px; font-size: 14px; border-radius: 10px; }
   .slot .acts button[aria-pressed='true'] { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+  /* Custom (2026-10-13): armies, simulating, finding layouts. */
+  .army { display: flex; flex-wrap: wrap; gap: 6px; min-height: 64px; padding: 8px; margin: 8px 0 4px;
+    background: var(--panel-2); border: 1px dashed var(--line); border-radius: var(--radius); }
+  .army button { width: 66px; min-height: 0; padding: 4px 2px; font-size: 11px; font-weight: 600; line-height: 1.15;
+    display: flex; flex-direction: column; align-items: center; gap: 2px; border-radius: 10px; }
+  .army button[aria-pressed='true'] { outline: 2px solid var(--accent); }
+  .army canvas, .pcards canvas { width: 30px; height: 36px; }
+  .pcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; margin-top: 8px; max-height: 300px; overflow-y: auto; }
+  .pcard { display: grid; grid-template-columns: 34px 1fr auto; gap: 6px; align-items: center; text-align: left; width: 100%;
+    min-height: 54px; padding: 6px 8px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); color: var(--text); }
+  .pcard b { display: block; font-size: 14px; }
+  .pcard small { color: var(--dim); font-size: 11px; }
+  .pcard .n { font-weight: 700; color: var(--accent); font-size: 14px; }
+  .chipsrow { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chipsrow button { width: auto; min-height: 40px; padding: 6px 12px; font-size: 14px; border-radius: 999px; }
+  .chipsrow button[aria-pressed='true'] { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+  .linkish { width: auto; min-height: 0; padding: 0; border: 0; background: none; color: var(--accent); text-decoration: underline; font: inherit; display: inline; }
+  progress { width: 100%; height: 10px; accent-color: var(--accent); }
+  .verdict { font-size: 18px; font-weight: 700; margin: 0 0 6px; }
+  .result { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start; }
+  .result canvas.mini { width: 150px; max-width: 40vw; border-radius: 6px; }
+  @media (max-width: 420px) { .result { grid-template-columns: 1fr; } .result canvas.mini { width: 100%; max-width: 260px; margin: 0 auto; } }
+  .badge { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; }
+  .badge.playable { background: var(--accent); color: var(--accent-ink); }
+  .badge.shaky { background: #d8b14a; color: #2a2006; }
+  .badge.broken { background: #e3866b; color: #2a0d06; }
+  .badge.mine { background: transparent; color: var(--dim); border: 1px solid var(--line); }
+  .meter { display: grid; grid-template-columns: 112px 1fr 28px; gap: 8px; align-items: center; font-size: 13px; margin: 3px 0; }
+  .meter i { display: block; height: 8px; border-radius: 4px; background: var(--panel-2); overflow: hidden; }
+  .meter i span { display: block; height: 100%; background: var(--accent); }
+  .meter b { text-align: right; font-weight: 600; }
+  .row3 { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .row3 button { width: auto; min-height: 44px; padding: 8px 14px; font-size: 14px; }
+  .watch { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 13px; color: var(--dim); }
+  .watch button { width: auto; min-height: 40px; padding: 4px 12px; font-size: 14px; }
+  ul.tight { margin: 4px 0 8px; padding-left: 18px; font-size: 14px; }
+  select.pick { font: inherit; width: 100%; min-height: 48px; padding: 10px 12px; background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--line); border-radius: var(--radius); margin: 6px 0; }
 </style>
 </head>
 <body>
@@ -107,14 +145,14 @@
 
   <div class="topbar">
     <a class="back" href="../">&larr; Grove Chess</a>
-    <span class="pill">Workshop</span>
+    <span class="pill">Custom</span>
   </div>
 
   <section data-screen="lab">
     <p class="eyebrow center">Hikari Garden</p>
-    <h1 class="center">The workshop</h1>
-    <p class="dim small center">Build a level from the settings below, play it, and rate it.
-      A level is its settings plus a dice roll, so its link always rebuilds it exactly.</p>
+    <h1 class="center">Custom</h1>
+    <p class="dim small center">Any pieces, any board, any rules. Play it, let the bots simulate it, or have them find the most playable way to stand the armies.
+      Rate what you play, and it goes in the notebook. A level is its settings plus a dice roll, so its link always rebuilds it exactly.</p>
     <nav class="modes" id="modes" aria-label="Ways to play"></nav>
     <canvas id="preview" class="pix" aria-label="The level, turning"></canvas>
     <p class="small dim" id="summary"></p>
@@ -125,7 +163,7 @@
     </div>
     <div class="row" style="margin-top:10px">
       <button class="quiet" id="reroll">New layout</button>
-      <button class="quiet" id="crazy">Go crazy</button>
+      <button class="quiet" id="crazy">Go crazy (Chaos)</button>
     </div>
     <div class="row" style="margin-top:10px">
       <button class="quiet" id="link">Copy level link</button>
@@ -133,6 +171,49 @@
     </div>
     <p class="small dim" id="labnote" style="margin-top:8px"></p>
     <details id="balancebox" hidden><summary class="small">How this level plays</summary><ul class="small dim" id="balance"></ul></details>
+
+    <div class="card" style="margin-top:14px">
+      <h2>Armies</h2>
+      <p class="small dim" style="margin:0 0 8px">Dealt: each side is dealt from the pools in the settings below. Square by square: you choose your army,
+        piece by piece and in order, with suits; theirs is the same, mirrored or turned. Tap a piece in your line to give it a suit, move it, or take it out.</p>
+      <div id="armyon"></div>
+      <div id="armybox" hidden>
+        <div class="army" id="army"></div>
+        <div id="armytools" class="card" hidden style="margin:6px 0"></div>
+        <div class="chipsrow" id="armypresets"></div>
+        <div id="armyfields"></div>
+        <div class="chipsrow" id="armyfilters" style="margin-top:10px"></div>
+        <div class="pcards" id="armycards"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Simulate, and find the most playable layout</h2>
+      <p class="small dim" style="margin:0 0 8px">Simulate: two equal bots play this level many times, and a stronger one plays a weaker one, on the real rules, and the games are judged.
+        Find: every way to stand the armies (or, dealt, many dice rolls) is checked, the best are improved a swap at a time, and the best few judged.</p>
+      <div id="findfields"></div>
+      <div class="row" style="margin-top:10px"><button class="quiet" id="simulate">Simulate it</button><button class="primary" id="find">Find the most playable layout</button></div>
+      <div id="customwork" hidden style="margin-top:10px"><progress id="custombar" max="1" value="0"></progress><p class="small dim" id="customprogress" style="margin:4px 0 0"></p></div>
+      <details style="margin-top:8px"><summary>How the bots judge a game</summary>
+        <p class="small dim">The bots play on the real rules: every setting, suit, ghost, gate and cloud. Each looks two moves ahead (a minimax search with alpha-beta pruning,
+          the oldest idea in computer chess), then keeps following captures until the position is quiet, so it does not stop counting halfway through a trade. Under clouds each plans from what it can see.</p>
+        <p class="small dim">The measures follow Cameron Browne&rsquo;s Ludi (2008), a program that invented board games and judged them by self-play: balance, how often a game is decided,
+          length, drama, uncertainty, whether skill pays, whether every piece plays, and variety. With a handful of games each, scores within about ten of each other are too close to call.
+          They are a bot&rsquo;s guesses. Play the ones that look good: your opinion outranks theirs.</p>
+      </details>
+    </div>
+    <div id="customresults"></div>
+
+    <div class="card" id="weavebox" hidden>
+      <h2>Weave in a piece</h2>
+      <p class="small dim">A new piece, or one you invented in <a href="../pieces/">the pieces</a>, with a suit if you like: swapped in for each kind of piece in your army, one at a time
+        (and added, if there is room), each army searched for its best layout.</p>
+      <select class="pick" id="weavepick" aria-label="The piece to weave in"></select>
+      <select class="pick" id="weavesuit" aria-label="Its suit"></select>
+      <button class="quiet" id="weavego">Weave it in</button>
+      <div id="weaveresults" style="margin-top:12px"></div>
+    </div>
+    <div class="stack" style="margin-top:4px"><button class="quiet" id="customcopy">Copy the results (for Claude, or to keep)</button></div>
 
     <div id="settings"></div>
 
@@ -165,7 +246,7 @@
         <button class="quiet" id="setuppieces">Pieces</button>
       </div>
       <div class="row" style="margin-top:10px">
-        <button class="quiet" id="setuprestart">Back to the workshop</button>
+        <button class="quiet" id="setuprestart">Back to Custom</button>
       </div>
     </div>
 
@@ -176,7 +257,7 @@
       </div>
       <div class="row" style="margin-top:10px">
         <button class="quiet" id="restart">Restart</button>
-        <button class="quiet" id="tolab">Back to the workshop</button>
+        <button class="quiet" id="tolab">Back to Custom</button>
       </div>
     </div>
 
@@ -196,7 +277,7 @@
         <button class="quiet" id="again">Play it again</button>
         <button class="quiet" id="next">New layout, same settings</button>
         <button class="quiet" id="crazy2">Something crazy</button>
-        <button class="quiet" id="back">Back to the workshop</button>
+        <button class="quiet" id="back">Back to Custom</button>
       </div>
     </div>
   </section>

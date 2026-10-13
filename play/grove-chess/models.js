@@ -484,6 +484,44 @@ MODELS.needle = () => {
   return m;
 };
 
+// Neutral pieces (2026-10-13). A ghost: a sheet with a ragged hem and two
+// dark eyes, pale in its side's colour (the trim of the side's palette), so
+// you can tell whose wall it is.
+MODELS.ghost = () => {
+  // Kept low (it stands in front of the back row) and with a scalloped hem,
+  // points of the sheet hanging down, so it does not read as a cloud.
+  const m = new Model(), sheet = P.leaf, shadow = P.moss;
+  m.lathe([[2.4, 1.0], [2.3, 2.4], [1.95, 4.4], [1.5, 5.6], [0.8, 6.5], [0, 6.8]], [shadow, sheet, sheet, sheet, sheet], { seg: 8 });
+  for (let k = 0; k < 8; k++) { const a = ((k + 0.5) / 8) * Math.PI * 2; m.ellipsoid(Math.cos(a) * 2.15, 0.7, Math.sin(a) * 2.15, 0.6, 0.55, 0.5, shadow, { seg: 5, rings: 3 }); }
+  for (const sx of [1, -1]) m.ellipsoid(sx * 0.62, 4.9, 1.72, 0.34, 0.5, 0.18, P.eye, { seg: 6, rings: 3 });
+  m.ellipsoid(0, 3.9, 1.95, 0.28, 0.36, 0.14, P.eye, { seg: 5, rings: 3 }); // a small round mouth
+  return m;
+};
+
+// The shade a wandering cloud casts on the square under it (2026-10-13),
+// so you can tell which square it covers from straight above.
+MODELS.cloudShade = () => new Model().lathe([[3.6, 0.04], [3.6, 0.1]], '#8f9c93', { seg: 12 });
+
+// A gate across its square (2026-10-13): two stone posts and an iron
+// portcullis, raised as a wall when it is up, lying flat as a grating when
+// it is down.
+const gateModel = (up) => {
+  const m = new Model(), post = '#7d7a72', iron = '#3e4249', rust = '#6b4b33';
+  for (const sx of [1, -1]) { m.box(sx * 3.5, 4.2, 0, 1.1, 8.4, 1.1, post); m.box(sx * 3.5, 8.6, 0, 1.4, 0.5, 1.4, '#9a968c'); }
+  if (up) {
+    for (let i = -2; i <= 2; i++) m.box(i * 1.3, 4.0, 0, 0.35, 7.6, 0.35, iron);
+    for (const y of [1.2, 4.0, 6.8]) m.box(0, y, 0, 6.2, 0.35, 0.4, iron);
+    m.box(0, 0.25, 0, 6.2, 0.5, 0.5, rust);
+  } else {
+    for (let i = -2; i <= 2; i++) m.box(i * 1.3, 0.15, 0, 0.35, 0.25, 6.2, iron);
+    for (const z of [-2.4, 0, 2.4]) m.box(0, 0.15, z, 6.2, 0.25, 0.35, iron);
+  }
+  return m;
+};
+MODELS.gateUp = () => gateModel(true);
+MODELS.gateDown = () => gateModel(false);
+MODELS.gate = MODELS.gateUp;
+
 // The hole's flag, so a moving hole can be seen from across the board.
 MODELS.flag = () => {
   const m = new Model();
@@ -592,6 +630,9 @@ function statue(kind) {
   m.ellipsoid(-1.0, 0.9, 1.3, 0.9, 0.5, 0.7, S.mossLight, { seg: 5, rings: 3 });
   return m;
 }
+
+// For the catalog: a statue, as it stands on the board.
+MODELS.statue = () => statue('rook');
 
 function withPalette(over, build) {
   const saved = { ...P };

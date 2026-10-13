@@ -576,6 +576,10 @@ testing pieces. What each became:
 
 ### The piece trials
 
+(Later the same day the trials moved into Custom and their engine was
+replaced by the real rules; see "Ghosts, gates, wandering clouds, and
+Custom" below. This is what they were first.)
+
 `trials/` (menu: Piece trials), with the work in `trials.js` on a background
 thread (`trials-worker.js`). Timothy: "choose what chess pieces are in,
 choose the size of the board, then you calculate the board layout that would
@@ -657,6 +661,163 @@ armies (Betza's Chess with Different Armies, where each side fields a
 different army of equal strength, would be the next step); no suits; no
 showdown; results stay on the phone that ran them.
 
+## Ghosts, gates, wandering clouds, and Custom (2026-10-13, latest)
+
+Timothy, in one message: their side in the trials "in addition to mirrored
+and reversed, setting for anything too"; suited pieces tested too; "when I
+run the actual set of real chess pieces in the actual chess game on an 8x8
+board, it actually doesn't even come up with the proper orientation ...
+which may be a red flag"; ghosts, in place of clouds and statues as the
+descent's default; the descent on five by six; clouds and statues as
+neutral fairy pieces; gates; and "one central just custom mode where you
+can play a game with custom rules, and also simulate it, or find the most
+playable orientation of pieces within that ruleset and piece set". What
+each became:
+
+### Four neutral pieces
+
+A *neutral* piece belongs to nobody (in fairy chess the word is used for
+pieces either side may move; here neither does). They are board features
+in the rules (`rules.js`, `look`, which tells a mover what stands on a
+square) and catalog entries of kind `neutral` (`PIECES`), so the catalog
+shows them, sheets explain them, and no pool ever deals one as a piece.
+
+- **Ghosts** (level setting `ghosts`). The whole row in front of each
+  side, where pawns would stand. A ghost never moves or takes. To its own
+  side it is empty ground; to the other side it is a wall: sliders stop
+  before it, nothing lands on it, leapers jump it. Once one of its own side
+  slides through it or lands on it, it is gone for good (`passGhosts`;
+  `s.ghostGone`). So a side opens its own ghost row by playing through
+  it, and every opening it makes is also a door for the other side. A
+  pale low figure with a scalloped hem, in its side's colour.
+- **Gates** (`gates`, 0 to 6, in the middle rows). Up one turn, down the
+  next; half start each way (`day.gates`, square to phase; `gateUp`).
+  Down is open ground. Up is no square at all: nothing passes it and
+  nothing stands on it, though a leaper can still jump the gap, as it jumps
+  anything. My call where he did not say: a gate with a piece on it stays
+  down until the piece leaves, so a gate never crushes anything. Iron
+  railings between two posts, flat on the ground when down; a clank.
+- **Wandering clouds** (`clouds`, 0 to 4). Each drifts one square a turn,
+  any of the eight ways, over anything; the way is drawn from the level
+  and the turn, so a game replays the same on any phone. A piece under a
+  cloud is hidden from the other side (`hiddenFrom`, `seenBy`, which hands
+  a side a copy of the game with the hidden pieces taken off the board),
+  and so is its move into it: it is simply not drawn. Then a move can run
+  into something it could not see: the *contact rule* (`contact`) stops it
+  on the first hidden piece on its way and takes it. This is the rule of
+  kriegspiel and of Dark Chess, the chess variants where you see only what
+  your pieces see. You always see your own pieces, under a cloud or not.
+  The bots, and the side that thinks, plan only from what they can see. A
+  shade on the ground marks the square a cloud covers. (The old cloud,
+  `cloud`, the first-turn cloud over the row in front of each side, is a
+  different rule and stays.)
+- **Statues that can be taken** (`statuesTake`). As before, sliders stop
+  at a statue and leapers and hoppers (the grasshopper, the cannon) go
+  over it. Now either side can take it, as a move, and then it is gone. On
+  for new levels; settings version 17 reads older links as off, and the
+  daily and golf keep it off (the stored daily boards must not change, and
+  golf banks balls off statues).
+
+### The descent on five by six, behind ghosts
+
+`w: 5, h: 6, ghosts: true`, no statue row. The line is the same (tall rook,
+bishop, King, knight, short rook; theirs reversed), with a ghost row in
+front of each, so the middle two rows start empty. The rest stays: one
+rabbit leading their side, 20 moves, the showdown, falling to the next
+board when the moves run out.
+
+### Custom
+
+One page, `lab/` (menu: Custom; the home page's card is Grove Custom),
+holding what were three: the workshop (any settings, one level, play it),
+Chaos (now its "Go crazy" button) and the piece trials (`trials/` now
+forwards to it, hash and all). The page's new parts are in `lab/custom.js`:
+
+- **Armies.** Dealt from the settings' pools, as before, or square by
+  square: your army piece by piece in order, each with a suit if you like
+  (tap one to give it a suit, move it left or right, or take it out), and
+  theirs mirrored (the same files, as in chess), turned (yours read the
+  other way, the descent's) or, when searching, in any order of its own
+  ("Their side, when searching": Mirrored, Turned, Any order, Try all).
+  Presets, each with the rules it is played by: the descent's, Microchess,
+  Gardner minichess, Los Alamos chess, Chess, and Shogi's generals.
+- **Simulate it.** Twelve games between two equal bots and six between a
+  stronger and a weaker one, on the level exactly as it stands, judged by
+  the same measures as before (Browne's Ludi).
+- **Find the most playable layout.** For square-by-square armies, a trial
+  of the army (every way to stand it, checked, the best improved, the best
+  few judged); for a dealt level, the best of many dice rolls of the same
+  settings. Each result: the board, its measures, Play it, Watch a game.
+- **Weave in a piece**, now with a suit too. The catalog's "Weave it into
+  an army" opens it with that piece chosen (`#weave=<piece>`).
+
+All of it runs on a pool of Web Workers (`sim-worker.js`): background
+threads, one fewer than the device has cores, up to eight, so the page
+stays responsive and a phone with eight cores works seven times as fast.
+
+**One bot, on the real rules.** The trials had their own small chess engine
+(make and unmake on a plain board, fast). It could not see suits, ghosts,
+gates or clouds, so it is gone: `sim.js` plays both sides with the game's
+own rules (`allMoves`, `playerMove`, `respondWith`), the same search
+(minimax with alpha-beta, then quiescence) and the same sense of a
+position. Copying the game for every move it looks at is slower, so the
+rules now keep an *occupancy grid* while they generate moves (`withGrid`:
+an array of what stands on each square, built once per position, instead
+of searching the piece lists for every square a slider crosses), which made
+chess half again as fast, checked equal to the old way on 1,258 positions.
+
+### The red flag: chess was never found
+
+He was right that it was a red flag. The army of chess, sixteen pieces on
+sixteen squares, has 16! / (8! 2! 2! 2!) = 64,864,800 arrangements (the
+eight pawns, the pairs of rooks, knights and bishops are each alike). The
+trials drew a few dozen of them at random, so the real one, or anything
+like it, was never even looked at. A search that samples blind cannot find
+a needle in sixty-five million. Three changes, all standard practice in
+designing chess variants:
+
+1. **Structure.** Pieces that can never move back (pawns, and any piece
+   whose moves all go forward, `retreats`) stand in front; the rest behind.
+   For chess that leaves the 8! / (2! 2! 2!) = 5,040 back rows.
+2. **Colour.** A *colour-bound* piece (the bishop, and others,
+   `colourBound`) only ever stands on one colour of square, so two of them
+   are spread over both colours, the rule Chess960 uses (Fischer's random
+   chess: 960 back rows, the bishops on opposite colours and the King
+   between the rooks).
+3. **A hill climb.** The best layouts of the first screen are improved a
+   swap at a time: swap two pieces, keep the swap if it judges better, stop
+   when no swap helps. Hill climbing is the simplest *local search*: it
+   finds a good layout near where it starts, not always the best of all.
+
+With those, a trial of chess (thorough, mirrored) judges the real back row
+playable: fun 70, and the most decisive of the 41 it judged in full (4 of 6
+games won, against 1 or 2 for the others). It is not first: four layouts
+scored 71 to 81, the top two with most of their games running out of
+moves. With six games each, scores within about ten are too close to call,
+and Chess960 is the evidence that many back rows play well; what the
+search should not do is miss chess, and it no longer does.
+
+### What the bots say about the descent now
+
+Simulated as it stands (5 by 6, ghosts, the showdown, two equal bots, 12
+games): **at 20 moves every game is drawn**, 8 out of moves and 4 down to
+the two Kings. Allowing 40 moves, 2 are won, 7 end with only the Kings,
+and 3 repeat. In the descent itself running out of moves is not a loss
+(you fall to the next board), and their side there is a rabbit's mind, not
+this bot, so this is a measure of the board, not a verdict. It says two
+things: equal armies on this board trade down to bare Kings more often
+than they did on five by five with the statue row (about a quarter then),
+and 20 moves is short for the bots to take a King. What two bare Kings
+should do is still his call.
+
+Paths moved: customization (one place for every custom setting, with
+armies square by square, suits and four new neutral pieces), mastery
+(clouds reward reading what the other side cannot see, gates reward
+timing, ghosts make opening your own row a choice), discovery (four new
+things in the catalog). Gaps: different armies on each side are only
+"any order" of the same pieces; Kung fu descent (real time) has none of the
+new pieces.
+
 ## The modes
 
 **The daily.** One board a day, the same for everyone. Its own page and
@@ -717,9 +878,10 @@ fanfare and a buzz on the way down when one lights (`WAYSTONES` in
 
 Going deeper is the only way to light one: no experience, no grinding.
 
-**Chaos.** One level from a completely random mix of every rule and
-setting. The only rules: it is winnable, balanced, and as hard as the
-Difficulty setting asks (measured, `metrics.js`).
+**Chaos** ("Go crazy" in Custom, since 2026-10-13). One level from a
+completely random mix of every rule and setting. The only rules: it is
+winnable, balanced, and as hard as the Difficulty setting asks (measured,
+`metrics.js`).
 
 **Golf.** Five **courses**, each a place with its own balls, ground and
 turns (`COURSES` in `modes.js`), chosen on the title. Finishing a course,
@@ -791,8 +953,8 @@ green). The long game (`grove-long-game.md`) is still unbuilt.
 
 ## Out on purpose
 
-- The piece trials change nothing by themselves: a layout they like goes
-  into a mode only when Timothy says so.
+- Custom's simulations and finds change nothing by themselves: a layout
+  they like goes into a mode only when Timothy says so.
 
 - No currency or shop in the descent: rewards are chosen, not bought.
   (Autochess has one; the descent stays chosen.)
@@ -803,9 +965,11 @@ green). The long game (`grove-long-game.md`) is still unbuilt.
 
 ## Next
 
-- Check the trials' fun against Timothy playing the layouts it ranks, and
+- Check Custom's fun against Timothy playing the layouts it ranks, and
   tune the weights (`judge` in `trials.js`).
-- Decide what two bare Kings do, in the descent and the trials.
+- Decide what two bare Kings do, in the descent and in Custom, and whether
+  the descent's 20 moves are enough on five by six.
+- The new pieces in Kung fu descent.
 
 - Make more named dailies before the stored ones run out (they go to
   2026-10-17, a week ahead, as Timothy asked; after that a date falls back

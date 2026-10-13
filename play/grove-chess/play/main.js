@@ -9,7 +9,7 @@ import { makeTarget, render } from '../../../engine/lowpoly.js';
 import { rng } from '../../../engine/seed.js';
 import * as sfx from '../sounds.js';
 import {
-  PIECES, descOf, CRUMBLE_DESC, SHRINK_DESC, STUMP_DESC, STATUE_ROW_DESC, statueAt, HOLE_DESC, cloudDesc, movesFor, playerMove, respond, isOver, outcome, initialState,
+  PIECES, descOf, CRUMBLE_DESC, SHRINK_DESC, STUMP_DESC, STATUE_ROW_DESC, statueAt, statueDesc, GHOST_DESC, GATE_DESC, WANDER_DESC, ghostAt, gateUp, cloudOver, hiddenFrom, HOLE_DESC, cloudDesc, movesFor, playerMove, respond, isOver, outcome, initialState,
   allMoves, holeOpen, crumbled, shrunk, apply, showdown, firstCaptures, onBoard, leaderDesc
 } from '../rules.js';
 import { solveLevel } from '../solve.js';
@@ -475,7 +475,22 @@ function whatHappened(a, b) {
   if (b.hole && !holeOpen(a) && holeOpen(b)) bits.push('The hole is open.');
   if (b.shrunk.length > a.shrunk.length) bits.push('A square fell off the edge.');
   if (b.bounced != null) bits.push(`Their ${nameOf(b.foes[b.bounced])} lost a heart, and your piece bounced off.`);
-  if ((b.open?.length || 0) > (a.open?.length || 0)) bits.push(b.open.length >= b.day.stumps.size ? 'The last statue sinks away.' : 'A statue sinks away.');
+  if ((b.open?.length || 0) > (a.open?.length || 0)) {
+    const onIt = (q) => [...b.pieces, ...b.foes].some((p) => !p.taken && p.y * b.day.W + p.x === q);
+    const opened = b.open.filter((q) => !(a.open || []).includes(q));
+    if (opened.some(onIt)) bits.push('A statue is broken.');
+    if (opened.some((q) => !onIt(q))) bits.push(b.open.length >= b.day.stumps.size ? 'The last statue sinks away.' : 'A statue sinks away.');
+  }
+  const gone = (b.ghostGone || []).filter((q) => !(a.ghostGone || []).includes(q)), whose = (side) => gone.filter((q) => b.day.ghosts.get(q) === side).length;
+  const g = (n, who) => (n === 1 ? `${who} ghost is gone.` : `${n} of ${who.toLowerCase()} ghosts are gone.`);
+  if (whose('you')) bits.push(g(whose('you'), 'Your'));
+  if (whose('foe')) bits.push(g(whose('foe'), 'Their'));
+  if (b.clouds?.length) {
+    const hidA = hiddenFrom(a, 'you'), hidB = hiddenFrom(b, 'you');
+    if ([...hidB].some((k) => !hidA.has(k))) bits.push('Something of theirs is hidden in a cloud.');
+    // A piece of yours that ran into one of theirs hiding in a cloud.
+    if (b.foes.some((f, k) => f.taken && !a.foes[k].taken && hidA.has(k))) bits.push('You ran into one of theirs hiding in a cloud, and took it.');
+  }
   if ((b.treasure || 0) > (a.treasure || 0)) bits.push('♦ Treasure: another pick when this level is done.');
   if (!bits.length) bits.push('Your move.');
   return bits.join(' ');
@@ -530,9 +545,16 @@ $('#board').addEventListener('click', (e) => {
   if (s.cloudy && s.day.cloud?.has(y * s.day.W + x)) return info(cloudDesc(s.day.rules));
   if (crumbled(s, x, y)) return info(CRUMBLE_DESC);
   if (shrunk(s, x, y)) return info(SHRINK_DESC);
-  if (statueAt(s, y * s.day.W + x)) return info(s.day.statueOrder ? `${STUMP_DESC} ${STATUE_ROW_DESC}` : STUMP_DESC);
+  const sq = y * s.day.W + x;
+  if (statueAt(s, sq)) return info(s.day.statueOrder ? `${statueDesc(s.day.rules)} ${STATUE_ROW_DESC}` : statueDesc(s.day.rules));
+  // Neutral pieces (2026-10-13). What is under a cloud stays hidden.
+  if (ghostAt(s, sq)) return info(GHOST_DESC.replace('{side}', ghostAt(s, sq) === 'you' ? 'yours' : 'theirs'));
+  if (s.day.gates?.has(sq)) return info(`${GATE_DESC} It is ${gateUp(s, sq) ? 'up' : 'down'} now.`);
+  const hidden = hiddenFrom(s, 'you');
+  if (cloudOver(s, sq) && !s.foes.some((f, k) => !f.taken && f.x === x && f.y === y && !hidden.has(k))) return info(WANDER_DESC);
   // A rider first: the rabbit on their King's head is what you see on top.
-  const f = s.foes.find((f) => !f.taken && f.x === x && f.y === y && f.rides != null) || s.foes.find((f) => !f.taken && f.x === x && f.y === y);
+  const seen = (f) => !f.taken && f.x === x && f.y === y && !hidden.has(s.foes.indexOf(f));
+  const f = s.foes.find((f) => seen(f) && f.rides != null) || s.foes.find(seen);
   if (f?.brain === 'leader') return info(leaderDesc(f, s.day));
   if (f) info(f.mind ? `Their ${nameOf(f)}, with a ${f.patternName ? f.patternName.toLowerCase() + ' ' : ''}rabbit inside (intelligence ${f.mind.iq}).` : `Their ${nameOf(f)}. ${PIECES[f.type].desc}`);
 });

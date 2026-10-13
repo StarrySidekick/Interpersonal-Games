@@ -62,7 +62,7 @@ export function buildForm(root, groups, get, set, open = () => false, { show = (
       ctrl = el('div', { class: 'seg' }, ...btns);
       updaters.push(() => btns.forEach((b, i) => b.setAttribute('aria-pressed', String(get()[f.key].includes(f.options[i].v)))));
     } else if (f.type === 'pieces') {
-      const kinds = [...(f.rabbit ? ['rabbit'] : []), ...Object.keys(PIECES).filter((k) => k !== 'rabbit' && (k !== 'ball' || f.ball))];
+      const kinds = [...(f.rabbit ? ['rabbit'] : []), ...Object.keys(PIECES).filter((k) => k !== 'rabbit' && PIECES[k].kind !== 'neutral' && (k !== 'ball' || f.ball))];
       const btns = kinds.map((k) => {
         const cv = el('canvas', { class: 'pix', width: 30, height: 36 });
         cv.getContext('2d').drawImage(sprite(k, f.rabbit ? 'foe' : 'you'), 0, 0);

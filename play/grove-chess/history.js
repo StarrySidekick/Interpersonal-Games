@@ -46,6 +46,10 @@ export const HISTORY = {
 
   bunny: 'Grove Chess\'s own, from the rabbits that have always lived in the grove (2026). It has no fairy chess record: no other game lets a piece climb onto a friend\'s head and ride.',
 
+  ghost: 'Grove Chess\'s own (2026), in place of the pawns: a wall each side opens from the inside as it comes out to play. Chess has nothing quite like it; the nearest is the pawn wall itself, which also blocks your own pieces until it moves.',
+  statue: 'Grove Chess\'s own. Tree stumps in the first boards (2026-10-05), statues with a spiral cut in them from 2026-10-07, and from 2026-10-13 something either side can take.',
+  cloud: 'Grove Chess\'s own (2026). Hiding pieces is an old idea: Kriegspiel (Henry Michael Temple, 1899) hides the whole other side and needs an umpire; Dark Chess, played online, shows only the squares your pieces can reach. A cloud hides a little at a time, and moves.',
+  gate: 'Grove Chess\'s own (2026): a square that opens and shuts by itself, so timing which turn to go through it is part of the move.',
   ball: 'Not a chess piece: Grove Chess\'s own, for the golf-like levels. It rolls, putts or bounces like a billiard ball, depending on the level.',
   rabbit: 'Grove Chess\'s own. Rabbits get into pieces and move them; caught, they join your collection.'
 };

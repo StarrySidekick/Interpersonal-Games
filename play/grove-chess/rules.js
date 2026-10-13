@@ -133,6 +133,89 @@ export const shrunk = (s, x, y) => s.shrunk?.length > 0 && s.shrunk.includes(y *
     statue a turn, so a statue that has opened is gone. */
 export const statueAt = (s, sq) => s.day.stumps.has(sq) && !(s.open?.length > 0 && s.open.includes(sq));
 
+// --- Neutral pieces (Timothy, 2026-10-13): ghosts, gates and wandering
+// clouds, beside statues (which can now be taken). None belongs to a side's
+// army; ghosts belong to a side but never move.
+
+/** Whose ghost stands on square sq, 'you' or 'foe', or null. A ghost goes
+    for good once a piece of its own side passes through or onto it. */
+export const ghostAt = (s, sq) => (s.day.ghosts?.size ? (s.ghostGone?.includes(sq) ? null : s.day.ghosts.get(sq) || null) : null);
+
+/** Is the gate on square sq up? Gates swap every turn; one with anything
+    standing on it stays down until it is left. */
+export function gateUp(s, sq) {
+  const g = s.day.gates?.get(sq);
+  if (g == null || (s.t + g) % 2 === 0) return false;
+  const x = sq % s.day.W, y = Math.floor(sq / s.day.W), on = (q) => !q.taken && !q.flying && q.x === x && q.y === y;
+  return !s.pieces.some(on) && !s.foes.some(on);
+}
+
+/** Is a wandering cloud over square sq? */
+export const cloudOver = (s, sq) => s.clouds?.length > 0 && s.clouds.some((c) => c.y * s.day.W + c.x === sq);
+
+/** The other side's pieces that `side` cannot see: those under a cloud.
+    Indexes into s.foes (for 'you') or s.pieces (for 'foe'). */
+export function hiddenFrom(s, side) {
+  const out = new Set();
+  if (!s.clouds?.length) return out;
+  (side === 'you' ? s.foes : s.pieces).forEach((p, i) => { if (!p.taken && !p.flying && cloudOver(s, p.y * s.day.W + p.x)) out.add(i); });
+  return out;
+}
+
+/** The state as `side` sees it: the other side's pieces under clouds are
+    taken off to one side (to -99, -99, where nothing reaches them and
+    nothing is counted as lost). The same state when nothing is hidden.
+    Kept on the state while its pieces have not moved. */
+export function seenBy(s, side) {
+  if (!s.clouds?.length) return s;
+  const H = hiddenFrom(s, side);
+  if (!H.size) return s;
+  const sig = posSig(s), key = side === 'you' ? '_seenYou' : '_seenFoe';
+  if (s[key]?.sig === sig) return s[key].v;
+  const v = clone(s);
+  for (const i of H) { const p = side === 'you' ? v.foes[i] : v.pieces[i]; p.x = -99; p.y = -99; p.hid = true; }
+  Object.defineProperty(s, key, { value: { sig, v }, enumerable: false, configurable: true, writable: true });
+  return v;
+}
+const posSig = (s) => s.pieces.map((p) => (p.taken ? '-' : `${p.x},${p.y}`)).join(';') + '|' + s.foes.map((f) => (f.taken ? '-' : `${f.x},${f.y}`)).join(';') + '|' + s.clouds.map((c) => `${c.x},${c.y}`).join(';') + '|' + (s.bonus ? s.bonus.p : '') + s.t;
+
+/** The squares strictly between two on a straight line or diagonal (a
+    knight's L has none: it leaps). */
+function between(W, fx, fy, tx, ty) {
+  const dx = tx - fx, dy = ty - fy, g = gcd(Math.abs(dx), Math.abs(dy)) || 1, out = [];
+  for (let i = 1; i < g; i++) out.push((fy + (dy / g) * i) * W + fx + (dx / g) * i);
+  return out;
+}
+
+/** Where a move really ends when the mover could not see everything: the
+    first square on its way, or its landing square, where a piece of the
+    other side hides under a cloud. It stops there and takes it (2026-10-13:
+    a cloud hides pieces, so anything that runs into one takes it). */
+function contact(s, side, p, m) {
+  if (!s.clouds?.length || m.swap) return m;
+  const hidden = hiddenFrom(s, side);
+  if (!hidden.size) return m;
+  const other = side === 'you' ? s.foes : s.pieces, W = s.day.W;
+  const there = (sq) => [...hidden].some((j) => other[j].y * W + other[j].x === sq);
+  if (p.suit !== 'spirits' && !s.day.rules.wrap) for (const sq of between(W, p.x, p.y, m.x, m.y)) if (there(sq)) return { ...m, x: sq % W, y: Math.floor(sq / W), cap: true, bumped: true };
+  return there(m.y * W + m.x) ? { ...m, cap: true, bumped: true } : m;
+}
+
+/** A piece of `side` moved from (fx, fy) to (tx, ty): its own ghosts on the
+    way, and on the square it lands on, are gone for good. Mutates. */
+function passGhosts(s, side, fx, fy, tx, ty) {
+  if (!s.day.ghosts?.size) return;
+  const W = s.day.W;
+  for (const sq of [...(s.day.rules.wrap ? [] : between(W, fx, fy, tx, ty)), ty * W + tx])
+    if (s.day.ghosts.get(sq) === side && !s.ghostGone.includes(sq)) { s.ghostGone.push(sq); s.ghostsLost = (s.ghostsLost || 0) + 1; }
+}
+
+/** A statue taken where a piece lands (statues can be taken, 2026-10-13). Mutates. */
+function breakStatue(s, x, y) {
+  const sq = y * s.day.W + x;
+  if (s.day.rules.statuesTake && statueAt(s, sq)) { s.open = [...(s.open || []), sq]; s.broke = sq; }
+}
+
 /** Is the hole open? On a descent level it stays shut until every rabbit
     has been caught; anywhere else it is always open. A shut hole is just
     ground: anything can stand on it and the ball rolls straight over. */
@@ -143,6 +226,28 @@ export const holeOpen = (s) => s.day.rules.goal !== 'descent' || s.foes.every((f
     back to the rule for everything. */
 export function canTake(rules, f) {
   return f.type === 'rabbit' ? (rules.rabbitsEat ?? rules.foesCapture) : rules.foesCapture;
+}
+
+// Where everything stands, square by square, for one state while its moves
+// are listed (2026-10-13, for speed: look() otherwise searches both sides'
+// lists for every square it is asked about, which was a third of the bots'
+// time). Built by withGrid, used by look() for that state only; a state is
+// never changed while its moves are being listed. 0 is empty, i + 1 a piece
+// of yours, -(k + 1) one of theirs: the first in each list, as the search
+// below finds them.
+let gridFor = null, grid = null;
+function buildGrid(s) {
+  const W = s.day.W, H = s.day.H, g = new Int16Array(W * H);
+  s.pieces.forEach((p, i) => { if (!p.taken && p.x >= 0 && p.y >= 0 && p.x < W && p.y < H && !g[p.y * W + p.x]) g[p.y * W + p.x] = i + 1; });
+  s.foes.forEach((f, k) => { if (!f.taken && f.x >= 0 && f.y >= 0 && f.x < W && f.y < H && !g[f.y * W + f.x]) g[f.y * W + f.x] = -(k + 1); });
+  return g;
+}
+/** Run fn with state s's grid in place. */
+export function withGrid(s, fn) {
+  if (gridFor === s) return fn();
+  const pf = gridFor, pg = grid;
+  gridFor = s; grid = buildGrid(s);
+  try { return fn(); } finally { gridFor = pf; grid = pg; }
 }
 
 /** What is on (x, y), as seen by `side` ('you' or 'foe'). */
@@ -160,7 +265,11 @@ export function look(s, x, y, side = 'you') {
     if (!(openCloud && empty)) return OFF;
   }
   const bram = isBramble(s, x, y);
-  for (const p of s.pieces)
+  if (gridFor === s) {
+    const v = grid[y * s.day.W + x];
+    if (v > 0) return s.pieces[v - 1].type === 'ball' && s.day.rules.ballMove === 'hit' ? ENEMY : side === 'you' ? OWN : bram ? HIDDEN : ENEMY;
+    if (v < 0) return side === 'foe' ? OWN : bram ? HIDDEN : ENEMY;
+  } else for (const p of s.pieces)
     if (!p.taken && p.x === x && p.y === y) {
       // A ball that is hit (ballMove 'hit') is something either side can
       // move into: the move generators see it as a catch, and landing on it
@@ -168,10 +277,18 @@ export function look(s, x, y, side = 'you') {
       if (p.type === 'ball' && s.day.rules.ballMove === 'hit') return ENEMY;
       return side === 'you' ? OWN : bram ? HIDDEN : ENEMY;
     }
-  for (const f of s.foes)
+  if (gridFor !== s) for (const f of s.foes)
     if (!f.taken && f.x === x && f.y === y) return side === 'foe' ? OWN : bram ? HIDDEN : ENEMY;
   if (s.hole && s.hole.x === x && s.hole.y === y && holeOpen(s)) return HOLE;
-  if (statueAt(s, y * s.day.W + x)) return STUMP;
+  const sq = y * s.day.W + x;
+  // A statue that can be taken reads as something to take, to either side
+  // (not to a ball, which only stops at it).
+  if (statueAt(s, sq)) return s.day.rules.statuesTake && !ballView ? ENEMY : STUMP;
+  // A ghost: open ground to its own side, a wall to the other.
+  const ghost = ghostAt(s, sq);
+  if (ghost) return ghost === side ? EMPTY : STUMP;
+  // A gate that is up: nothing passes and nothing stands there.
+  if (s.day.gates?.size && gateUp(s, sq)) return OFF;
   return bram ? BRAMBLE : EMPTY;
 }
 
@@ -601,7 +718,24 @@ export const PIECES = {
 
   rabbit: { name: 'Wild rabbit', kind: 'quarry', tier: 1, value: 3, betza: 'K', strength: null,
     desc: 'Steps one square in any direction.',
-    moves: (L, p) => leap(L, p, ALL8) }
+    moves: (L, p) => leap(L, p, ALL8) },
+
+  // --- Neutral pieces (Timothy, 2026-10-13: "clouds and statues are now
+  // neutral fairy pieces", with ghosts and gates). They are in the catalog,
+  // with their rules, but never in anyone's army: a level places them
+  // (lab.js), and the rules read them as parts of the board.
+  ghost: { name: 'Ghost', kind: 'neutral', tier: 0, value: 0, betza: null, strength: null,
+    desc: 'Never moves and never takes. Its own side moves through it as if it were not there, and once one of them passes through or onto it, it is gone for good. The other side cannot pass it or land on it, though a leaper can jump over. A row of them stands in front of each side, where pawns stand in chess.',
+    origin: 'Grove Chess’s own, 2026.', moves: () => [] },
+  statue: { name: 'Statue', kind: 'neutral', tier: 0, value: 0, betza: null, strength: null,
+    desc: 'A standing stone with a spiral cut in it. It never moves and does nothing, and it belongs to nobody. Sliders stop at it; leapers and hoppers go over it. Either side can take it, and then it is gone.',
+    origin: 'Grove Chess’s own, 2026: tree stumps first, statues from 2026-10-07.', moves: () => [] },
+  cloud: { name: 'Cloud', kind: 'neutral', tier: 0, value: 0, betza: null, strength: null,
+    desc: 'Drifts one square a turn, any way, on its own, over anything. A piece under a cloud is hidden from the other side, and so is its move into the cloud. A move that runs into a hidden piece stops there and takes it.',
+    origin: 'Grove Chess’s own, 2026. Hidden pieces are the oldest idea in chess variants of secrecy: Kriegspiel (1899) hides the whole other side.', moves: () => [] },
+  gate: { name: 'Gate', kind: 'neutral', tier: 0, value: 0, betza: null, strength: null,
+    desc: 'Up one turn and down the next. Down, it is open ground; up, nothing passes it and nothing can stand there. With a piece on it, it stays down until the piece leaves.',
+    origin: 'Grove Chess’s own, 2026.', moves: () => [] }
 };
 
 // Every piece's record: its real name, kept when the game calls it
@@ -620,6 +754,12 @@ export const RABBIT_GENTLE_DESC = 'Hops in a fixed pattern that repeats. It boun
 export const rabbitDesc = (rules) => ((rules.rabbitsEat ?? rules.foesCapture) ? RABBIT_DESC : RABBIT_GENTLE_DESC);
 export const RABBIT_AI_DESC = 'Thinks for itself and steps one square in any direction, like a king. It eats what it lands on.';
 export const BRAMBLE_DESC = 'Creeps across the board. Nothing can enter it and nothing slides through it. Anything caught inside is safe until it leaves.';
+export const GHOST_DESC = 'A ghost of {side}. It never moves and never takes. Its own side moves through it as if it were not there, and once one of them passes through or onto it, it is gone for good. The other side cannot pass it or land on it; a leaper can jump over it.';
+export const GATE_DESC = 'A gate: up one turn and down the next. Down, it is open ground; up, nothing passes it and nothing can stand there. With a piece on it, it stays down until the piece leaves.';
+export const WANDER_DESC = 'A cloud, drifting one square a turn on its own. A piece under it is hidden from the other side, and so is its move into the cloud. A move that runs into a hidden piece stops there and takes it. You see your own pieces under it.';
+export const STATUE_TAKE_DESC = 'A statue: a standing stone with a spiral cut in it. It never moves and belongs to nobody. Sliders stop at it; leapers and hoppers go over it. Either side can take it, and then it is gone.';
+/** A statue, in words, for this level's rules. */
+export const statueDesc = (rules) => (rules?.statuesTake ? STATUE_TAKE_DESC : STUMP_DESC);
 export const STATUE_ROW_DESC = 'Here the whole middle row is statues, and after every turn one of them, at random, sinks away and opens its square.';
 export const STUMP_DESC = 'A statue: a standing stone with a spiral cut in it, older than the board. It never moves and nothing can take it. Sliders stop at it, leapers jump over it, and pieces that hop (the grasshopper, the cannon) can hop over it.';
 
@@ -689,6 +829,10 @@ export function initialState(day) {
     won: false
   };
   if (day.rules.cloud && day.cloud?.size) s.cloudy = true;
+  // Neutral pieces (2026-10-13): the ghosts that have gone, and where the
+  // wandering clouds are.
+  if (day.ghosts?.size) s.ghostGone = [];
+  if (day.clouds?.length) s.clouds = day.clouds.map((c) => ({ ...c }));
   if (day.rules.first === 'them') { foesAct(s); s.opened = true; }
   return s;
 }
@@ -696,7 +840,8 @@ export function initialState(day) {
 export function clone(s) {
   return { day: s.day, t: s.t, pieces: s.pieces.map((p) => ({ ...p })), foes: s.foes.map((f) => ({ ...f })),
     hole: s.hole ? { ...s.hole } : null, gone: s.gone.slice(), shrunk: s.shrunk ? s.shrunk.slice() : [], open: s.open ? s.open.slice() : [], won: s.won, sunk: s.sunk,
-    bonus: s.bonus || null, treasure: s.treasure || 0, foeTreasure: s.foeTreasure || 0, ft: s.ft || 0, ...(s.cloudy ? { cloudy: true } : {}) };
+    bonus: s.bonus || null, treasure: s.treasure || 0, foeTreasure: s.foeTreasure || 0, ft: s.ft || 0, ...(s.cloudy ? { cloudy: true } : {}),
+    ...(s.ghostGone ? { ghostGone: s.ghostGone.slice(), ghostsLost: s.ghostsLost || 0 } : {}), ...(s.clouds ? { clouds: s.clouds.map((c) => ({ ...c })) } : {}) };
 }
 
 const youLook = (s) => (x, y) => look(s, x, y, 'you');
@@ -728,6 +873,8 @@ export function cloudFor(s, side) {
 
 /** While true, look() lets an empty square under the cloud read as empty. */
 let openCloud = false;
+/** While true, look() is reading for a ball, which stops at statues. */
+let ballView = false;
 
 /** Piece p's moves, from `side`. Under the first-turn cloud: its moves with
     the cloud as a wall, plus any that end on an empty square of the cloud
@@ -758,7 +905,9 @@ function throughCloud(B, W, p, m) {
 
 /** Piece p's moves, from `side`, folded back onto a magic board. */
 function pieceMoves0(s, p, side) {
-  let ms = PIECES[p.type].moves(sight(s, p, side), p, side === 'you' ? 1 : -1, s.day);
+  let ms;
+  if (p.type === 'ball') { ballView = true; try { ms = PIECES[p.type].moves(sight(s, p, side), p, 1, s.day); } finally { ballView = false; } }
+  else ms = PIECES[p.type].moves(sight(s, p, side), p, side === 'you' ? 1 : -1, s.day);
   // A rabbit rides one piece at a time: not onto a rabbit, a ball, or a
   // head that already has a rider.
   if (p.type === 'bunny') {
@@ -796,6 +945,8 @@ function pieceMoves0(s, p, side) {
 }
 
 export function movesFor(s, i) {
+  // Under clouds (2026-10-13) you choose from what you can see.
+  if (s.clouds?.length) { const v = seenBy(s, 'you'); if (v !== s) return withGrid(v, () => movesFor(v, i)); }
   const p = s.pieces[i];
   if (s.won || p.taken) return [];
   // A turn left open by a suit (below): only that piece moves, and after a
@@ -846,6 +997,7 @@ export function foeMovesAny(s, k) {
 }
 
 export function foeMovesFor(s, k) {
+  if (s.clouds?.length) { const v = seenBy(s, 'foe'); if (v !== s) return withGrid(v, () => foeMovesFor(v, k)); }
   const f = s.foes[k];
   if (f.taken || f.brain !== 'ai') return [];
   let ms = pieceMoves(s, f, 'foe');
@@ -906,7 +1058,8 @@ function givesCheck(s, side, i, m) {
 
 /** Every move available to you, waiting first if waiting is allowed. With
     no move at all you must pass, whatever the rules say about waiting. */
-export function allMoves(s) {
+export function allMoves(s) { return withGrid(s, () => allMoves0(s)); }
+function allMoves0(s) {
   const out = [];
   if (s.bonus) {
     // Waiting ends a turn a suit left open.
@@ -1015,7 +1168,14 @@ export function foeMove(s, m) {
   if (!m) return;
   const f = s.foes[m.k], gone = () => s.pieces.filter((p) => p.taken).length;
   const before = gone();
+  // Under clouds they choose from what they can see, and may run into one
+  // of yours that hides there.
+  const fx = f.x, fy = f.y;
+  m = contact(s, 'foe', f, m);
+  if (m.bumped) s.bumped = 'foe';
+  if (!m.swap) breakStatue(s, m.x, m.y);
   landFoe(s, f, m.x, m.y);
+  if (!m.swap) passGhosts(s, 'foe', fx, fy, m.x, m.y);
   if (f.taken || lost(s)) return;
   // Their suits that change a turn (2026-10-13, Timothy: "enemy pieces
   // should be able to receive all the different suits"). Swords: after a
@@ -1189,6 +1349,7 @@ function hash01(str) {
  * underneath another enemy piece"): see patternReach.
  */
 export function reachMaps(s, pattern = false) {
+  s = seenBy(s, 'you'); // a piece hidden in a cloud shows no reach (2026-10-13)
   const W = s.day.W, yours = new Set(), theirs = new Set();
   if (s.won) return { yours, theirs };
   s.pieces.forEach((p, i) => {
@@ -1241,6 +1402,7 @@ function patternReach(s, p, side, takes) {
  * guards is kept so the shield can fly from the guard (2026-10-13).
  */
 export function guarded(s) {
+  s = seenBy(s, 'you'); // nothing hidden in a cloud is given away
   const out = new Map();
   if (s.won) return out;
   s.pieces.forEach((p, i) => {
@@ -1276,6 +1438,7 @@ export function guarded(s) {
  * s.pieces or s.foes to the indexes of the pieces that pin it.
  */
 export function pinned(s) {
+  s = seenBy(s, 'you'); // nothing hidden in a cloud is given away
   const mine = new Map(), theirs = new Map();
   if (s.won || lost(s)) return { mine, theirs };
   const r = s.day.rules;
@@ -1314,6 +1477,7 @@ export function pinned(s) {
  * another counts with it. Loose rabbits on a fixed pattern are left out.
  */
 export function threats(s) {
+  s = seenBy(s, 'you'); // nothing hidden in a cloud is given away
   const mine = new Set(), theirs = new Set();
   if (s.won) return { mine, theirs };
   const at = (list, x, y, out) => list.forEach((q, k) => { if (!q.taken && !q.flying && q.x === x && q.y === y) out.add(k); });
@@ -1420,10 +1584,10 @@ function holeHop(s) {
 
 /** Their whole turn: the thinkers choose one move between them, then every
     pattern foe hops, then the hole moves. Mutates. */
-function foesAct(s) {
+function foesAct(s, chosen) {
   for (const f of s.foes) { f.from = [f.x, f.y]; f.ate = -1; f.blocked = false; }
-  if (s.day.rules.oneMove) return oneFoeActs(s);
-  if (s.foes.some((f) => !f.taken && f.brain === 'ai')) foeMove(s, think(s));
+  if (s.day.rules.oneMove) return oneFoeActs(s, chosen);
+  if (s.foes.some((f) => !f.taken && f.brain === 'ai')) foeMove(s, chosen !== undefined ? chosen : think(seenBy(s, 'foe')));
   if (!lost(s)) patternHops(s);
   if (s.hole?.pattern && !lost(s)) holeHop(s);
 }
@@ -1447,9 +1611,9 @@ const acted = (a, b, k) => b.foes[k].x !== a.foes[k].x || b.foes[k].y !== a.foes
  * one moves; otherwise they take turns, in order, so you can tell who goes
  * next. Loose rabbits are not their side: they still hop every turn.
  */
-function oneFoeActs(s) {
+function oneFoeActs(s, chosen) {
   for (const f of s.foes) f.wounded = -1;
-  if (s.foes.some((f) => !f.taken && f.brain === 'ai')) foeMove(s, think(s));
+  if (s.foes.some((f) => !f.taken && f.brain === 'ai')) foeMove(s, chosen !== undefined ? chosen : think(seenBy(s, 'foe')));
   else {
     const side = s.foes.map((f, k) => k).filter((k) => !s.foes[k].taken && s.foes[k].type !== 'rabbit' && s.foes[k].brain !== 'leader' && (s.foes[k].mind || s.foes[k].brain === 'possessed'));
     if (side.length) {
@@ -1590,7 +1754,17 @@ function landMine(n, i, x, y) {
 export function playerMove(s, mv) {
   const n = clone(s), was = n.bonus;
   n.bonus = null;
-  if (mv.p >= 0) openBonus(n, mv.p, landMine(n, mv.p, mv.x, mv.y), was);
+  delete n.broke; delete n.bumped;
+  if (mv.p >= 0) {
+    // A move chosen under clouds may run into a hidden piece and take it.
+    const m = contact(s, 'you', s.pieces[mv.p], mv);
+    if (m.bumped) n.bumped = 'you';
+    const p = n.pieces[mv.p], fx = p.x, fy = p.y;
+    if (!m.swap) breakStatue(n, m.x, m.y);
+    const took = landMine(n, mv.p, m.x, m.y);
+    if (!m.swap) passGhosts(n, 'you', fx, fy, m.x, m.y);
+    openBonus(n, mv.p, took, was);
+  }
   return n;
 }
 
@@ -1742,6 +1916,13 @@ function shrinkStep(s) {
 function afterMove(n) {
   const r = n.day.rules;
   if (n.won || lost(n)) return;
+  // Wandering clouds (2026-10-13) drift a square each turn, any way, over
+  // anything; which way is drawn from the level and the turn, so the same
+  // game drifts the same way on any phone.
+  if (n.clouds?.length) n.clouds.forEach((c, i) => {
+    const ways = ALL8.map(([dx, dy]) => [c.x + dx, c.y + dy]).filter(([x, y]) => onBoard(n.day, x, y) && !shrunk(n, x, y));
+    if (ways.length) [c.x, c.y] = ways[Math.floor(hash01(`cloud:${n.day.seed ?? 0}:${n.t}:${i}`) * ways.length)];
+  });
   // A statue row (2026-10-12, Timothy: "the middle row is filled with the
   // statue things, and every round one randomly disappears to open up the
   // spot"): one statue opens each turn, in an order the level drew at random.
@@ -1811,6 +1992,20 @@ export function respond(n) {
   return c;
 }
 
+/** Their reply with their thinking side's move chosen for them: `m` is
+    { k, x, y } (one of foeMovesFor), or null for none. Everything else in
+    their turn goes as in respond(). For a bot that plays their side
+    (sim.js, 2026-10-13), so both sides can be played by the same bot. */
+export function respondWith(n, m) {
+  const c = clone(n);
+  if (c.bonus) return c;
+  if (!c.won && theyMove(c)) foesAct(c, m);
+  if (c.cloudy) delete c.cloudy;
+  c.t++;
+  afterMove(c);
+  return c;
+}
+
 export function isOver(s) {
   const max = s.day.rules.maxMoves;
   return s.won || lost(s) || (max > 0 && s.t >= max);
@@ -1843,7 +2038,11 @@ export function stateKey(s) {
   // Which squares are gone matters; the order they went in does not.
   if (s.gone.length) k += '|g' + s.gone.slice().sort((a, b) => a - b).join(',');
   if (s.shrunk?.length) k += '|s' + s.shrunk.slice().sort((a, b) => a - b).join(',');
-  if (s.open?.length) k += '|o' + s.open.length; // statues open in a fixed order
+  // Statues open in a fixed order; statues that can be taken go in any.
+  if (s.open?.length) k += '|o' + (s.day.rules.statuesTake ? s.open.slice().sort((a, b) => a - b).join(',') : s.open.length);
+  if (s.ghostGone?.length) k += '|g' + s.ghostGone.slice().sort((a, b) => a - b).join(',');
+  if (s.clouds?.length) k += '|c' + s.clouds.map((c) => c.x + ',' + c.y).join(';') + 't' + s.t;
+  if (s.day.gates?.size) k += '|u' + (s.t % 2);
   // On a geared board the same position facing another way is not the same.
   if (s.day.rules.geared) k += '|r' + turns(s);
   // Nor, with Double Time or Lazy Rabbits, at a different point in the turn.

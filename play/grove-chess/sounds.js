@@ -198,3 +198,23 @@ export function pin(at = 0) {
   tone({ f: 520, f2: 180, type: 'square', at, dur: 0.06, vol: 0.06 });
   tone({ f: 3100, f2: 2900, type: 'triangle', at: at + 0.01, dur: 0.12, vol: 0.05 });
 }
+
+/** A ghost gone (2026-10-13): a soft breath, falling away. */
+export function ghost(at = 0) {
+  noise({ at, dur: 0.45, vol: 0.07, from: 1600, to: 300, type: 'bandpass', q: 2 });
+  tone({ f: 620, f2: 260, type: 'sine', at, dur: 0.5, vol: 0.05, attack: 0.05 });
+}
+
+/** Gates swapping: a low iron clank and the rattle of a chain. */
+export function gate(at = 0) {
+  tone({ f: 140, f2: 95, type: 'square', at, dur: 0.12, vol: 0.05 });
+  noise({ at: at + 0.02, dur: 0.18, vol: 0.06, from: 2600, type: 'bandpass', q: 6 });
+}
+
+/** A statue taken: a crack of stone and a falling rattle. */
+export function smash(at = 0) {
+  noise({ at, dur: 0.07, vol: 0.18, from: 900, type: 'lowpass', q: 1 });
+  tone({ f: 110, f2: 55, type: 'triangle', at, dur: 0.2, vol: 0.12 });
+  noise({ at: at + 0.06, dur: 0.3, vol: 0.06, from: 3000, to: 1200, type: 'bandpass', q: 3 });
+}
+

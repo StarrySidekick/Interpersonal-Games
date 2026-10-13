@@ -12,6 +12,22 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
+## 2026-10-13, latest: ghosts, gates, clouds, statues, and Custom
+
+From Timothy: their side in the trials in any order, not only mirrored or
+reversed; suited pieces tested; real chess was never found as a playable
+layout (a red flag); ghosts filling the row in front of each side, in place
+of the descent's statues and clouds; the descent on five by six; clouds and
+statues as neutral fairy pieces (a cloud drifts and hides what is under
+it; a statue can be taken); gates that go up and down each turn; and one
+Custom mode for playing, simulating and finding the most playable layout.
+All built: `docs/grove-modes.md` ("Ghosts, gates, wandering clouds, and
+Custom"). Custom replaces Chaos and the piece trials in the menu; the
+trials now run on the real rules. Chess is found now (fun 70, the most
+decisive layout judged), not first, within the noise. The bots draw every
+game of the new descent within its 20 moves, and most at 40 end with only
+the Kings: the bare-King question is his to settle.
+
 ## 2026-10-13, later: flying shields, needles, two rooks, piece trials
 
 From Timothy: guard shields fly from the guards in an arc; a sewing needle

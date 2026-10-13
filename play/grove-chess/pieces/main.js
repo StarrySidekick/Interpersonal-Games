@@ -23,18 +23,19 @@ const powerOf = (k) => PW()[k]?.power ?? PIECES[k]?.strength ?? 0;
 const cat = loadCatalog();
 registerInvented(cat.invented);
 const save = () => saveCatalog(cat);
-const KIND = { classic: 'Classic', fairy: 'Fairy', special: "Grove Chess's own", quarry: "Grove Chess's own" };
+const KIND = { classic: 'Classic', fairy: 'Fairy', special: "Grove Chess's own", quarry: "Grove Chess's own", neutral: 'Neutral: nobody\u2019s army' };
 const list = () => Object.keys(PIECES);
 
 // --- The grid. -------------------------------------------------------------
 
-const FILTERS = [['all', 'All'], ['classic', 'Classic'], ['fairy', 'Fairy'], ['invented', 'Invented'], ['vetoed', 'Vetoed'], ['notes', 'With notes']];
+const FILTERS = [['all', 'All'], ['classic', 'Classic'], ['fairy', 'Fairy'], ['neutral', 'Neutral'], ['invented', 'Invented'], ['vetoed', 'Vetoed'], ['notes', 'With notes']];
 let filter = 'all';
 
 function shown(k) {
   const P = PIECES[k];
   if (filter === 'classic') return P.kind === 'classic';
   if (filter === 'fairy') return P.kind === 'fairy' && !P.invented;
+  if (filter === 'neutral') return P.kind === 'neutral';
   if (filter === 'invented') return !!P.invented;
   if (filter === 'vetoed') return cat.vetoed.includes(k);
   if (filter === 'notes') return !!cat.notes[k];
@@ -88,11 +89,13 @@ function open(k) {
   $('#d-history').textContent = HISTORY[k] || (P.invented ? P.desc : 'No history written yet.');
   $('#d-note').value = cat.notes[k] || '';
   paintVeto();
-  $('#d-side').hidden = k === 'rabbit' || k === 'ball';
+  $('#d-side').hidden = k === 'rabbit' || k === 'ball' || (P.kind === 'neutral' && k !== 'ghost');
   $('#d-side').textContent = 'Show theirs';
   $('#d-remove').hidden = !P.invented;
   $('#d-chaos').hidden = k === 'rabbit' || k === 'ball';
   $('#d-trials').hidden = !trialPiece(k) || k === 'king';
+  // Neutral pieces belong to no army: nothing to veto, deal or weave.
+  if (P.kind === 'neutral') { $('#d-veto').hidden = true; $('#d-chaos').hidden = true; } else $('#d-veto').hidden = false;
   $('#detail').showModal();
   if (!spinning) { spinning = true; requestAnimationFrame(spin); }
 }
@@ -126,11 +129,11 @@ $('#d-remove').onclick = () => {
 // Chaos with this piece in your hand and theirs.
 $('#d-chaos').onclick = () => {
   const S = clean({ ...defaults(), minePool: [current, 'knight', 'rook'], foePool: [current, 'king', 'bishop'], invented: cat.invented });
-  location.href = `../lab/#${encodeLevel(S, 1 + Math.floor(Math.random() * 1e9))}`; // the workshop
+  location.href = `../lab/#${encodeLevel(S, 1 + Math.floor(Math.random() * 1e9))}`; // Custom
 };
 
-// The piece trials, ready to weave this piece into an army (2026-10-13).
-$('#d-trials').onclick = () => { location.href = `../trials/#weave=${encodeURIComponent(current)}`; };
+// Custom, ready to weave this piece into an army (2026-10-13).
+$('#d-trials').onclick = () => { location.href = `../lab/#weave=${encodeURIComponent(current)}`; };
 
 // --- Inventing. ------------------------------------------------------------
 

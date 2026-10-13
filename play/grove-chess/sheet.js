@@ -5,7 +5,7 @@
 import { el } from '../../engine/ui.js';
 import { Mesh, makeTarget, render } from '../../engine/lowpoly.js';
 import { model } from './models.js';
-import { PIECES, descOf, rabbitDesc, RABBIT_AI_DESC, BRAMBLE_DESC, STUMP_DESC, STATUE_ROW_DESC, HOLE_DESC, CRUMBLE_DESC, SHRINK_DESC, LOCKED_DESC, statueKind, leaderDesc } from './rules.js';
+import { PIECES, descOf, rabbitDesc, RABBIT_AI_DESC, BRAMBLE_DESC, STUMP_DESC, STATUE_ROW_DESC, statueDesc, HOLE_DESC, CRUMBLE_DESC, SHRINK_DESC, LOCKED_DESC, statueKind, leaderDesc } from './rules.js';
 import { diagram } from './board.js';
 import { patent } from './betza.js';
 
@@ -70,7 +70,11 @@ export function piecesSheet(dialog, list, day, notes = {}) {
         row(f.type, 'foe', P.name, f.brain === 'possessed' ? 'Theirs, with a rabbit inside' : 'Theirs, and it thinks', [P.desc, P.origin, ...patentLines(f.type)], true);
       }
     }
-    if (day.rules.crumble || day.rules.shrink || day.bramble.length || day.stumps.size) head('On the board');
+    if (day.rules.crumble || day.rules.shrink || day.bramble.length || day.stumps.size || day.ghosts?.size || day.gates?.size || day.clouds?.length) head('On the board');
+    // Neutral pieces (2026-10-13).
+    if (day.ghosts?.size) row('ghost', 'you', 'Ghosts', 'In front of each side', [PIECES.ghost.desc, 'Yours are green and theirs purple: you can go through yours, not theirs.']);
+    if (day.gates?.size) row('gateUp', 'you', 'Gates', 'Up, then down', [PIECES.gate.desc]);
+    if (day.clouds?.length) row('cloud', 'you', 'Wandering clouds', 'They drift', [PIECES.cloud.desc]);
     if (day.rules.shrink) row('shrink', 'you', day.rules.shrink === 'spiral' ? 'Shrinking, in a spiral' : 'Shrinking ground', notes.when || 'Today',
       [SHRINK_DESC, `Here the edge falls every ${day.rules.shrinkEvery > 1 ? `${day.rules.shrinkEvery} moves` : 'move'}. The square that goes next is shadowed.`]);
     if (day.rules.crumble) row('crumble', 'you', 'Crumbling ground', notes.when || 'Today',
@@ -78,7 +82,7 @@ export function piecesSheet(dialog, list, day, notes = {}) {
     // Only the first two daily boards have these.
     if (day.bramble.length) row('bramble', 'you', 'Bramble', notes.when || 'Today',
       [BRAMBLE_DESC, `It grows one square every ${day.every} move${day.every > 1 ? 's' : ''}. The faint thorns show where it goes next.`]);
-    if (day.stumps.size) row(statueKind(day, [...day.stumps][0]), 'stone', 'Statue', notes.when || 'Today', day.statueOrder ? [STUMP_DESC, STATUE_ROW_DESC] : [STUMP_DESC]);
+    if (day.stumps.size) row(statueKind(day, [...day.stumps][0]), 'stone', 'Statue', notes.when || 'Today', day.statueOrder ? [statueDesc(day.rules), STATUE_ROW_DESC] : [statueDesc(day.rules)]);
     list.append(el('p', { class: 'small dim' },
       'Fairy pieces are invented chess pieces, some centuries old. In the diagrams: gold squares are moves, coral is a catch, brown is something in the way.'),
       el('p', { class: 'small dim' },
