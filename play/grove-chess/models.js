@@ -372,6 +372,29 @@ const MODELS = {
     m.box(0, 3.9, 2.25, 2.4, 0.3, 0.12, P.gold, { rz: Math.PI / 4 });
     m.box(0, 3.9, 2.25, 2.4, 0.3, 0.12, P.gold, { rz: -Math.PI / 4 });
     return m;
+  },
+  // Timothy's two rooks (2026-10-13). The shape says the way each slides:
+  // the tall rook is a tall, thin tower with a slit running up it; the
+  // short rook is squat and wide, with a band running round it.
+  tallrook() {
+    const m = plinth(new Model());
+    m.lathe([[2.4, 1.5], [1.7, 3.0], [1.6, 4.0], [1.6, 11.0], [2.3, 11.6], [2.3, 12.6]], [P.wood, P.moss, P.wood, P.wood, P.wood]);
+    m.box(0, 7.4, 1.55, 0.4, 5.6, 0.16, P.woodDark);
+    for (let k = 0; k < 4; k++) {
+      const a = (k / 4) * Math.PI * 2 + Math.PI / 4;
+      m.box(Math.cos(a) * 1.75, 13.2, Math.sin(a) * 1.75, 1.1, 1.2, 1.1, P.wood, { ry: -a });
+    }
+    return m;
+  },
+  shortrook() {
+    const m = plinth(new Model());
+    m.lathe([[3.3, 1.5], [3.0, 2.3], [3.0, 5.0], [3.5, 5.5], [3.5, 6.3]], [P.wood, P.wood, P.wood, P.wood]);
+    m.lathe([[3.08, 3.3], [3.08, 3.9]], P.woodDark, { seg: 10 });
+    for (let k = 0; k < 6; k++) {
+      const a = (k / 6) * Math.PI * 2 + Math.PI / 6;
+      m.box(Math.cos(a) * 2.9, 6.9, Math.sin(a) * 2.9, 1.3, 1.2, 1.3, P.wood, { ry: -a });
+    }
+    return m;
   }
 };
 
@@ -448,6 +471,18 @@ const shieldModel = (face, rim) => {
 };
 MODELS.shield = () => shieldModel('#cfd3da', '#8e96a3');
 MODELS.shieldGold = () => shieldModel('#e8c048', '#fff0b0');
+
+// A sewing needle (2026-10-13), driven down through a piece pinned to its
+// King: bright steel, its point at the foot (y = 0), its eye up top with a
+// red thread through it, so it reads at a glance among green and purple.
+MODELS.needle = () => {
+  const m = new Model(), steel = '#d3d9e0', light = '#f4f7fa', dark = '#7f8995';
+  m.lathe([[0, 0], [0.34, 2.2], [0.34, 17.4], [0.5, 18.0], [0.5, 20.2], [0, 20.8]], [light, steel, steel, steel, light], { seg: 5 });
+  m.box(0, 19.1, 0, 0.62, 1.5, 0.3, dark);                         // the eye
+  m.box(0.9, 18.8, 0, 1.9, 0.26, 0.26, '#c8362e', { rz: -0.35 });   // the thread
+  m.box(1.95, 17.6, 0, 0.26, 2.2, 0.26, '#c8362e', { rz: 0.25 });
+  return m;
+};
 
 // The hole's flag, so a moving hole can be seen from across the board.
 MODELS.flag = () => {

@@ -189,3 +189,12 @@ export function shield(at = 0, gold = false) {
   noise({ at, dur: 0.03, vol: 0.08, from: 4200, type: 'bandpass', q: 5 });
   if (gold) tone({ f: 2640, type: 'sine', at: at + 0.09, dur: 0.5, vol: 0.06, attack: 0.01 });
 }
+
+/** A needle driven through a pinned piece (2026-10-13): a thin steel
+    whistle as it drops, then a sharp, dry stab. */
+export function pin(at = 0) {
+  tone({ f: 2400, f2: 3400, type: 'sine', at: Math.max(0, at - 0.18), dur: 0.16, vol: 0.035 });
+  noise({ at, dur: 0.025, vol: 0.12, from: 6000, type: 'highpass', q: 1 });
+  tone({ f: 520, f2: 180, type: 'square', at, dur: 0.06, vol: 0.06 });
+  tone({ f: 3100, f2: 2900, type: 'triangle', at: at + 0.01, dur: 0.12, vol: 0.05 });
+}

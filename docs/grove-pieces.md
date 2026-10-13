@@ -236,3 +236,28 @@ The loose rabbits of the daily, golf and Chaos ("Free rabbits", type
 `rabbit`) are a different thing, untouched: they wander by pattern or
 mind, and in the daily they can eat. Turning them into this piece would
 change the daily's shipped boards; that is Timothy's call.
+
+## The short rook and the tall rook (2026-10-13)
+
+Timothy: "short rook: slides fully left and right but only moves one space
+up and down; tall rook: slide fully up and down but only moves one space
+left and right." His names; both are real pieces of chu shogi (the larger
+shogi of medieval Japan), kept as their records:
+
+| Piece | Betza | Record | Strength (estimate) |
+|---|---|---|---|
+| Short rook | `sRvW` | the side mover (ōgyō), which promotes to the free boar | 3 |
+| Tall rook | `vRsW` | the vertical mover (kengyō), which promotes to the flying ox | 3.5 |
+
+In Betza notation `s` means sideways only and `v` forward and back only, so
+`sRvW` reads "a rook's slide, sideways; a wazir's step, up or down". Up and
+down are the same both ways, so the two play alike for either side (the
+patent no longer says "has a forward" for a piece written only with `s` and
+`v`). The tall rook is rated a little higher on the guess that sliding
+toward the other side matters more than sliding along your own row; the
+trials (`docs/grove-modes.md`) can test that.
+
+The models say which way each slides: the tall rook is a tall, thin tower
+with a slit up its front, the short rook squat and wide with a band round
+it. A record now survives a piece being named by Timothy (`record` in its
+entry in `rules.js`), so the catalog says "In fairy chess: the side mover".

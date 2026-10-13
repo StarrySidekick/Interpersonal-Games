@@ -41,6 +41,8 @@ export const HISTORY = {
   tripper: 'The (3,3) leaper: ferz (1,1), alfil (2,2), tripper (3,3). It can reach only one square in eight of the board.',
   frog: 'The ferz and the threeleaper in one. A name from the fairy chess catalogues.',
   vao: 'The cannon\'s diagonal twin: it slides like a bishop, and captures only by jumping exactly one piece. It turns up in modern variants of xiangqi and in fairy chess.',
+  shortrook: 'Timothy\'s name (2026). The move is the side mover (ōgyō) of chu shogi, the larger shogi played in Japan from about the fourteenth century: it slides any distance across the board and steps one square forward or back. Chu shogi promotes it to the free boar.',
+  tallrook: 'Timothy\'s name (2026). The move is the vertical mover (kengyō) of chu shogi: it slides any distance up and down the board and steps one square to either side. Chu shogi promotes it to the flying ox.',
 
   bunny: 'Grove Chess\'s own, from the rabbits that have always lived in the grove (2026). It has no fairy chess record: no other game lets a piece climb onto a friend\'s head and ride.',
 

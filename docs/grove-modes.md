@@ -534,6 +534,129 @@ power (their side climbs by the same upgrades as yours, all six suits).
 Notated: the rabbit's fur (visual), its description on a tap and in the
 sheet (written), "Their piece of Swords takes again" (written).
 
+## Flying shields, needles, a new line, and the piece trials (2026-10-13, later)
+
+Timothy: "the guard shield should fly from the guarding pieces to the newly
+guarded piece as an animation, in a slight arc. pieces that would be
+considered absolutely pinned ... should have a metal sewing needle fly into
+them from above as an animation that skewers them in place ... the descent
+5x5 should start with this order and number of pieces from left to right:
+tall rook, bishop, king, knight, short rook. the enemy side is the same but
+reversed." Then two new pieces (`docs/grove-pieces.md`) and a mode for
+testing pieces. What each became:
+
+- **Shields fly.** `guarded` (`rules.js`) now says which pieces guard each
+  one, not only how many. When a piece gains a guard, once the move has
+  landed, a shield leaves each new guard and flies to the front of the
+  piece in a low arc, turning as it goes, then lands with the clink and a
+  buzz; a second guard turns it gold as it arrives (`board3d.js`,
+  `guardOf`, the flights in `things`).
+- **Needles through pinned pieces.** In chess a *pin* is a piece standing
+  between an attacker and something behind it; an *absolute* pin is one
+  where the thing behind is the King, so moving the piece off the line is
+  illegal (a *relative* pin, to anything else, is only costly). Grove Chess
+  has no rule against moving into danger (a King left where it can be taken
+  is lost), so a pinned piece can still move, and moving it loses.
+  `pinned(s)` finds them the plain way: lift the piece off the board and see
+  whether a piece of the other side that could not take the King before now
+  can, which catches every kind of pin (a slider's line, a cannon's screen).
+  Both sides, wherever losing the King loses. A steel needle with a red
+  thread drops from high above, faster and faster, and stops dead through
+  the piece with a shiver; a thin whistle, then a dry stab (`sfx.pin`), and
+  a buzz. When the pin ends it is pulled out upward. Level setting
+  `showPins`, "Needles through pinned pieces", on; settings version 16
+  (older links read it as off, as with the shields and beacons).
+- **The descent's line.** Tall rook, bishop, King, knight, short rook: five,
+  the full row (`startPool`, `startPieces: 5`). Theirs is the same read the
+  other way (run setting `foeLine`, "Their line": the same files as yours,
+  like Microchess, or yours reversed; the descent's is reversed), so each
+  side, from its own end, has its tall rook on the left, and the Kings face
+  each other on the middle file. At seven by seven the two new pieces each
+  side gets go one at each end of the line, so the King stays in the middle.
+
+### The piece trials
+
+`trials/` (menu: Piece trials), with the work in `trials.js` on a background
+thread (`trials-worker.js`). Timothy: "choose what chess pieces are in,
+choose the size of the board, then you calculate the board layout that would
+make the games balanced and then test to see if the game would be fun ...
+and if there even is an orientation of pieces that is playable ... often
+times is also the assumption that the opposing sides are identical and
+mirrored ... see a newly invented piece or fairy piece and play a balanced
+game (if it exists) with that piece weaved in."
+
+1. **Layouts.** Every distinct way to stand the army on the back row (two
+   rows if it does not fit one), the King on the back row. Theirs is the
+   same army, mirrored (the same files, like chess) or turned (reversed, the
+   descent's), or both are tried. A layout and its reflection are one game,
+   so one of each pair is kept. Five pieces on five files: 60 layouts.
+2. **Checks.** Can anything be taken on the very first move (the balance
+   rule since 2026-10-07; a setting, and if it throws out every layout they
+   are judged anyway, marked)? Can the first side take the King by force
+   within three moves, whatever the other does (thrown out as broken)?
+3. **Self-play.** Two copies of one bot play each layout: a minimax search
+   with alpha-beta pruning two moves deep, then a *quiescence* search that
+   follows captures until the position is quiet (otherwise a bot stops
+   counting halfway through a trade: the horizon effect). Its sense of a
+   position is the same for both sides: material at each piece's power on
+   that board (`power.js`), mobility, nearness to the other King, a
+   *mop-up* term (well ahead in an ending, push the lone King to the edge
+   and bring your own close, which is how King and rook beat a lone King),
+   and *contempt* (a side treats a draw by repetition as a little worse
+   than even, so it plays on when it can). A little luck per move keeps the
+   games different. A screen of quick games picks the best few, which are
+   judged: equal bots, and a bot that looks further ahead against one that
+   does not. Its own small engine (make and unmake, no copying) using every
+   piece's real move code, so invented pieces work.
+4. **Measures**, after Cameron Browne's Ludi (2008), which invented games
+   and judged them by self-play; one of its games, Yavalath, is published
+   and still played. Balance (with Laplace's rule of succession, so 2 wins
+   of 2 counts as 3 in 4: a small sample proves little), decisive, length,
+   drama (the lead changing hands, comebacks), uncertainty (how late the
+   winner pulls ahead for good), skill (does the further-ahead bot win?),
+   every piece plays, variety (different openings). Fun is a weighted sum
+   (balance and decisive and drama and skill weigh most); the verdict is
+   playable, shaky or broken, with the reasons in words.
+
+Every result shows the layout, the measures as bars, the record, each
+piece's part, and three buttons: **Play it** (the runner, `?mode=trials`,
+against the thinking side; the position travels in the link as an extended
+FEN, `[Tallrook]` yours and `[tallrook]` theirs, read by `readFen`),
+**Watch a game** (one of the bots' games, step by step), and **Copy**.
+"Judge my order too" always judges the army in the order given. **Weave in
+a piece** swaps the chosen piece in for each kind in the army in turn (and
+adds it if there is room), and ranks the armies by their best layout. The
+catalog's piece sheet links to it ("Weave it into an army, in the trials").
+"Copy the results" is text to paste to Claude.
+
+What it said about the new descent (thorough, five by five, both facings,
+seed 1; 20 games each, so read the numbers loosely):
+
+- **On an open board no layout works.** Every one lets a rook take on the
+  first move or loses to a forced King hunt. The statue row is what makes
+  five a side on five by five playable at all.
+- **With the statue row, seven of the ten judged in full came out
+  playable** (none was thrown out by the checks), and the best was
+  bishop, tall rook, knight, short rook, King, turned (fun 79: the two sides
+  won 3 and 5, 12 drawn). Timothy's order, turned, came out shaky (fun 65:
+  14 of 20 drawn, and the stronger bot barely ahead); in a quick trial it
+  had scored 70, playable. It is close to the middle of the pack, not bad.
+- **About a quarter of games end with only the Kings left.** Equal armies
+  trade down. The showdown would not decide those (it stops shrinking at
+  half the board, and two Kings can dodge for ever), so they end out of
+  moves. An open question for Timothy: what should happen when only the
+  Kings are left?
+
+The bots' opinions are not his: the fun weights are a first guess, not yet
+checked against how the layouts feel to play. Paths moved: customization
+(Timothy's own design bench: any army, any board, invented pieces, and an
+answer in seconds), mastery (the needle teaches pins and the flying shield
+teaches who guards whom, both by sight and sound; a descent line can be
+chosen on evidence), collection (two new pieces). Gaps: only identical
+armies (Betza's Chess with Different Armies, where each side fields a
+different army of equal strength, would be the next step); no suits; no
+showdown; results stay on the phone that ran them.
+
 ## The modes
 
 **The daily.** One board a day, the same for everyone. Its own page and
@@ -668,6 +791,9 @@ green). The long game (`grove-long-game.md`) is still unbuilt.
 
 ## Out on purpose
 
+- The piece trials change nothing by themselves: a layout they like goes
+  into a mode only when Timothy says so.
+
 - No currency or shop in the descent: rewards are chosen, not bought.
   (Autochess has one; the descent stays chosen.)
 - No experience points for waystones: only reaching a new depth lights one.
@@ -676,6 +802,10 @@ green). The long game (`grove-long-game.md`) is still unbuilt.
   suit colours are 3D only).
 
 ## Next
+
+- Check the trials' fun against Timothy playing the layouts it ranks, and
+  tune the weights (`judge` in `trials.js`).
+- Decide what two bare Kings do, in the descent and the trials.
 
 - Make more named dailies before the stored ones run out (they go to
   2026-10-17, a week ahead, as Timothy asked; after that a date falls back

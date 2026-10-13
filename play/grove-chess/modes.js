@@ -65,11 +65,13 @@ export const RUN_SCHEMA = [
       help: 'A new piece while you have room; once your hand is full, an upgrade: a suit, fusing two pieces, or a joker. Pieces of theirs you take are claimed, and can be combined with yours after the level.' },
     { key: 'upgrades', label: 'Between levels', type: 'choice', def: 'finds', options: opts(['finds', 'Find pieces, then upgrades'], ['each', 'One upgrade a board, each side']),
       help: 'Find pieces, then upgrades: a new piece while you have room, then suits, fusing and jokers; pieces of theirs you take can be combined with yours. One upgrade a board, each side (Timothy, 2026-10-12): every new board you choose one of two, a piece to combine with one of yours or a suit for one, and they get one at random. They carry a lineup down as you do, and a Rabbit with it.' },
+    { key: 'foeLine', label: 'Their line', type: 'choice', def: 'mirror', options: opts(['mirror', 'The same files as yours, like Microchess'], ['turned', 'Yours reversed, as if turned round the board']),
+      help: 'For a descent with one upgrade a board, where both sides start with "You start with". The same files: their first piece stands opposite your first, like Microchess. Reversed (Timothy, 2026-10-13): their line is yours read the other way, so each side, looking from its own end, has the same piece on its left.' },
     { key: 'growAt', label: 'The board is 7 by 7 from depth', type: 'int', min: 0, max: 30, def: 0,
       help: 'For a descent with one upgrade a board. 0: never. From this depth the board is 7 by 7, and each side gets two more pieces to fill its row.' },
     { key: 'jokers', label: 'Jokers can turn up', type: 'bool', def: true, help: 'Rules for the rest of a run: Double Time, Foresight, Recruiter, Lazy Rabbits, Overtime.' },
     { key: 'findPool', label: 'Pieces you can find', type: 'pieces', def: ['king', 'knight', 'bishop', 'rook', 'queen', 'wazir', 'ferz', 'alfil', 'dabbaba', 'mao', 'zebra', 'camel', 'grasshopper', 'cannon', 'silver', 'lance', 'squirrel', 'rose', 'nightrider', 'archbishop', 'chancellor',
-      'gold', 'copper', 'leopard', 'tiger', 'kirin', 'phoenix', 'elephant', 'woody', 'alibaba', 'threeleaper', 'tripper', 'frog', 'vao', 'bunny'],
+      'gold', 'copper', 'leopard', 'tiger', 'kirin', 'phoenix', 'elephant', 'woody', 'alibaba', 'threeleaper', 'tripper', 'frog', 'vao', 'bunny', 'shortrook', 'tallrook'],
       help: 'What a run offers when it finds a piece. Pieces vetoed in the catalog are left out anyway.' },
     { key: 'startDifficulty', label: 'First level\u2019s difficulty', type: 'int', min: 1, max: 10, def: 1, unit: 'of 10',
       help: 'For a descent. The first level is found at this difficulty (measured: a novice bot plays it two dozen times), and every level after aims a little higher, as fast as "It gets harder" says.' },
@@ -125,14 +127,15 @@ export const MODES = {
     settings: { run: 'single', roll: 'daily', difficulty: 'normal', aim: 4, minEngage: 50, goal: 'all', royal: false, showdown: false, maxMoves: 20 }
   },
   descent: {
-    // 2026-10-12 and 13 (Timothy): Microchess's pieces on a five by five
-    // board (rook, bishop, knight, King; no pawn), the same facing you, a
-    // middle row of statues that opens one a turn, one Rabbit leading their
-    // side, one upgrade a board for each side, nothing lost for good, no
-    // layout step, no clouds, no balancing search; seven by seven from depth 6.
-    name: 'The descent', blurb: 'Rook, bishop, knight and King each, like Microchess, on a five by five board. The middle row is statues, and one sinks away every turn. One rabbit leads their side: its kind is how they play. Take their King to fall to the next board, where each side gets an upgrade: you choose one of two. From depth 6 the board is seven by seven. If they take your King the descent is over.',
+    // 2026-10-12 and 13 (Timothy): a five by five board, a middle row of
+    // statues that opens one a turn, one Rabbit leading their side, one
+    // upgrade a board for each side, nothing lost for good, no layout step,
+    // no clouds, no balancing search; seven by seven from depth 6. The line
+    // (later on 2026-10-13): "tall rook, bishop, king, knight, short rook.
+    // the enemy side is the same but reversed".
+    name: 'The descent', blurb: 'Tall rook, bishop, King, knight and short rook each, a full row on a five by five board; theirs is yours reversed. The middle row is statues, and one sinks away every turn. One rabbit leads their side: its kind is how they play. Take their King to fall to the next board, where each side gets an upgrade: you choose one of two. From depth 6 the board is seven by seven. If they take your King the descent is over.',
     settings: {
-      run: 'descent', roll: 'fixed', startPieces: 4, maxPieces: 7, startPool: ['rook', 'bishop', 'knight', 'king'], rewards: true, jokers: false, ramp: 'steady', outOfMoves: 'fall', upgrades: 'each', growAt: 6, carry: false,
+      run: 'descent', roll: 'fixed', startPieces: 5, maxPieces: 7, startPool: ['tallrook', 'bishop', 'king', 'knight', 'shortrook'], foeLine: 'turned', rewards: true, jokers: false, ramp: 'steady', outOfMoves: 'fall', upgrades: 'each', growAt: 6, carry: false,
       goal: 'king', royal: true, showdown: true, w: 5, h: 5, foes: 4, foePool: ['knight', 'bishop', 'rook'], darkBrain: 'rabbit', rabbitMind: 'mind', iq: 3, kinds: 1,
       foesCapture: true, statues: 0, statueRow: true, maxMoves: 20, lineup: true, inOrder: true, arrange: false, cloud: false, parMin: 3, parMax: 10, difficulty: 'any'
     }
@@ -160,6 +163,13 @@ export const MODES = {
   variants: {
     name: 'Chess variants', blurb: 'Real chess variants, small and strange, from their own starting positions, against a side that thinks. Pick one below.',
     settings: { run: 'single', roll: 'fixed', variant: 'gardner', darkBrain: 'think', skill: '2', style: 'balanced', maxMoves: 0, showReach: true, solve: false }
+  },
+  trials: {
+    // A layout found in the piece trials (trials/), played against a side
+    // that thinks. The position comes with the link; on its own this mode
+    // plays the descent's lineup on an open five by six board.
+    name: 'Piece trials', blurb: 'A layout from the piece trials: the same army on each side, theirs thinking. Take their King and keep yours.',
+    settings: { run: 'single', roll: 'fixed', position: '[shortrook]nkb[tallrook]/5/5/5/5/[Tallrook]BKN[Shortrook]', darkBrain: 'think', skill: '2', style: 'balanced', maxMoves: 0, showReach: true, solve: false, cloud: false, showdown: false }
   },
   autochess: {
     name: 'Autochess', blurb: 'Put rabbits in your pieces and let them fight. Win rounds to grow your side; lose three and it is over.',
@@ -210,7 +220,7 @@ const SHOWN = {
   // The session.
   startPieces: runIs('descent', 'rounds'), maxPieces: runIs('descent', 'rounds'), startPool: runIs('descent', 'rounds'),
   rewards: runIs('descent', 'rounds'), jokers: runIs('descent', 'rounds'), findPool: runIs('descent', 'rounds'), ramp: runIs('descent', 'rounds'),
-  upgrades: runIs('descent'), growAt: (S) => S.run === 'descent' && S.upgrades === 'each',
+  upgrades: runIs('descent'), growAt: (S) => S.run === 'descent' && S.upgrades === 'each', foeLine: (S) => S.run === 'descent' && S.upgrades === 'each',
   carry: runIs('descent'), keepsakes: (S) => S.run === 'descent' && S.carry, fairyFrom: runIs('descent'), startDifficulty: runIs('descent'), boardGrows: runIs('descent'), outOfMoves: runIs('descent'),
   shop: runIs('rounds'), lives: runIs('rounds'),
   courseName: runIs('course'), courseHoles: (S) => S.run === 'course' && S.courseName === 'mixed', balls: (S) => S.run === 'course' && S.courseName === 'mixed',
@@ -238,11 +248,13 @@ const SHOWN = {
 /** Does this setting matter for these settings (the mode included)? */
 // With no mode (the workshop), only the rules between settings apply.
 const DEPENDS = ['kfStep', 'kfCool', 'kfFoeCool', 'kfFoeGap', 'cloudOwn', 'shrinkEvery', 'iq', 'traits', 'kinds', 'skill', 'style', 'holeMoves', 'ballMove', 'ballCaptures', 'ballStops', 'dealKing'];
-const VARIANT_KEYS = ['variant', 'skill', 'style', 'maxMoves', 'showReach', 'showMyReach', 'showGuards', 'showBeacons', 'realtime', 'kfStep', 'kfCool', 'kfFoeCool', 'kfFoeGap', 'iq'];
+const VARIANT_KEYS = ['variant', 'skill', 'style', 'maxMoves', 'showReach', 'showMyReach', 'showGuards', 'showBeacons', 'showPins', 'realtime', 'kfStep', 'kfCool', 'kfFoeCool', 'kfFoeGap', 'iq'];
 export const settingShown = (key, S) => {
   // A chess variant brings its own board, pieces and rules: only how they
   // think, the move limit and the reach glow still matter.
   if (S.variant && S.variant !== 'none' && S.run != null) return VARIANT_KEYS.includes(key);
+  // So does a position from the piece trials, and its row of statues.
+  if (S.position && S.run != null) return VARIANT_KEYS.includes(key) || key === 'statueRow';
   return !SHOWN[key] ? true : S.run == null && !DEPENDS.includes(key) ? true : SHOWN[key](S);
 };
 
@@ -300,7 +312,7 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
     // lined up or not, within how many rows, and who moves first.
     Object.assign(S, { lineup: M.lineup, mineRows: M.mineRows, foeRows: M.foeRows, first: M.first });
     // So are a full row each, the first-turn cloud, and showing reach.
-    Object.assign(S, { fullRow: M.fullRow, cloud: M.cloud, cloudOwn: M.cloudOwn, showReach: M.showReach, showMyReach: M.showMyReach, showGuards: M.showGuards, showBeacons: M.showBeacons });
+    Object.assign(S, { fullRow: M.fullRow, cloud: M.cloud, cloudOwn: M.cloudOwn, showReach: M.showReach, showMyReach: M.showMyReach, showGuards: M.showGuards, showBeacons: M.showBeacons, showPins: M.showPins });
     if (M.roll === 'daily') Object.assign(S, { maxMoves: Math.max(S.maxMoves || 20, 18), parMin: 4, parMax: 10, minCeiling: 6 });
   }
 
