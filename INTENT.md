@@ -12,6 +12,29 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
+## 2026-10-13, latest: rabbits to take, new suits, weapons, golf with sliders
+
+From Timothy, all built (`docs/grove-modes.md`, "Rabbits to take, new
+suits, weapons, and golf with sliders"):
+
+- Three goals: capture N (1 to all), take the piece a hopping rabbit
+  rides (theirs, or one each side), and capture the rabbit and carry it
+  home.
+- The descent: rook, bishop, King, knight, pawn, mirrored, with the
+  hopping rabbit; pawns become a copy of another of your pieces; the draft
+  is suits and weapons only.
+- Suits replaced: Hearts (a life, back to your first row on a square you
+  choose), Spirals (Pac-Man sides), Gears (swap), Stars (move twice), Vines
+  (chain captures).
+- Weapons at levels 1 to 3: sword, lance, mace (push and stun). One suit
+  and one weapon per piece.
+- Golf: sliders only, every ball hit, no sticky ball, par or better wins a
+  hole (over par, play it again). Sand and water are new hazards beside
+  gates and clouds.
+
+Open: golf's par is the solver's best plus two on the first two holes and
+one after, which was my call, not his.
+
 ## 2026-10-13, later again: shields on squares you guard
 
 From Timothy: where your pieces' reach meets their reach, a flat shield on

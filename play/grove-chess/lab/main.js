@@ -10,7 +10,9 @@ import { $, el, show, haptic, keepAwake, themeToggle } from '../../../engine/ui.
 import { soundToggle } from '../../../engine/sound.js';
 import * as sfx from '../sounds.js';
 import { makeTarget, render } from '../../../engine/lowpoly.js';
-import { PIECES, descOf, HOLE_DESC, CRUMBLE_DESC, SHRINK_DESC, STUMP_DESC, statueDesc, GHOST_DESC, GATE_DESC, WANDER_DESC, ghostAt, gateUp, cloudOver, hiddenFrom, statueAt, movesFor, playerMove, respond, isOver, outcome, initialState, allMoves, replay, crumbled, shrunk, holeOpen } from '../rules.js';
+import { PIECES, descOf, HOLE_DESC, CRUMBLE_DESC, SHRINK_DESC, STUMP_DESC, statueDesc, GHOST_DESC, GATE_DESC, WANDER_DESC, ghostAt, gateUp, cloudOver, hiddenFrom, statueAt, movesFor, playerMove, respond, isOver, outcome, initialState, allMoves, replay, crumbled, shrunk, holeOpen, placeRevived, hopIn, flagAt, carrierOf, sandAt, waterAt, SAND_DESC, WATER_DESC } from '../rules.js';
+import { pickMove } from '../choose.js';
+import { carriesText } from '../run.js';
 import { setupPanel, setupState, playOut } from '../autosetup.js';
 import { FUR, caughtRabbits } from '../rabbits.js';
 import { Board, scene, sceneFrame, sprite, patternPicture, crispWidth } from '../board.js';
@@ -389,14 +391,14 @@ function select(i) {
   legal = i == null ? [] : movesFor(now(), i);
   // With waiting off, the button only appears when you have no move at all.
   const stuck = allMoves(now()).every((m) => m.p === -1);
-  $('#wait').hidden = !(level.rules.wait || stuck);
-  $('#wait').textContent = level.rules.wait ? 'Wait a turn' : 'Pass';
+  $('#wait').hidden = !(level.rules.wait || stuck || now().bonus);
+  $('#wait').textContent = now().bonus ? 'End turn' : level.rules.wait ? 'Wait a turn' : 'Pass';
   if (i == null) info(stuck && !level.rules.wait
     ? 'None of your pieces can move, so you have to pass.'
     : 'Tap a piece to light up where it can go. Gold rings mark what you have to catch.');
   else {
-    const type = now().pieces[i].type;
-    info(`${PIECES[type].name}: ${descOf(type, now().day.rules)}${legal.length ? '' : ' It has nowhere to go right now.'}`);
+    const p = now().pieces[i], type = p.type;
+    info(`${PIECES[type].name}: ${descOf(type, now().day.rules)}${carriesText(p)}${legal.length || p.stun ? '' : ' It has nowhere to go right now.'}`);
   }
   draw();
 }
@@ -411,10 +413,24 @@ function whatHappened(a, b, mv) {
     if (f.ate >= 0 && b.pieces[f.ate].taken && !a.pieces[f.ate].taken)
       bits.push(f.type === 'rabbit' ? `A rabbit ate your ${nameOf(b.pieces[f.ate])}.` : `Their ${nameOf(f)} took your ${nameOf(b.pieces[f.ate])}.`);
   });
+  // Suits, weapons and the rabbits (2026-10-13).
+  if (b.foeBonus === 'vines') bits.push('Their piece of Vines takes again.');
+  if (b.foeBonus === 'stars') bits.push('Their piece of Stars moves twice.');
+  b.foes.forEach((f) => { if (f.wounded >= 0) bits.push(`Their ${nameOf(f)} took your ${nameOf(b.pieces[f.wounded])}, but its heart sends it back to your first row.`); });
+  if (b.revived?.side === 'foe') bits.push(`Their ${nameOf(b.foes[b.revived.i])} had a heart: it goes back to their first row.`);
+  b.pieces.forEach((p, i) => { if (p.stun && !a.pieces[i].stun) bits.push(`Your ${nameOf(p)} is stunned and sits out your next turn.`); });
+  b.foes.forEach((f, k) => { if (f.stun && !a.foes[k].stun) bits.push(`Their ${nameOf(f)} is stunned and sits out their next turn.`); });
+  const ra = carrierOf(a, 'foe'), rb = carrierOf(b, 'foe');
+  if (ra && rb && ra.rides !== rb.rides) bits.push(`The rabbit hops to their ${nameOf(b.foes[rb.rides])}.`);
+  const ma = carrierOf(a, 'you'), mb = carrierOf(b, 'you');
+  if (ma && mb && ma.rides !== mb.rides) bits.push(`Your rabbit hops to your ${nameOf(b.pieces[mb.rides])}.`);
+  const fa = flagAt(a), fb = flagAt(b);
+  if (fb && fa && fb.by !== fa.by) bits.push(fb.by === 'you' ? 'You have the rabbit: bring it back to your first row.' : fb.by === 'foe' ? 'They have the rabbit: take the piece carrying it.' : 'The rabbit is loose.');
   if (!bits.length) bits.push(isAuto() ? 'Next turn.' : mv.p === -1 ? 'You waited.' : 'Your move.');
   if (b.gone.length === 1 && !a.gone.length) bits.unshift('The square you left crumbled away.');
   if (b.hole && !holeOpen(a) && holeOpen(b)) bits.push('That was the last rabbit: the hole is open.');
   if (b.shrunk.length > a.shrunk.length) bits.push('A square fell off the edge.');
+  b.pieces.forEach((p, i) => { if (p.splash && p.splash.t !== a.pieces[i].splash?.t) bits.push('Splash: into the water, and back to the tee.'); });
   return bits.join(' ');
 }
 
@@ -422,7 +438,7 @@ async function play(mv) {
   if (busy || isOver(now())) return;
   busy = true;
   const a = now();
-  sel = null; legal = [];
+  sel = null; legal = []; placing = null; pendingPlace = null;
   // Show your move straight away, then let them think.
   const mid = playerMove(a, mv);
   shown = mid;
@@ -433,14 +449,33 @@ async function play(mv) {
   shown = null;
   haptic(b.won ? [20, 40, 30] : b.pieces.some((p, i) => p.taken && !a.pieces[i].taken) ? [40, 30, 40] : 10);
   hud();
-  if (!b.won) await board.animate(mid, b, { p: -1 });
+  if (!b.won && !b.bonus) await board.animate(mid, b, { p: -1 });
   busy = false;
   if (isOver(b)) return finish(true);
+  // A suit left the turn open (Vines, Stars): the same piece goes again.
+  if (b.bonus) {
+    const name = nameOf(b.pieces[b.bonus.p]);
+    status(b.bonus.why === 'vines' ? `Vines: your ${name} can take again. Take one, or end the turn.` : `Stars: your ${name} moves again. Move it, or end the turn.`);
+    return select(b.bonus.p);
+  }
   status(whatHappened(a, b, mv));
+  // Hearts: one of yours is back on your first row; you may put it on
+  // another free square there.
+  if (b.revived?.side === 'you' && b.revived.options.length > 1) {
+    placing = b.revived;
+    status(`${whatHappened(a, b, mv)} Tap a lit square to put it somewhere else there, or play on.`);
+    sel = null; legal = placing.options.map((q) => ({ x: q % level.W, y: Math.floor(q / level.W), place: q }));
+    draw();
+    return;
+  }
   select(null);
 }
 
-$('#board').addEventListener('click', (e) => {
+/** A piece of yours that came back from a heart (2026-10-13): while set,
+    tapping one of the squares it could go to puts it there instead. */
+let placing = null, pendingPlace = null;
+
+$('#board').addEventListener('click', async (e) => {
   if (!board || busy || watching || isOver(now())) return;
   const c = board.cellAt(e);
   if (!c) return;
@@ -450,11 +485,22 @@ $('#board').addEventListener('click', (e) => {
     return;
   }
   const { x, y } = c, s = now();
-  if (sel != null) {
-    const m = legal.find((m) => m.x === x && m.y === y);
-    if (m) return play({ p: sel, x, y });
+  // Hearts: putting the piece that came back on another square of its row.
+  if (placing) {
+    const m = legal.find((q) => q.x === x && q.y === y && q.place != null);
+    if (m) { game.states[game.states.length - 1] = placeRevived(s, m.place); pendingPlace = m.place; placing = null; legal = []; draw(); return status('There. Your move.'); }
+    placing = null; legal = [];
   }
-  const i = s.pieces.findIndex((p) => !p.taken && p.x === x && p.y === y);
+  if (sel != null) {
+    // The whole move (a weapon's strikes, pushes, a promotion), and a choice
+    // when more than one ends on this square.
+    const here = legal.filter((m) => m.x === x && m.y === y);
+    const m = here.length > 1 ? await pickMove(here, s.pieces[sel]) : here[0];
+    if (here.length) { if (m) return play({ p: sel, ...m, ...(pendingPlace != null ? { place: pendingPlace } : {}) }); return; }
+  }
+  // A rabbit of yours riding a piece (the rabbit on both sides) never moves
+  // by itself: tapping that square picks the piece under it.
+  const i = s.pieces.findIndex((p) => !p.taken && p.x === x && p.y === y && p.rides == null);
   if (i >= 0) return select(sel === i ? null : i);
   select(null);
   if (s.hole && s.hole.x === x && s.hole.y === y) return info(HOLE_DESC);
@@ -465,10 +511,16 @@ $('#board').addEventListener('click', (e) => {
   // Neutral pieces (2026-10-13). What is under a cloud stays hidden.
   if (ghostAt(s, sq)) return info(GHOST_DESC.replace('{side}', ghostAt(s, sq) === 'you' ? 'yours' : 'theirs'));
   if (s.day.gates?.has(sq)) return info(`${GATE_DESC} It is ${gateUp(s, sq) ? 'up' : 'down'} now.`);
+  if (waterAt(s, sq)) return info(WATER_DESC);
   const hidden = hiddenFrom(s, 'you');
   if (cloudOver(s, sq) && !s.foes.some((f, k) => !f.taken && f.x === x && f.y === y && !hidden.has(k))) return info(WANDER_DESC);
-  const f = s.foes.find((f, k) => !f.taken && f.x === x && f.y === y && !hidden.has(k));
-  if (f) info(f.brain === 'pattern' ? 'A rabbit on a hidden pattern. Watch its tracks.' : `Their ${nameOf(f)}, thinking for itself. ${PIECES[f.type].desc}`);
+  if (sandAt(s, sq) && !s.foes.some((f) => !f.taken && f.x === x && f.y === y)) return info(SAND_DESC);
+  const seen = (f) => !f.taken && f.x === x && f.y === y && !hidden.has(s.foes.indexOf(f));
+  const f = s.foes.find((f) => seen(f) && f.rides != null) || s.foes.find(seen);
+  if (f?.brain === 'carrier') return info(`The rabbit riding their ${nameOf(s.foes[f.rides])}: take that piece to win. It never moves by itself; ${hopIn(s) === 1 ? 'next turn' : `in ${hopIn(s)} turns`} it hops to another of their pieces.`);
+  if (f) info(f.brain === 'pattern' ? 'A rabbit on a hidden pattern. Watch its tracks.' : `Their ${nameOf(f)}, thinking for itself. ${PIECES[f.type].desc}${carriesText(f)}`);
+  const fl = flagAt(s);
+  if (!f && fl && !fl.by && fl.x === x && fl.y === y) info('The rabbit to capture: take it, and the piece that took it carries it. Bring it back to your first row to win; if they take the piece carrying it, it is theirs to bring home.');
 });
 
 $('#wait').onclick = () => play({ p: -1, x: 0, y: 0 });

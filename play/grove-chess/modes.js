@@ -26,33 +26,46 @@ import { CONFIG } from './config.js';
 
 const opts = (...pairs) => pairs.map(([v, label]) => ({ v, label }));
 
-export const BALLS = opts(['ice', 'On ice'], ['putt', 'Putting'], ['bounce', 'Billiard'], ['hit', 'Hit by the pieces'], ['sticky', 'Sticky'], ['ghost', 'Ghost']);
+// "There's no such thing as a sticky ball" (Timothy, 2026-10-13): gone from
+// the list; a link that names it still reads (lab.js).
+export const BALLS = opts(['ice', 'On ice'], ['putt', 'Putting'], ['bounce', 'Billiard'], ['hit', 'Hit by the pieces'], ['ghost', 'Ghost']);
 
 // --- Golf courses (2026-10-08). ------------------------------------------
 // Golf "needs to be fun somehow" (Timothy): a first answer is that each
 // course is a place with its own character, the way a real course is. A
-// course says its balls, its ground and what turns up as it goes round;
-// `hole(h, pick)` gives what changes on hole h (0-based). Finishing one
-// course, at any score, opens the next on the title screen. "Mixed" is the
-// old course: every ball in turn, a little more each hole.
+// course says its ground and what turns up as it goes round; `hole(h,
+// pick)` gives what changes on hole h (0-based). Finishing one course, at
+// any score, opens the next on the title screen. "Mixed" is a course of
+// every hazard in turn.
+//
+// Reworked 2026-10-13 (Timothy): "The only pieces in the game should be
+// sliders, as leapers don't really make any sense. sliders move the ball,
+// the ball doesn't move on its own. There's no such thing as a sticky ball.
+// the win condition is reaching par or better ... there can be obstacles
+// like gates and clouds". So every ball is hit by your sliders and slides
+// on until something stops it, and each course is told apart by its
+// hazards: sand stops the ball, water sends it back to the tee, gates rise
+// and fall, clouds drift and stop it.
 
 export const COURSES = {
-  meadow: { name: 'The Meadow', blurb: 'Six gentle holes on open grass. Putts and sticky balls, nothing in the way to begin with.', holes: 6,
-    balls: ['putt', 'sticky'], base: { statues: 1, w: 6, h: 6, rabbits: 0, iq: 3 },
-    hole: (h) => ({ holeMoves: 'still', shape: h < 3 ? 'rect' : 'L', statues: 1 + Math.floor(h / 3), rabbits: h >= 4 ? 1 : 0 }) },
-  pond: { name: 'The Frozen Pond', blurb: 'Nine holes on ice. The ball slides until something stops it, and from the third hole the sides of the pond join.', holes: 9,
-    balls: ['ice', 'ice', 'sticky'], base: { statues: 2, w: 6, h: 6 },
-    hole: (h, pick) => ({ shape: h < 2 ? 'round' : pick(['round', 'diamond', 'rect']), magic: h >= 2 ? 'sides' : 'none', statues: 2 + Math.floor(h / 3), holeMoves: 'still' }) },
-  hall: { name: 'The Billiard Hall', blurb: 'Nine holes on the cloth. Diagonal shots that bank off the cushions, and balls your pieces strike.', holes: 9,
-    balls: ['bounce', 'hit', 'bounce'], base: { statues: 3, w: 7, h: 6, rabbits: 0 },
-    hole: (h) => ({ shape: 'rect', statues: 3 + Math.floor(h / 3), holeMoves: h >= 5 ? 'short' : 'still' }) },
-  clock: { name: 'The Clockwork Links', blurb: 'Nine holes on gears. The board turns, the hole wanders, and the edges join late on.', holes: 9,
-    balls: ['putt', 'bounce', 'ice'], base: { statues: 2, w: 6, h: 6 },
-    hole: (h, pick) => ({ geared: h >= 1, holeMoves: h < 3 ? 'short' : pick(['short', 'mid']), magic: h >= 6 ? 'sides' : 'none', shape: pick(['rect', 'cross', 'diamond']) }) },
-  hollow: { name: 'The Haunted Hollow', blurb: 'Nine holes after dark. Ghost balls pass through anything, rabbits wander the fairways, and the ground gives way.', holes: 9,
-    balls: ['ghost', 'sticky', 'ghost'], base: { statues: 2, w: 7, h: 7, rabbits: 1, iq: 5 },
-    hole: (h, pick) => ({ shape: pick(['hourglass', 'cross', 'L', 'cheese']), rabbits: Math.min(3, 1 + Math.floor(h / 3)), ground: h >= 4 ? pick(['solid', 'crumble']) : 'solid', holeMoves: h >= 3 ? 'short' : 'still' }) }
+  meadow: { name: 'The Meadow', blurb: 'Six gentle holes on open grass. A statue or two, then sand that stops the ball dead.', holes: 6,
+    balls: ['hit'], base: { statues: 1, w: 6, h: 6 },
+    hole: (h) => ({ holeMoves: 'still', shape: h < 3 ? 'rect' : 'L', statues: 1 + Math.floor(h / 3), sand: h < 1 ? 0 : Math.min(4, 1 + Math.floor(h / 2)) }) },
+  pond: { name: 'The Lily Pond', blurb: 'Nine holes round the water. Your pieces cannot cross it, and a ball that rolls in goes back to the tee. From the third hole the sides of the pond join.', holes: 9,
+    balls: ['hit'], base: { statues: 1, w: 6, h: 6 },
+    hole: (h, pick) => ({ shape: h < 2 ? 'round' : pick(['round', 'diamond', 'rect']), magic: h >= 2 ? 'sides' : 'none', statues: 1 + Math.floor(h / 4), water: Math.min(5, 1 + Math.floor(h / 2)), holeMoves: 'still' }) },
+  hall: { name: 'The Gatehouse', blurb: 'Nine holes through the gates. They rise and fall every turn, so a shot has to be timed; late on, the hole wanders.', holes: 9,
+    balls: ['hit'], base: { statues: 2, w: 7, h: 6 },
+    hole: (h) => ({ shape: 'rect', gates: Math.min(5, 1 + Math.floor(h / 2)), statues: 2 + Math.floor(h / 4), holeMoves: h >= 5 ? 'short' : 'still' }) },
+  clock: { name: 'The Clockwork Links', blurb: 'Nine holes on gears. The board turns, the hole wanders, bunkers appear, and the edges join late on.', holes: 9,
+    balls: ['hit'], base: { statues: 2, w: 6, h: 6 },
+    hole: (h, pick) => ({ geared: h >= 1, holeMoves: h < 3 ? 'short' : pick(['short', 'mid']), magic: h >= 6 ? 'sides' : 'none', shape: pick(['rect', 'cross', 'diamond']), sand: Math.floor(h / 3) }) },
+  hollow: { name: 'The Haunted Hollow', blurb: 'Nine holes after dark. Clouds drift over the fairways and stop the ball, the ground gives way, and late on there is water.', holes: 9,
+    balls: ['hit'], base: { statues: 2, w: 7, h: 7 },
+    hole: (h, pick) => ({ shape: pick(['hourglass', 'cross', 'L', 'cheese']), clouds: Math.min(3, 1 + Math.floor(h / 3)), ground: h >= 4 ? pick(['solid', 'crumble']) : 'solid', holeMoves: h >= 3 ? 'short' : 'still', water: h >= 6 ? 2 : 0 }) }
 };
+// Golf's own pieces: sliders only, since a leaper would hop the ball.
+export const GOLF_POOL = ['rook', 'bishop', 'queen', 'shortrook', 'tallrook'];
 export const COURSE_ORDER = Object.keys(COURSES);
 
 export const RUN_SCHEMA = [
@@ -148,11 +161,15 @@ export const MODES = {
     // have mirrors pieces, not reversed"). Then (later the same day)
     // five by six, with a row of ghosts in front of each side in place of
     // the statues and the clouds: "decent games also now start on a 5x6
-    // board to allow a bit more room".
-    name: 'The descent', blurb: 'Tall rook, bishop, King, knight and short rook each, a full row on a five by six board; theirs stand opposite, each piece facing its twin, as in chess. In front of each side stands a row of ghosts: yours let your pieces through and vanish as they pass, theirs stop you. One rabbit leads their side: its kind is how they play. Take their King to fall to the next board, where each side gets an upgrade: you choose one of two. From depth 6 the board is seven by seven. If they take your King the descent is over.',
+    // board to allow a bit more room". Then (later still) rook, bishop,
+    // King, knight, pawn, mirrored; a rabbit riding their pieces, hopping
+    // from one to another every three turns, whose piece is the one to take;
+    // pawns that become a copy of another of yours; and a draft of suits and
+    // weapons only.
+    name: 'The descent', blurb: 'Rook, bishop, King, knight and pawn each, a full row on a five by six board; theirs stand opposite, each facing its twin, as in chess. In front of each side stands a row of ghosts: yours let your pieces through and vanish as they pass, theirs stop you. A rabbit rides their pieces and hops from one to another every three turns: take the piece it is on to fall to the next board, where you choose a suit or a weapon, one of two, and they get one too. A pawn that reaches the far row becomes a copy of another of yours. From depth 6 the board is seven by seven. If they take your King the descent is over.',
     settings: {
-      run: 'descent', roll: 'fixed', startPieces: 5, maxPieces: 7, startPool: ['tallrook', 'bishop', 'king', 'knight', 'shortrook'], foeLine: 'mirror', rewards: true, jokers: false, ramp: 'steady', outOfMoves: 'fall', upgrades: 'each', growAt: 6, carry: false,
-      goal: 'king', royal: true, showdown: true, w: 5, h: 6, foes: 4, foePool: ['knight', 'bishop', 'rook'], darkBrain: 'rabbit', rabbitMind: 'mind', iq: 3, kinds: 1,
+      run: 'descent', roll: 'fixed', startPieces: 5, maxPieces: 7, startPool: ['rook', 'bishop', 'king', 'knight', 'pawn'], foeLine: 'mirror', rewards: true, jokers: false, ramp: 'steady', outOfMoves: 'fall', upgrades: 'each', growAt: 6, carry: false,
+      goal: 'carrier', rabbitHop: 3, rabbitSides: 'theirs', promote: 'copy', royal: true, showdown: true, w: 5, h: 6, foes: 4, foePool: ['knight', 'bishop', 'rook'], darkBrain: 'think', skill: '1', style: 'balanced', rabbitMind: 'mind', iq: 3, kinds: 1,
       foesCapture: true, statues: 0, statueRow: false, ghosts: true, maxMoves: 20, lineup: true, inOrder: true, arrange: false, cloud: false, parMin: 3, parMax: 10, difficulty: 'any'
     }
   },
@@ -169,10 +186,10 @@ export const MODES = {
     settings: { run: 'single', roll: 'chaos', difficulty: 'normal', fullRow: false }
   },
   golf: {
-    name: 'Golf', blurb: 'A course of holes. Your pieces are the walls, the ramps and, with some balls, the clubs; sink the ball in as few strokes as you can.',
+    name: 'Golf', blurb: 'A course of holes. Your sliders are the clubs: move one into the ball and it slides on the same way until something stops it. Sink it at par or better to play the next hole; over par, play the hole again.',
     settings: {
-      run: 'course', roll: 'fixed', courseName: 'meadow', courseHoles: 9, goal: 'hole', royal: false, showdown: false, fullRow: false, cloud: false, foes: 0, rabbits: 1, rabbitsEat: false, rabbitMind: 'mind', traits: ['messy', 'shy', 'guard'], iq: 4,
-      mine: 3, minePool: ['rook', 'bishop', 'knight', 'king', 'wazir', 'ferz', 'grasshopper'], statues: 2, statuesTake: false, ballCaptures: false, holeMoves: 'still',
+      run: 'course', roll: 'fixed', courseName: 'meadow', courseHoles: 9, goal: 'hole', royal: false, showdown: false, fullRow: false, cloud: false, foes: 0, rabbits: 0, rabbitsEat: false, rabbitMind: 'mind', traits: ['messy', 'shy', 'guard'], iq: 4,
+      mine: 3, minePool: GOLF_POOL, statues: 2, statuesTake: false, ballCaptures: false, ballMove: 'hit', holeMoves: 'still',
       maxMoves: 15, parMin: 3, parMax: 9, w: 6, h: 6, lineup: false, mineRows: 2, foeRows: 3, difficulty: 'any'
     }
   },
@@ -239,7 +256,7 @@ const SHOWN = {
   upgrades: runIs('descent'), growAt: (S) => S.run === 'descent' && S.upgrades === 'each', foeLine: (S) => S.run === 'descent' && S.upgrades === 'each',
   carry: runIs('descent'), keepsakes: (S) => S.run === 'descent' && S.carry, fairyFrom: runIs('descent'), startDifficulty: runIs('descent'), boardGrows: runIs('descent'), outOfMoves: runIs('descent'),
   shop: runIs('rounds'), lives: runIs('rounds'),
-  courseName: runIs('course'), courseHoles: (S) => S.run === 'course' && S.courseName === 'mixed', balls: (S) => S.run === 'course' && S.courseName === 'mixed',
+  courseName: runIs('course'), courseHoles: (S) => S.run === 'course' && S.courseName === 'mixed', balls: () => false, // every golf ball is hit (2026-10-13)
   // How you play: autochess's own.
   mode: runIs('rounds'), autoPool: runIs('rounds'),
   // Difficulty: the descent aims for its own, level by level.
@@ -258,12 +275,13 @@ const SHOWN = {
   iq: (S) => S.rabbitMind === 'mind', traits: (S) => S.rabbitMind === 'mind',
   kinds: (S) => S.darkBrain === 'possessed', skill: (S) => S.darkBrain === 'think', style: (S) => S.darkBrain === 'think',
   goal: (S) => S.run !== 'course',
-  holeMoves: hasBall, ballMove: (S) => hasBall(S) && !(S.run === 'course' && S.courseName !== 'mixed'), ballCaptures: hasBall, ballStops: hasBall
+  captureN: (S) => S.goal === 'capture', rabbitHop: (S) => S.goal === 'carrier', rabbitSides: (S) => S.goal === 'carrier',
+  holeMoves: hasBall, ballMove: (S) => hasBall(S) && S.run !== 'course', ballCaptures: hasBall, ballStops: hasBall, sand: hasBall, water: hasBall
 };
 
 /** Does this setting matter for these settings (the mode included)? */
 // With no mode (the workshop), only the rules between settings apply.
-const DEPENDS = ['kfStep', 'kfCool', 'kfFoeCool', 'kfFoeGap', 'cloudOwn', 'shrinkEvery', 'iq', 'traits', 'kinds', 'skill', 'style', 'holeMoves', 'ballMove', 'ballCaptures', 'ballStops', 'dealKing'];
+const DEPENDS = ['kfStep', 'kfCool', 'kfFoeCool', 'kfFoeGap', 'cloudOwn', 'shrinkEvery', 'iq', 'traits', 'kinds', 'skill', 'style', 'holeMoves', 'ballMove', 'ballCaptures', 'ballStops', 'dealKing', 'captureN', 'rabbitHop', 'rabbitSides'];
 const VARIANT_KEYS = ['variant', 'skill', 'style', 'maxMoves', 'showReach', 'showMyReach', 'showGuards', 'showSafe', 'showBeacons', 'showPins', 'realtime', 'kfStep', 'kfCool', 'kfFoeCool', 'kfFoeGap', 'iq'];
 export const settingShown = (key, S) => {
   // A chess variant brings its own board, pieces and rules: only how they
@@ -320,7 +338,7 @@ export function describe(S) {
 
   // Format.
   L.format = run === 'descent' ? `A descent: board after board, deeper each time, until ${S.royal ? 'they take your King' : 'every piece of yours is gone'}. ${S.outOfMoves === 'end' ? 'Running out of moves ends it too.' : 'Running out of moves drops you to the next board, with nothing found.'}`
-    : run === 'course' ? `A golf course: ${course ? `${course.name}, ${course.holes} holes` : `${S.courseHoles} mixed holes`}, strokes against par.`
+    : run === 'course' ? `A golf course: ${course ? `${course.name}, ${course.holes} holes` : `${S.courseHoles} mixed holes`}, strokes against par. Over par, the hole is played again.`
     : run === 'rounds' ? `Autochess rounds, until you have lost ${S.lives === 1 ? 'your one life' : `${S.lives} lives`}.`
     : V ? `One game of ${V.name}, from its own starting position.`
     : S.position ? 'One game, from a set position.'
@@ -338,6 +356,7 @@ export function describe(S) {
     S.ghosts ? 'a row of ghosts in front of each side' : '',
     S.gates ? count(S.gates, 'gate') : '',
     S.clouds ? count(S.clouds, 'wandering cloud') : '',
+    S.sand ? count(S.sand, 'square') + ' of sand' : '', S.water ? count(S.water, 'square') + ' of water' : '',
     S.cloud ? 'a cloud over each second row for the first turn' : ''
   ].filter(Boolean);
   L.board = V ? `${V.size}, the variant’s own board.`
@@ -353,9 +372,9 @@ export function describe(S) {
     L.armies = `Yours: ${yours}. Theirs: ${theirs === yours ? 'the same' : theirs}. As the variant stands them.`;
   } else if (S.position) L.armies = 'As the position stands them.';
   else if (S.cells) {
-    const line = (c, mods) => c.filter(Boolean).map((t, i) => `${named(t)}${mods?.[i]?.suit ? ` (${mods[i].suit})` : ''}`).join(', ');
+    const line = (c, mods) => c.map((t, i) => (t ? `${named(t)}${mods?.[i]?.suit || mods?.[i]?.weapon ? ` (${[mods[i].suit, mods[i].weapon && `${mods[i].weapon} ${mods[i].wl || 1}`].filter(Boolean).join(', ')})` : ''}` : null)).filter(Boolean).join(', ');
     const turned = S.cells.map((_, i) => S.cells[Math.floor(i / S.w) * S.w + (S.w - 1 - (i % S.w))]);
-    L.armies = `Yours, square by square: ${line(S.cells)}. Theirs: ${S.foeCells.join() === S.cells.join() ? 'the same, mirrored' : S.foeCells.join() === turned.join() ? 'the same, turned' : line(S.foeCells)}.`;
+    L.armies = `Yours, square by square: ${line(S.cells, S.cellMods)}. Theirs: ${S.foeCells.join() === S.cells.join() ? 'the same, mirrored' : S.foeCells.join() === turned.join() ? 'the same, turned' : line(S.foeCells, S.foeCellMods)}.`;
   } else if (rolled) L.armies = `Rolled with the board${full ? ', a full row each' : ''}${S.lineup ? ', lined up like chess' : ''}.`;
   else {
     const given = run === 'descent' || run === 'rounds';
@@ -365,10 +384,10 @@ export function describe(S) {
     const theirs = given && S.upgrades === 'each' ? (S.foeLine === 'turned' ? 'the same, reversed' : 'the same, mirrored, each piece facing its twin')
       : S.mirror ? 'a copy of yours' : S.foes || full ? `${full ? 'a full row' : S.foes} from ${few(S.foePool)}` : 'none';
     const loose = S.rabbits ? `${theirs === 'none' ? ';' : ', and'} ${count(S.rabbits, 'loose rabbit')}` : '';
-    const ball = run === 'course' ? `, and a ball: ${and((course ? course.balls : S.balls).filter((b, i, a) => a.indexOf(b) === i).map((b) => BALLS.find((x) => x.v === b)?.label.toLowerCase()))}`
+    const ball = run === 'course' ? ', all sliders, and a ball they hit'
       : ['hole', 'descent'].includes(S.goal) ? `, and a ball (${label('ballMove', S.ballMove).toLowerCase()})` : '';
     const where = S.lineup ? 'lined up like chess' : `scattered in the first ${count(S.mineRows, 'row')}`;
-    L.armies = `Yours: ${cap(yours)}${ball}. Theirs: ${theirs}${loose}. ${cap(where)}${S.arrange && run !== 'rounds' ? '; you lay yours out first' : ''}.`;
+    L.armies = `Yours: ${cap(yours)}${ball}. Theirs: ${theirs}${loose}. ${cap(where)}${S.arrange && run !== 'rounds' ? '; you lay yours out first' : ''}.${S.promote === 'copy' ? ' A pawn on the far row becomes a copy of another of its side.' : ''}`;
   }
 
   // Control.
@@ -387,15 +406,19 @@ export function describe(S) {
 
   // Goal.
   const win = V?.rules?.race ? 'Race your King to the far row' : V?.rules?.hill ? 'Take their King, or bring yours to the middle'
-    : V ? 'Take their King' : course ? 'Sink the ball in as few strokes as you can' : GOAL_PILL[S.goal] || 'A goal that changes with each board';
+    : V ? 'Take their King' : run === 'course' ? 'Sink the ball in no more strokes than par'
+    : S.goal === 'capture' ? (S.captureN ? `Capture ${S.captureN === 1 ? 'any one' : `${S.captureN}`} of theirs` : 'Capture every one of theirs')
+    : S.goal === 'carrier' ? `Take the piece their rabbit rides; it hops to another of theirs every ${S.rabbitHop === 1 ? 'turn' : `${S.rabbitHop} turns`}${S.rabbitSides === 'both' ? ', and one rides yours: lose that piece and you lose' : ''}`
+    : S.goal === 'flag' ? 'Take the rabbit from the middle and carry it back to your first row; take the piece carrying it and it rides yours'
+    : GOAL_PILL[S.goal] || 'A goal that changes with each board';
   const lose = !V && S.royal && run !== 'course' ? '; lose your King and you lose' : '';
-  const stall = [S.roll === 'chaos' ? 'the move limit is rolled' : course !== undefined ? `at most ${S.maxMoves} strokes a hole` : S.maxMoves ? `a limit of ${S.maxMoves} moves` : 'no move limit',
+  const stall = [S.roll === 'chaos' ? 'the move limit is rolled' : course !== undefined ? 'par is the fewest strokes the solver finds, plus two on the first two holes and one after; over par, the hole is played again' : S.maxMoves ? `a limit of ${S.maxMoves} moves` : 'no move limit',
     !V && S.showdown && run !== 'course' ? 'with one piece left each, the board closes in' : ''].filter(Boolean);
   L.goal = S.roll === 'daily' ? 'Rolled with the board, with at least 18 moves.' : `${win}${lose}. ${cap(stall.join('; '))}.`;
 
   // Growth.
   if (run === 'descent') {
-    const finds = S.upgrades === 'each' ? 'Each new board, both sides get an upgrade: you choose one of two (a piece to combine, or a suit), they get one at random'
+    const finds = S.upgrades === 'each' ? 'Each new board, both sides get an upgrade: you choose one of two (a suit or a weapon), they get one at random'
       : S.rewards ? `Finishing a board finds you a piece, up to ${S.maxPieces}, then upgrades${S.jokers ? ' and jokers' : ''}` : 'Nothing is found';
     const more = [S.upgrades === 'each' && S.growAt ? `the board is 7 × 7 from depth ${S.growAt}` : '', S.boardGrows ? 'the board grows' : '',
       S.fairyFrom > 1 ? `fairy pieces from depth ${S.fairyFrom}` : '', S.carry ? 'what you find carries over to later descents' : ''].filter(Boolean);
@@ -412,7 +435,7 @@ export function describe(S) {
   L.difficulty = V || S.position ? 'Not measured: it plays as it stands.'
     // One upgrade a board takes each board as dealt (play/main.js findOnce):
     // nothing is searched, and their rabbit's mind is what sharpens.
-    : run === 'descent' && S.upgrades === 'each' ? `Not searched: each board is the two lines as they stand. What climbs is their rabbit’s intelligence, from ${S.iq}, ${label('ramp', S.ramp).toLowerCase()}, and the upgrades they get.`
+    : run === 'descent' && S.upgrades === 'each' ? `Not searched: each board is the two lines as they stand. What climbs is ${S.darkBrain === 'think' ? `how far ahead they look, from ${theirsThink}, a step more every three boards` : `their rabbit’s intelligence, from ${S.iq}, ${label('ramp', S.ramp).toLowerCase()}`}, and the upgrades they get.`
     : run === 'descent' ? `Starts at ${S.startDifficulty} of 10 and climbs ${label('ramp', S.ramp).toLowerCase()}${S.realtime ? ', their pieces resting less each board' : ''}${pass.length ? `; each board searched to be ${and(pass)}` : ''}.`
     : `${cap(band)}${run === 'rounds' ? `, climbing ${label('ramp', S.ramp).toLowerCase()}` : ''}${pass.length ? `; each ${run === 'course' ? 'hole' : 'board'} searched to be ${and(pass)}` : ''}.`;
 
@@ -516,6 +539,9 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
     // level is aimed and how sharp their rabbits are.
     const big = M.growAt > 0 && depth >= M.growAt;
     Object.assign(S, { w: big ? 7 : M.w, h: big ? 7 : M.h, shape: M.shape, ground: M.ground, statues: M.statues, foePool: M.foePool, kinds: M.kinds });
+    // A side that thinks (2026-10-13, with no rabbit leading it) looks
+    // further ahead as it goes down: one step more every three boards.
+    if (M.darkBrain === 'think') S.skill = String(Math.min(3, +M.skill + Math.floor(((depth - 1) * k) / 3)));
   }
   if (M.run === 'descent' && M.realtime) {
     // Kung fu: their pieces rest less each level down; the ground stays
@@ -532,19 +558,21 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
   if (M.run === 'course' && COURSES[M.courseName]) {
     // A named course: its own balls, ground and turns, hole by hole.
     const C = COURSES[M.courseName], h = hole - 1;
-    Object.assign(S, C.base, { goal: 'hole', ballMove: C.balls[h % C.balls.length], magic: 'none', geared: false, ground: 'solid' }, C.hole(h, pick));
+    Object.assign(S, C.base, { goal: 'hole', ballMove: 'hit', magic: 'none', geared: false, ground: 'solid', rabbits: 0, sand: 0, water: 0, gates: 0, clouds: 0 }, C.hole(h, pick));
   } else if (M.run === 'course') {
-    // Each hole its own ball, in turn, and a little more going on as the
-    // course goes round: statues, a moving hole, then magic edges or a
-    // board that turns.
-    const balls = M.balls.length ? M.balls : ['putt'];
-    const h = hole - 1;
+    // Mixed: each hole a hazard in turn (sand, water, gates, clouds), more
+    // of it as the course goes round, with statues, a moving hole, then
+    // magic edges or a board that turns.
+    const h = hole - 1, hazard = ['sand', 'water', 'gates', 'clouds'][(h + 3) % 4];
     Object.assign(S, {
-      goal: 'hole', ballMove: balls[h % balls.length], holeMoves: h < 2 ? 'still' : pick(['still', 'daily', 'short']),
+      goal: 'hole', ballMove: 'hit', holeMoves: h < 2 ? 'still' : pick(['still', 'daily', 'short']),
       statues: Math.min(5, M.statues + Math.floor(h / 2)), shape: h < 3 ? M.shape : pick(['rect', 'L', 'cross', 'diamond', 'round', 'hourglass']),
-      magic: h >= 5 && rand() < 0.3 ? 'sides' : 'none', geared: h >= 6 && rand() < 0.2, rabbits: h < 2 ? 0 : M.rabbits
+      magic: h >= 5 && rand() < 0.3 ? 'sides' : 'none', geared: h >= 6 && rand() < 0.2, rabbits: 0, sand: 0, water: 0, gates: 0, clouds: 0,
+      ...(h > 0 ? { [hazard]: Math.min(4, 1 + Math.floor(h / 4)) } : {})
     });
   }
+  // Golf is played with sliders only (2026-10-13).
+  if (M.run === 'course') S.minePool = (S.minePool || []).filter((t) => GOLF_POOL.includes(t)).length ? S.minePool.filter((t) => GOLF_POOL.includes(t)) : GOLF_POOL.slice();
   if (hand) Object.assign(S, hand);
   if (veto.length) S.veto = veto;
   if (invented.length) S.invented = [...(S.invented || []), ...invented];

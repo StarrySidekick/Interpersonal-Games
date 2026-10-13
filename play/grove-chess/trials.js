@@ -68,11 +68,17 @@ const symmetric = memo((t) => [[3, 3], [1, 2], [5, 4]].every(([x, y]) => {
 }));
 
 // --- Armies and layouts. -----------------------------------------------------
-// An army is a list of { t, suit }. Two pieces are alike only when they are
-// the same kind with the same suit.
+// An army is a list of { t, suit, weapon, wl }. Two pieces are alike only
+// when they are the same kind with the same suit and weapon. As a key, a
+// piece is its kind, then ":suit", then "+weapon" and its level: "rook",
+// "rook:vines", "rook+lance2", "rook:vines+sword1" (weapons, 2026-10-13).
 
-const keyOf = (a) => (a ? a.t + (a.suit ? `:${a.suit}` : '') : '.');
-const asItem = (k) => (k === '.' ? null : { t: k.split(':')[0], ...(k.includes(':') ? { suit: k.split(':')[1] } : {}) });
+export const keyOf = (a) => (a ? a.t + (a.suit ? `:${a.suit}` : '') + (a.weapon ? `+${a.weapon}${a.wl || 1}` : '') : '.');
+export const asItem = (k) => {
+  if (k === '.') return null;
+  const [base, arm] = k.split('+'), [t, suit] = base.split(':'), w = /^(sword|lance|mace)([1-3])$/.exec(arm || '');
+  return { t, ...(suit ? { suit } : {}), ...(w ? { weapon: w[1], wl: +w[2] } : {}) };
+};
 
 /** How many distinct orderings of these keys there are. */
 function arrangements(keys) {
@@ -120,7 +126,7 @@ const pad = (keys, W) => [...keys, ...Array(Math.max(0, W - keys.length)).fill('
 function coloursSpread(cells, W, side, H) {
   const by = {};
   cells.forEach((k, i) => {
-    if (k === '.' || !colourBound(k.split(':')[0])) return;
+    if (k === '.' || !colourBound(asItem(k).t)) return;
     const x = i % W, r = Math.floor(i / W), y = side === 'you' ? r : H - 1 - r;
     (by[k] = by[k] || new Set()).add((x + y) % 2);
   });
@@ -173,8 +179,11 @@ export const facingCells = (cells, W, facing) => (facing === 'turned' ? cells.ma
 
 /** Both sides' cells as level settings: cells, cellMods, foeCells, foeCellMods. */
 export function cellSettings(cells, foeCells) {
-  const types = (c) => c.map((k) => (k === '.' ? null : k.split(':')[0]));
-  const mods = (c) => c.map((k) => { const it = asItem(k); return it?.suit ? { suit: it.suit, ...(it.suit === 'hearts' ? { lives: 2 } : {}) } : {}; });
+  const types = (c) => c.map((k) => (k === '.' ? null : asItem(k).t));
+  const mods = (c) => c.map((k) => {
+    const it = asItem(k);
+    return { ...(it?.suit ? { suit: it.suit, ...(it.suit === 'hearts' ? { lives: 2 } : {}) } : {}), ...(it?.weapon ? { weapon: it.weapon, wl: it.wl } : {}) };
+  });
   return { cells: types(cells), cellMods: mods(cells), foeCells: types(foeCells), foeCellMods: mods(foeCells) };
 }
 
@@ -217,7 +226,7 @@ export function runJob(job) {
 const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
 /** 1 inside [lo, hi], falling off to 0 at half lo and twice hi. */
 const band = (x, lo, hi) => (x < lo ? clamp((x - lo / 2) / (lo / 2)) : x > hi ? clamp(1 - (x - hi) / hi) : 1);
-const useKey = (u) => u.t + (u.suit ? `:${u.suit}` : '');
+const useKey = (u) => keyOf(u);
 const stepKey = (st) => (st.you ? `y${st.you.p},${st.you.x},${st.you.y}` : st.foe ? `f${st.foe.k},${st.foe.x},${st.foe.y}` : 'f-');
 
 /**
@@ -300,10 +309,10 @@ export function judge({ W, H }, games, skill = [], { forced = 'no', opening = nu
   };
 }
 
-/** A piece's name, with its suit: "Rook of Swords". */
+/** A piece's name, with its suit and weapon: "Rook of Vines with a lance (2)". */
 export function pieceName(k) {
-  const [t, suit] = k.split(':'), name = PIECES[t]?.name || t;
-  return suit ? `${name} of ${suit[0].toUpperCase()}${suit.slice(1)}` : name;
+  const { t, suit, weapon, wl } = asItem(k), name = PIECES[t]?.name || t;
+  return `${name}${suit ? ` of ${suit[0].toUpperCase()}${suit.slice(1)}` : ''}${weapon ? ` with a ${weapon} (${wl})` : ''}`;
 }
 
 /** The measures in words, one line each, for the page and for copying out. */

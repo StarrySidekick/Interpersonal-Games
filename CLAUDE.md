@@ -37,7 +37,10 @@ release: confirm the live site serves the new files before saying it is live.
   dealer. Once the daily is redesigned, this goes back to must-pass.
 - `node play/grove-chess/betza-check.mjs` must pass. It proves every
   piece's Betza notation gives the same moves as its move code.
-- `node --check` on every changed `.js` file.
+- A syntax check on every changed `.js` file, as a module:
+  `node --input-type=module --check < file.js`. (Plain `node --check
+  file.js` passes ES module files without parsing them, because the repo has
+  no `package.json`; found 2026-10-13.)
 - Play the change in a real browser (Playwright and Chromium are available in
   cloud sessions).
 

@@ -38,7 +38,7 @@ import { rng } from '../../engine/seed.js';
 import { model } from './models.js';
 import { LOOK } from './config.js';
 import { Board, tileColour, PIT, TRACK, tweenPos, wraps } from './board.js';
-import { onBoard, brambleCount, holeOpen, nextShrink, statueKind, reachMaps, onHill, guarded, guardedSquares, threats, pinned, ghostAt, gateUp, hiddenFrom } from './rules.js';
+import { onBoard, brambleCount, holeOpen, nextShrink, statueKind, reachMaps, onHill, guarded, guardedSquares, threats, pinned, ghostAt, gateUp, hiddenFrom, flagAt } from './rules.js';
 import * as sfx from './sounds.js';
 import { haptic } from '../../engine/ui.js';
 
@@ -48,7 +48,7 @@ const TURN = -0.35;       // and a slight turn, so they read as solid
 const BIG = 1.25;         // pieces stand a little larger here than on the title
 const FOG = LOOK.fog;      // the forest, far off (config.js)
 const PALE = '#e9e4da';   // a possessed piece whose rabbit you do not know
-const SUIT_COLOUR = { hearts: '#e0445a', swords: '#7f9fc0', stars: '#e8c547', diamonds: '#5fd0d8', spirals: '#f0903a', spirits: '#b9a7ff' }; // run.js SUITS
+const SUIT_COLOUR = { hearts: '#e0445a', spirals: '#f0903a', gears: '#8fa6bd', stars: '#e8c547', vines: '#2fb8a0' }; // run.js SUITS
 const LIFT = 10 / 28;     // the flat board's pixels of height, in model units
 const HEAD = 9.5;         // how high a rider sits on a piece's head, in model units
 const SHIELD_FLIGHT = 460; // ms a shield takes to fly from a guard to the piece it guards
@@ -866,6 +866,18 @@ export class Board3D extends Board {
     // placed triangles are kept and reused (performance, 2026-10-07).
     const cache = this.placed || (this.placed = new Map());
     if (cache.size > 600) cache.clear();
+    // A piece's weapon beside it (on its right as its side sees it), with a
+    // pip for each level; stars over its head while it is stunned
+    // (2026-10-13).
+    const armsOf = (p, x, y, h, id, o, side) => {
+      if (p.taken) return;
+      if (p.weapon && !o.s) {
+        const dx = 0.3 * side, lean = -0.18 * side, lv = Math.max(1, Math.min(3, p.wl || 1));
+        stand(model({ sword: 'wSword', lance: 'wLance', mace: 'wMace' }[p.weapon] || 'wSword', 'you'), x + dx, y - 0.12 * side, h + 0.8, id, { rz: lean, s: 1 });
+        for (let n = 0; n < lv; n++) stand(model('wPip', 'you'), x + dx + (n - (lv - 1) / 2) * 0.13, y - 0.3 * side, h + 0.2, id, { s: 0.7 });
+      }
+      if (p.stun) stand(model('stunStars', 'you'), x, y, h + HEAD * BIG + 2, id);
+    };
     const stand = (mdl, x, y, h, id, o = {}) => {
       const [X, Z] = this.stood(x, y);
       const xfo = { t: [X, h, Z], ...o, ry: (o.ry || 0) + TURN, s: (o.s ?? 1) * BIG };
@@ -909,7 +921,8 @@ export class Board3D extends Board {
       stand(model('flag'), hx + 0.3, hy + 0.15, 0, 300);
     }
     // Yours.
-    const G = this.guards !== false && !this.hidePieces && !tw?.collapse ? this.guardOf(s, at) : null;
+    // Shields only where something could take: none on a golf hole.
+    const G = this.guards !== false && !this.hidePieces && !tw?.collapse && s.foes.length ? this.guardOf(s, at) : null;
     const PIN = this.pinsOf(s, at), where = []; // where each of yours is drawn this frame
     if (!this.hidePieces) s.pieces.forEach((p, i) => {
       if (p.taken && !(tw?.eaten?.has(i) && at < tw.landAt)) return;
@@ -949,6 +962,7 @@ export class Board3D extends Board {
       // in a descent, a piece with a suit wears the suit's.
       stand(model(p.type, 'you', null, p.brain === 'possessed' ? this.fur(p) : SUIT_COLOUR[p.suit] || null), x, y, h, 100 + i, o);
       where[i] = { x, y, h };
+      armsOf(p, x, y, h, 100 + i, o, 1);
       // Guarded (2026-10-11): a shield in front. Since 2026-10-13 it flies
       // there from the guard (the flights, below), then bounces once as it
       // lands. While it flies, the piece keeps the shield it had (none, or
@@ -975,7 +989,7 @@ export class Board3D extends Board {
     }
     // Theirs. One hidden under a cloud is not drawn: you cannot see it, nor
     // its move into the cloud (2026-10-13).
-    const HID = hiddenFrom(s, 'you');
+    const HID = hiddenFrom(s, 'you'), foeAt = [];
     s.foes.forEach((f, k) => {
       if (f.taken && !(tw?.caught?.has(k) && at < tw.caughtAt)) return;
       if (HID.has(k) && !f.taken) return;
@@ -986,10 +1000,20 @@ export class Board3D extends Board {
       // The rabbit that leads them (2026-10-13) is a rabbit, not a piece: no
       // plinth, in its trait's colour.
       const mdl = f.brain === 'leader' ? model('rabbit', 'foe', this.fur(f)) : f.suit ? model(f.type, 'foe', null, SUIT_COLOUR[f.suit]) : f.brain === 'possessed' ? model(f.type, 'foe', null, this.glowOf(f, k, at)) : model(f.type, 'foe', this.fur(f));
-      stand(mdl, x, y, h, 200 + k, collapse ? { s: away(at - collapse.t0 - collapse.delay(f.x, f.y)) } : {});
+      const fo = collapse ? { s: away(at - collapse.t0 - collapse.delay(f.x, f.y)) } : {};
+      stand(mdl, x, y, h, 200 + k, fo);
+      armsOf(f, x, y, h, 200 + k, fo, -1);
+      foeAt[k] = { x, y, h };
       if (day.rules.goal === 'target' && day.foes.length > 1 && f.target) stand(ring('#e3bd57'), x, y, 0, 200 + k);
       if (PIN?.theirs.has(k) && !f.taken && this.needle(stand, x, y, h, 200 + k, 't' + k, at)) this.settleSoon();
     });
+    // The rabbit to capture (goal 'flag', 2026-10-13): on its square, or on
+    // the head of the piece carrying it.
+    const fl = flagAt(s);
+    if (fl && !collapse) {
+      const on = fl.by === 'you' ? where[fl.i] : fl.by === 'foe' ? foeAt[fl.i] : null;
+      stand(model('rabbit', 'foe', '#d9d2c4'), on ? on.x : fl.x, on ? on.y : fl.y, on ? on.h + HEAD * BIG : 0, 99);
+    }
     // Wandering clouds, high over everything, drifting at the end of a turn.
     if (!tw?.collapse) (s.clouds || []).forEach((c, i) => {
       let { x, y } = c;

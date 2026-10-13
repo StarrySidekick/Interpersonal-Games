@@ -21,11 +21,11 @@
 // Under wandering clouds each side plans from what it can see (rules.js
 // seenBy): the other side's hidden pieces are simply not in its picture,
 // and a move that runs into one takes it, as in play. A suit's extra move
-// (Swords, Stars) is chosen greedily for both sides alike, the way the rules
+// (Vines, Stars) is chosen greedily for both sides alike, the way the rules
 // choose it for theirs (rules.js bestFollow), so neither side gets a cleverer
 // bonus than the other.
 
-import { allMoves, playerMove, respondWith, foeMovesFor, movesFor, isOver, lost, initialState, stateKey, seenBy, withGrid, PIECES } from './rules.js';
+import { allMoves, playerMove, respondWith, foeMovesFor, movesFor, isOver, lost, initialState, stateKey, seenBy, withGrid, PIECES, takesAny, capturesOf, carrierOf, flagAt } from './rules.js';
 import { powers } from './power.js';
 import { rng } from '../../engine/seed.js';
 
@@ -38,7 +38,8 @@ export const EVAL = { mobility: 0.06, attack: 0.12, contempt: 1.5, mopup: 0.35 }
 /** Every move their thinking pieces have: { k, x, y, cap, swap }. */
 export function foeOptions(s) {
   const out = [];
-  withGrid(s, () => s.foes.forEach((f, k) => { for (const m of foeMovesFor(s, k)) out.push({ k, x: m.x, y: m.y, cap: m.cap, ...(m.swap ? { swap: true } : {}) }); }));
+  // The whole move: a weapon's strikes, passes and pushes, a promotion.
+  withGrid(s, () => s.foes.forEach((f, k) => { for (const m of foeMovesFor(s, k)) out.push({ k, ...m }); }));
   return out;
 }
 
@@ -57,14 +58,27 @@ function values(day) {
 function evaluate(s, mobYou, mobFoe) {
   if (s.won) return WIN - s.t;
   if (lost(s)) return -WIN + s.t;
-  const val = values(s.day);
+  const val = values(s.day), r = s.day.rules;
   let lead = 0, v = 0;
-  const kY = s.pieces.find((p) => live(p) && p.type === 'king'), kF = s.foes.find((f) => live(f) && f.type === 'king');
-  for (const p of s.pieces) if (live(p) && p.type !== 'ball') {
+  // What each side goes for: the other King, or the piece the other side's
+  // rabbit rides (goal 'carrier', 2026-10-13).
+  const target = (side) => {
+    const list = side === 'you' ? s.pieces : s.foes, rabbit = r.goal === 'carrier' ? carrierOf(s, side) : null;
+    return rabbit ? list[rabbit.rides] : list.find((q) => live(q) && q.type === 'king');
+  };
+  const kY = target('you'), kF = target('foe');
+  // The rabbit to capture (goal 'flag'): nearer to it than they are, and
+  // then nearer home with it.
+  if (r.goal === 'flag') {
+    const fl = flagAt(s), near = (list) => Math.min(99, ...list.filter((q) => live(q) && q.type !== 'bunny').map((q) => cheb(q, fl)));
+    if (!fl.by) v += 0.8 * (near(s.foes) - near(s.pieces));
+    else v += (fl.by === 'you' ? 1 : -1) * (6 - (fl.by === 'you' ? fl.y : s.day.H - 1 - fl.y));
+  }
+  for (const p of s.pieces) if (live(p) && p.type !== 'ball' && p.brain !== 'carrier') {
     lead += val(p.type) * ((p.lives || 1) > 1 ? 1.4 : 1);
     if (p.type !== 'king' && kF) v -= EVAL.attack * cheb(p, kF);
   }
-  for (const f of s.foes) if (live(f)) {
+  for (const f of s.foes) if (live(f) && f.brain !== 'carrier') {
     lead -= val(f.type) * ((f.lives || 1) > 1 ? 1.4 : 1);
     if (f.type !== 'king' && kY) v += EVAL.attack * cheb(f, kY);
   }
@@ -77,7 +91,7 @@ function evaluate(s, mobYou, mobFoe) {
 }
 
 /** Your extra move in a turn a suit left open, chosen greedily as the rules
-    choose theirs: Swords takes the most valuable piece it can, or stops;
+    choose theirs: Vines takes the most valuable piece it can, or stops;
     Stars takes, or else goes where they cannot reach, nearest their King. */
 export function bonusMove(s) {
   const b = s.bonus, p = s.pieces[b.p], val = values(s.day);
@@ -86,9 +100,9 @@ export function bonusMove(s) {
   let best = { p: -1, x: 0, y: 0, cap: false }, bv = b.cap ? 0 : -Infinity;
   for (const m of movesFor(s, b.p)) {
     if (m.swap) continue;
-    const victim = m.cap ? s.foes.find((f) => live(f) && f.x === m.x && f.y === m.y) : null;
-    if (b.cap && !victim) continue;
-    let v = victim ? 100 + (victim.type === 'king' ? 1000 : val(victim.type) * 10) : 0;
+    const victims = capturesOf(m, s.day.W).map((q) => s.foes.find((f) => live(f) && f.rides == null && f.y * s.day.W + f.x === q)).filter(Boolean);
+    if (b.cap && !takesAny(m)) continue;
+    let v = victims.length ? 100 + victims.reduce((t, f) => t + (f.type === 'king' ? 1000 : val(f.type) * 10), 0) : 0;
     if (reach.has(m.y * s.day.W + m.x)) v -= val(p.type) * 5;
     if (king) v -= cheb(m, king);
     if (v > bv) { bv = v; best = { p: b.p, ...m }; }
@@ -106,7 +120,7 @@ function quiesce(s, you, a, b, ctx, qd, mobOther) {
   if (qd >= 5) return stand;
   if (you ? stand >= b : stand <= a) return stand;
   if (you) a = Math.max(a, stand); else b = Math.min(b, stand);
-  for (const m of order(mine.filter((m) => m.cap && m.p !== -1), s, you)) {
+  for (const m of order(mine.filter((m) => takesAny(m) && m.p !== -1), s, you)) {
     let v;
     if (you) { const n = playerMove(s, m); v = quiesce(n, !!n.bonus, a, b, ctx, qd + 1, mine.length); }
     else v = quiesce(respondWith(s, m), true, a, b, ctx, qd + 1, mine.length);
@@ -151,10 +165,12 @@ function search(s, you, depth, a, b, ctx, mobOther) {
 /** Captures first, the biggest by the smallest piece, so alpha-beta prunes more. */
 function order(ms, s, you) {
   const val = values(s.day), other = you ? s.foes : s.pieces, mine = you ? s.pieces : s.foes;
+  const W = s.day.W;
   const key = (m) => {
-    if (!m.cap || m.p === -1) return 0;
-    const v = other.find((q) => live(q) && q.x === m.x && q.y === m.y);
-    return v ? (v.type === 'king' ? 1e6 : 1000 + val(v.type) * 10 - val(mine[you ? m.p : m.k]?.type)) : 500;
+    if (!takesAny(m) || m.p === -1) return m.promote ? 800 + val(m.promote) : 0;
+    const vs = capturesOf(m, W).map((q) => other.find((o) => live(o) && o.rides == null && o.y * W + o.x === q)).filter(Boolean);
+    if (!vs.length) return 500;
+    return vs.some((o) => o.type === 'king') ? 1e6 : 1000 + vs.reduce((t, o) => t + val(o.type) * 10, 0) - val(mine[you ? m.p : m.k]?.type);
   };
   return ms.map((m) => ({ m, k: key(m) })).sort((x, y) => y.k - x.k).map((x) => x.m);
 }
@@ -228,7 +244,7 @@ const material = (s) => {
 export function playGame(level, bots, { seed = 1, maxPlies = 200 } = {}) {
   let s = initialState(level);
   const rand = rng(`sim:${seed}`), seen = new Map(), twice = new Set(), lead = [], line = [];
-  const nP = s.pieces.length, use = [...s.pieces, ...s.foes].map((p, i) => ({ t: p.type, ...(p.suit ? { suit: p.suit } : {}), s: i < nP ? 0 : 1, moved: 0, took: 0, lost: false }));
+  const nP = s.pieces.length, use = [...s.pieces, ...s.foes].map((p, i) => ({ t: p.type, ...(p.suit ? { suit: p.suit } : {}), ...(p.weapon ? { weapon: p.weapon, wl: p.wl || 1 } : {}), s: i < nP ? 0 : 1, moved: 0, took: 0, lost: false }));
   const finish = (winner, end) => {
     s.pieces.forEach((p, i) => { if (p.taken) use[i].lost = true; });
     s.foes.forEach((f, k) => { if (f.taken) use[nP + k].lost = true; });
@@ -249,7 +265,7 @@ export function playGame(level, bots, { seed = 1, maxPlies = 200 } = {}) {
     const beforeTaken = s.foes.filter((f) => f.taken).length;
     const mid = playerMove(s, mv);
     if (mv.p >= 0) { use[mv.p].moved++; if (mid.foes.filter((f) => f.taken).length > beforeTaken) use[mv.p].took++; }
-    line.push({ you: { p: mv.p, x: mv.x, y: mv.y, cap: !!mv.cap, ...(mv.swap ? { swap: true } : {}) } });
+    line.push({ you: { ...mv, cap: !!mv.cap } }); // the whole move: strikes, pushes, a promotion
     lead.push(material(mid));
     if (mid.won) { s = mid; continue; }
     if (mid.bonus) { s = mid; continue; }
@@ -258,7 +274,7 @@ export function playGame(level, bots, { seed = 1, maxPlies = 200 } = {}) {
     const yoursBefore = mid.pieces.filter((p) => p.taken).length;
     s = respondWith(mid, m);
     if (m) { use[nP + m.k].moved++; if (s.pieces.filter((p) => p.taken).length > yoursBefore) use[nP + m.k].took++; }
-    line.push({ foe: m ? { k: m.k, x: m.x, y: m.y, ...(m.swap ? { swap: true } : {}) } : null });
+    line.push({ foe: m ? { ...m } : null });
     lead.push(material(s));
   }
   return finish(null, 'limit');

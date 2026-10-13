@@ -16,7 +16,7 @@
 // of its own version, so it still builds exactly the level it was.
 
 import { rng, shuffled } from '../../engine/seed.js';
-import { PIECES, onBoard, initialState, autoApply, isOver, TRAITS, leaderMind } from './rules.js';
+import { PIECES, onBoard, initialState, autoApply, isOver, TRAITS, leaderMind, WEAPON_KINDS, canArm } from './rules.js';
 import { PATTERNS } from './day.js';
 import { EXTRA_PATTERNS } from './rabbits.js';
 
@@ -89,6 +89,10 @@ export const SCHEMA = [
       help: 'Gates between the two sides, up one turn and down the next (Timothy, 2026-10-13). Down, a gate is open ground; up, nothing passes it and nothing can stand there. A gate with a piece on it stays down until the piece leaves.' },
     { key: 'clouds', sub: 'neutral', label: 'Wandering clouds', type: 'int', min: 0, max: 4, def: 0,
       help: 'Clouds that drift a square a turn, any way, on their own (Timothy, 2026-10-13). A piece under a cloud is hidden from the other side, and so is its move into the cloud. A move that runs into a hidden piece stops there and takes it. You always see your own pieces, cloud or not.' },
+    { key: 'sand', sub: 'neutral', label: 'Sand', type: 'int', min: 0, max: 6, def: 0,
+      help: 'Sand squares, a golf hazard (2026-10-13): a ball hit into sand stops dead there. Pieces cross sand like any ground.' },
+    { key: 'water', sub: 'neutral', label: 'Water', type: 'int', min: 0, max: 6, def: 0,
+      help: 'Water squares, a golf hazard (2026-10-13): no piece can cross or stand in water, and a ball that rolls in goes back to the tee, where it started the hole (if something stands on the tee, the ball stops at the water\u2019s edge).' },
     { key: 'cloud', sub: 'neutral', label: 'A cloud on the second rows, first turn', type: 'bool', def: true,
       help: 'For the first turn, a cloud covers the row in front of each side. Each side moves through its own cloud freely; the other side\u2019s stops it (a piece can step in, not past), and nothing in a cloud can be taken by the other side. So nobody can take anything on the first move. It lifts once both sides have moved (Timothy, 2026-10-10 and 11: with no second row of pawns, this protects the Kings at the start).' },
     { key: 'cloudOwn', sub: 'neutral', label: 'Each cloud stops only the other side', type: 'bool', def: true,
@@ -105,6 +109,8 @@ export const SCHEMA = [
     { key: 'minePool', sub: 'yours', label: 'Dealt from', type: 'pieces', def: ['queen', 'knight', 'bishop', 'rook', 'grasshopper'] },
     { key: 'mineDupes', sub: 'yours', label: 'Repeats allowed', type: 'bool', def: false },
     { key: 'dealKing', sub: 'yours', label: 'Always dealt a King', type: 'bool', def: true, help: 'With a royal King: if the deal has none, your first piece becomes one.' },
+    { key: 'promote', label: 'A pawn on the far row', type: 'choice', def: 'none', options: opts(['none', 'Stays a pawn'], ['copy', 'Becomes a copy of another of yours']),
+      help: 'Copy (Timothy, 2026-10-13): it turns into any one kind of the other pieces its side has on the board (not a pawn or the King), chosen as it gets there. Theirs too.' },
     { key: 'mineRows', sub: 'yours', label: 'Start within the bottom', type: 'int', min: 1, max: 5, def: 1, unit: 'rows', help: 'When not lined up.' },
     { key: 'arrange', sub: 'yours', label: 'Lay out your pieces first', type: 'bool', def: true,
       help: 'Before the first move, put your pieces where you like in your first two rows (Timothy, 2026-10-10). Nowhere that lets either side take a piece on its first move. Par is worked out again for your layout.' },
@@ -118,9 +124,11 @@ export const SCHEMA = [
     { key: 'foesCapture', sub: 'theirs', label: 'They can take your pieces', type: 'bool', def: true },
     { key: 'rabbitsEat', sub: 'theirs', label: 'Rabbits eat your pieces', type: 'bool', def: false,
       help: 'Off: a rabbit that would land on one of your pieces waits instead.' },
-    { key: 'ballMove', sub: 'ball', label: 'The ball moves', type: 'choice', def: 'putt', options: opts(
-      ['ice', 'On ice'], ['putt', 'Like a putt'], ['bounce', 'Like a billiard ball'], ['hit', 'Hit by the pieces'], ['sticky', 'Sticky'], ['ghost', 'A ghost']),
-      help: 'On ice: up, down, left or right, and it rolls until something stops it. Like a putt: up, down, left or right, as far as you like. Like a billiard ball: diagonally, as far as you like, bouncing off the edges (the reflecting bishop from Billiards Chess). It never takes anything. Hit by the pieces: it never moves by itself; any piece, yours or theirs, that moves into it sends it sliding along the line of that move, like on ice, until something stops it. Sticky: like ice, but it stops beside the first thing it passes. A ghost: like ice, straight through pieces.' },
+    { key: 'ballMove', sub: 'ball', label: 'The ball moves', type: 'choice', def: 'putt', options: [...opts(
+      ['ice', 'On ice'], ['putt', 'Like a putt'], ['bounce', 'Like a billiard ball'], ['hit', 'Hit by the pieces'], ['ghost', 'A ghost']),
+      // "There's no such thing as a sticky ball" (Timothy, 2026-10-13): read, not offered.
+      { v: 'sticky', label: 'Sticky', hidden: true }],
+      help: 'On ice: up, down, left or right, and it rolls until something stops it. Like a putt: up, down, left or right, as far as you like. Like a billiard ball: diagonally, as far as you like, bouncing off the edges (the reflecting bishop from Billiards Chess). It never takes anything. Hit by the pieces: it never moves by itself; any piece, yours or theirs, that moves into it sends it sliding along the line of that move, like on ice, until something stops it. A ghost: like ice, straight through pieces.' },
     { key: 'ballCaptures', sub: 'ball', label: 'The ball captures', type: 'bool', def: true,
       help: 'On: rolling or sliding into one of their pieces, the ball takes it and stops there. Off: it stops short, and never takes anything.' }
   ] },
@@ -163,10 +171,19 @@ export const SCHEMA = [
       help: 'Their side plays like one opponent: one move at a time, this often at most. In a descent, their first level\u2019s; it shortens each level down.' }
   ] },
   { ...part('goal'), fields: [
-    { key: 'goal', label: 'How you win', type: 'choice', def: 'king', options: opts(
-      ['descent', 'Catch them, then the ball'], ['all', 'Capture them all'], ['king', 'Take their King'], ['rabbit', 'Catch the rabbit'],
-      ['any', 'Catch any one'], ['target', 'A marked one'], ['hole', 'Sink the ball'], ['mix', 'Mix it up']),
-      help: 'Catch them, then the ball: the hole stays shut until every possessed piece and loose rabbit is caught, then sink the ball in it. King and rabbit make sure they have one. Sink the ball gives you a ball and a moving hole. Mix picks capture, King or rabbit per layout.' },
+    { key: 'goal', label: 'How you win', type: 'choice', def: 'king', options: [...opts(
+      ['king', 'Take their King'], ['capture', 'Capture'], ['carrier', 'Take the rabbit’s piece'], ['flag', 'Capture the rabbit, bring it home'],
+      ['descent', 'Catch them, then the ball'], ['rabbit', 'Catch the rabbit'], ['target', 'A marked one'], ['hole', 'Sink the ball'], ['mix', 'Mix it up']),
+      // Capture them all and Catch any one are Capture with every one, or
+      // one (2026-10-13); still read, so old links and boards play as they did.
+      { v: 'all', label: 'Capture them all', hidden: true }, { v: 'any', label: 'Catch any one', hidden: true }],
+      help: 'Capture: take as many of theirs as "How many" says. Take the rabbit’s piece: a rabbit rides their pieces and hops from one to another; take the one it is on. Capture the rabbit, bring it home: a rabbit waits in the middle; take it and it rides your piece, take that piece and it rides theirs; carry it back to your first row (Timothy, 2026-10-13). Catch them, then the ball: the hole stays shut until every possessed piece and loose rabbit is caught, then sink the ball in it. King and rabbit make sure they have one. Sink the ball gives you a ball and a moving hole. Mix picks capture, King or rabbit per layout.' },
+    { key: 'captureN', label: 'How many', type: 'int', min: 0, max: 8, def: 1, unit: 'of theirs',
+      help: 'For Capture: take this many of their pieces to win, from one to every one (0).' },
+    { key: 'rabbitHop', label: 'The rabbit hops every', type: 'int', min: 1, max: 5, def: 3, unit: 'turns',
+      help: 'For Take the rabbit’s piece: it never moves by itself, only from one of their pieces to another, at random, this often (Timothy, 2026-10-13: "anywhere from every turn to every five turns. By default, it’s three turns").' },
+    { key: 'rabbitSides', label: 'Rabbits ride', type: 'choice', def: 'theirs', options: opts(['theirs', 'Their pieces'], ['both', 'Both sides’ pieces']),
+      help: 'Both: you have one too, hopping round your pieces; if they take the piece yours is on, you lose.' },
     { key: 'royal', label: 'Your King is royal', type: 'bool', def: true, help: 'Lose the King, lose the game.' },
     { key: 'holeMoves', label: 'The hole moves by', type: 'choice', def: 'daily', options: opts(
       ['still', 'Staying put'], ['daily', 'The daily set'], ['short', 'Random, 2 hops'], ['mid', 'Random, 3 to 4'], ['long', 'Random, 5 to 8']),
@@ -212,7 +229,7 @@ export const SCHEMA = [
 ];
 
 const FIELDS = SCHEMA.flatMap((g) => g.fields);
-export const SETTINGS_VERSION = 18;
+export const SETTINGS_VERSION = 19;
 export const defaults = () => ({ ...Object.fromEntries(FIELDS.map((f) => [f.key, Array.isArray(f.def) ? [...f.def] : f.def])), v: SETTINGS_VERSION });
 
 /** How each earlier version's defaults differ from today's. Settings saved
@@ -233,7 +250,11 @@ export const defaults = () => ({ ...Object.fromEntries(FIELDS.map((f) => [f.key,
 // Version 16 (2026-10-13): needles through pinned pieces.
 // Version 17 (2026-10-13): statues can be taken.
 // Version 18 (2026-10-13): shields on squares you guard.
-const V18 = { showSafe: false };
+// Version 19 (2026-10-13): the suits renamed (Swords is Vines, Spirals is
+// Gears) and two gone (Diamonds, Spirits); weapons. No default changed:
+// pieceMod reads an older link's suits by their old names.
+const V19 = {};
+const V18 = { showSafe: false, ...V19 };
 const V17 = { statuesTake: false, ...V18 };
 const V16 = { showPins: false, ...V17 };
 const V15 = { showBeacons: false, ...V16 };
@@ -247,6 +268,7 @@ const V9 = { mineRows: 2, foeRows: 3, ...V10 };
 // (goal 'king', royal), and two left brings on the showdown.
 const V8 = { goal: 'descent', royal: false, showdown: false, dealKing: false, ...V9 };
 const BEFORE = {
+  18: { ...V19 },
   17: { ...V18 },
   16: { ...V17 },
   15: { ...V16 },
@@ -276,6 +298,17 @@ const defaultsFor = (v) => ({ ...defaults(), ...JSON.parse(JSON.stringify(BEFORE
     Anything without `v: 2` was made before version 2 and keeps its old
     meaning: crumbling was a switch, there was no separate rabbit count, and
     rabbits ate whenever their side could take your pieces. */
+/** What has been done to one piece (a hand's, a square's): its hearts
+    (lives), its suit and its weapon, kept in range. Settings older than
+    version 19 named the suits as they were then (Swords is Vines now,
+    Spirals is Gears, and Diamonds and Spirits are gone). */
+const OLD_SUITS = { swords: 'vines', spirals: 'gears', diamonds: null, spirits: null };
+export function pieceMod(m, v = SETTINGS_VERSION) {
+  const suit = v < 19 && m?.suit in OLD_SUITS ? OLD_SUITS[m.suit] : m?.suit;
+  return { ...(m?.lives > 1 ? { lives: Math.min(9, m.lives | 0) } : {}), ...(SUITS[suit] ? { suit } : {}),
+    ...(WEAPON_KINDS.includes(m?.weapon) ? { weapon: m.weapon, wl: Math.max(1, Math.min(3, m.wl | 0 || 1)) } : {}) };
+}
+
 export function clean(raw) {
   const v = knownVersion(raw?.v) ? raw.v : 1, legacy = v === 1;
   // Pieces invented in the catalog travel with the settings (so a link, or
@@ -324,8 +357,7 @@ export function clean(raw) {
     s.mine = s.hand.length;
     // What the descent has done to each piece in the hand: hearts (lives)
     // and its suit (a rule it carries, and its colour).
-    if (Array.isArray(raw.handMods)) s.handMods = raw.handMods.filter((m, i) => keep[i]).map((m) => ({
-      ...(m?.lives > 1 ? { lives: Math.min(9, m.lives | 0) } : {}), ...(SUITS[m?.suit] ? { suit: m.suit } : {}) }));
+    if (Array.isArray(raw.handMods)) s.handMods = raw.handMods.filter((m, i) => keep[i]).map((m) => pieceMod(m, v));
   }
   // Both sides square by square (the piece trials, 2026-10-13): `cells` is
   // yours, your back row first, left to right, then the row in front;
@@ -335,7 +367,7 @@ export function clean(raw) {
   // the page.
   if (Array.isArray(raw?.cells) && Array.isArray(raw?.foeCells)) {
     const ok = (a) => a.slice(0, 2 * s.w).map((t) => (typeof t === 'string' && PIECES[t] && t !== 'rabbit' && t !== 'ball' ? t : null));
-    const mod = (m) => ({ ...(m?.lives > 1 ? { lives: Math.min(9, m.lives | 0) } : {}), ...(SUITS[m?.suit] ? { suit: m.suit } : {}) });
+    const mod = (m) => pieceMod(m, v);
     s.cells = ok(raw.cells); s.foeCells = ok(raw.foeCells);
     s.cellMods = s.cells.map((_, i) => mod(raw.cellMods?.[i])); s.foeCellMods = s.foeCells.map((_, i) => mod(raw.foeCellMods?.[i]));
     s.mine = s.cells.filter(Boolean).length; s.foes = s.foeCells.filter(Boolean).length;
@@ -346,8 +378,7 @@ export function clean(raw) {
     const keep = raw.foeHand.map((k) => !!PIECES[k]);
     s.foeHand = raw.foeHand.filter((k, i) => keep[i]);
     s.foes = s.foeHand.filter((k) => k !== 'bunny').length;
-    if (Array.isArray(raw.foeMods)) s.foeMods = raw.foeMods.filter((m, i) => keep[i]).map((m) => ({
-      ...(m?.lives > 1 ? { lives: Math.min(9, m.lives | 0) } : {}), ...(SUITS[m?.suit] ? { suit: m.suit } : {}) }));
+    if (Array.isArray(raw.foeMods)) s.foeMods = raw.foeMods.filter((m, i) => keep[i]).map((m) => pieceMod(m, v));
   }
   // A starting position given outright (the piece trials, 2026-10-13): an
   // extended FEN (variants.js readFen). Not on the page.
@@ -555,7 +586,7 @@ export function makeLevel(settings, seed) {
     return { type, x, y, ...(mods?.[i] || {}) };
   }).filter(Boolean);
   const mySpots = exact ? null : ordered ? inRow(rows[0], myTypes.length) : S.lineup ? lineUp(rows, myTypes.length) : null;
-  const pieces = exact ? fromCells(S.cells, S.cellMods, 'you') : myTypes.map((type, i) => ({ type, ...(mySpots ? mySpots[i] : place(bottom)), ...(S.handMods?.[i] || {}) }));
+  let pieces = exact ? fromCells(S.cells, S.cellMods, 'you') : myTypes.map((type, i) => ({ type, ...(mySpots ? mySpots[i] : place(bottom)), ...(S.handMods?.[i] || {}) }));
 
   let foes;
   if (exact) foes = fromCells(S.foeCells, S.foeCellMods, 'foe');
@@ -602,6 +633,15 @@ export function makeLevel(settings, seed) {
   // until they are all caught.
   if (goal === 'descent') foes.forEach((f) => { if (f.type === 'rabbit' || S.darkBrain === 'possessed') f.target = true; });
 
+  // Capture the rabbit (2026-10-13, Timothy: "rabbit in the center of a 7x7
+  // board"): it waits on the middle square, which nothing else is dealt onto.
+  if (goal === 'flag') {
+    const cx = Math.floor(W / 2), cy = Math.floor(H / 2);
+    const spot = [[cx, cy], ...cells.slice().sort((a, b) => Math.max(Math.abs(a[0] - cx), Math.abs(a[1] - cy)) - Math.max(Math.abs(b[0] - cx), Math.abs(b[1] - cy)))]
+      .find(([x, y]) => onBoard(day, x, y) && free([x, y]) && ![...pieces, ...foes].some((p) => p.x === x && p.y === y));
+    if (spot) { day.flag = { x: spot[0], y: spot[1] }; taken.add(spot[1] * W + spot[0]); }
+  }
+
   // Sink the ball: your first piece becomes the ball, and the hole starts on
   // their side of the board. (This draws its random numbers only on ball
   // levels, so every other level stays exactly as it was.)
@@ -644,7 +684,7 @@ export function makeLevel(settings, seed) {
   // their King's head (one given in their lineup, or a new one), with a
   // trait and an intelligence. Their pieces think as it says (leaderMind).
   let lead = null;
-  if (S.darkBrain === 'rabbit' && foes.length) {
+  if (S.darkBrain === 'rabbit' && foes.length && goal !== 'carrier') {
     const king = foes.find((f) => f.type === 'king' && f.x !== undefined) || foes.find((f) => f.type !== 'bunny' && f.x !== undefined);
     let r = foes.find((f) => f.type === 'bunny');
     if (!r) { r = { type: 'bunny' }; foes.push(r); }
@@ -720,18 +760,39 @@ export function makeLevel(settings, seed) {
   // Gates and wandering clouds (2026-10-13), drawn last so a level without
   // them is dealt as it always was: on free squares between the two sides
   // (inside the ghosts, if there are any).
-  if ((S.gates || S.clouds) && !S.realtime) {
+  if ((S.gates || S.clouds || S.sand || S.water) && !S.realtime) {
     const lo = S.ghosts ? 2 : 1, mid = rows.slice(lo, Math.max(lo, rows.length - lo));
     const pool = cells.filter((c) => (mid.length ? mid.includes(c[1]) : true) && free(c) && !day.ghosts?.has(c[1] * W + c[0]) && !day.stumps.has(c[1] * W + c[0]));
     const pick = () => { const [x, y] = pool.splice(Math.floor(rand() * pool.length), 1)[0]; taken.add(y * W + x); return { x, y }; };
     if (S.gates) { day.gates = new Map(); for (let i = 0; i < S.gates && pool.length; i++) { const { x, y } = pick(); day.gates.set(y * W + x, i % 2); } }
     if (S.clouds) { day.clouds = []; for (let i = 0; i < S.clouds && pool.length; i++) day.clouds.push(pick()); }
+    // Golf's hazards (2026-10-13), after the rest so nothing else moves.
+    if (S.sand) { day.sand = new Set(); for (let i = 0; i < S.sand && pool.length; i++) { const { x, y } = pick(); day.sand.add(y * W + x); } }
+    if (S.water) { day.water = new Set(); for (let i = 0; i < S.water && pool.length; i++) { const { x, y } = pick(); day.water.add(y * W + x); } }
+  }
+
+  // Take the rabbit's piece (2026-10-13): a Rabbit rides one of their
+  // pieces, picked at random (one given in their lineup, or a new one); with
+  // rabbitSides 'both', one rides yours too. Drawn last, so other levels are
+  // dealt as they always were.
+  pieces = pieces.filter((p) => p.x !== undefined); foes = foes.filter((f) => f.x !== undefined);
+  // A weapon a piece cannot carry (a lance on one that does not slide) goes.
+  for (const p of [...pieces, ...foes]) if (p.weapon && !canArm(p.type, p.weapon)) { delete p.weapon; delete p.wl; }
+  if (goal === 'carrier') {
+    const ride = (list, own) => {
+      const on = list.map((q, j) => j).filter((j) => list[j].x !== undefined && !['bunny', 'ball', 'rabbit'].includes(list[j].type));
+      if (!on.length) return;
+      let r = own ? list.find((q) => q.type === 'bunny') : null;
+      if (!r) { r = { type: 'bunny' }; list.push(r); }
+      const j = on[Math.floor(rand() * on.length)];
+      Object.assign(r, { brain: 'carrier', x: list[j].x, y: list[j].y, rides: j });
+    };
+    ride(foes, true);
+    if (S.rabbitSides === 'both') ride(pieces, false);
   }
 
   return Object.assign(day, {
-    seed, settings: S, shrinkKey: seed,
-    pieces: pieces.filter((p) => p.x !== undefined),
-    foes: foes.filter((f) => f.x !== undefined),
+    seed, settings: S, shrinkKey: seed, pieces, foes,
     goalKind: goal, hole,
     rules: { goal: ['king', 'rabbit', 'target'].includes(goal) ? 'target' : goal, maxMoves: S.maxMoves, wait: S.wait,
       foesCapture: S.foesCapture, rabbitsEat: S.rabbitsEat, royal: S.royal, ...(S.showdown ? { showdown: true } : {}), ...(S.oneMove ? { oneMove: true } : {}), ...(S.oneMove && !S.foesWait ? { foesMust: true } : {}), ...(day.cloud ? { cloud: true, ...(S.cloudOwn ? { cloudOwn: true } : {}) } : {}), ...(S.realtime ? { realtime: kungfuRules(S) } : {}), first: S.first, ballStops: S.ballStops, ballMove: S.ballMove,
@@ -741,6 +802,8 @@ export function makeLevel(settings, seed) {
       ...(S.movesPerTurn === 2 ? { movesPerTurn: 2 } : {}), ...(S.lazyFoes ? { lazyFoes: true } : {}),
       ...(day.statueOrder ? { statuesOpen: true } : {}),
       ...(S.statuesTake && !S.realtime ? { statuesTake: true } : {}),
+      ...(goal === 'capture' ? { captureN: S.captureN } : {}), ...(goal === 'carrier' ? { rabbitHop: S.rabbitHop, rabbitSides: S.rabbitSides } : {}),
+      ...(S.promote === 'copy' ? { promote: 'copy' } : {}),
       crumble: S.ground === 'crumble', shrink: S.ground === 'shrink' ? 'random' : S.ground === 'spiral' ? 'spiral' : null,
       shrinkEvery: S.shrinkEvery },
     ai: lead || { skill: +S.skill, style: S.style },
@@ -801,11 +864,13 @@ function positionLevel(S, seed) {
 }
 
 export const GOAL_TEXT = {
+  capture: 'capturing', carrier: 'taking the piece their rabbit rides', flag: 'capturing the rabbit and bringing it home',
   descent: 'catching every possessed piece and loose rabbit, then sinking the ball', all: 'capturing them all', king: 'taking their King', rabbit: 'catching the rabbit',
   any: 'catching any one', target: 'catching the marked one', mix: 'a goal that changes with each layout',
   hole: 'sinking the ball in the hole'
 };
 export const GOAL_PILL = {
+  capture: 'Capture', carrier: 'Take the rabbit’s piece', flag: 'Bring the rabbit home',
   descent: 'Catch them, then the ball', all: 'Capture them all', king: 'Take their King', rabbit: 'Catch the rabbit', any: 'Catch any one', target: 'Catch the marked one',
   hole: 'Sink the ball'
 };
@@ -819,7 +884,7 @@ export function summary(S) {
   const made = S.goal === 'king' && !hand.includes('king') ? ', one of them made a King'
     : S.goal === 'rabbit' && !hand.includes('rabbit') ? ', one of them made a rabbit' : '';
   const statues = (S.statueRow ? ', a row of statues that opens' : S.statues ? `, ${S.statues} statue${S.statues > 1 ? 's' : ''}` : '') +
-    (S.ghosts ? ', a row of ghosts in front of each side' : '') + (S.gates ? `, ${S.gates} gate${S.gates > 1 ? 's' : ''}` : '') +
+    (S.ghosts ? ', a row of ghosts in front of each side' : '') + (S.gates ? `, ${S.gates} gate${S.gates > 1 ? 's' : ''}` : '') + (S.sand ? `, ${S.sand} sand` : '') + (S.water ? `, ${S.water} water` : '') +
     (S.clouds ? `, ${S.clouds} wandering cloud${S.clouds > 1 ? 's' : ''}` : '') +
     (S.magic === 'sides' ? ', magic sides' : S.magic === 'all' ? ', magic on all four sides' : '') + (S.geared ? ', geared' : '');
   const ground = { solid: '', crumble: ', crumbling', shrink: `, shrinking every ${S.shrinkEvery}`, spiral: `, shrinking in a spiral every ${S.shrinkEvery}` }[S.ground];
@@ -829,7 +894,7 @@ export function summary(S) {
   const auto = S.mode === 'auto' ? `Autochess, with ${S.autoPool === 'all' ? 'every named kind of rabbit' : 'the rabbits you have caught'}. ` : '';
   // Both sides square by square (the piece trials and Custom's armies).
   if (S.cells) {
-    const line = (c, mods) => c.map((t, i) => (t ? `${name(t)}${mods?.[i]?.suit ? ` of ${mods[i].suit[0].toUpperCase()}${mods[i].suit.slice(1)}` : ''}` : null)).filter(Boolean).join(', ');
+    const line = (c, mods) => c.map((t, i) => (t ? `${name(t)}${mods?.[i]?.suit ? ` of ${mods[i].suit[0].toUpperCase()}${mods[i].suit.slice(1)}` : ''}${mods?.[i]?.weapon ? ` with a ${mods[i].weapon} (${mods[i].wl || 1})` : ''}` : null)).filter(Boolean).join(', ');
     const turned = S.cells.map((_, i) => S.cells[Math.floor(i / S.w) * S.w + (S.w - 1 - (i % S.w))]);
     const theirs = S.foeCells.join() === S.cells.join() ? 'the same, mirrored' : S.foeCells.join() === turned.join() ? 'the same, turned' : line(S.foeCells, S.foeCellMods);
     return `${S.w} × ${S.h} ${shape}${ground}${statues}. You: ${line(S.cells, S.cellMods)}. Them: ${theirs}, ${dark}. Win by ${GOAL_TEXT[S.goal]}${S.maxMoves ? ` in ${S.maxMoves} moves` : ''}.`;

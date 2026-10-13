@@ -9,9 +9,10 @@ import { makeTarget, render } from '../../../engine/lowpoly.js';
 import { rng } from '../../../engine/seed.js';
 import * as sfx from '../sounds.js';
 import {
-  PIECES, descOf, CRUMBLE_DESC, SHRINK_DESC, STUMP_DESC, STATUE_ROW_DESC, statueAt, statueDesc, GHOST_DESC, GATE_DESC, WANDER_DESC, ghostAt, gateUp, cloudOver, hiddenFrom, HOLE_DESC, cloudDesc, movesFor, playerMove, respond, isOver, outcome, initialState,
-  allMoves, holeOpen, crumbled, shrunk, apply, showdown, firstCaptures, onBoard, leaderDesc
+  PIECES, descOf, CRUMBLE_DESC, SHRINK_DESC, STUMP_DESC, STATUE_ROW_DESC, statueAt, statueDesc, GHOST_DESC, GATE_DESC, WANDER_DESC, ghostAt, gateUp, cloudOver, hiddenFrom, HOLE_DESC, cloudDesc, sandAt, waterAt, SAND_DESC, WATER_DESC, movesFor, playerMove, respond, isOver, outcome, initialState,
+  allMoves, holeOpen, crumbled, shrunk, apply, showdown, firstCaptures, onBoard, leaderDesc, placeRevived, hopIn, flagAt, carrierOf
 } from '../rules.js';
+import { pickMove } from '../choose.js';
 import { solveLevel } from '../solve.js';
 import { scene, sceneFrame, sprite, crispWidth } from '../board.js';
 import { piecesSheet } from '../sheet.js';
@@ -27,7 +28,7 @@ import { MODES, modeSettings, saveModeSettings, resetModeSettings, cleanMode, PA
 import {
   newRun, rewardsFor, applyReward, cardText, handSettings, afterLevel, pieceOf, SUITS, JOKERS,
   WAYSTONES, litWaystones, newlyLit, startChoices, keepsakeCards, acornsFor, priceOf, shopStock,
-  canCombine, applyCombine, combineText, boardCards, boardCardText, applyMerge, mergeTargets, foeUpgrade
+  canCombine, applyCombine, combineText, boardCards, boardCardText, applyMerge, mergeTargets, foeUpgrade, WEAPONS, canTakeWeapon, carriesText
 } from '../run.js';
 import { setupPanel, setupState, playOut } from '../autosetup.js';
 import { VARIANTS, VARIANT_ORDER, differs } from '../variants.js';
@@ -218,7 +219,8 @@ function draw() {
 
 function hud() {
   $('#movecount').textContent = now().t;
-  $('#movemax').textContent = [level.rules.maxMoves ? `of ${level.rules.maxMoves}` : '', par ? `· par ${par}` : ''].join(' ');
+  const hop = hopIn(now());
+  $('#movemax').textContent = [level.rules.maxMoves && !(M.run === 'course' && par) ? `of ${level.rules.maxMoves}` : '', par ? `${M.run === 'course' ? 'of ' : '· '}par ${par}` : '', hop ? `· the rabbit hops ${hop === 1 ? 'next turn' : `in ${hop}`}` : ''].filter(Boolean).join(' ');
 }
 
 /** Your hand, as a row of little pieces with their suits. */
@@ -230,7 +232,8 @@ function handRow(box, { pick = null, picked = [] } = {}) {
     registerInvented(session.run.made);
     const cv = el('canvas', { class: 'pix', width: 30, height: 36 });
     cv.getContext('2d').drawImage(sprite(type, 'you'), 0, 0);
-    const mark = h.suit ? el('span', { class: 'suit', style: `color:${SUITS[h.suit].colour}` }, SUITS[h.suit].mark + ' ') : null;
+    const mark = [h.suit && SUITS[h.suit] ? el('span', { class: 'suit', style: `color:${SUITS[h.suit].colour}` }, SUITS[h.suit].mark + ' ') : null,
+      h.weapon && WEAPONS[h.weapon] ? el('span', { class: 'suit' }, WEAPONS[h.weapon].mark + (h.wl > 1 ? h.wl : '') + ' ') : null];
     const lives = h.lives > 1 ? ` (${h.lives} lives)` : '';
     const cell = el('div', { class: `handcell${picked.includes(i) ? ' picked' : ''}` }, cv, el('span', {}, mark, name + lives));
     if (pick) { cell.style.cursor = 'pointer'; cell.addEventListener('click', () => pick(i)); }
@@ -243,10 +246,11 @@ function goalCard() {
   if (session.seen.has('goal')) return null;
   session.seen.add('goal');
   let text = {
-    descent: M.upgrades === 'each' ? 'Take their King to fall to the next board, where each side gets an upgrade. Keep yours: if they take your King, the descent is over. Anything else of yours they take comes back on the next board. One rabbit leads their side, riding on their King: tap it to see what kind it is.'
+    descent: M.upgrades === 'each' && M.goal === 'carrier' ? `A rabbit rides one of their pieces, and every ${M.rabbitHop === 1 ? 'turn' : `${M.rabbitHop} turns`} it hops to another. Take the piece it is on to fall to the next board, where you choose a suit or a weapon and they get one too. Keep your King: if they take it, the descent is over. Anything else of yours they take comes back on the next board.${M.promote === 'copy' ? ' A pawn that reaches the far row becomes a copy of another of your pieces.' : ''}`
+      : M.upgrades === 'each' ? 'Take their King to fall to the next board, where each side gets an upgrade. Keep yours: if they take your King, the descent is over. Anything else of yours they take comes back on the next board. One rabbit leads their side, riding on their King: tap it to see what kind it is.'
       : M.goal === 'king' ? 'Take their King to fall to the next level, where you find something. Keep yours: if they take your King, the descent is over. Any other piece of yours that is taken is gone for good.'
       : 'Take every piece of theirs to fall to the next level, where you find something. A piece of yours that is taken is gone for good; when they are all gone, so is the descent.',
-    course: 'Sink the ball in the hole in as few strokes as you can. Each hole has its own ball; the pieces sheet says how it rolls.',
+    course: 'Your pieces are the clubs: move one into the ball and it slides on the same way until something stops it. Sink it in the hole at par or better to go on to the next hole; over par, you play the hole again. Sand stops the ball dead, water sends it back to the tee, gates rise and fall, and clouds drift and stop it.',
     rounds: 'Put rabbits in your pieces and let them fight. Win the round to grow your side; a lost round costs a life.',
     single: 'One level. Win it how it says above.'
   }[M.run];
@@ -264,6 +268,11 @@ async function startLevel() {
   level = makeLevel(found.settings, found.seed);
   session.claimed = [];
   par = found.par; measured = found.measure; autoBest = found.autoBest; setups = found.setups;
+  // Golf (2026-10-13): par or better wins the hole. Par is the fewest
+  // strokes the solver found plus some slack (two on the first two holes,
+  // one after), so under par, a birdie, means finding the best line or
+  // near it; and par is the hole's stroke limit.
+  if (M.run === 'course' && par) { par += session.n <= 2 ? 2 : 1; level.rules = { ...level.rules, maxMoves: par }; }
   game = { states: [initialState(level)], moves: [] };
   board = makeBoard($('#board'), level);
   board.reach = level.settings.showReach;
@@ -284,7 +293,12 @@ async function startLevel() {
   if (M.run === 'rounds') chips.append(el('span', { class: 'pill lifeline' }, '♥'.repeat(session.lives)));
   if (M.run === 'rounds' && M.shop) chips.append(el('span', { class: 'pill' }, `${session.acorns} acorn${session.acorns === 1 ? '' : 's'}`));
   if (M.run === 'course' && COURSES[M.courseName]) chips.append(el('span', { class: 'pill' }, COURSES[M.courseName].name));
-  if (M.run === 'course') chips.append(el('span', { class: 'pill' }, `Ball: ${({ ice: 'on ice', putt: 'putting', bounce: 'billiard', hit: 'hit by the pieces', sticky: 'sticky', ghost: 'a ghost' })[level.rules.ballMove || 'ice']}`));
+  if (M.run === 'course') {
+    // Golf's hazards on this hole (2026-10-13).
+    const hz = [level.sand?.size && 'Sand', level.water?.size && 'Water', level.gates?.size && 'Gates', level.clouds?.length && 'Clouds'].filter(Boolean);
+    if (hz.length) chips.append(el('span', { class: 'pill' }, hz.join(', ')));
+    if ((session.tries?.[session.n] || 0) > 0) chips.append(el('span', { class: 'pill' }, `Try ${session.tries[session.n] + 1}`));
+  }
   if (level.rules.crumble) chips.append(el('span', { class: 'pill' }, 'Crumbling'));
   if (level.rules.shrink) chips.append(el('span', { class: 'pill' }, 'Shrinking'));
   if (level.rules.wrap) chips.append(el('span', { class: 'pill' }, 'Magic edges'));
@@ -433,7 +447,7 @@ function arrange() {
 /** What a turn a suit left open says. */
 function bonusLine(s) {
   const p = s.pieces[s.bonus.p], name = nameOf(p);
-  return s.bonus.why === 'swords' ? `Swords: your ${name} can take again. Take one, or end the turn.`
+  return s.bonus.why === 'vines' ? `Vines: your ${name} can take again. Take one, or end the turn.`
     : `Stars: your ${name} moves again. Move it, or end the turn.`;
 }
 
@@ -447,8 +461,8 @@ function select(i) {
   legal = i == null ? [] : movesFor(now(), i);
   if (i == null) info(level.hole ? (holeOpen(now()) ? 'Tap a piece to see where it can go. The hole is open.' : 'Tap a piece to see where it can go. The hole opens once every rabbit is caught.') : 'Tap a piece to light up where it can go.');
   else {
-    const p = now().pieces[i], type = p.type, suit = p.suit ? ` ${SUITS[p.suit].mark} ${SUITS[p.suit].desc}` : '';
-    info(`${nameOf({ type })}: ${descOf(type, now().day.rules)}${suit}${legal.length ? '' : ' It has nowhere to go right now.'}`);
+    const p = now().pieces[i], type = p.type;
+    info(`${nameOf({ type })}: ${descOf(type, now().day.rules)}${carriesText(p)}${legal.length || p.stun ? '' : ' It has nowhere to go right now.'}`);
   }
   draw();
 }
@@ -467,15 +481,26 @@ function noteCatches(a, b) {
 function whatHappened(a, b) {
   const bits = [];
   b.foes.forEach((f, k) => { if (f.taken && !a.foes[k].taken) bits.push(f.brain === 'leader' ? `You took the rabbit that leads them.` : f.mind || f.brain === 'possessed' ? `You took their ${nameOf(f)}, and the rabbit inside is yours.` : `You took their ${nameOf(f)}.`); });
-  if (b.foeBonus === 'swords') bits.push('Their piece of Swords takes again.');
+  if (b.foeBonus === 'vines') bits.push('Their piece of Vines takes again.');
   if (b.foeBonus === 'stars') bits.push('Their piece of Stars moves twice.');
   b.foes.forEach((f) => {
     if (f.ate >= 0 && b.pieces[f.ate].taken && !a.pieces[f.ate].taken) bits.push(`Their ${nameOf(f)} took your ${nameOf(b.pieces[f.ate])}.`);
-    if (f.wounded >= 0) bits.push(`Your ${nameOf(b.pieces[f.wounded])} lost a heart.`);
+    if (f.wounded >= 0) bits.push(`Their ${nameOf(f)} took your ${nameOf(b.pieces[f.wounded])}, but its heart sends it back to your first row.`);
   });
+  // Weapons and the rabbits (2026-10-13).
+  if (b.revived?.side === 'foe') bits.push(`Their ${nameOf(b.foes[b.revived.i])} had a heart: it goes back to their first row.`);
+  b.pieces.forEach((p, i) => { if (p.stun && !a.pieces[i].stun) bits.push(`Your ${nameOf(p)} is stunned and sits out your next turn.`); });
+  b.foes.forEach((f, k) => { if (f.stun && !a.foes[k].stun) bits.push(`Their ${nameOf(f)} is stunned and sits out their next turn.`); });
+  const ra = carrierOf(a, 'foe'), rb = carrierOf(b, 'foe');
+  if (ra && rb && ra.rides !== rb.rides) bits.push(`The rabbit hops to their ${nameOf(b.foes[rb.rides])}.`);
+  const ma = carrierOf(a, 'you'), mb = carrierOf(b, 'you');
+  if (ma && mb && ma.rides !== mb.rides) bits.push(`Your rabbit hops to your ${nameOf(b.pieces[mb.rides])}.`);
+  const fa = flagAt(a), fb = flagAt(b);
+  if (fb && fa && fb.by !== fa.by) bits.push(fb.by === 'you' ? 'You have the rabbit: bring it back to your first row.' : fb.by === 'foe' ? 'They have the rabbit: take the piece carrying it.' : 'The rabbit is loose.');
   if (b.hole && !holeOpen(a) && holeOpen(b)) bits.push('The hole is open.');
+  // Golf (2026-10-13): a ball into the water goes back to the tee.
+  b.pieces.forEach((p, i) => { if (p.splash && p.splash.t !== a.pieces[i].splash?.t) bits.push('Splash: into the water, and back to the tee.'); });
   if (b.shrunk.length > a.shrunk.length) bits.push('A square fell off the edge.');
-  if (b.bounced != null) bits.push(`Their ${nameOf(b.foes[b.bounced])} lost a heart, and your piece bounced off.`);
   if ((b.open?.length || 0) > (a.open?.length || 0)) {
     const onIt = (q) => [...b.pieces, ...b.foes].some((p) => !p.taken && p.y * b.day.W + p.x === q);
     const opened = b.open.filter((q) => !(a.open || []).includes(q));
@@ -492,16 +517,19 @@ function whatHappened(a, b) {
     // A piece of yours that ran into one of theirs hiding in a cloud.
     if (b.foes.some((f, k) => f.taken && !a.foes[k].taken && hidA.has(k))) bits.push('You ran into one of theirs hiding in a cloud, and took it.');
   }
-  if ((b.treasure || 0) > (a.treasure || 0)) bits.push('♦ Treasure: another pick when this level is done.');
   if (!bits.length) bits.push('Your move.');
   return bits.join(' ');
 }
+
+/** A piece of yours that came back from a heart (2026-10-13): while set,
+    tapping one of the squares it could go to puts it there instead. */
+let placing = null;
 
 async function play(mv) {
   if (busy || isOver(now())) return;
   busy = true;
   const a = now();
-  sel = null; legal = [];
+  sel = null; legal = []; placing = null; pendingPlace = null;
   const mid = playerMove(a, mv);
   shown = mid;
   await board.animate(a, mid, mv);
@@ -515,9 +543,18 @@ async function play(mv) {
   if (!b.won && !b.bonus) await board.animate(mid, b, { p: -1 });
   busy = false;
   if (isOver(b)) return levelOver(b);
-  // A suit left the turn open (Swords, Stars): the same piece goes again.
+  // A suit left the turn open (Vines, Stars): the same piece goes again.
   if (b.bonus) { haptic([12, 30, 12]); sfx.gain(); status(bonusLine(b)); return select(b.bonus.p); }
   status(whatHappened(a, b));
+  // Hearts: one of yours is back on your first row; you may put it on
+  // another free square there.
+  if (b.revived?.side === 'you' && b.revived.options.length > 1) {
+    placing = b.revived;
+    status(`${whatHappened(a, b)} Tap a lit square to put it somewhere else there, or play on.`);
+    sel = null; legal = placing.options.map((q) => ({ x: q % level.W, y: Math.floor(q / level.W), place: q }));
+    draw();
+    return;
+  }
   // The showdown: two left, and the board starts closing in.
   if (showdown(b) && !showdown(a)) {
     haptic([20, 60, 20, 60, 20]); sfx.dusk?.();
@@ -527,7 +564,8 @@ async function play(mv) {
   select(null);
 }
 
-$('#board').addEventListener('click', (e) => {
+let pendingPlace = null;
+$('#board').addEventListener('click', async (e) => {
   if (!board || busy || isOver(now())) return;
   const c = board.cellAt(e);
   if (!c) return;
@@ -535,7 +573,19 @@ $('#board').addEventListener('click', (e) => {
   if (arranging) return arranging(c);
   if (isAuto()) { if (!$('#setup').hidden) panel?.pickAt(c.x, c.y); return; }
   const { x, y } = c, s = now();
-  if (sel != null) { const m = legal.find((m) => m.x === x && m.y === y); if (m) return play({ p: sel, x, y }); }
+  // Hearts: putting the piece that came back on another square of its row.
+  if (placing) {
+    const m = legal.find((q) => q.x === x && q.y === y && q.place != null);
+    if (m) { game.states[game.states.length - 1] = placeRevived(s, m.place); pendingPlace = m.place; placing = null; legal = []; sfx.gain(); draw(); return status('There. Your move.'); }
+    placing = null; legal = [];
+  }
+  if (sel != null) {
+    // The whole move (a weapon's strikes, pushes, a promotion), and a choice
+    // when more than one ends on this square.
+    const here = legal.filter((m) => m.x === x && m.y === y);
+    const m = here.length > 1 ? await pickMove(here, s.pieces[sel]) : here[0];
+    if (here.length) { if (m) return play({ p: sel, ...m, ...(pendingPlace != null ? { place: pendingPlace } : {}) }); return; }
+  }
   // A square can hold two of yours: a rabbit on a piece's head. Tapping
   // goes rabbit first, then the piece under it, then neither.
   const here = s.pieces.map((p, k) => k).filter((k) => !s.pieces[k].taken && s.pieces[k].x === x && s.pieces[k].y === y)
@@ -551,13 +601,18 @@ $('#board').addEventListener('click', (e) => {
   // Neutral pieces (2026-10-13). What is under a cloud stays hidden.
   if (ghostAt(s, sq)) return info(GHOST_DESC.replace('{side}', ghostAt(s, sq) === 'you' ? 'yours' : 'theirs'));
   if (s.day.gates?.has(sq)) return info(`${GATE_DESC} It is ${gateUp(s, sq) ? 'up' : 'down'} now.`);
+  if (waterAt(s, sq)) return info(WATER_DESC);
   const hidden = hiddenFrom(s, 'you');
   if (cloudOver(s, sq) && !s.foes.some((f, k) => !f.taken && f.x === x && f.y === y && !hidden.has(k))) return info(WANDER_DESC);
+  if (sandAt(s, sq) && !s.foes.some((f) => !f.taken && f.x === x && f.y === y)) return info(SAND_DESC);
   // A rider first: the rabbit on their King's head is what you see on top.
   const seen = (f) => !f.taken && f.x === x && f.y === y && !hidden.has(s.foes.indexOf(f));
   const f = s.foes.find((f) => seen(f) && f.rides != null) || s.foes.find(seen);
   if (f?.brain === 'leader') return info(leaderDesc(f, s.day));
-  if (f) info(f.mind ? `Their ${nameOf(f)}, with a ${f.patternName ? f.patternName.toLowerCase() + ' ' : ''}rabbit inside (intelligence ${f.mind.iq}).` : `Their ${nameOf(f)}. ${PIECES[f.type].desc}`);
+  if (f?.brain === 'carrier') return info(`The rabbit riding their ${nameOf(s.foes[f.rides])}: take that piece to win. It never moves by itself; ${hopIn(s) === 1 ? 'next turn' : `in ${hopIn(s)} turns`} it hops to another of their pieces.`);
+  if (f) info(f.mind ? `Their ${nameOf(f)}, with a ${f.patternName ? f.patternName.toLowerCase() + ' ' : ''}rabbit inside (intelligence ${f.mind.iq}).` : `Their ${nameOf(f)}. ${PIECES[f.type].desc}${carriesText(f)}`);
+  const fl = flagAt(s);
+  if (!f && fl && !fl.by && fl.x === x && fl.y === y) info('The rabbit to capture: take it, and the piece that took it carries it. Bring it back to your first row to win; if they take the piece carrying it, it is theirs to bring home.');
 });
 
 $('#wait').onclick = () => play({ p: -1, x: 0, y: 0 });
@@ -602,13 +657,21 @@ async function levelOver(end) {
   ({ caught: () => sfx.fanfare(par ? sfx.levelFor(end.t - par) : 2), dusk: () => sfx.dusk(), eaten: () => sfx.lost() })[how]?.();
   if (M.run === 'single') return singleOver(end);
   if (M.run === 'course') {
-    // A hole not sunk counts the limit and two more, as if picked up.
-    session.strokes.push({ hole: session.n, par, strokes: won ? end.t : (level.rules.maxMoves || 15) + 2, sunk: won });
-    status(won ? `Sunk in ${end.t}.` : 'Picked up.');
+    // Par or better wins the hole (2026-10-13); over par, the same hole
+    // again, as many times as it takes. Nothing is lost by trying again.
+    session.tries = session.tries || {};
+    if (!won) {
+      session.tries[session.n] = (session.tries[session.n] || 0) + 1;
+      status(par ? `Over par. The hole again: par ${par}.` : 'Out of strokes. The hole again.');
+      await sleep(1400);
+      return startLevel();
+    }
+    session.strokes.push({ hole: session.n, par, strokes: end.t, sunk: true, tries: (session.tries[session.n] || 0) + 1 });
+    status(`Sunk in ${end.t}.`);
     await sleep(1200);
     if (session.n >= holesOf(M)) return courseOver();
     session.n++;
-    return between({ note: `Hole ${session.n}`, sub: won ? (par ? `${end.t - par > 0 ? '+' : ''}${end.t - par} on that hole.` : '') : 'Picked up on that one.' });
+    return between({ note: `Hole ${session.n}`, sub: par ? `${golf(end.t - par)[0].toUpperCase()}${golf(end.t - par).slice(1)} on that hole.` : '' });
   }
   if (M.run === 'rounds') {
     if (won) session.wins++; else session.lives--;
@@ -619,7 +682,7 @@ async function levelOver(end) {
     if (session.lives <= 0) return runOver('Out of lives.');
     session.n++;
     if (M.shop) return between({ note: `Round ${session.n}`, shop: true });
-    return between({ note: `Round ${session.n}`, rewards: won && M.rewards, extra: won ? end.treasure || 0 : 0 });
+    return between({ note: `Round ${session.n}`, rewards: won && M.rewards });
   }
   // A descent.
   const allGone = end.pieces.every((p) => p.taken);
@@ -636,7 +699,6 @@ async function levelOver(end) {
     if (!test) { const r = mine(); r.best = Math.max(r.best || 0, session.n); saveRecords(); }
     status(won ? 'The floor gives way.' : 'Out of moves: the floor gives way anyway.');
     if (!calm()) { await sleep(400); if (board.collapse) await board.collapse(); }
-    session.foeTreasure = Math.min(2, end.foeTreasure || 0);
     return between({ note: `Depth ${session.n}`, board: true, fall: true });
   }
   // Recruiter: the first piece you took joins you, if there is room.
@@ -658,14 +720,14 @@ async function levelOver(end) {
   const sub = (won ? '' : 'Nothing found on the way down this time. ')
     + (recruited ? `Your first catch, the ${PIECES[recruited].name.toLowerCase()}, comes with you. ` : '')
     + lit.map((w) => `A waystone is lit at depth ${w.depth}: ${w.text}${w.id.startsWith('keepsake') && !M.keepsakes ? ' (Off for now: "Waystones give upgrades at the start" in the settings.)' : ''}`).join(' ');
-  return between({ note: `Depth ${session.n}`, sub, rewards: won && M.rewards, extra: won ? end.treasure || 0 : 0, combine: won, fall: true });
+  return between({ note: `Depth ${session.n}`, sub, rewards: won && M.rewards, combine: won, fall: true });
 }
 
 // --- Between levels: the fall, and what you find. -------------------------------
 
 let fall = null;
 
-async function between({ note, sub = '', rewards = false, extra = 0, combine = false, shop: shopping = false, fall: falling = false, board: newBoard = false }) {
+async function between({ note, sub = '', rewards = false, combine = false, shop: shopping = false, fall: falling = false, board: newBoard = false }) {
   show('between');
   $('#betweennote').textContent = note;
   $('#betweensub').textContent = sub;
@@ -673,10 +735,7 @@ async function between({ note, sub = '', rewards = false, extra = 0, combine = f
   const kinds = session.run ? session.run.hand.map((h) => pieceOf(h, session.run.made).type) : [];
   fall = falling && !calm() && kinds.length ? startFall($('#fallcv'), kinds) : null;
   $('#fallcv').hidden = !fall;
-  if (rewards && session.run) {
-    // Diamonds' treasure: a pick more for each piece it took, two at most.
-    for (let k = 0; k <= Math.min(2, extra); k++) await reward({ k, note: k ? '♦ Treasure: another pick.' : null });
-  }
+  if (rewards && session.run) await reward({ k: 0, note: null });
   if (shopping && session.run) await shop();
   if (newBoard && session.run) await boardUpgrade();
   if (combine && session.run && session.claimed?.length) await combineStep();
@@ -710,13 +769,14 @@ function reward({ k = 0, note = null, cards: given = null, room = false } = {}) 
     const choose = (card) => {
       haptic(14); sfx.gain();
       box.hidden = true;
-      const need = card.kind === 'fuse' ? 2 : card.kind === 'suit' || card.kind === 'promote' || card.kind === 'merge' ? 1 : 0;
+      const need = card.kind === 'fuse' ? 2 : card.kind === 'suit' || card.kind === 'weapon' || card.kind === 'promote' || card.kind === 'merge' ? 1 : 0;
       if (!need) { applyReward(run, card, [], catalog.vetoed); if (card.kind === 'piece') { fall?.add(card.type); addToRoster(card.type); } return done(); }
       // Pick the piece (or two) it is for.
       const picked = [];
       $('#pickbox').hidden = false;
       $('#picktext').textContent = card.kind === 'fuse' ? 'Choose two pieces to fuse into one.' : card.kind === 'promote' ? 'Choose a piece to promote.'
-        : card.kind === 'merge' ? `Choose a piece of yours for the ${PIECES[card.type].name}.` : `Choose a piece to give ${SUITS[card.suit].name} to.`;
+        : card.kind === 'merge' ? `Choose a piece of yours for the ${PIECES[card.type].name}.`
+        : card.kind === 'weapon' ? `Choose a piece to give the ${WEAPONS[card.weapon].name.toLowerCase()} to${card.weapon === 'lance' ? ' (one that slides)' : ''}.` : `Choose a piece to give ${SUITS[card.suit].name} to.`;
       // A piece card can also take a gap in the row, if a piece was lost.
       const gap = card.kind === 'merge' && room ? el('button', { class: 'quiet', onclick: () => { gap.remove(); applyMerge(run, -1, card.type); fall?.add(card.type); done(); } }, `Put the ${PIECES[card.type].name} in the gap in your row`) : null;
       if (gap) $('#pickdone').after(gap);
@@ -724,6 +784,7 @@ function reward({ k = 0, note = null, cards: given = null, room = false } = {}) 
         handRow($('#pickhand'), { picked, pick: (i) => {
           const h = run.hand[i];
           if (card.kind === 'suit' && h.suit) return;
+          if (card.kind === 'weapon' && !canTakeWeapon(h, card.weapon, run.made)) return;
           if (card.kind === 'merge' && !mergeTargets(run.hand, card.type, M.royal, run.made).includes(i)) return;
           if ((card.kind === 'fuse' || card.kind === 'promote') && (kingLocked(h) || (card.kind === 'fuse' && h.base === 'bunny'))) return;
           const at = picked.indexOf(i);
@@ -742,7 +803,7 @@ function reward({ k = 0, note = null, cards: given = null, room = false } = {}) 
         const t = boardCardText(c), cv = el('canvas', { class: 'model', width: 30, height: 36 });
         if (c.kind === 'piece' || c.kind === 'merge') cv.getContext('2d').drawImage(sprite(c.type, 'you'), 0, 0);
         return el('button', { class: 'offercard', onclick: () => choose(c) },
-          el('div', {}, c.kind === 'piece' || c.kind === 'merge' ? cv : el('div', { style: `font-size:40px;text-align:center;color:${c.suit ? SUITS[c.suit].colour : 'var(--accent)'}` }, c.suit ? SUITS[c.suit].mark : c.kind === 'fuse' ? '✦' : c.kind === 'promote' ? '▲' : '❀')),
+          el('div', {}, c.kind === 'piece' || c.kind === 'merge' ? cv : el('div', { style: `font-size:40px;text-align:center;color:${c.suit ? SUITS[c.suit].colour : c.weapon ? WEAPONS[c.weapon].colour : 'var(--accent)'}` }, c.suit ? SUITS[c.suit].mark : c.weapon ? WEAPONS[c.weapon].mark : c.kind === 'fuse' ? '✦' : c.kind === 'promote' ? '▲' : '❀')),
           el('div', {}, el('span', { class: 'tag' }, t.tag), el('h3', {}, t.title), el('p', {}, t.text)));
       }),
       el('button', { class: 'quiet', onclick: done }, 'Take nothing'));
@@ -774,17 +835,12 @@ async function boardUpgrade() {
     sfx.fanfare(2); haptic([30, 40, 30]);
     lines.push(`The board opens to seven by seven.${got.length ? ` A ${got.join(' and a ')} join you, and two more join them.` : ''}`);
   }
-  // Diamonds of theirs found treasure: an upgrade more for each piece one
-  // took, two at most.
-  for (let k = 0; k <= (session.foeTreasure || 0); k++) {
-    const theirs = foeUpgrade(run, rand, { veto: catalog.vetoed, fairy, pool: M.findPool });
-    if (theirs) lines.push(`${k ? '♦ Their treasure: ' : 'Their side: '}${theirs}.`);
-  }
-  session.foeTreasure = 0;
+  const theirs = foeUpgrade(run, rand);
+  if (theirs) lines.push(`Their side: ${theirs}.`);
   $('#betweensub').textContent = [$('#betweensub').textContent, ...lines].filter(Boolean).join(' ');
   const room = run.hand.length < Math.min(width, run.maxPieces);
-  const cards = boardCards(run, rand, { veto: catalog.vetoed, fairy, pool: M.findPool, royal: M.royal, room });
-  if (cards.length) await reward({ cards, note: 'A new board. Choose an upgrade.', room });
+  const cards = boardCards(run, rand);
+  if (cards.length) await reward({ cards, note: 'A new board. Choose a suit or a weapon.', room });
   session.found.clear();
 }
 
@@ -931,9 +987,9 @@ function courseOver() {
   $('#overbig').textContent = `${total} strokes`;
   $('#overwhy').textContent = `${vs > 0 ? '+' : ''}${vs} against par ${totalPar}.`;
   $('#overbody').replaceChildren(el('table', { class: 'score' },
-    el('tr', {}, el('th', {}, 'Hole'), el('th', {}, 'Par'), el('th', {}, 'Strokes'), el('th', {}, '')),
+    el('tr', {}, el('th', {}, 'Hole'), el('th', {}, 'Par'), el('th', {}, 'Strokes'), el('th', {}, ''), el('th', {}, 'Tries')),
     ...session.strokes.map((s) => el('tr', {}, el('td', {}, String(s.hole)), el('td', {}, String(s.par ?? '-')), el('td', {}, String(s.strokes)),
-      el('td', {}, !s.sunk ? 'picked up' : s.par ? golf(s.strokes - s.par) : '')))));
+      el('td', {}, !s.sunk ? 'picked up' : s.par ? golf(s.strokes - s.par) : ''), el('td', {}, String(s.tries || 1))))));
   if (opened) { sfx.fanfare(3); haptic([30, 40, 60]); $('#overbody').append(el('p', { class: 'center' }, el('b', {}, `${opened.name} is open.`), ' ', opened.blurb)); }
   $('#again').textContent = 'Play the course again';
 }
@@ -1108,4 +1164,4 @@ prepareTitle();
 requestAnimationFrame(previewFrame);
 
 // For automated tests: read-only access, and a way to move.
-window.__play = { now: () => (game ? now() : null), level: () => level, board: () => board, kf: () => kf, session: () => session, settings: () => M, play: (mv) => play(mv), par: () => par };
+window.__play = { now: () => (game ? now() : null), level: () => level, board: () => board, kf: () => kf, session: () => session, settings: () => M, play: (mv) => play(mv), par: () => par, busy: () => busy };

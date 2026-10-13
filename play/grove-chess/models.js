@@ -484,6 +484,45 @@ MODELS.needle = () => {
   return m;
 };
 
+// Weapons (2026-10-13), held upright beside the piece that carries one: a
+// sword, a lance (a long pole with a point), a mace (a spiked head on a
+// handle). Gold pips at its foot count its level. Their foot is at y = 0.
+MODELS.wSword = () => {
+  const m = new Model(), steel = '#dfe5ec', edge = '#9aa6b3';
+  m.box(0, 5.6, 0, 0.62, 6.4, 0.24, steel); m.box(0.18, 5.6, 0.05, 0.16, 6.4, 0.26, edge); // the blade
+  m.cone(0, 8.8, 0, 0.36, 0.9, steel, { seg: 4 });                                       // its point
+  m.box(0, 2.25, 0, 2.5, 0.42, 0.5, '#e3b84a');                                           // the guard
+  m.box(0, 1.2, 0, 0.42, 1.7, 0.42, '#6b4628');                                           // the grip
+  m.ball(0, 0.25, 0, 0.42, '#e3b84a', { seg: 6, rings: 4 });                              // the pommel
+  return m;
+};
+MODELS.wLance = () => {
+  const m = new Model();
+  m.lathe([[0.26, 0], [0.3, 9.5]], '#9c6b3e', { seg: 5 });                                 // the pole
+  m.lathe([[0.3, 9.5], [0.62, 10.0], [0, 12.6]], ['#e3e8ee', '#c5ccd5'], { seg: 5 });       // the point
+  m.lathe([[0.25, 3.0], [1.2, 3.7], [0.3, 4.6]], ['#d9b25a', '#b08a3a'], { seg: 6 });       // the hand guard
+  return m;
+};
+MODELS.wMace = () => {
+  const m = new Model(), iron = '#6f747c';
+  m.lathe([[0.28, 0], [0.3, 4.6]], '#6b4628', { seg: 5 });                                 // the handle
+  m.ball(0, 5.6, 0, 1.15, iron, { seg: 7, rings: 5 });                                    // the head
+  for (const [x, y, z] of [[1.2, 0, 0], [-1.2, 0, 0], [0, 1.2, 0], [0, 0, 1.2], [0, 0, -1.2], [0.85, 0.85, 0], [-0.85, 0.85, 0]])
+    m.cone(x, 5.6 + y, z, 0.32, 0.8, '#b9bec5', { seg: 4, rot: { rz: -Math.atan2(x, y || 0.001), rx: Math.atan2(z, y || 1) } });
+  return m;
+};
+MODELS.wPip = () => { const m = new Model(); m.box(0, 0.5, 0, 0.75, 0.75, 0.75, '#ffd75a', { rz: Math.PI / 4 }); return m; };
+// Stunned (a mace, 2026-10-13): little stars in a ring over its head.
+MODELS.stunStars = () => {
+  const m = new Model(), gold = '#ffe066';
+  for (let k = 0; k < 3; k++) {
+    const a = (k / 3) * Math.PI * 2, x = Math.cos(a) * 2.2, z = Math.sin(a) * 2.2;
+    m.box(x, 0, z, 1.1, 0.34, 0.34, gold); m.box(x, 0, z, 0.34, 1.1, 0.34, gold);
+    m.box(x, 0, z, 0.8, 0.8, 0.3, '#fff3b0', { rz: Math.PI / 4 });
+  }
+  return m;
+};
+
 // Neutral pieces (2026-10-13). A ghost: a sheet with a ragged hem and two
 // dark eyes, pale in its side's colour (the trim of the side's palette), so
 // you can tell whose wall it is.
