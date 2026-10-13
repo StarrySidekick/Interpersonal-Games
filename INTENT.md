@@ -12,6 +12,13 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
+## 2026-10-13, after that: four small changes
+
+From Timothy: no purple reach for the descent's leading rabbit; the
+descent mirrored, not reversed; the shadow over the board off; no
+anti-aliasing on the pixel art. All built (`docs/grove-modes.md`, "Four
+small changes"; `docs/grove-look.md`).
+
 ## 2026-10-13, last: the eight parts of a mode
 
 From Timothy: what a mode is made of (piece set, piece position, board,

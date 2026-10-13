@@ -13,7 +13,7 @@ import { makeTarget, render } from '../../../engine/lowpoly.js';
 import { PIECES, descOf, HOLE_DESC, CRUMBLE_DESC, SHRINK_DESC, STUMP_DESC, statueDesc, GHOST_DESC, GATE_DESC, WANDER_DESC, ghostAt, gateUp, cloudOver, hiddenFrom, statueAt, movesFor, playerMove, respond, isOver, outcome, initialState, allMoves, replay, crumbled, shrunk, holeOpen } from '../rules.js';
 import { setupPanel, setupState, playOut } from '../autosetup.js';
 import { FUR, caughtRabbits } from '../rabbits.js';
-import { Board, scene, sceneFrame, sprite, patternPicture } from '../board.js';
+import { Board, scene, sceneFrame, sprite, patternPicture, crispWidth } from '../board.js';
 import { piecesSheet } from '../sheet.js';
 import { describeBalance } from '../solve.js';
 import { describeMeasure } from '../metrics.js';
@@ -198,6 +198,7 @@ let pmesh = null, pframe = null, ptarget = null, pyaw = 0.6, plast = 0;
 function buildPreview() {
   pframe = sceneFrame(level, pitch, pscale);
   pv.width = pframe.w; pv.height = pframe.h;
+  crispWidth(pv, Math.min(440, pv.parentElement?.clientWidth || 440));
   ptarget = makeTarget(pv.width, pv.height);
   pmesh = scene(level, initialState(level), furOf);
 }

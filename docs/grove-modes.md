@@ -821,6 +821,26 @@ things in the catalog). Gaps: different armies on each side are only
 "any order" of the same pieces; Kung fu descent (real time) has none of the
 new pieces.
 
+## Four small changes (2026-10-13, after the eight parts)
+
+Timothy: "in descent, the rabbit shouldn't have its moveset present as a
+purple reach outline; descent by default should have mirrors pieces, not
+reversed; there's like some kind of shadow over top the entire screen
+when on a board ... turn it off; ... maybe some sort of really mild
+anti-aliasing present ... that anti-aliasing shouldn't be there."
+
+- **The leading rabbit shows no reach.** It never takes anything, so its
+  hops were no danger to mark; `reachMaps` (`rules.js`) leaves it out.
+  Their pieces' reach is unchanged.
+- **The descent is mirrored.** `foeLine: 'mirror'`: their tall rook stands
+  opposite yours, as in chess, and so on along the row. "Turned" is still
+  a setting (Armies, Theirs). Custom's descent preset is mirrored too.
+- **No shadow.** It was the fog-and-vignette layer over the board (see
+  `docs/grove-look.md`, "Fog"); it is gone.
+- **No anti-aliasing.** The board was smoothed up on purpose; it is now
+  enlarged in whole, square pixels (`docs/grove-look.md`, "Crisp, not
+  soft").
+
 ## The eight parts of a mode (2026-10-13, last)
 
 Timothy listed what a mode is made of: "piece set (what pieces are
@@ -922,7 +942,7 @@ Every mode, at its preset, in eight parts (from `describe`):
 |---|---|
 | Format | A descent: board after board, deeper each time, until they take your King. Running out of moves drops you to the next board, with nothing found. |
 | Board | 5 × 6 rectangle, with a row of ghosts in front of each side. |
-| Armies | Yours: Tall rook, Bishop, King, Knight, Short rook, in that order. Theirs: the same, reversed. Lined up like chess. |
+| Armies | Yours: Tall rook, Bishop, King, Knight, Short rook, in that order. Theirs: the same, mirrored, each piece facing its twin. Lined up like chess. |
 | Control | You move yours; one rabbit leads them: their pieces think, and its mind (intelligence 3) sets their mood. Turns, yours first; one piece a side each turn. |
 | Goal | Take their King; lose your King and you lose. A limit of 20 moves; with one piece left each, the board closes in. |
 | Growth | Each new board, both sides get an upgrade: you choose one of two (a piece to combine, or a suit), they get one at random; the board is 7 × 7 from depth 6 and fairy pieces from depth 4. |
