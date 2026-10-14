@@ -13,6 +13,7 @@ import {
   allMoves, holeOpen, crumbled, shrunk, apply, showdown, firstCaptures, onBoard, leaderDesc, placeRevived, hopIn, flagAt, carrierOf, rabbitChosen
 } from '../rules.js';
 import { pickMove } from '../choose.js';
+import { bestMove } from '../best.js';
 import { newTiles, fillOffers, flip, frontier, tier, bounds, layout, foePick, tileKey, tileXY, SIZES } from '../tiles.js';
 import { solveLevel } from '../solve.js';
 import { scene, sceneFrame, sprite, crispWidth } from '../board.js';
@@ -124,6 +125,8 @@ function newSession() {
     foes = M.foeLine === 'turned' ? start.slice().reverse() : start.slice();
   }
   if (M.run === 'descent' || M.run === 'rounds') session.run = newRun(start, M.maxPieces, foes);
+  // A row of pawns in front of each line (2026-10-14), as wide as the board.
+  if (M.pawnRow && oneBoard() && session.run) for (const list of [session.run.hand, session.run.foes]) for (let i = 0; i < M.w; i++) list.push({ base: 'pawn', row: 1 });
   // Tile Chess (2026-10-14): the board is carried too, and no rabbit.
   if (M.upgrades === 'tiles' && session.run) { session.run.tiles = newTiles(M.w, M.h); session.run.foeRabbit = false; }
   // The set you were dealt: laying out your pieces opens once it changes.
@@ -633,6 +636,17 @@ $('#board').addEventListener('click', async (e) => {
 });
 
 $('#wait').onclick = () => play({ p: -1, x: 0, y: 0 });
+// The best move, for testing (2026-10-14): whatever the mode.
+$('#best').onclick = async () => {
+  if (!board || !game || busy || isOver(now())) return;
+  if (kf) { if (!kf.best()) info('None of your pieces is ready to move.'); return; }
+  if (arranging || isAuto()) return info('Nothing to move yet: this is the setting up.');
+  status('Finding the best move\u2026');
+  await sleep(30);
+  const m = bestMove(now(), level);
+  if (!m) return status('There is no move to make.');
+  return play(m.p == null || m.p < 0 ? { p: -1, x: 0, y: 0 } : m);
+};
 $('#pieces').onclick = () => openSheet?.();
 $('#setuppieces').onclick = () => openSheet?.();
 $('#sheet-close').onclick = () => $('#sheet').close();
@@ -852,11 +866,15 @@ async function boardUpgrade() {
     // One at each end of the line, so a King in the middle of five stays in
     // the middle of seven.
     const add = (list, h, i) => (i % 2 ? list.push(h) : list.unshift(h));
-    for (let i = 0; i < 2 && run.hand.length < run.maxPieces; i++) {
+    // (The first row only: a row of pawns in front does not count.)
+    const back = (list) => list.filter((h) => h.row !== 1).length;
+    for (let i = 0; i < 2 && back(run.hand) < Math.max(run.maxPieces, width); i++) {
       const left = ours.filter((k) => !got.includes(PIECES[k].name.toLowerCase())), t = pick(left.length ? left : ['knight']);
       add(run.hand, { base: t }, i); got.push(PIECES[t].name.toLowerCase()); fall?.add(t);
     }
-    for (let i = 0; i < 2 && run.foes.length < width; i++) add(run.foes, { base: pick(theirs.length ? theirs : ['pawn']) }, i);
+    for (let i = 0; i < 2 && back(run.foes) < width; i++) add(run.foes, { base: pick(theirs.length ? theirs : ['pawn']) }, i);
+    // With a row of pawns, two more pawns to fill it out.
+    if (M.pawnRow) for (const list of [run.hand, run.foes]) list.push({ base: 'pawn', row: 1 }, { base: 'pawn', row: 1 });
     sfx.fanfare(2); haptic([30, 40, 30]);
     lines.push(`The board opens to seven by seven.${got.length ? ` A ${got.join(' and a ')} join you, and two more join them.` : ''}`);
   }

@@ -12,6 +12,7 @@ import * as sfx from '../sounds.js';
 import { makeTarget, render } from '../../../engine/lowpoly.js';
 import { PIECES, descOf, HOLE_DESC, CRUMBLE_DESC, SHRINK_DESC, STUMP_DESC, statueDesc, GHOST_DESC, GATE_DESC, WANDER_DESC, ghostAt, gateUp, cloudOver, hiddenFrom, statueAt, movesFor, playerMove, respond, isOver, outcome, initialState, allMoves, replay, crumbled, shrunk, holeOpen, placeRevived, hopIn, flagAt, carrierOf, rabbitChosen, sandAt, waterAt, SAND_DESC, WATER_DESC } from '../rules.js';
 import { pickMove } from '../choose.js';
+import { bestMove } from '../best.js';
 import { carriesText } from '../run.js';
 import { setupPanel, setupState, playOut } from '../autosetup.js';
 import { FUR, caughtRabbits } from '../rabbits.js';
@@ -527,6 +528,15 @@ $('#board').addEventListener('click', async (e) => {
 });
 
 $('#wait').onclick = () => play({ p: -1, x: 0, y: 0 });
+// The best move, for testing (2026-10-14).
+$('#best').onclick = async () => {
+  if (!board || !game || busy || watching || isAuto() || isOver(now())) return;
+  status('Finding the best move\u2026');
+  await new Promise((r) => setTimeout(r, 30));
+  const m = bestMove(now(), level);
+  if (!m) return status('There is no move to make.');
+  return play(m.p == null || m.p < 0 ? { p: -1, x: 0, y: 0 } : m);
+};
 $('#pieces').onclick = () => openSheet();
 $('#sheet-close').onclick = () => $('#sheet').close();
 $('#restart').onclick = () => startGame({ intro: false });

@@ -67,10 +67,11 @@ export function solveLevel(level, opts = {}) {
     branch = thinks ? 8 : 12,        // moves tried from each kept position
     budget = thinks ? 2500 : 60000,  // replies computed before giving up
     deadline = Infinity,             // a Date.now() to give up at, whatever the budget
-    frozen = null                    // a Set of your pieces that may not move (for assess)
+    frozen = null,                   // a Set of your pieces that may not move (for assess)
+    from = null                      // a state to solve from, not the start (the best-move button)
   } = opts;
 
-  const s0 = initialState(level);
+  const s0 = from || initialState(level);
   if (isOver(s0)) return { par: null, work: 0 };
   let layer = [{ s: s0, line: [] }], exact = true, work = 0;
 

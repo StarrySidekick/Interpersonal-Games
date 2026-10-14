@@ -111,6 +111,8 @@ export const SCHEMA = [
     { key: 'dealKing', sub: 'yours', label: 'Always dealt a King', type: 'bool', def: true, help: 'With a royal King: if the deal has none, your first piece becomes one.' },
     { key: 'promote', label: 'A pawn on the far row', type: 'choice', def: 'none', options: opts(['none', 'Stays a pawn'], ['copy', 'Becomes a copy of another of yours']),
       help: 'Copy (Timothy, 2026-10-13): it turns into any one kind of the other pieces its side has on the board (not a pawn or the King), chosen as it gets there. Theirs too.' },
+    { key: 'pawnRules', label: 'Pawns', type: 'choice', def: 'chess', options: opts(['chess', 'Two squares first, and en passant'], ['step', 'One square at a time']),
+      help: 'Two squares first (Timothy, 2026-10-14: "Pawns should have en passant and moving two squares as the first move in all modes by default"): a pawn that has not moved yet may step two squares if both are empty, and a pawn of the other side beside where it lands may take it as it passes, on the very next move, by moving to the square it passed over. One square: the first way. A chess variant keeps its own pawn rules.' },
     { key: 'bubbles', label: 'Every piece starts in a bubble', type: 'bool', def: false,
       help: 'Tile Chess (Timothy, 2026-10-14): at the start of every round each piece, yours and theirs, sits in a bubble, and nothing can take it until it moves for the first time. A piece in its bubble is a wall to the other side: their lines stop at it, and no weapon touches it.' },
     { key: 'bubbleTurns', label: 'Bubbles last at most', type: 'int', min: 0, max: 12, def: 4, unit: 'turns',
@@ -235,7 +237,7 @@ export const SCHEMA = [
 ];
 
 const FIELDS = SCHEMA.flatMap((g) => g.fields);
-export const SETTINGS_VERSION = 20;
+export const SETTINGS_VERSION = 21;
 export const defaults = () => ({ ...Object.fromEntries(FIELDS.map((f) => [f.key, Array.isArray(f.def) ? [...f.def] : f.def])), v: SETTINGS_VERSION });
 
 /** How each earlier version's defaults differ from today's. Settings saved
@@ -261,7 +263,10 @@ export const defaults = () => ({ ...Object.fromEntries(FIELDS.map((f) => [f.key,
 // pieceMod reads an older link's suits by their old names.
 // Version 20 (2026-10-13): the riding rabbit is moved by its side, as a
 // turn (`rabbitMove: 'choose'`); before, it hopped by itself at random.
-const V20 = { rabbitMove: 'random' };
+// Version 21 (2026-10-14): pawns step two squares on their first move,
+// and en passant (`pawnRules: 'chess'`); before, one square at a time.
+const V21 = { pawnRules: 'step' };
+const V20 = { rabbitMove: 'random', ...V21 };
 const V19 = { ...V20 };
 const V18 = { showSafe: false, ...V19 };
 const V17 = { statuesTake: false, ...V18 };
@@ -277,6 +282,7 @@ const V9 = { mineRows: 2, foeRows: 3, ...V10 };
 // (goal 'king', royal), and two left brings on the showdown.
 const V8 = { goal: 'descent', royal: false, showdown: false, dealKing: false, ...V9 };
 const BEFORE = {
+  20: { ...V21 },
   19: { ...V20 },
   18: { ...V19 },
   17: { ...V18 },
@@ -316,7 +322,7 @@ const OLD_SUITS = { swords: 'vines', spirals: 'gears', diamonds: null, spirits: 
 export function pieceMod(m, v = SETTINGS_VERSION) {
   const suit = v < 19 && m?.suit in OLD_SUITS ? OLD_SUITS[m.suit] : m?.suit;
   return { ...(m?.lives > 1 ? { lives: Math.min(9, m.lives | 0) } : {}), ...(SUITS[suit] ? { suit } : {}),
-    ...(WEAPON_KINDS.includes(m?.weapon) ? { weapon: m.weapon, wl: Math.max(1, Math.min(3, m.wl | 0 || 1)) } : {}) };
+    ...(WEAPON_KINDS.includes(m?.weapon) ? { weapon: m.weapon, wl: Math.max(1, Math.min(3, m.wl | 0 || 1)) } : {}), ...(m?.row === 1 ? { row: 1 } : {}) };
 }
 
 export function clean(raw) {
@@ -625,7 +631,19 @@ export function makeLevel(settings, seed) {
     taken.add(y * W + x);
     return { type, x, y, ...(mods?.[i] || {}) };
   }).filter(Boolean);
-  const mySpots = exact ? null : T && ordered ? tileLine(T.home[0], myTypes.length, 1) : ordered ? inRow(rows[0], myTypes.length) : S.lineup ? lineUp(rows, myTypes.length) : null;
+  /** A line in two rows: the pieces marked row 1 (a row of pawns, the
+      descent and Tile Chess from 2026-10-14) stand in front of the rest.
+      `at(r, n)` gives n squares on row r of the line. */
+  const twoRows = (rowOf, n, at) => {
+    const back = [], front = [];
+    for (let i = 0; i < n; i++) (rowOf(i) ? front : back).push(i);
+    const b = at(0, back.length), f = at(1, front.length), out = [];
+    back.forEach((i, k) => { out[i] = b[k]; }); front.forEach((i, k) => { out[i] = f[k]; });
+    return out;
+  };
+  const myRow = (i) => S.handMods?.[i]?.row === 1;
+  const mySpots = exact ? null : T && ordered ? twoRows(myRow, myTypes.length, (r, n) => tileLine(T.home[0] + r, n, 1))
+    : ordered ? twoRows(myRow, myTypes.length, (r, n) => inRow(rows[r] ?? rows[0], n)) : S.lineup ? lineUp(rows, myTypes.length) : null;
   let pieces = exact ? fromCells(S.cells, S.cellMods, 'you') : myTypes.map((type, i) => ({ type, ...(mySpots ? mySpots[i] : place(bottom)), ...(S.handMods?.[i] || {}) }));
 
   let foes;
@@ -641,7 +659,9 @@ export function makeLevel(settings, seed) {
     // on the row in front of them (2026-10-12).
     const far = rows.slice().reverse(), mods = S.foeMods || [];
     const line = S.foeHand.map((type, i) => ({ type, ...(mods[i] || {}) })).filter((f) => f.type !== 'bunny');
-    const spots = T && ordered ? tileLine(T.home[1], line.length, -1) : ordered ? inRow(far[0], line.length) : lineUp(far, line.length);
+    const theirRow = (i) => line[i].row === 1;
+    const spots = T && ordered ? twoRows(theirRow, line.length, (r, n) => tileLine(T.home[1] - r, n, -1))
+      : ordered ? twoRows(theirRow, line.length, (r, n) => inRow(far[r] ?? far[0], n)) : lineUp(far, line.length);
     foes = line.map((f, i) => ({ ...f, ...spots[i] }));
     for (const t of S.foeHand) if (t === 'bunny') foes.push({ type: 'bunny', ...place(far.slice(1, 2)) });
   } else if (S.lineup) {
@@ -843,7 +863,7 @@ export function makeLevel(settings, seed) {
       ...(S.geared ? { geared: true } : {}),
       ...(S.movesPerTurn === 2 ? { movesPerTurn: 2 } : {}), ...(S.lazyFoes ? { lazyFoes: true } : {}),
       ...(day.statueOrder ? { statuesOpen: true } : {}),
-      ...(S.statuesTake && !S.realtime ? { statuesTake: true } : {}), ...(S.bubbles && !S.realtime ? { bubbles: true, bubbleTurns: S.bubbleTurns } : {}),
+      ...(S.statuesTake && !S.realtime ? { statuesTake: true } : {}), ...(S.bubbles && !S.realtime ? { bubbles: true, bubbleTurns: S.bubbleTurns } : {}), ...(S.pawnRules === 'chess' ? { pawnTwo: true, ...(S.realtime ? {} : { enPassant: true }) } : {}),
       ...(goal === 'capture' ? { captureN: S.captureN } : {}), ...(goal === 'carrier' ? { rabbitHop: S.rabbitHop, rabbitSides: S.rabbitSides, rabbitMove: S.rabbitMove } : {}),
       ...(S.promote === 'copy' ? { promote: 'copy' } : {}),
       crumble: S.ground === 'crumble', shrink: S.ground === 'shrink' ? 'random' : S.ground === 'spiral' ? 'spiral' : null,
@@ -906,7 +926,7 @@ function positionLevel(S, seed) {
     seed, settings: S, shrinkKey: seed, pieces, foes, goalKind: flag ? 'flag' : 'king', hole: null, position: S.position,
     rules: { goal: flag ? 'flag' : 'target', maxMoves: S.maxMoves, wait: false, foesCapture: true, rabbitsEat: false, royal: flag ? !!S.royal : true, oneMove: true,
       first: 'you', ballStops: false, ballMove: 'putt', crumble: false, shrink: null, shrinkEvery: 2,
-      ...(pieces.some((p) => p.type === 'pawn') || foes.some((f) => f.type === 'pawn') ? { promote: true } : {}),
+      ...(pieces.some((p) => p.type === 'pawn') || foes.some((f) => f.type === 'pawn') ? { promote: true, ...(S.pawnRules === 'chess' ? { pawnTwo: true, enPassant: true } : {}) } : {}),
       ...(day.statueOrder ? { statuesOpen: true } : {}) },
     ai: { skill: +S.skill, style: S.style },
     tracks: false

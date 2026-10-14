@@ -821,6 +821,41 @@ things in the catalog). Gaps: different armies on each side are only
 "any order" of the same pieces; Kung fu descent (real time) has none of the
 new pieces.
 
+## A best-move button, a row of pawns, and chess pawns everywhere (2026-10-14, later still)
+
+Timothy: "I'd like a button, no matter what mode we're in during a game,
+that plays the best possible move for me for testing purposes. I also want
+to try having the tile mode and decent have a second row fully of pawns,
+and two rooks on each side of the first row. Pawns should have en passant
+and moving two squares as the first move in all modes by default."
+
+- **Best move** (a button beside Wait/Pass, on the play page and in
+  Custom; `best.js`). On a hole it plays the first move of the solver's
+  line from where the game stands (`solveLevel` takes `from` now);
+  anywhere else the two-sided bot's move three moves ahead, with no noise
+  (`sim.js chooseMove`). In kung fu, with no turns to look ahead through,
+  the most valuable capture a ready piece can make, else a move by one to
+  a square none of theirs reaches (`kungfu.js best`). Not while you lay out
+  your pieces, or set up autochess.
+- **The line**: rook, bishop, King, knight, rook, with a row of pawns as
+  wide as the board in front (run settings `startPool`, which may now
+  repeat a piece, and `pawnRow`), in the descent and Tile Chess, mirrored.
+  Pieces marked to stand in front (`row: 1` on a hand piece) take the
+  second row (`makeLevel`). The descent's ghosts fall away by themselves:
+  they only fill empty squares of the row in front of each line, and the
+  pawns fill it. At depth 6 the board widens to seven and two pawns more
+  join each side. The descent has 30 moves a board now (was 20).
+- **Pawns** (level setting `pawnRules`, Armies, "Two squares first, and en
+  passant", the default; settings version 21, so older links keep "One
+  square at a time"). A pawn that has not moved yet this game may step two
+  squares if both are empty. Stepping two leaves the square it passed over
+  open: on the very next move, a pawn of the other side that could take
+  on that square may take the pawn that passed, landing there
+  (`enPassant` in `rules.js`). Kung fu has the two-square step but not en
+  passant, since it has no turns. A chess variant keeps its own pawn
+  rules. The stored daily boards are unchanged (they read as older
+  settings).
+
 ## Tile Chess, and rings that stop where a piece could reach (2026-10-14, later)
 
 Timothy: "new descent variant: every round you and your opponent pick a

@@ -85,6 +85,8 @@ export const RUN_SCHEMA = [
   { ...part('armies'), fields: [
     { key: 'startPieces', sub: 'yours', label: 'Pieces to start with', type: 'int', min: 1, max: 8, def: 4, help: 'For a descent and autochess rounds.' },
     { key: 'startPool', sub: 'yours', label: 'You start with', type: 'pieces', def: ['knight', 'bishop', 'rook', 'king'], help: 'Dealt from these.' },
+    { key: 'pawnRow', sub: 'yours', label: 'A row of pawns in front', type: 'bool', def: false,
+      help: 'For a descent whose lines are given (the descent, Tile Chess; Timothy, 2026-10-14): each side has a second row, as wide as the board, all pawns, in front of the first.' },
     { key: 'foeLine', sub: 'theirs', label: 'Their line', type: 'choice', def: 'mirror', options: opts(['mirror', 'The same files as yours, like Microchess'], ['turned', 'Yours reversed, as if turned round the board']),
       help: 'For a descent with one upgrade a board, where both sides start with "You start with". The same files: their first piece stands opposite your first, like Microchess. Reversed (Timothy, 2026-10-13): their line is yours read the other way, so each side, looking from its own end, has the same piece on its left.' },
     { key: 'balls', sub: 'ball', label: 'Balls on a course', type: 'multi', def: BALLS.map((b) => b.v), options: BALLS,
@@ -136,7 +138,8 @@ export function cleanMode(raw = {}) {
     if (f.type === 'choice' && f.options.some((o) => o.v === String(v))) run[f.key] = String(v);
     if ((f.type === 'multi' || f.type === 'pieces') && Array.isArray(v)) {
       const ok = v.filter((k) => (f.type === 'pieces' ? !!PIECES[k] && PIECES[k].kind !== 'neutral' : f.options.some((o) => o.v === k)));
-      if (ok.length) run[f.key] = [...new Set(ok)];
+      // A line in order (the descent's) may repeat a piece: two rooks.
+      if (ok.length) run[f.key] = f.key === 'startPool' ? ok.slice(0, 16) : [...new Set(ok)];
     }
   }
   if (run.maxPieces < run.startPieces) run.maxPieces = run.startPieces;
@@ -166,11 +169,11 @@ export const MODES = {
     // from one to another every three turns, whose piece is the one to take;
     // pawns that become a copy of another of yours; and a draft of suits and
     // weapons only.
-    name: 'The descent', blurb: 'Rook, bishop, King, knight and pawn each, a full row on a five by six board; theirs stand opposite, each facing its twin, as in chess. In front of each side stands a row of ghosts: yours let your pieces through and vanish as they pass, theirs stop you. A rabbit rides their pieces; moving it to another of their pieces costs them their turn. Take the piece it is on to fall to the next board, where you choose a suit or a weapon, one of two, and they get one too. A pawn that reaches the far row becomes a copy of another of yours. From depth 6 the board is seven by seven. If they take your King the descent is over.',
+    name: 'The descent', blurb: 'Rook, bishop, King, knight and rook each, a full row on a five by six board, with a row of pawns in front; theirs stand opposite, each facing its twin, as in chess. A pawn may step two squares on its first move, and take en passant. A rabbit rides their pieces; moving it to another of their pieces costs them their turn. Take the piece it is on to fall to the next board, where you choose a suit or a weapon, one of two, and they get one too. A pawn that reaches the far row becomes a copy of another of yours. From depth 6 the board is seven by seven. If they take your King the descent is over.',
     settings: {
-      run: 'descent', roll: 'fixed', startPieces: 5, maxPieces: 7, startPool: ['rook', 'bishop', 'king', 'knight', 'pawn'], foeLine: 'mirror', rewards: true, jokers: false, ramp: 'steady', outOfMoves: 'fall', upgrades: 'each', growAt: 6, carry: false,
+      run: 'descent', roll: 'fixed', startPieces: 5, maxPieces: 8, startPool: ['rook', 'bishop', 'king', 'knight', 'rook'], pawnRow: true, foeLine: 'mirror', rewards: true, jokers: false, ramp: 'steady', outOfMoves: 'fall', upgrades: 'each', growAt: 6, carry: false,
       goal: 'carrier', rabbitMove: 'choose', rabbitHop: 3, rabbitSides: 'theirs', promote: 'copy', royal: true, showdown: true, w: 5, h: 6, foes: 4, foePool: ['knight', 'bishop', 'rook'], darkBrain: 'think', skill: '1', style: 'balanced', rabbitMind: 'mind', iq: 3, kinds: 1,
-      foesCapture: true, statues: 0, statueRow: false, ghosts: true, maxMoves: 20, lineup: true, inOrder: true, arrange: false, cloud: false, parMin: 3, parMax: 10, difficulty: 'any'
+      foesCapture: true, statues: 0, statueRow: false, ghosts: true, maxMoves: 30, lineup: true, inOrder: true, arrange: false, cloud: false, parMin: 3, parMax: 10, difficulty: 'any'
     }
   },
   kungfu: {
@@ -212,9 +215,9 @@ export const MODES = {
     // (destroyable) statues, and a rule that gives every piece at the
     // beginning of the round invincibility until it moves for the first time
     // in the round ... also no rabbit here for now."
-    name: 'Tile Chess', blurb: 'The descent\u2019s two lines, rook, bishop, King, knight and pawn, facing each other on a five by six board, with four statues in the middle that either side can break. Every piece starts each round in a bubble, and nothing can take it until it moves. Take their King to win the round. Then each of you turns over a tile at the edge of the board, the winner first: the board grows by that square, and the suit or weapon on it is yours. When the board is as big as the next size up, each side gets the same new piece. If they take your King, the run is over.',
+    name: 'Tile Chess', blurb: 'The descent\u2019s two lines, rook, bishop, King, knight and rook with a row of pawns in front, facing each other on a five by six board, with four statues in the middle that either side can break. Every piece starts each round in a bubble, and nothing can take it until it moves. Take their King to win the round. Then each of you turns over a tile at the edge of the board, the winner first: the board grows by that square, and the suit or weapon on it is yours. When the board is as big as the next size up, each side gets the same new piece. If they take your King, the run is over.',
     settings: {
-      run: 'descent', roll: 'fixed', startPieces: 5, maxPieces: 8, startPool: ['rook', 'bishop', 'king', 'knight', 'pawn'], foeLine: 'mirror', rewards: true, jokers: false, ramp: 'steady', outOfMoves: 'fall', upgrades: 'tiles', growAt: 0, carry: false,
+      run: 'descent', roll: 'fixed', startPieces: 5, maxPieces: 8, startPool: ['rook', 'bishop', 'king', 'knight', 'rook'], pawnRow: true, foeLine: 'mirror', rewards: true, jokers: false, ramp: 'steady', outOfMoves: 'fall', upgrades: 'tiles', growAt: 0, carry: false,
       goal: 'king', promote: 'copy', royal: true, showdown: false, w: 5, h: 6, foes: 4, foePool: ['knight', 'bishop', 'rook'], darkBrain: 'think', skill: '1', style: 'balanced', rabbitMind: 'mind', iq: 3, kinds: 1,
       foesCapture: true, statues: 4, statuesTake: true, statueRow: false, ghosts: false, bubbles: true, bubbleTurns: 4, maxMoves: 30, lineup: true, inOrder: true, arrange: false, cloud: false, parMin: 3, parMax: 10, difficulty: 'any'
     }
@@ -279,7 +282,7 @@ const SHOWN = {
   // The session.
   startPieces: runIs('descent', 'rounds'), maxPieces: runIs('descent', 'rounds'), startPool: runIs('descent', 'rounds'),
   rewards: runIs('descent', 'rounds'), jokers: runIs('descent', 'rounds'), findPool: runIs('descent', 'rounds'), ramp: runIs('descent', 'rounds'),
-  upgrades: runIs('descent'), growAt: (S) => S.run === 'descent' && S.upgrades === 'each', foeLine: (S) => S.run === 'descent' && (S.upgrades === 'each' || S.upgrades === 'tiles'),
+  upgrades: runIs('descent'), pawnRow: (S) => S.run === 'descent' && (S.upgrades === 'each' || S.upgrades === 'tiles'), growAt: (S) => S.run === 'descent' && S.upgrades === 'each', foeLine: (S) => S.run === 'descent' && (S.upgrades === 'each' || S.upgrades === 'tiles'),
   carry: runIs('descent'), keepsakes: (S) => S.run === 'descent' && S.carry, fairyFrom: runIs('descent'), startDifficulty: runIs('descent'), boardGrows: runIs('descent'), outOfMoves: runIs('descent'),
   shop: runIs('rounds'), lives: runIs('rounds'),
   courseName: runIs('course'), courseHoles: (S) => S.run === 'course' && S.courseName === 'mixed', balls: () => false, // every golf ball is hit (2026-10-13)
