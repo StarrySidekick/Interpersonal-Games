@@ -821,6 +821,38 @@ things in the catalog). Gaps: different armies on each side are only
 "any order" of the same pieces; Kung fu descent (real time) has none of the
 new pieces.
 
+## Rings up to what they could take, the King and the shields, and Capture the rabbit (2026-10-14)
+
+Timothy: "the purple highlight should be the reach of enemy pieces up to
+the pieces they could take, but not past that. so they can be under
+friendly pieces but just not like as much as now. also, the shield icon
+on cells works, but the king shouldn't be included in that calculation in
+situations where the king would get captured if it [moved] there ... i
+want codified mode selector for capture the flag".
+
+- **Rings stop at what they could take.** A line runs on through their own
+  pieces, ghosts and gates (as in release 56) until it meets something it
+  could take: a piece of yours, a statue that can be taken, the rabbit to
+  capture. That square is ringed and the line stops there. So the first
+  of yours in a line shows a ring, and what stands behind it does not. A
+  pawn's empty diagonals still show (`moveSet` in `rules.js`).
+- **The King and the flat shields** (`guardedSquares`). With a royal King,
+  the King is never the piece that steps in: taken there, the game is
+  lost, so a piece that would take back is no comfort. It still counts as
+  a guard, but only on a square one piece of theirs attacks: with two, the
+  one that is left would take the King after it took back
+  (`attackersOf`).
+- **Capture the rabbit**, a mode of its own (`flag` in `modes.js`, in the
+  menu on every page). The rabbit sits on the middle square of a seven by
+  seven board. Both sides line up the same, as in chess without a King:
+  rooks, knights, bishops and a queen behind seven pawns (the set position
+  `rnbqbnr/ppppppp/7/7/7/PPPPPPP/RNBQBNR`). Theirs think two moves ahead.
+  Take the rabbit and the piece that took it carries it; bring that piece
+  to your first row to win. If they take it, they carry it to theirs. No
+  King, so the rabbit is the whole game; 40 moves. Set positions can now
+  play for the rabbit (`positionLevel` in `lab.js`, goal 'flag'); before
+  they always played for the King.
+
 ## Their move sets, shields underfoot, and a rabbit moved on purpose (2026-10-13, after release 55)
 
 Timothy: "shields that are on board spaces should be underneath pieces,

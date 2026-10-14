@@ -204,6 +204,17 @@ export const MODES = {
     name: 'Piece trials', blurb: 'A layout from the piece trials: the same army on each side, theirs thinking. Take their King and keep yours.',
     settings: { run: 'single', roll: 'fixed', position: '[shortrook]nkb[tallrook]/5/5/5/5/[Tallrook]BKN[Shortrook]', darkBrain: 'think', skill: '2', style: 'balanced', maxMoves: 0, showReach: true, solve: false, cloud: false, showdown: false }
   },
+  flag: {
+    // Capture the flag, with a rabbit for the flag (Timothy, 2026-10-13:
+    // "capture the rabbit. rabbit in the center of a 7x7 board. capturing
+    // it places the rabbit on that pieces head. bringing the piece with the
+    // rabbit back to ones first row wins the game"; a mode of its own,
+    // 2026-10-14: "i want codified mode selector for capture the flag").
+    // Both sides the same, as in chess without a King: the rabbit is the
+    // whole game.
+    name: 'Capture the rabbit', blurb: 'Capture the flag, with a rabbit for the flag. It sits in the middle of a seven by seven board. Take it, and the piece that took it carries it on its head; bring that piece back to your first row to win. If they take the piece carrying it, the rabbit is theirs, and they win by carrying it to their first row. Both sides line up the same, rooks, knights, bishops and a queen behind a row of pawns, and theirs think two moves ahead. There are no Kings.',
+    settings: { run: 'single', roll: 'fixed', goal: 'flag', royal: false, position: 'rnbqbnr/ppppppp/7/7/7/PPPPPPP/RNBQBNR', w: 7, h: 7, darkBrain: 'think', skill: '2', style: 'balanced', maxMoves: 40, showReach: true, solve: false, cloud: false, showdown: false }
+  },
   autochess: {
     name: 'Autochess', blurb: 'Put rabbits in your pieces and let them fight. Win rounds to grow your side; lose three and it is over.',
     settings: {
@@ -401,7 +412,7 @@ export function describe(S) {
   const when = S.realtime || V?.rules?.realtime ? 'No turns: any piece moves when it is ready, and theirs too.'
     : `Turns, ${S.first === 'them' ? 'theirs first' : 'yours first'}${V?.rules?.movesPerTurn ? `; you move ${V.rules.movesPerTurn} times a turn`
       : rolled ? '' : S.mode === 'auto' ? `; every piece of yours moves, then ${S.oneMove ? 'one of theirs' : 'every piece of theirs'}`
-      : S.oneMove || V ? '; one piece a side each turn' : '; one piece of yours, then every piece of theirs'}.`;
+      : S.oneMove || V || S.position ? '; one piece a side each turn' : '; one piece of yours, then every piece of theirs'}.`;
   L.control = `${S.mode === 'auto' ? 'Rabbits move yours, once you have set them up' : 'You move yours'}; ${!V && !S.foes && !full && !S.mirror ? (S.rabbits ? `${S.rabbits > 1 ? 'loose rabbits hop' : 'a loose rabbit hops'} by ${mind(S.rabbits > 1)}` : 'nobody moves theirs') : theirs}. ${when}`;
 
   // Goal.
@@ -409,7 +420,7 @@ export function describe(S) {
     : V ? 'Take their King' : run === 'course' ? 'Sink the ball in no more strokes than par'
     : S.goal === 'capture' ? (S.captureN ? `Capture ${S.captureN === 1 ? 'any one' : `${S.captureN}`} of theirs` : 'Capture every one of theirs')
     : S.goal === 'carrier' ? `Take the piece their rabbit rides; ${S.rabbitMove === 'random' ? `it hops to another of theirs at random every ${S.rabbitHop === 1 ? 'turn' : `${S.rabbitHop} turns`}` : 'they can move it to another of theirs, as their turn'}${S.rabbitSides === 'both' ? `, and one rides yours${S.rabbitMove === 'random' ? '' : ' (moving it is your turn)'}: lose that piece and you lose` : ''}`
-    : S.goal === 'flag' ? 'Take the rabbit from the middle and carry it back to your first row; take the piece carrying it and it rides yours'
+    : S.goal === 'flag' ? `Take the rabbit from the middle and carry it back to your first row. Whoever takes the piece carrying it takes the rabbit, and if they carry it to their first row, you lose${S.royal ? '' : '. There are no Kings to lose'}`
     : GOAL_PILL[S.goal] || 'A goal that changes with each board';
   const lose = !V && S.royal && run !== 'course' ? '; lose your King and you lose' : '';
   const stall = [S.roll === 'chaos' ? 'the move limit is rolled' : course !== undefined ? 'par is the fewest strokes the solver finds, plus two on the first two holes and one after; over par, the hole is played again' : S.maxMoves ? `a limit of ${S.maxMoves} moves` : 'no move limit',

@@ -843,14 +843,22 @@ function variantLevel(S, seed) {
 /** A position given outright (the piece trials): both sides as written,
     their side thinking, take their King, keep yours. A row of statues, if
     asked for, fills the middle row's empty squares and opens one a turn in
-    an order drawn from the seed. Null if the position does not read. */
+    an order drawn from the seed. With goal 'flag' (Capture the rabbit,
+    2026-10-14) the game is the rabbit instead: it sits on the middle
+    square, and a King is royal only if the settings say so. Null if the
+    position does not read. */
 function positionLevel(S, seed) {
   let read = null;
   try { read = readFen(S.position); } catch { return null; }
   const { W, H, pieces, foes } = read;
   if (!pieces.length || !foes.length || [...pieces, ...foes].some((p) => !PIECES[p.type])) return null;
-  for (const f of foes) { f.brain = 'ai'; if (f.type === 'king') f.target = true; }
+  const flag = S.goal === 'flag';
+  for (const f of foes) { f.brain = 'ai'; if (f.type === 'king' && !flag) f.target = true; }
   const day = { W, H, holes: new Set(), stumps: new Set(), bramble: [], brambleAt: new Map(), every: 2 };
+  if (flag) {
+    const x = Math.floor(W / 2), y = Math.floor(H / 2);
+    if (![...pieces, ...foes].some((p) => p.x === x && p.y === y)) day.flag = { x, y };
+  }
   if (S.statueRow && H % 2 === 1) {
     const rand = rng(`lab:${seed}`), y = (H - 1) / 2, kinds = ['pawn', 'rook', 'knight', 'bishop', 'king', 'queen'];
     const row = Array.from({ length: W }, (_, x) => y * W + x).filter((sq) => ![...pieces, ...foes].some((p) => p.y * W + p.x === sq));
@@ -859,8 +867,8 @@ function positionLevel(S, seed) {
     day.statueOrder = shuffled(row, rand);
   }
   return Object.assign(day, {
-    seed, settings: S, shrinkKey: seed, pieces, foes, goalKind: 'king', hole: null, position: S.position,
-    rules: { goal: 'target', maxMoves: S.maxMoves, wait: false, foesCapture: true, rabbitsEat: false, royal: true, oneMove: true,
+    seed, settings: S, shrinkKey: seed, pieces, foes, goalKind: flag ? 'flag' : 'king', hole: null, position: S.position,
+    rules: { goal: flag ? 'flag' : 'target', maxMoves: S.maxMoves, wait: false, foesCapture: true, rabbitsEat: false, royal: flag ? !!S.royal : true, oneMove: true,
       first: 'you', ballStops: false, ballMove: 'putt', crumble: false, shrink: null, shrinkEvery: 2,
       ...(pieces.some((p) => p.type === 'pawn') || foes.some((f) => f.type === 'pawn') ? { promote: true } : {}),
       ...(day.statueOrder ? { statuesOpen: true } : {}) },

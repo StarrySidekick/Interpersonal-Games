@@ -1758,29 +1758,30 @@ export function reachMaps(s, pattern = false) {
 }
 
 /**
- * The squares piece f's move set covers on an open board (2026-10-13,
+ * The squares piece f's move set covers, for its reach rings (2026-10-13,
  * Timothy: "the purple reach outlines should reflect the move set of the
  * enemy pieces, even if they end up displaying those outlines underneath
  * friendly pieces. It's just supposed to show where they could go
- * regardless of whether or not they actually could on that turn ... so
- * that you can kind of use that to aid in your predictions"). Every piece,
- * ghost, statue and gate is looked through, so a slider's line runs on to
- * the edge, and a move that only takes (a pawn's diagonal, a hop over a
- * piece) counts too: the moves are found twice, once with every square
- * empty and once with every square holding something to take. Only the
- * board's own shape (its edge, a square gone) stops it.
+ * regardless of whether or not they actually could on that turn"; then,
+ * 2026-10-14: "the reach of enemy pieces up to the pieces they could take,
+ * but not past that"). A line runs on until it meets something it could
+ * take (a piece of yours, a statue that can be taken, the rabbit to
+ * capture), rings that, and stops: so the first of yours in its way shows
+ * a ring, and what stands behind it does not. Everything else is looked
+ * through (their own pieces, ghosts, gates, a stun), and a move that only
+ * takes (a pawn's diagonal, a cannon's shot) shows with nothing on it.
+ * Only the board's own shape (its edge, a square gone) stops it.
  */
 function moveSet(s, f, side) {
   if (f.suit === 'spirals' && !s.day.rules.wrap) s = wrapView(s);
-  const day = s.day, W = day.W, wrap = !!day.rules.wrap, fwd = side === 'you' ? 1 : -1;
+  const day = s.day, W = day.W, wrap = !!day.rules.wrap, fwd = side === 'you' ? 1 : -1, takes = side === 'you' || canTake(day.rules, f);
   const spot = (x, y) => (wrap ? fold(day, x, y) : [x, y]);
   const gap = (x, y) => { const [a, b] = spot(x, y); return !onBoard(day, a, b) || shrunk(s, a, b) || crumbled(s, a, b) || (wrap && a === f.x && b === f.y); };
-  const open = (x, y) => (gap(x, y) ? OFF : EMPTY), full = (x, y) => (gap(x, y) ? OFF : ENEMY);
-  const out = new Set();
-  for (const L of [open, full]) for (const m of PIECES[f.type].moves(L, f, fwd, day)) {
-    const [x, y] = spot(m.x, m.y);
-    if (onBoard(day, x, y) && (x !== f.x || y !== f.y)) out.add(y * W + x);
-  }
+  const reach = (x, y) => { if (gap(x, y)) return OFF; const [a, b] = spot(x, y); return look(s, a, b, side) === ENEMY ? (takes ? ENEMY : OFF) : EMPTY; };
+  const full = (x, y) => (gap(x, y) ? OFF : ENEMY);
+  const out = new Set(), add = (m) => { const [x, y] = spot(m.x, m.y); if (onBoard(day, x, y) && (x !== f.x || y !== f.y)) out.add(y * W + x); };
+  for (const m of PIECES[f.type].moves(reach, f, fwd, day)) add(m);
+  if (takes && TAKES_ONLY.has(f.type)) for (const m of PIECES[f.type].moves(full, f, fwd, day)) if (m.cap) add(m);
   return out;
 }
 
@@ -1848,6 +1849,14 @@ function guardsOf(s, sq) {
   return by;
 }
 
+/** How many of their pieces could take on square sq, if one of yours
+    stood there. */
+function attackersOf(s, sq) {
+  const W = s.day.W, x = sq % W, y = Math.floor(sq / W), c = clone(s);
+  c.pieces.push({ type: 'pawn', x, y, taken: false });
+  return c.foes.filter((f) => !f.taken && !f.flying && f.brain !== 'leader' && f.brain !== 'carrier' && canTake(c.day.rules, f) && pieceMoves(c, f, 'foe').some((m) => capturesOf(m, W).includes(sq))).length;
+}
+
 /**
  * Empty squares that would be guarded (Timothy, 2026-10-13: "if that
  * piece's reach overlaps with the position present on the enemy's reaches
@@ -1877,8 +1886,13 @@ export function guardedSquares(s, squares, sel = null, legal = []) {
   const movers = new Map(); // square: indexes of the pieces that can go there
   const add = (sq, j) => { const l = movers.get(sq) || movers.set(sq, []).get(sq); if (!l.includes(j)) l.push(j); };
   const ok = (mv) => !mv.cap && !mv.swap;
+  // A royal King is never the one to step in (2026-10-14, Timothy: "the
+  // king shouldn't be included in that calculation in situations where the
+  // king would get captured if it [moved] there"): taken there, the game is
+  // lost, and taking back does not help.
+  const royal = (q) => q.type === 'king' && s.day.rules.royal;
   s.pieces.forEach((q, j) => {
-    if (q.taken || q.flying || q.type === 'ball' || q.brain === 'carrier') return;
+    if (q.taken || q.flying || q.type === 'ball' || q.brain === 'carrier' || royal(q)) return;
     const ms = j === sel && legal.length ? legal.filter((mv) => mv.p == null || mv.p === sel) : movesFor(s, j);
     for (const mv of ms) if (ok(mv)) add(mv.y * W + mv.x, j);
   });
@@ -1888,12 +1902,18 @@ export function guardedSquares(s, squares, sel = null, legal = []) {
     let who = movers.get(sq);
     if (!who) continue;
     if (sel != null && who.includes(sel)) who = [sel];
-    let best = [];
+    let best = [], alone = null;
     for (const j of who) {
       // Moved there and taken there: off its own square, and off this one.
       const n = clone(s), p = n.pieces[j];
       p.x = x; p.y = y; p.taken = true;
-      const by = guardsOf(n, sq);
+      let by = guardsOf(n, sq);
+      // A royal King takes back only where nothing else of theirs could
+      // then take it: one attacker on the square, not two.
+      if (by.some((k) => royal(s.pieces[k]))) {
+        if (alone === null) alone = attackersOf(n, sq) <= 1;
+        if (!alone) by = by.filter((k) => !royal(s.pieces[k]));
+      }
       if (by.length > best.length) best = by;
     }
     if (best.length) out.set(sq, best);
