@@ -295,10 +295,11 @@ export function capturesOf(m, W) {
   if (m.strike) out.push(...m.strike);
   if (m.pass) out.push(...m.pass);
   if (m.push) for (const e of m.push) if (e.to < 0) out.push(e.from);
+  if (m.ep != null) out.push(m.ep);
   return out;
 }
 /** Does this move take anything at all? */
-export const takesAny = (m) => !!(m.cap || m.strike?.length || m.pass?.length || m.push?.some((e) => e.to < 0));
+export const takesAny = (m) => !!(m.cap || m.ep != null || m.strike?.length || m.pass?.length || m.push?.some((e) => e.to < 0));
 
 /** Piece p's moves as its weapon changes them, from `side`. */
 function armed(s, p, side, ms) {
@@ -1203,7 +1204,7 @@ export function clone(s) {
     hole: s.hole ? { ...s.hole } : null, gone: s.gone.slice(), shrunk: s.shrunk ? s.shrunk.slice() : [], open: s.open ? s.open.slice() : [], won: s.won, sunk: s.sunk,
     bonus: s.bonus || null, treasure: s.treasure || 0, foeTreasure: s.foeTreasure || 0, ft: s.ft || 0, ...(s.cloudy ? { cloudy: true } : {}),
     ...(s.ghostGone ? { ghostGone: s.ghostGone.slice(), ghostsLost: s.ghostsLost || 0 } : {}), ...(s.clouds ? { clouds: s.clouds.map((c) => ({ ...c })) } : {}),
-    ...(s.flag ? { flag: { ...s.flag } } : {}), ...(s.flagLost ? { flagLost: true } : {}) };
+    ...(s.flag ? { flag: { ...s.flag } } : {}), ...(s.flagLost ? { flagLost: true } : {}), ...(s.ep ? { ep: { ...s.ep } } : {}) };
 }
 
 const youLook = (s) => (x, y) => look(s, x, y, 'you');
@@ -1278,6 +1279,21 @@ function pieceMoves0(s, p, side) {
   if (p.type === 'bunny') {
     const own = side === 'you' ? s.pieces : s.foes;
     ms = ms.filter((m) => { const there = own.filter((q) => q !== p && !q.taken && q.x === m.x && q.y === m.y); return !there.length || (there.length === 1 && !['bunny', 'ball'].includes(there[0].type)); });
+  }
+  // Pawns (2026-10-14, Timothy: "Pawns should have en passant and moving
+  // two squares as the first move in all modes by default"): a pawn that
+  // has not moved yet this game may step two, if both squares ahead are
+  // empty; and one that stands beside a pawn of the other side that has
+  // just stepped two may take it as it passes, landing on the square it
+  // passed over (the move's `ep` is the square of the pawn it takes).
+  if (p.type === 'pawn' && s.day.rules.pawnTwo && !p.moved && !s.day.rules.pawnDouble) {
+    const f = side === 'you' ? 1 : -1, L = sight(s, p, side);
+    if (L(p.x, p.y + f) === EMPTY && L(p.x, p.y + 2 * f) === EMPTY) ms = [...ms, { x: p.x, y: p.y + 2 * f, cap: false, two: true }];
+  }
+  if (p.type === 'pawn' && s.day.rules.enPassant && s.ep && s.ep.side !== side) {
+    const f = side === 'you' ? 1 : -1, W = s.day.W, ex = s.ep.at % W, ey = (s.ep.at / W) | 0;
+    if (ey === p.y + f && Math.abs(ex - p.x) === 1 && sight(s, p, side)(ex, ey) === EMPTY && enemyOn(s, side, s.ep.pawn)?.type === 'pawn')
+      ms = [...ms, { x: ex, y: ey, cap: false, ep: s.ep.pawn }];
   }
   // Chess variants (2026-10-11): a pawn on its starting row may step two,
   // if both squares ahead are empty. (No en passant.)
@@ -1480,11 +1496,25 @@ export function lost(s) {
 
 // --- Their turn. -----------------------------------------------------------
 
+/** A piece of `side` (index i) moving to (x, y) by move m: it has moved
+    (no two-square step for a pawn after that); a pawn stepping two leaves
+    the square it passed over open to en passant; and taking en passant
+    takes the pawn that passed. Mutates. */
+function enPassant(n, side, p, i, x, y, m) {
+  if (m?.ep != null) {
+    const e = enemyOn(n, side, m.ep);
+    if (e) { if (side === 'you') captureFoe(n, e, i); else capturePiece(n, e, i); }
+  }
+  if (p.type === 'pawn' && m?.two) n.ep = { at: ((p.y + y) / 2) * n.day.W + x, pawn: y * n.day.W + x, side };
+  p.moved = true;
+}
+
 /** A foe lands on (x, y), taking whatever of yours is there. `m`, the move
     it made, if it made one: it may promote. Mutates. */
 function landFoe(s, f, x, y, m = null) {
   const k = s.foes.indexOf(f);
   delete f.bubble;
+  enPassant(s, 'foe', f, k, x, y, m);
   // A rabbit of theirs hopping onto one of their heads rides there.
   const mate = f.type === 'bunny' ? s.foes.find((q) => q !== f && !q.taken && q.x === x && q.y === y) : null;
   if (mate) { f.ate = -1; f.from = [f.x, f.y]; f.x = x; f.y = y; f.blocked = false; f.rides = s.foes.indexOf(mate); return; }
@@ -2210,6 +2240,7 @@ function knock(s, b, fx, fy) {
 function landMine(n, i, x, y, m = null) {
   const p = n.pieces[i], riding = p.rides != null;
   delete p.bubble; // its first move this round: the bubble is gone
+  enPassant(n, 'you', p, i, x, y, m);
   const mate = n.pieces.find((q, k) => k !== i && !q.taken && q.type !== 'ball' && q.x === x && q.y === y);
   // A rabbit hopping onto a head rides there (2026-10-11).
   if (mate && p.type === 'bunny') {
@@ -2272,6 +2303,8 @@ export function playerMove(s, mv) {
   const n = clone(s), was = n.bonus;
   n.bonus = null;
   delete n.broke; delete n.bumped; delete n.revived;
+  // En passant on theirs is now or never.
+  if (n.ep?.side === 'foe') delete n.ep;
   if (mv.p >= 0) {
     // A move chosen under clouds may run into a hidden piece and take it.
     const m = contact(s, 'you', s.pieces[mv.p], mv);
@@ -2516,7 +2549,10 @@ const unstun = (list) => { for (const q of list) if (q.stun) delete q.stun; };
 function theirTurn(c, chosen) {
   unstun(c.pieces);
   if (c.won || !theyMove(c)) return;
+  const yours = c.ep?.side === 'you' ? c.ep : null;
   foesAct(c, chosen);
+  // Their chance at en passant on yours has gone with their turn.
+  if (yours && c.ep === yours) delete c.ep;
   unstun(c.foes);
 }
 
@@ -2580,13 +2616,14 @@ export function replay(day, moves) {
 
 export function stateKey(s) {
   let k = '';
-  for (const p of s.pieces) k += p.taken ? '--' : p.x + ',' + p.y + (p.lives > 1 ? 'L' + p.lives : '') + (p.starUsed ? '*' : '') + (p.stun ? 'z' : '') + (p.bubble ? 'o' : '') + (p.promoted ? p.type : '') + ';';
+  for (const p of s.pieces) k += p.taken ? '--' : p.x + ',' + p.y + (p.lives > 1 ? 'L' + p.lives : '') + (p.starUsed ? '*' : '') + (p.stun ? 'z' : '') + (p.bubble ? 'o' : '') + (p.moved && p.type === 'pawn' && s.day.rules.pawnTwo ? 'm' : '') + (p.promoted ? p.type : '') + ';';
   if (s.bonus) k += `|b${s.bonus.p}${s.bonus.cap ? 'c' : ''}`;
   if (s.cloudy) k += '|c';
   if (s.day.rules.oneMove) k += `|f${s.ft || 0}`; // whose turn it is on their side
   k += '|';
-  for (const f of s.foes) k += f.taken ? '--' : f.x + ',' + f.y + ',' + f.i + (f.lives > 1 ? 'L' + f.lives : '') + (f.starUsed ? '*' : '') + (f.mx > 0 ? '+' : '-') + (f.my > 0 ? '+' : '-') + (f.idle ? 'i' + f.idle : '') + (f.stun ? 'z' : '') + (f.bubble ? 'o' : '') + (f.promoted ? f.type : '') + ';';
+  for (const f of s.foes) k += f.taken ? '--' : f.x + ',' + f.y + ',' + f.i + (f.lives > 1 ? 'L' + f.lives : '') + (f.starUsed ? '*' : '') + (f.mx > 0 ? '+' : '-') + (f.my > 0 ? '+' : '-') + (f.idle ? 'i' + f.idle : '') + (f.stun ? 'z' : '') + (f.bubble ? 'o' : '') + (f.moved && f.type === 'pawn' && s.day.rules.pawnTwo ? 'm' : '') + (f.promoted ? f.type : '') + ';';
   if (s.flag) k += `|F${s.flag.by || ''}${s.flag.i},${s.flag.x},${s.flag.y}`;
+  if (s.ep) k += `|e${s.ep.side}${s.ep.at}`;
   if (s.hole) k += `|h${s.hole.x},${s.hole.y},${s.hole.i}${s.hole.mx > 0 ? '+' : '-'}${s.hole.my > 0 ? '+' : '-'}`;
   // Which squares are gone matters; the order they went in does not.
   if (s.gone.length) k += '|g' + s.gone.slice().sort((a, b) => a - b).join(',');

@@ -234,7 +234,7 @@ export function cardText(card) {
 /** The hand as `hand`, `handMods` and `invented` for a level's settings,
     with the jokers that are rules. */
 /** What a hand piece carries, for a level: hearts, suit, weapon. */
-const modOf = (h) => ({ ...(h.lives > 1 ? { lives: h.lives } : {}), ...(h.suit ? { suit: h.suit } : {}), ...(h.weapon ? { weapon: h.weapon, wl: h.wl || 1 } : {}) });
+const modOf = (h) => ({ ...(h.lives > 1 ? { lives: h.lives } : {}), ...(h.suit ? { suit: h.suit } : {}), ...(h.weapon ? { weapon: h.weapon, wl: h.wl || 1 } : {}), ...(h.row === 1 ? { row: 1 } : {}) });
 
 export function handSettings(run) {
   const types = [], mods = [];

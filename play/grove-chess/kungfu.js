@@ -118,7 +118,7 @@ export function startKungFu({ board, level, state, iq = 5, myCool = 2000, foeCoo
       } else { sfx.eat(); haptic([40, 30, 40]); onStatus?.(`Their ${PIECES[p.type].name} took your ${PIECES[v.type].name}.`); }
       if (sel != null && f.side === 'foe' && v === s.pieces[sel]) { sel = null; legal = []; }
     }
-    p.x = f.tx; p.y = f.ty;
+    p.x = f.tx; p.y = f.ty; p.moved = true;
     // A pawn on the far row becomes a queen, where the level says so (the
     // descent's copies are chosen on a turn, so here it stays a pawn).
     if (level.rules.promote === true && p.type === 'pawn' && p.y === (f.side === 'you' ? level.H - 1 : 0)) p.type = 'queen';
@@ -202,8 +202,28 @@ export function startKungFu({ board, level, state, iq = 5, myCool = 2000, foeCoo
     if (sel != null) onInfo?.(`${PIECES[s.pieces[i].type].name}: tap where it should go.`);
   }
 
+  /** The best move it can see for you now (the testing button): the most
+      valuable capture by a piece that is ready, else a move by one to a
+      square none of theirs can reach. No turns here, so no lookahead. */
+  function best() {
+    if (!alive) return false;
+    const reach = reachMaps(s).theirs, W = level.W, worth = (t) => PIECES[t]?.value || 1;
+    let pick = null, score = -Infinity;
+    s.pieces.forEach((p, i) => {
+      if (!selectable(i) || p.type === 'ball') return;
+      for (const m of movesFor(s, i)) {
+        const f = s.foes.find((q) => !q.taken && !q.flying && q.x === m.x && q.y === m.y);
+        const v = (f ? worth(f.type) * 10 + (f.type === 'king' ? 1000 : 0) : 0) - (reach.has(m.y * W + m.x) ? worth(p.type) * 5 : 0) + Math.random();
+        if (v > score) { score = v; pick = { i, m }; }
+      }
+    });
+    if (!pick) return false;
+    launch('you', pick.i, pick.m); sel = null; legal = [];
+    return true;
+  }
+
   requestAnimationFrame(frame);
-  return { tap, stop: () => { alive = false; }, state: () => s };
+  return { tap, best, stop: () => { alive = false; }, state: () => s };
 }
 
 /** A small seeded random number generator (mulberry32). */

@@ -12,6 +12,14 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
+## 2026-10-14, later still: a best-move button, a row of pawns, chess pawns
+
+From Timothy: a Best move button in every mode, for testing; the descent
+and Tile Chess with rook, bishop, King, knight, rook and a full row of
+pawns in front; pawns stepping two on their first move, with en passant,
+everywhere by default. All built (`docs/grove-modes.md`, "A best-move
+button").
+
 ## 2026-10-14, later: Tile Chess, and rings that stop where a piece could reach
 
 From Timothy: Tile Chess, a descent variant where each round both sides
