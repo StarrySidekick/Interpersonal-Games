@@ -258,6 +258,8 @@ function goalCard() {
   if (M.realtime && M.run === 'descent') text = text + ' Kung fu: there are no turns. Move any piece of yours whenever it is ready, and so do they. A move takes time to travel, so a piece can dodge one coming for it, and a piece that has moved rests for a moment: the ring under it runs down.';
   const V = VARIANTS[M.variant];
   if (V && M.run === 'single') return { kind: 'king', side: 'foe', title: V.name, text: [V.blurb, ...differs(V)].join(' ') };
+  if (M.position && M.run === 'single' && M.goal === 'flag') return { kind: 'flag', side: 'you', title: MODE.name,
+    text: 'A rabbit sits in the middle of the board. Take it, and the piece that took it carries it on its head: bring that piece back to your first row to win. If they take the piece carrying it, the rabbit rides theirs, and they win by carrying it to their first row. There are no Kings: the rabbit is the whole game.' };
   if (M.position && M.run === 'single') return { kind: 'king', side: 'foe', title: MODE.name,
     text: 'A layout from the piece trials: the same army on each side, theirs thinking. Take their King and keep yours. A King left where it can be taken is lost: there is no check, and no checkmate.' };
   return { kind: M.run === 'course' ? 'flag' : 'rabbit', side: M.run === 'course' ? 'you' : 'foe', title: MODE.name, text };

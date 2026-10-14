@@ -15,6 +15,7 @@ export const MENU = [
   { id: 'golf', href: 'play/?mode=golf', label: 'Golf' },
   { id: 'autochess', href: 'play/?mode=autochess', label: 'Autochess' },
   { id: 'variants', href: 'play/?mode=variants', label: 'Chess variants' },
+  { id: 'flag', href: 'play/?mode=flag', label: 'Capture the rabbit' },
   // Custom (2026-10-13): the workshop, Chaos (Go crazy) and the piece
   // trials in one place.
   { id: 'custom', href: 'lab/', label: 'Custom' },

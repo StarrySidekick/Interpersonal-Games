@@ -12,6 +12,14 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
+## 2026-10-14: rings up to what they could take, the King and shields, Capture the rabbit
+
+From Timothy: their rings run up to the first piece they could take and
+stop; a royal King never counts as the piece stepping onto a shielded
+square, and as a guard only against one attacker; and a mode of its own
+for capture the flag. All built (`docs/grove-modes.md`, "Rings up to what
+they could take").
+
 ## 2026-10-13, after release 55: move sets, shields underfoot, the rabbit moved on purpose
 
 From Timothy: shields on squares under the pieces; their purple rings
