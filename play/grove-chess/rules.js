@@ -280,7 +280,7 @@ export const canArm = (t, w) => !!PIECES[t]?.betza && WEAPON_KINDS.includes(w) &
     riding a head, not a ball), or null. */
 function enemyOn(s, side, sq) {
   const W = s.day.W, x = sq % W, y = (sq / W) | 0;
-  return (side === 'you' ? s.foes : s.pieces).find((q) => !q.taken && !q.flying && q.rides == null && q.type !== 'ball' && q.x === x && q.y === y) || null;
+  return (side === 'you' ? s.foes : s.pieces).find((q) => !q.taken && !q.flying && q.rides == null && q.type !== 'ball' && !q.bubble && q.x === x && q.y === y) || null;
 }
 /** The rabbit to capture is free on square sq. */
 const flagFree = (s, sq) => !!s.flag && !s.flag.by && s.flag.y * s.day.W + s.flag.x === sq;
@@ -612,20 +612,23 @@ export function look(s, x, y, side = 'you') {
     if (!(openCloud && empty)) return OFF;
   }
   const bram = isBramble(s, x, y);
+  // A piece in its bubble (Tile Chess, 2026-10-14: invincible until it
+  // first moves in the round) is a wall to the other side: nothing takes it,
+  // nothing passes it.
   if (gridFor === s) {
     const v = grid[y * s.day.W + x];
-    if (v > 0) return s.pieces[v - 1].type === 'ball' && s.day.rules.ballMove === 'hit' ? ENEMY : side === 'you' ? OWN : bram ? HIDDEN : ENEMY;
-    if (v < 0) return side === 'foe' ? OWN : bram ? HIDDEN : ENEMY;
+    if (v > 0) return s.pieces[v - 1].type === 'ball' && s.day.rules.ballMove === 'hit' ? ENEMY : side === 'you' ? OWN : bram ? HIDDEN : s.pieces[v - 1].bubble ? STUMP : ENEMY;
+    if (v < 0) return side === 'foe' ? OWN : bram ? HIDDEN : s.foes[-v - 1].bubble ? STUMP : ENEMY;
   } else for (const p of s.pieces)
     if (!p.taken && p.x === x && p.y === y) {
       // A ball that is hit (ballMove 'hit') is something either side can
       // move into: the move generators see it as a catch, and landing on it
       // knocks it on instead (knock, below).
       if (p.type === 'ball' && s.day.rules.ballMove === 'hit') return ENEMY;
-      return side === 'you' ? OWN : bram ? HIDDEN : ENEMY;
+      return side === 'you' ? OWN : bram ? HIDDEN : p.bubble ? STUMP : ENEMY;
     }
   if (gridFor !== s) for (const f of s.foes)
-    if (!f.taken && f.x === x && f.y === y) return side === 'foe' ? OWN : bram ? HIDDEN : ENEMY;
+    if (!f.taken && f.x === x && f.y === y) return side === 'foe' ? OWN : bram ? HIDDEN : f.bubble ? STUMP : ENEMY;
   // The rabbit to capture (goal 'flag', 2026-10-13), while nobody carries
   // it: something either side can take.
   if (s.flag && !s.flag.by && s.flag.x === x && s.flag.y === y) return ENEMY;
@@ -1187,6 +1190,10 @@ export function initialState(day) {
   if (day.clouds?.length) s.clouds = day.clouds.map((c) => ({ ...c }));
   // The rabbit to capture (goal 'flag'), on its square.
   if (day.flag) s.flag = { x: day.flag.x, y: day.flag.y, by: null, i: -1 };
+  // Bubbles (Tile Chess, 2026-10-14, Timothy: "a rule that gives every
+  // piece at the beginning of the round invincibility until it moves for the
+  // first time in the round, denoted by a bubble around the piece").
+  if (day.rules.bubbles) for (const q of [...s.pieces, ...s.foes]) if (!['ball', 'bunny', 'rabbit'].includes(q.type)) q.bubble = true;
   if (day.rules.first === 'them') { foesAct(s); s.opened = true; }
   return s;
 }
@@ -1477,6 +1484,7 @@ export function lost(s) {
     it made, if it made one: it may promote. Mutates. */
 function landFoe(s, f, x, y, m = null) {
   const k = s.foes.indexOf(f);
+  delete f.bubble;
   // A rabbit of theirs hopping onto one of their heads rides there.
   const mate = f.type === 'bunny' ? s.foes.find((q) => q !== f && !q.taken && q.x === x && q.y === y) : null;
   if (mate) { f.ate = -1; f.from = [f.x, f.y]; f.x = x; f.y = y; f.blocked = false; f.rides = s.foes.indexOf(mate); return; }
@@ -1746,44 +1754,16 @@ export function reachMaps(s, pattern = false) {
     }
     if (pattern && f.weapon !== 'sword' && f.weapon !== 'lance') for (const k of patternReach(s, f, 'foe', canTake(s.day.rules, f))) theirs.add(k);
   }
-  if (!pattern) return { yours, theirs, threat: theirs };
-  // What they can reach this turn (`threat`, for the shields) and, for the
-  // rings, their whole move set on an open board (moveSet, below).
-  const threat = new Set(theirs);
-  for (const f of s.foes) {
-    if (f.taken || f.flying || f.brain === 'pattern' || f.brain === 'leader' || f.brain === 'carrier' || !PIECES[f.type]?.moves) continue;
-    for (const k of moveSet(s, f, 'foe')) theirs.add(k);
-  }
-  return { yours, theirs, threat };
+  // Their rings (2026-10-14, Timothy: "the purple reach highlights seems to
+  // be still pushing past where a piece could reasonably capture"): where
+  // each piece can go or take, a line stopping at the first thing in its
+  // way and ringing it only if it could take it. A stunned piece still
+  // shows its reach, and a pawn its empty diagonals (patternReach). The
+  // look through their own pieces, ghosts and gates (releases 56 and 57)
+  // is gone. `threat` is the same set, for the shields.
+  return { yours, theirs, threat: theirs };
 }
 
-/**
- * The squares piece f's move set covers, for its reach rings (2026-10-13,
- * Timothy: "the purple reach outlines should reflect the move set of the
- * enemy pieces, even if they end up displaying those outlines underneath
- * friendly pieces. It's just supposed to show where they could go
- * regardless of whether or not they actually could on that turn"; then,
- * 2026-10-14: "the reach of enemy pieces up to the pieces they could take,
- * but not past that"). A line runs on until it meets something it could
- * take (a piece of yours, a statue that can be taken, the rabbit to
- * capture), rings that, and stops: so the first of yours in its way shows
- * a ring, and what stands behind it does not. Everything else is looked
- * through (their own pieces, ghosts, gates, a stun), and a move that only
- * takes (a pawn's diagonal, a cannon's shot) shows with nothing on it.
- * Only the board's own shape (its edge, a square gone) stops it.
- */
-function moveSet(s, f, side) {
-  if (f.suit === 'spirals' && !s.day.rules.wrap) s = wrapView(s);
-  const day = s.day, W = day.W, wrap = !!day.rules.wrap, fwd = side === 'you' ? 1 : -1, takes = side === 'you' || canTake(day.rules, f);
-  const spot = (x, y) => (wrap ? fold(day, x, y) : [x, y]);
-  const gap = (x, y) => { const [a, b] = spot(x, y); return !onBoard(day, a, b) || shrunk(s, a, b) || crumbled(s, a, b) || (wrap && a === f.x && b === f.y); };
-  const reach = (x, y) => { if (gap(x, y)) return OFF; const [a, b] = spot(x, y); return look(s, a, b, side) === ENEMY ? (takes ? ENEMY : OFF) : EMPTY; };
-  const full = (x, y) => (gap(x, y) ? OFF : ENEMY);
-  const out = new Set(), add = (m) => { const [x, y] = spot(m.x, m.y); if (onBoard(day, x, y) && (x !== f.x || y !== f.y)) out.add(y * W + x); };
-  for (const m of PIECES[f.type].moves(reach, f, fwd, day)) add(m);
-  if (takes && TAKES_ONLY.has(f.type)) for (const m of PIECES[f.type].moves(full, f, fwd, day)) if (m.cap) add(m);
-  return out;
-}
 
 // Pieces with moves that only take, never step (a pawn's diagonals, a
 // cannon's or vao's shot over a screen): their empty target squares are
@@ -2229,6 +2209,7 @@ function knock(s, b, fx, fy) {
     made, if it made one: it may promote. Mutates. */
 function landMine(n, i, x, y, m = null) {
   const p = n.pieces[i], riding = p.rides != null;
+  delete p.bubble; // its first move this round: the bubble is gone
   const mate = n.pieces.find((q, k) => k !== i && !q.taken && q.type !== 'ball' && q.x === x && q.y === y);
   // A rabbit hopping onto a head rides there (2026-10-11).
   if (mate && p.type === 'bunny') {
@@ -2464,6 +2445,9 @@ function shrinkStep(s) {
 function afterMove(n) {
   const r = n.day.rules;
   if (n.won || lost(n)) return;
+  // Bubbles (Tile Chess) last a few turns at most: then every one still
+  // left bursts, so a King that never moves cannot hide in its own.
+  if (r.bubbles && r.bubbleTurns > 0 && n.t >= r.bubbleTurns) for (const q of [...n.pieces, ...n.foes]) delete q.bubble;
   // Wandering clouds (2026-10-13) drift a square each turn, any way, over
   // anything; which way is drawn from the level and the turn, so the same
   // game drifts the same way on any phone.
@@ -2596,12 +2580,12 @@ export function replay(day, moves) {
 
 export function stateKey(s) {
   let k = '';
-  for (const p of s.pieces) k += p.taken ? '--' : p.x + ',' + p.y + (p.lives > 1 ? 'L' + p.lives : '') + (p.starUsed ? '*' : '') + (p.stun ? 'z' : '') + (p.promoted ? p.type : '') + ';';
+  for (const p of s.pieces) k += p.taken ? '--' : p.x + ',' + p.y + (p.lives > 1 ? 'L' + p.lives : '') + (p.starUsed ? '*' : '') + (p.stun ? 'z' : '') + (p.bubble ? 'o' : '') + (p.promoted ? p.type : '') + ';';
   if (s.bonus) k += `|b${s.bonus.p}${s.bonus.cap ? 'c' : ''}`;
   if (s.cloudy) k += '|c';
   if (s.day.rules.oneMove) k += `|f${s.ft || 0}`; // whose turn it is on their side
   k += '|';
-  for (const f of s.foes) k += f.taken ? '--' : f.x + ',' + f.y + ',' + f.i + (f.lives > 1 ? 'L' + f.lives : '') + (f.starUsed ? '*' : '') + (f.mx > 0 ? '+' : '-') + (f.my > 0 ? '+' : '-') + (f.idle ? 'i' + f.idle : '') + (f.stun ? 'z' : '') + (f.promoted ? f.type : '') + ';';
+  for (const f of s.foes) k += f.taken ? '--' : f.x + ',' + f.y + ',' + f.i + (f.lives > 1 ? 'L' + f.lives : '') + (f.starUsed ? '*' : '') + (f.mx > 0 ? '+' : '-') + (f.my > 0 ? '+' : '-') + (f.idle ? 'i' + f.idle : '') + (f.stun ? 'z' : '') + (f.bubble ? 'o' : '') + (f.promoted ? f.type : '') + ';';
   if (s.flag) k += `|F${s.flag.by || ''}${s.flag.i},${s.flag.x},${s.flag.y}`;
   if (s.hole) k += `|h${s.hole.x},${s.hole.y},${s.hole.i}${s.hole.mx > 0 ? '+' : '-'}${s.hole.my > 0 ? '+' : '-'}`;
   // Which squares are gone matters; the order they went in does not.

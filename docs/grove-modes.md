@@ -821,6 +821,73 @@ things in the catalog). Gaps: different armies on each side are only
 "any order" of the same pieces; Kung fu descent (real time) has none of the
 new pieces.
 
+## Tile Chess, and rings that stop where a piece could reach (2026-10-14, later)
+
+Timothy: "new descent variant: every round you and your opponent pick a
+tile to reveal around the board, expanding its size. every tile also
+contains an icon with an suit or weapon upgrade on it, when flipped you get
+it. this replaces the current method of just getting the choice of two
+every round. the side that won the round gets the first pick of tile to
+flip. when the board reaches a new threshold of cell amount, corresponding
+to the amount that would be equal the a board size higher, each side is
+given a random new piece, both the same for each side. ghosts from descent
+are replaced with four random (destroyable) statues, and a rule that gives
+every piece at the beginning of the round invinsibility until it moves for
+the first time in the round, denotes by a bubble around the piece. this
+mode will be called tile chess. also no rabbit here for now." And: "the
+purple reach highlights seems to be still pushing past where a piece could
+reasonably capture."
+
+### Their rings
+
+The look through their own pieces, ghosts and gates (releases 56 and 57)
+is gone: a line stops at the first thing in its way, ringing it only if
+it could take it. What stays from those releases: a stunned piece still
+shows its reach, and a pawn its empty diagonals. The rings are what they
+reach this turn, the same set the shields use.
+
+### Tile Chess (`tiles` in `modes.js`, in every menu)
+
+- **The lines and the goal** are the descent's: rook, bishop, King,
+  knight, pawn, mirrored, on five by six; take their King to win a round;
+  lose yours and the run is over. Their side thinks, a step further every
+  three rounds. No rabbit, no ghosts. A pawn on the far row becomes a copy
+  of another of yours.
+- **Tiles** (`tiles.js`; run setting `upgrades: 'tiles'`). The board is
+  carried from round to round. After every round each side turns over one
+  tile beside the board (on any of its four sides), the winner first; out
+  of moves, they go first. The board grows by that square, and the suit or
+  weapon on the tile goes to the side that turned it (you choose the piece;
+  theirs goes on one of theirs at random, never their King). Every tile's
+  upgrade shows before it is turned, fixed from when the tile first
+  appears. Their side picks a tile some piece of theirs can use, nearest
+  their own row. Your pick is a tap on the board between rounds.
+- **A size up, a piece each.** When the board has as many squares as the
+  next size up (6 by 7 is 42, then 56, 72, 90 ...), each side gets the same
+  new piece, a knight, a bishop or a rook, at random.
+- **The board** for each round is the box round every square turned over,
+  every other square of it a gap (level setting `tiles`, `lab.js`). Both
+  lines stand on the first board's home rows, centred on its middle file; a
+  line longer than the row spills onto the row in front.
+- **Four statues** in the middle each round, which either side can break by
+  taking one.
+- **Bubbles** (level setting `bubbles`, Armies). Every piece starts each
+  round in a bubble: nothing can take it, and to the other side it is a
+  wall, until it moves. Moving pops it, in a pale puff. Drawn as a pale
+  ring round the piece, pixel by pixel.
+- **A choice that was not in the message:** every bubble still left
+  bursts after four turns (`bubbleTurns`, 0 to 12; 0 is never). Without
+  that, a King that never moved could never be taken, and no round could be
+  won: the bots' rounds all ran out of moves until it was added.
+
+Paths moved: world (the board itself grows, a different shape every run,
+and its shape is the player's doing), power (upgrades on both sides, now a
+contested choice: what you take, they cannot), and mastery (where to grow
+the board, and which tile to deny them; the opening is safe, so the first
+moves are about position). Notated: the tiles and their icons (visual),
+the bubbles and their pop (visual), the line saying what each side took
+and when a piece joins (written), a fanfare at each size up (audial).
+
 ## Rings up to what they could take, the King and the shields, and Capture the rabbit (2026-10-14)
 
 Timothy: "the purple highlight should be the reach of enemy pieces up to

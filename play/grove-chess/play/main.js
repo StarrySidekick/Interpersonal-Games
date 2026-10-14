@@ -13,6 +13,7 @@ import {
   allMoves, holeOpen, crumbled, shrunk, apply, showdown, firstCaptures, onBoard, leaderDesc, placeRevived, hopIn, flagAt, carrierOf, rabbitChosen
 } from '../rules.js';
 import { pickMove } from '../choose.js';
+import { newTiles, fillOffers, flip, frontier, tier, bounds, layout, foePick, tileKey, tileXY, SIZES } from '../tiles.js';
 import { solveLevel } from '../solve.js';
 import { scene, sceneFrame, sprite, crispWidth } from '../board.js';
 import { piecesSheet } from '../sheet.js';
@@ -28,7 +29,7 @@ import { MODES, modeSettings, saveModeSettings, resetModeSettings, cleanMode, PA
 import {
   newRun, rewardsFor, applyReward, cardText, handSettings, afterLevel, pieceOf, SUITS, JOKERS,
   WAYSTONES, litWaystones, newlyLit, startChoices, keepsakeCards, acornsFor, priceOf, shopStock,
-  canCombine, applyCombine, combineText, boardCards, boardCardText, applyMerge, mergeTargets, foeUpgrade, WEAPONS, canTakeWeapon, carriesText
+  canCombine, applyCombine, combineText, boardCards, boardCardText, applyMerge, mergeTargets, foeUpgrade, WEAPONS, canTakeWeapon, carriesText, foeCanUse, foeTake
 } from '../run.js';
 import { setupPanel, setupState, playOut } from '../autosetup.js';
 import { VARIANTS, VARIANT_ORDER, differs } from '../variants.js';
@@ -115,7 +116,7 @@ function newSession() {
   // order (like Microchess: rook, bishop, knight, King), and theirs is the
   // same, facing it.
   let foes = null;
-  if (M.run === 'descent' && M.upgrades === 'each') {
+  if (M.run === 'descent' && oneBoard()) {
     const given = M.startPool.filter((k) => !catalog.vetoed.includes(k) || k === 'king');
     start.splice(0, start.length, ...(given.includes('king') ? given : [...given, 'king']));
     // Theirs facing yours on the same files (Microchess), or yours reversed
@@ -123,6 +124,8 @@ function newSession() {
     foes = M.foeLine === 'turned' ? start.slice().reverse() : start.slice();
   }
   if (M.run === 'descent' || M.run === 'rounds') session.run = newRun(start, M.maxPieces, foes);
+  // Tile Chess (2026-10-14): the board is carried too, and no rabbit.
+  if (M.upgrades === 'tiles' && session.run) { session.run.tiles = newTiles(M.w, M.h); session.run.foeRabbit = false; }
   // The set you were dealt: laying out your pieces opens once it changes.
   session.dealt = session.run ? JSON.stringify(session.run.hand) : null;
 }
@@ -137,7 +140,8 @@ const setChanged = () => !!session.run && JSON.stringify(session.run.hand) !== s
     thread (and kept, so asking again is free). */
 function find(n = session.n) {
   const hand = session.run ? handSettings(session.run) : null;
-  const key = `${n}|${JSON.stringify(hand?.hand || null)}|${JSON.stringify(hand?.handMods || null)}|${JSON.stringify(hand?.foeHand || null)}|${JSON.stringify(hand?.foeMods || null)}|${(session.run?.jokers || []).join(',')}`;
+  if (hand && session.run.tiles) hand.tiles = layout(session.run.tiles);
+  const key = `${n}|${JSON.stringify(hand?.hand || null)}|${JSON.stringify(hand?.handMods || null)}|${JSON.stringify(hand?.foeHand || null)}|${JSON.stringify(hand?.foeMods || null)}|${(session.run?.jokers || []).join(',')}|${hand?.tiles ? hand.tiles.open.join('.') : ''}`;
   if (session.found.has(key)) return session.found.get(key);
   // A rolled level (Chaos, the daily's way) that finds nothing passing gets
   // fresh rolls, up to six, before settling for the best it saw: the daily's
@@ -163,7 +167,7 @@ function findOnce(n, hand, attempt) {
   // and stuff for the level shouldn't need to happen every level, as we will
   // just deal with the random suits upgrades"): the board is the two lineups
   // as they stand, so it is laid out straight away, with no search and no par.
-  if (M.upgrades === 'each') return Promise.resolve({ settings, seed: session.seed + n * 1000, par: null, measure: null, autoBest: null, setups: null, passed: true });
+  if (oneBoard()) return Promise.resolve({ settings, seed: session.seed + n * 1000, par: null, measure: null, autoBest: null, setups: null, passed: true });
   const msg = { settings, seed: session.seed + n * 1000, parMin: settings.parMin, parMax: settings.parMax, maxMs: 15000,
     pool: rabbitPool(settings, myRabbits(), Math.max(1, settings.mine)) };
   if (M.roll !== 'fixed') msg.maxMs = 8000;
@@ -195,7 +199,10 @@ function myRabbits() {
 const kingLocked = (h) => M.royal && M.run === 'descent' && h.base === 'king' && !h.fused;
 
 const furOf = (f) => ((f.brain === 'pattern' || f.brain === 'possessed' || f.mind) && FUR[f.patternName]) || null;
-const levelWord = () => ({ descent: 'Depth', course: 'Hole', rounds: 'Round', single: 'Level' })[M.run];
+const levelWord = () => ({ descent: M.upgrades === 'tiles' ? 'Round' : 'Depth', course: 'Hole', rounds: 'Round', single: 'Level' })[M.run];
+/** A descent whose sides are given and upgraded a board at a time: one
+    upgrade each (the descent), or tiles turned over (Tile Chess). */
+const oneBoard = () => M.upgrades === 'each' || M.upgrades === 'tiles';
 
 // --- Playing a level. --------------------------------------------------------
 
@@ -246,7 +253,8 @@ function goalCard() {
   if (session.seen.has('goal')) return null;
   session.seen.add('goal');
   let text = {
-    descent: M.upgrades === 'each' && M.goal === 'carrier' ? `A rabbit rides one of their pieces. ${M.rabbitMove === 'random' ? `Every ${M.rabbitHop === 1 ? 'turn' : `${M.rabbitHop} turns`} it hops to another, at random.` : 'They can move it to another of their pieces, but that is their move for the turn.'} Take the piece it is on to fall to the next board, where you choose a suit or a weapon and they get one too. Keep your King: if they take it, the descent is over. Anything else of yours they take comes back on the next board.${M.promote === 'copy' ? ' A pawn that reaches the far row becomes a copy of another of your pieces.' : ''}`
+    descent: M.upgrades === 'tiles' ? 'Take their King to win the round. After each round you each turn over a tile at the edge of the board, the winner first: the board grows by that square, and the suit or weapon on the tile is yours. When the board has as many squares as the next size up, both sides get the same new piece. Every piece starts each round in a bubble: nothing can take it until it moves. Four statues stand in the middle; either side can break one by taking it. Keep your King: if they take it, the run is over.'
+      : M.upgrades === 'each' && M.goal === 'carrier' ? `A rabbit rides one of their pieces. ${M.rabbitMove === 'random' ? `Every ${M.rabbitHop === 1 ? 'turn' : `${M.rabbitHop} turns`} it hops to another, at random.` : 'They can move it to another of their pieces, but that is their move for the turn.'} Take the piece it is on to fall to the next board, where you choose a suit or a weapon and they get one too. Keep your King: if they take it, the descent is over. Anything else of yours they take comes back on the next board.${M.promote === 'copy' ? ' A pawn that reaches the far row becomes a copy of another of your pieces.' : ''}`
       : M.upgrades === 'each' ? 'Take their King to fall to the next board, where each side gets an upgrade. Keep yours: if they take your King, the descent is over. Anything else of yours they take comes back on the next board. One rabbit leads their side, riding on their King: tap it to see what kind it is.'
       : M.goal === 'king' ? 'Take their King to fall to the next level, where you find something. Keep yours: if they take your King, the descent is over. Any other piece of yours that is taken is gone for good.'
       : 'Take every piece of theirs to fall to the next level, where you find something. A piece of yours that is taken is gone for good; when they are all gone, so is the descent.',
@@ -698,14 +706,19 @@ async function levelOver(end) {
   const kingGone = level.rules.royal && end.pieces.some((p) => p.taken && p.type === 'king');
   // Nothing is lost for good with one upgrade a board (2026-10-13): every
   // board starts with your whole lineup again.
-  if (M.upgrades !== 'each') afterLevel(session.run, end);
+  if (!oneBoard()) afterLevel(session.run, end);
   if (kingGone) { status('They took your King.'); await sleep(1600); return runOver('They took your King.'); }
   if (allGone) { status('They took everything.'); await sleep(1600); return runOver('Every piece you had is gone.'); }
   if (!won && M.outOfMoves === 'end') { status('Out of moves.'); await sleep(1600); return runOver('You ran out of moves.'); }
-  if (M.upgrades === 'each') {
+  if (oneBoard()) {
     // One upgrade a board, each side: on every new board, won or not.
     session.n++; session.run.depth = session.n;
     if (!test) { const r = mine(); r.best = Math.max(r.best || 0, session.n); saveRecords(); }
+    if (M.upgrades === 'tiles') {
+      status(won ? 'Round won. You turn a tile over first.' : 'Out of moves. They turn a tile over first.');
+      await sleep(900);
+      return between({ note: `Round ${session.n}`, board: true, won });
+    }
     status(won ? 'The floor gives way.' : 'Out of moves: the floor gives way anyway.');
     if (!calm()) { await sleep(400); if (board.collapse) await board.collapse(); }
     return between({ note: `Depth ${session.n}`, board: true, fall: true });
@@ -736,17 +749,17 @@ async function levelOver(end) {
 
 let fall = null;
 
-async function between({ note, sub = '', rewards = false, combine = false, shop: shopping = false, fall: falling = false, board: newBoard = false }) {
+async function between({ note, sub = '', rewards = false, combine = false, shop: shopping = false, fall: falling = false, board: newBoard = false, won = false }) {
   show('between');
   $('#betweennote').textContent = note;
   $('#betweensub').textContent = sub;
-  $('#offer').hidden = true; $('#pickbox').hidden = true; $('#betweennext').hidden = true;
+  $('#offer').hidden = true; $('#pickbox').hidden = true; $('#betweennext').hidden = true; $('#tilebox').hidden = true;
   const kinds = session.run ? session.run.hand.map((h) => pieceOf(h, session.run.made).type) : [];
   fall = falling && !calm() && kinds.length ? startFall($('#fallcv'), kinds) : null;
   $('#fallcv').hidden = !fall;
   if (rewards && session.run) await reward({ k: 0, note: null });
   if (shopping && session.run) await shop();
-  if (newBoard && session.run) await boardUpgrade();
+  if (newBoard && session.run) await (M.upgrades === 'tiles' ? tileStep(won) : boardUpgrade());
   if (combine && session.run && session.claimed?.length) await combineStep();
   const t0 = performance.now();
   const slow = setTimeout(() => { $('#betweensub').textContent = 'Finding the next one…'; }, 1500);
@@ -765,7 +778,7 @@ async function between({ note, sub = '', rewards = false, combine = false, shop:
 }
 
 /** Offer the rewards for a finished level; resolves once one is taken. */
-function reward({ k = 0, note = null, cards: given = null, room = false } = {}) {
+function reward({ k = 0, note = null, cards: given = null, room = false, auto = false } = {}) {
   const fairy = M.run !== 'descent' || session.n >= M.fairyFrom;
   const run = session.run, cards = (given || rewardsFor(run, rng(`reward:${session.seed}:${session.n}${k ? ':' + k : ''}`), catalog.vetoed, fairy))
     .filter((c) => c.kind !== 'joker' || M.jokers)
@@ -806,6 +819,9 @@ function reward({ k = 0, note = null, cards: given = null, room = false } = {}) 
       paint();
       $('#pickdone').onclick = () => { gap?.remove(); if (card.kind === 'merge') applyMerge(run, picked[0], card.type); else applyReward(run, card, picked, catalog.vetoed); done(); };
     };
+    // A tile turned over (Tile Chess): its one card, straight to choosing
+    // the piece for it.
+    if (auto && cards.length === 1) { $('#betweensub').textContent = note || ''; return choose(cards[0]); }
     const head = note || (given ? 'A keepsake, from the waystones. Take one.' : run.hand.length < run.maxPieces ? 'Something is down here with you. Take one of them.' : 'Your hand is full. Take an upgrade.');
     box.replaceChildren(el('p', { class: 'center' }, head),
       ...cards.map((c) => {
@@ -851,6 +867,78 @@ async function boardUpgrade() {
   const cards = boardCards(run, rand);
   if (cards.length) await reward({ cards, note: 'A new board. Choose a suit or a weapon.', room });
   session.found.clear();
+}
+
+/** Tile Chess (2026-10-14): after a round each side turns over one tile
+    at the edge of the board, the winner first. The board grows by that
+    square and the suit or weapon on it goes to the side that turned it.
+    When the board reaches as many squares as the next size up, both sides
+    get the same new piece. */
+async function tileStep(won) {
+  const run = session.run, t = run.tiles, rand = rng(`tiles:${session.seed}:${session.n}`);
+  const before = tier(t.open.length), lines = [];
+  fillOffers(t, rand);
+  const canYou = (card) => card && (card.kind === 'suit' ? run.hand.some((h) => !h.suit) : run.hand.some((h) => canTakeWeapon(h, card.weapon, run.made)));
+  for (const who of won ? ['you', 'foe'] : ['foe', 'you']) {
+    if (!Object.keys(t.offers).length) break;
+    if (who === 'foe') {
+      const k = foePick(t, (c) => foeCanUse(run, c), rand), card = flip(t, k);
+      const said = foeTake(run, card, rand);
+      lines.push(`They turn over a tile${said ? `: ${said}` : ', but none of their pieces can take what is on it'}.`);
+      paintTiles({ last: k, note: lines.join(' ') });
+      sfx.gain(); await sleep(1300);
+    } else {
+      const k = await pickTile(lines.join(' '));
+      const card = flip(t, k);
+      paintTiles({ last: k, note: '' });
+      sfx.gain(); haptic(14);
+      const name = card.kind === 'suit' ? `${SUITS[card.suit].mark} ${SUITS[card.suit].name}` : `${WEAPONS[card.weapon].mark} ${WEAPONS[card.weapon].name}`;
+      if (canYou(card)) await reward({ cards: [card], note: `You turned over ${name}. Choose the piece it goes to.`, auto: true });
+      else { lines.push(`You turned over ${name}, but none of your pieces can take it.`); await sleep(900); }
+    }
+    fillOffers(t, rand);
+  }
+  // A size up: the same new piece for each side.
+  const after = tier(t.open.length);
+  if (after > before) {
+    const pool = ['knight', 'bishop', 'rook'].filter((k) => !catalog.vetoed.includes(k));
+    const type = (pool.length ? pool : ['knight'])[Math.floor(rand() * (pool.length || 1))];
+    run.hand.push({ base: type }); run.foes.push({ base: type });
+    const [w, h] = SIZES[after];
+    sfx.fanfare(2); haptic([30, 40, 30]);
+    lines.push(`The board is as big as ${w} by ${h} now: a ${PIECES[type].name.toLowerCase()} joins each side.`);
+  }
+  $('#tilebox').hidden = true;
+  $('#betweensub').textContent = lines.join(' ');
+  session.found.clear();
+}
+
+/** The board as it stands, for choosing a tile: open squares, and round
+    them the tiles that could be turned over, each with its upgrade.
+    `pick(k)`, if given, is called with the tile tapped. */
+function paintTiles({ pick = null, last = null, note = '' } = {}) {
+  const t = session.run.tiles, box = $('#tilebox'), { x0, y0, x1, y1 } = bounds(t, 1);
+  const cols = x1 - x0 + 1, rows = y1 - y0 + 1, open = new Set(t.open);
+  const size = Math.max(22, Math.min(44, Math.floor(340 / Math.max(cols, rows))));
+  const grid = el('div', { class: 'tilegrid', style: `grid-template-columns: repeat(${cols}, ${size}px); grid-auto-rows: ${size}px` });
+  for (let y = y1; y >= y0; y--) for (let x = x0; x <= x1; x++) {
+    const k = tileKey(x, y), card = t.offers[k];
+    if (open.has(k)) grid.append(el('div', { class: `tile open${(x + y) % 2 ? ' dark' : ''}${k === last ? ' last' : ''}` }));
+    else if (card) {
+      const mark = card.kind === 'suit' ? SUITS[card.suit].mark : WEAPONS[card.weapon].mark, colour = card.kind === 'suit' ? SUITS[card.suit].colour : WEAPONS[card.weapon].colour;
+      const name = card.kind === 'suit' ? SUITS[card.suit].name : WEAPONS[card.weapon].name;
+      grid.append(pick ? el('button', { class: 'tile offer', title: name, 'aria-label': `Turn over: ${name}`, style: `color:${colour}`, onclick: () => pick(k) }, mark)
+        : el('div', { class: 'tile offer', title: name, style: `color:${colour}` }, mark));
+    } else grid.append(el('div', { class: 'tile none' }));
+  }
+  box.replaceChildren(el('p', { class: 'center' }, note || (pick ? 'Turn over a tile at the edge of the board: the board grows by that square, and what is on it is yours.' : '')), grid,
+    el('p', { class: 'center dim small' }, `${t.open.length} squares. ${tier(t.open.length) + 1 < SIZES.length ? `A new piece each at ${SIZES[tier(t.open.length) + 1][0] * SIZES[tier(t.open.length) + 1][1]}.` : ''}`));
+  box.hidden = false;
+}
+
+/** Wait for you to tap a tile; resolves with its key. */
+function pickTile(note) {
+  return new Promise((resolve) => paintTiles({ note: note ? `${note} Your turn: tap a tile to turn it over.` : '', pick: (k) => resolve(k) }));
 }
 
 /** Combine one claimed piece of theirs with one of yours, or neither. */

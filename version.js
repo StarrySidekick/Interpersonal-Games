@@ -2,7 +2,7 @@
 // main: one more for every push (2026-10-11). Shown at the foot of the home
 // page and of every Grove Chess page's menu. Do not edit by hand.
 export const RELEASE = {
-  "number": 57,
+  "number": 58,
   "date": "2026-10-14",
-  "note": "Their rings run up to the first piece they could take; the King never steps in for a shield and guards only against one attacker; Capture the rabbit is a mode of its own"
+  "note": "Tile Chess: turn over tiles round the board for suits and weapons, a new piece each at every size up, four breakable statues, bubbles until a piece first moves; their rings no longer look through anything"
 };

@@ -111,6 +111,10 @@ export const SCHEMA = [
     { key: 'dealKing', sub: 'yours', label: 'Always dealt a King', type: 'bool', def: true, help: 'With a royal King: if the deal has none, your first piece becomes one.' },
     { key: 'promote', label: 'A pawn on the far row', type: 'choice', def: 'none', options: opts(['none', 'Stays a pawn'], ['copy', 'Becomes a copy of another of yours']),
       help: 'Copy (Timothy, 2026-10-13): it turns into any one kind of the other pieces its side has on the board (not a pawn or the King), chosen as it gets there. Theirs too.' },
+    { key: 'bubbles', label: 'Every piece starts in a bubble', type: 'bool', def: false,
+      help: 'Tile Chess (Timothy, 2026-10-14): at the start of every round each piece, yours and theirs, sits in a bubble, and nothing can take it until it moves for the first time. A piece in its bubble is a wall to the other side: their lines stop at it, and no weapon touches it.' },
+    { key: 'bubbleTurns', label: 'Bubbles last at most', type: 'int', min: 0, max: 12, def: 4, unit: 'turns',
+      help: 'Every bubble still left bursts after this many turns, so a King that never moves cannot hide in its bubble all game. 0: a bubble lasts until its piece moves, however long that is.' },
     { key: 'mineRows', sub: 'yours', label: 'Start within the bottom', type: 'int', min: 1, max: 5, def: 1, unit: 'rows', help: 'When not lined up.' },
     { key: 'arrange', sub: 'yours', label: 'Lay out your pieces first', type: 'bool', def: true,
       help: 'Before the first move, put your pieces where you like in your first two rows (Timothy, 2026-10-10). Nowhere that lets either side take a piece on its first move. Par is worked out again for your layout.' },
@@ -389,6 +393,16 @@ export function clean(raw) {
   // A starting position given outright (the piece trials, 2026-10-13): an
   // extended FEN (variants.js readFen). Not on the page.
   if (typeof raw?.position === 'string' && /^[0-9a-zA-Z/[\]-]{3,400}$/.test(raw.position)) s.position = raw.position;
+  // A board of tiles (Tile Chess, 2026-10-14): `tiles` is { w, h, open
+  // (squares y * w + x that are board), home: [your row, their row], cx
+  // (the file the lines centre on) }. Every other square is a gap. Not on
+  // the page; a run carries it.
+  const T = raw?.tiles;
+  if (T && Number.isInteger(T.w) && Number.isInteger(T.h) && T.w >= 3 && T.h >= 3 && T.w <= 16 && T.h <= 16 && Array.isArray(T.open) && Array.isArray(T.home)) {
+    const open = [...new Set(T.open.filter((q) => Number.isInteger(q) && q >= 0 && q < T.w * T.h))];
+    const row = (y) => Math.max(0, Math.min(T.h - 1, y | 0));
+    if (open.length >= 12) { s.tiles = { w: T.w, h: T.h, open, home: [row(T.home[0]), row(T.home[1])], cx: Math.max(0, Math.min(T.w - 1, T.cx | 0)) }; s.w = T.w; s.h = T.h; }
+  }
   // Run rules carried by a level (the descent's jokers).
   if (raw?.movesPerTurn === 2) s.movesPerTurn = 2;
   if (raw?.lazyFoes) s.lazyFoes = true;
@@ -514,13 +528,21 @@ export function makeLevel(settings, seed) {
   if (S.variant !== 'none' && VARIANTS[S.variant]) return variantLevel(S, seed);
   if (S.position) { const L = positionLevel(S, seed); if (L) return L; }
   const rand = rng(`lab:${seed}`);
-  const W = S.w, H = S.h;
+  const T = S.tiles, W = T ? T.w : S.w, H = T ? T.h : S.h;
   const need = S.mine + (S.mirror ? S.mine : S.foes) + S.rabbits + 2 + S.statues;
 
-  let holes = shapeHoles(S.shape, W, H, rand);
-  for (let i = 0; i < S.holes; i++) holes.add(Math.floor(rand() * W * H));
-  holes = keepLargest(W, H, holes);
-  if (W * H - holes.size < need) holes = new Set(); // too little board left: fall back to the rectangle
+  let holes;
+  if (T) {
+    // A board of tiles: the squares turned over so far, every other one a gap.
+    const open = new Set(T.open);
+    holes = new Set();
+    for (let q = 0; q < W * H; q++) if (!open.has(q)) holes.add(q);
+  } else {
+    holes = shapeHoles(S.shape, W, H, rand);
+    for (let i = 0; i < S.holes; i++) holes.add(Math.floor(rand() * W * H));
+    holes = keepLargest(W, H, holes);
+    if (W * H - holes.size < need) holes = new Set(); // too little board left: fall back to the rectangle
+  }
 
   // Stumps and bramble are out for now; the rules engine still expects the
   // fields (the first two daily boards use them), so they stay, empty.
@@ -582,6 +604,18 @@ export function makeLevel(settings, seed) {
     return Array.from({ length: n }, (_, i) => { const c = row[at + i]; if (!c || !free(c)) return place([y]); taken.add(c[1] * W + c[0]); return { x: c[0], y: c[1] }; });
   };
   const ordered = S.inOrder && S.hand && S.foeHand;
+  /** A board of tiles: n squares along home row y0, centred on file cx,
+      left to right. A square that is a gap or taken moves to the nearest
+      free one on that row, then on the rows in front (dir: +1 for you, -1
+      for them), so a line longer than the row spills forward. */
+  const tileLine = (y0, n, dir) => Array.from({ length: n }, (_, i) => {
+    const x0 = T.cx - Math.floor((n - 1) / 2) + i;
+    for (let y = y0; y >= 0 && y < H; y += dir) {
+      const row = cells.filter((c) => c[1] === y && free(c)).sort((a, b) => Math.abs(a[0] - x0) - Math.abs(b[0] - x0) || a[0] - b[0]);
+      if (row.length) { const [x] = row[0]; taken.add(y * W + x); return { x, y }; }
+    }
+    return place([y0]);
+  });
   // Square by square (cells, the piece trials): no dice at all.
   const exact = S.cells && S.foeCells;
   const fromCells = (list, mods, side) => list.map((type, i) => {
@@ -591,7 +625,7 @@ export function makeLevel(settings, seed) {
     taken.add(y * W + x);
     return { type, x, y, ...(mods?.[i] || {}) };
   }).filter(Boolean);
-  const mySpots = exact ? null : ordered ? inRow(rows[0], myTypes.length) : S.lineup ? lineUp(rows, myTypes.length) : null;
+  const mySpots = exact ? null : T && ordered ? tileLine(T.home[0], myTypes.length, 1) : ordered ? inRow(rows[0], myTypes.length) : S.lineup ? lineUp(rows, myTypes.length) : null;
   let pieces = exact ? fromCells(S.cells, S.cellMods, 'you') : myTypes.map((type, i) => ({ type, ...(mySpots ? mySpots[i] : place(bottom)), ...(S.handMods?.[i] || {}) }));
 
   let foes;
@@ -607,7 +641,7 @@ export function makeLevel(settings, seed) {
     // on the row in front of them (2026-10-12).
     const far = rows.slice().reverse(), mods = S.foeMods || [];
     const line = S.foeHand.map((type, i) => ({ type, ...(mods[i] || {}) })).filter((f) => f.type !== 'bunny');
-    const spots = ordered ? inRow(far[0], line.length) : lineUp(far, line.length);
+    const spots = T && ordered ? tileLine(T.home[1], line.length, -1) : ordered ? inRow(far[0], line.length) : lineUp(far, line.length);
     foes = line.map((f, i) => ({ ...f, ...spots[i] }));
     for (const t of S.foeHand) if (t === 'bunny') foes.push({ type: 'bunny', ...place(far.slice(1, 2)) });
   } else if (S.lineup) {
@@ -722,7 +756,9 @@ export function makeLevel(settings, seed) {
     for (const [x] of row) { day.stumps.add(y * W + x); day.statueKinds.set(y * W + x, kinds[Math.floor(rand() * kinds.length)]); }
     day.statueOrder = shuffled(row.map(([x]) => y * W + x), rand);
   } else if (S.statues) {
-    const mid = rows.slice(S.lineup ? 1 : S.mineRows, S.lineup ? -1 : -S.foeRows);
+    // On a board of tiles, between the two lines, not in front of either.
+    const between = T ? rows.filter((y) => y > T.home[0] + 1 && y < T.home[1] - 1) : null;
+    const mid = T ? (between.length ? between : rows.filter((y) => y > T.home[0] && y < T.home[1])) : rows.slice(S.lineup ? 1 : S.mineRows, S.lineup ? -1 : -S.foeRows);
     const pool = cells.filter((c) => (mid.length ? mid.includes(c[1]) : true) && free(c));
     const kinds = ['pawn', 'rook', 'knight', 'bishop', 'king', 'queen'];
     day.statueKinds = new Map();
@@ -807,7 +843,7 @@ export function makeLevel(settings, seed) {
       ...(S.geared ? { geared: true } : {}),
       ...(S.movesPerTurn === 2 ? { movesPerTurn: 2 } : {}), ...(S.lazyFoes ? { lazyFoes: true } : {}),
       ...(day.statueOrder ? { statuesOpen: true } : {}),
-      ...(S.statuesTake && !S.realtime ? { statuesTake: true } : {}),
+      ...(S.statuesTake && !S.realtime ? { statuesTake: true } : {}), ...(S.bubbles && !S.realtime ? { bubbles: true, bubbleTurns: S.bubbleTurns } : {}),
       ...(goal === 'capture' ? { captureN: S.captureN } : {}), ...(goal === 'carrier' ? { rabbitHop: S.rabbitHop, rabbitSides: S.rabbitSides, rabbitMove: S.rabbitMove } : {}),
       ...(S.promote === 'copy' ? { promote: 'copy' } : {}),
       crumble: S.ground === 'crumble', shrink: S.ground === 'shrink' ? 'random' : S.ground === 'spiral' ? 'spiral' : null,

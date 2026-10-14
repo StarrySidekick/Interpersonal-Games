@@ -499,6 +499,40 @@ export function foeUpgrade(run, rand) {
   return null;
 }
 
+/** Can some piece of theirs take this card (Tile Chess)? Never their King,
+    unless it is fused into something else. */
+export function foeCanUse(run, card) {
+  const open = (run.foes || []).filter((h) => h.base !== 'king' || h.fused);
+  if (card.kind === 'suit') return open.some((h) => !h.suit);
+  if (card.kind === 'weapon') return open.some((h) => canTakeWeapon(h, card.weapon, run.made));
+  return false;
+}
+
+/** Their side takes this card, on a piece of theirs at random (Tile Chess,
+    2026-10-14: the tile they turned over). Words for what happened, or null
+    if no piece of theirs can take it. Mutates. */
+export function foeTake(run, card, rand) {
+  if (!run.foes) return null;
+  const pick = (a) => a[Math.floor(rand() * a.length)];
+  const open = run.foes.map((h, i) => i).filter((i) => run.foes[i].base !== 'king' || run.foes[i].fused);
+  if (card.kind === 'suit') {
+    const at = open.filter((i) => !run.foes[i].suit);
+    if (!at.length) return null;
+    const i = pick(at), before = pieceOf(run.foes[i], run.made).name;
+    run.foes[i].suit = card.suit;
+    if (card.suit === 'hearts') run.foes[i].lives = Math.max(2, run.foes[i].lives || 1);
+    return `their ${before} takes ${SUITS[card.suit].name}`;
+  }
+  if (card.kind === 'weapon') {
+    const at = open.filter((i) => canTakeWeapon(run.foes[i], card.weapon, run.made));
+    if (!at.length) return null;
+    const i = pick(at), before = pieceOf(run.foes[i], run.made).name;
+    armHand(run.foes[i], card.weapon);
+    return `their ${before} takes ${run.foes[i].wl > 1 ? 'a level more of its' : 'a'} ${WEAPONS[card.weapon].name.toLowerCase()}${run.foes[i].wl > 1 ? ` (${run.foes[i].wl})` : ''}`;
+  }
+  return null;
+}
+
 /** Plain words for a board card. */
 export function boardCardText(card) {
   if (card.kind === 'merge') return { title: PIECES[card.type].name, text: `${PIECES[card.type].desc} Choose a piece of yours to combine it with: the same kind makes a veteran with a heart more; another kind fuses, with every move of both.`, tag: PIECES[card.type].kind === 'fairy' ? 'A fairy piece' : 'A classic piece' };

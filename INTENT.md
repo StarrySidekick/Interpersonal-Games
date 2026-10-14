@@ -12,6 +12,16 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
+## 2026-10-14, later: Tile Chess, and rings that stop where a piece could reach
+
+From Timothy: Tile Chess, a descent variant where each round both sides
+turn over a tile at the board's edge (winner first) and take the suit or
+weapon on it, the board growing as they go and a new piece each at every
+size up; four breakable statues; every piece in a bubble until it first
+moves; no rabbit. And their rings no longer look through anything. Built
+(`docs/grove-modes.md`, "Tile Chess"). Open: bubbles burst after four
+turns at the latest, so a King cannot hide in one; that was my call.
+
 ## 2026-10-14: rings up to what they could take, the King and shields, Capture the rabbit
 
 From Timothy: their rings run up to the first piece they could take and

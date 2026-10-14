@@ -12,6 +12,7 @@ export const MENU = [
   { id: 'daily', href: '', label: 'The daily' },
   { id: 'descent', href: 'play/?mode=descent', label: 'The descent' },
   { id: 'kungfu', href: 'play/?mode=kungfu', label: 'Kung fu descent' },
+  { id: 'tiles', href: 'play/?mode=tiles', label: 'Tile Chess' },
   { id: 'golf', href: 'play/?mode=golf', label: 'Golf' },
   { id: 'autochess', href: 'play/?mode=autochess', label: 'Autochess' },
   { id: 'variants', href: 'play/?mode=variants', label: 'Chess variants' },
