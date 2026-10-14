@@ -137,6 +137,32 @@ const ringModel = (col) => new Model().lathe([[4.2, 0.1], [4.2, 0.2]], col, { se
 // and cross in the same silver, or gold for two guards or more, with a dark
 // edge so it reads on light squares and green alike. `h` pixels tall; each
 // size and colour is drawn once.
+// A bubble (Tile Chess, 2026-10-14): a piece nothing can take until it
+// first moves this round. A pale ring round it, a faint wash inside and a
+// glint at the top left, drawn pixel by pixel like the flat shields. `w` by
+// `h` pixels; each size is drawn once.
+const bubbleSprites = new Map();
+function bubbleSprite(w, h) {
+  const key = `${w}:${h}`;
+  if (bubbleSprites.has(key)) return bubbleSprites.get(key);
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const g = c.getContext('2d'), img = g.createImageData(w, h);
+  const d = (i, j) => ((i + 0.5 - w / 2) / (w / 2)) ** 2 + ((j + 0.5 - h / 2) / (h / 2)) ** 2;
+  const put = (i, j, r, gg, b, a) => { const o = (j * w + i) * 4; img.data[o] = r; img.data[o + 1] = gg; img.data[o + 2] = b; img.data[o + 3] = a; };
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    const v = d(i, j);
+    if (v > 1) continue;
+    const edge = d(i - 1, j) > 1 || d(i + 1, j) > 1 || d(i, j - 1) > 1 || d(i, j + 1) > 1;
+    if (edge) put(i, j, 232, 246, 255, 235);
+    else if (v > 0.5 && v < 0.72 && i < w * 0.42 && j < h * 0.38) put(i, j, 255, 255, 255, 170);
+    else put(i, j, 150, 210, 255, 46);
+  }
+  g.putImageData(img, 0, 0);
+  bubbleSprites.set(key, c);
+  return c;
+}
+
 const flatShields = new Map();
 function flatShield(h, gold) {
   const key = `${h}:${gold}`;
@@ -378,6 +404,7 @@ export class Board3D extends Board {
       this.layer.width = w;
       this.lctx.putImageData(this.t3.img, 0, 0);
       g.drawImage(this.layer, 0, 0);
+      if (!this.tw?.collapse) this.bubbles(g, s);
       // 4. Puffs and leaves; Kung fu's resting rings, over the pieces.
       this.effects(g, at);
       this.resting(g, s);
@@ -606,6 +633,19 @@ export class Board3D extends Board {
   /** Kung fu (2026-10-11): a piece resting after a move has a ring round
       its foot, over the piece, that runs down as it recovers (`cool`, the
       share still to go, from kungfu.js). Gold for yours, purple for theirs. */
+  /** A bubble round every piece still in one (Tile Chess), over the
+      piece, where it stands this frame. */
+  bubbles(g, s) {
+    if (!s.day.rules.bubbles || !this.standing) return;
+    const w = Math.max(9, Math.round(T * this.scale * 0.92)), h = Math.max(11, Math.round(T * this.scale * 1.3)), img = bubbleSprite(w, h);
+    for (const [list, at] of [[s.pieces, this.standing.where], [s.foes, this.standing.foeAt]])
+      for (const p of at) {
+        if (!p || !list[p.i]?.bubble || list[p.i].taken) continue;
+        const [cx, cy] = this.pt(p.x + 0.5, p.y + 0.5, p.h + HEAD * BIG * 0.5);
+        g.drawImage(img, Math.round(cx - w / 2), Math.round(cy - h / 2));
+      }
+  }
+
   resting(g, s) {
     for (const [list, col] of [[s.pieces, LOOK.reachYou], [s.foes, LOOK.reachFoe]])
       for (const p of list) {
@@ -966,7 +1006,7 @@ export class Board3D extends Board {
       // In autochess a piece of yours with a rabbit inside wears its colour;
       // in a descent, a piece with a suit wears the suit's.
       stand(p.brain === 'carrier' ? model('rabbit', 'you', CARRIER_FUR.you) : model(p.type, 'you', null, p.brain === 'possessed' ? this.fur(p) : SUIT_COLOUR[p.suit] || null), x, y, h, 100 + i, o);
-      where[i] = { x, y, h };
+      where[i] = { x, y, h, i };
       armsOf(p, x, y, h, 100 + i, o, 1);
       // Guarded (2026-10-11): a shield in front. Since 2026-10-13 it flies
       // there from the guard (the flights, below), then bounces once as it
@@ -1008,10 +1048,11 @@ export class Board3D extends Board {
       const fo = collapse ? { s: away(at - collapse.t0 - collapse.delay(f.x, f.y)) } : {};
       stand(mdl, x, y, h, 200 + k, fo);
       armsOf(f, x, y, h, 200 + k, fo, -1);
-      foeAt[k] = { x, y, h };
+      foeAt[k] = { x, y, h, i: k };
       if (day.rules.goal === 'target' && day.foes.length > 1 && f.target) stand(ring('#e3bd57'), x, y, 0, 200 + k);
       if (PIN?.theirs.has(k) && !f.taken && this.needle(stand, x, y, h, 200 + k, 't' + k, at)) this.settleSoon();
     });
+    this.standing = { where, foeAt };
     // The rabbit to capture (goal 'flag', 2026-10-13): on its square, or on
     // the head of the piece carrying it.
     const fl = flagAt(s);

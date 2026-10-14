@@ -38,6 +38,16 @@
     text-align: left; font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line);
     border-radius: var(--radius); padding: 12px; cursor: pointer; }
   .offercard:active { border-color: var(--accent); }
+  /* Tile Chess (2026-10-14): the board as it stands, and the tiles round it. */
+  #tilebox { margin: 8px 0; }
+  .tilegrid { display: grid; gap: 2px; justify-content: center; margin: 8px auto; }
+  .tile { border-radius: 4px; display: grid; place-items: center; font-size: 18px; line-height: 1; }
+  .tile.open { background: #a3c288; }
+  .tile.open.dark { background: #d8d0b6; }
+  .tile.open.last { box-shadow: inset 0 0 0 3px #f2c14e; }
+  .tile.offer { background: #24342a; border: 1px dashed #3b5543; font-weight: 700; padding: 0; min-height: 0; width: 100%; height: 100%; }
+  button.tile.offer { cursor: pointer; border: 2px solid #6f9a5c; }
+  button.tile.offer:active { background: var(--accent); }
   .offercard canvas.model { width: 60px; height: 72px; display: block; margin: 0 auto; image-rendering: pixelated; }
   .offercard canvas.diagram { width: 72px; height: 72px; margin-top: 6px; border-radius: 4px; }
   .offercard h3 { margin: 0 0 2px; font-size: 18px; }
@@ -200,6 +210,7 @@
     <canvas id="fallcv" class="pix" width="240" height="300" aria-label="Your pieces, falling to the next level"></canvas>
     <p class="fallnote" id="betweennote"></p>
     <p class="center dim small" id="betweensub"></p>
+    <div id="tilebox" hidden></div>
     <div id="offer" hidden></div>
     <div id="pickbox" hidden>
       <p class="center" id="picktext"></p>

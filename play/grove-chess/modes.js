@@ -94,8 +94,8 @@ export const RUN_SCHEMA = [
     { key: 'maxPieces', label: 'Most pieces you can carry', type: 'int', min: 1, max: 8, def: 6 },
     { key: 'rewards', label: 'Finishing a level finds you something', type: 'bool', def: true,
       help: 'A new piece while you have room; once your hand is full, an upgrade: a suit, fusing two pieces, or a joker. Pieces of theirs you take are claimed, and can be combined with yours after the level.' },
-    { key: 'upgrades', label: 'Between levels', type: 'choice', def: 'finds', options: opts(['finds', 'Find pieces, then upgrades'], ['each', 'One upgrade a board, each side']),
-      help: 'Find pieces, then upgrades: a new piece while you have room, then suits, fusing and jokers; pieces of theirs you take can be combined with yours. One upgrade a board, each side (Timothy, 2026-10-12): every new board you choose one of two, a piece to combine with one of yours or a suit for one, and they get one at random. They carry a lineup down as you do, and a Rabbit with it.' },
+    { key: 'upgrades', label: 'Between levels', type: 'choice', def: 'finds', options: opts(['finds', 'Find pieces, then upgrades'], ['each', 'One upgrade a board, each side'], ['tiles', 'Turn over tiles (Tile Chess)']),
+      help: 'Find pieces, then upgrades: a new piece while you have room, then suits, fusing and jokers; pieces of theirs you take can be combined with yours. One upgrade a board, each side (Timothy, 2026-10-12): every new board you choose one of two, a piece to combine with one of yours or a suit for one, and they get one at random. They carry a lineup down as you do, and a Rabbit with it. Turn over tiles (Tile Chess, 2026-10-14): after every round each side turns over a tile at the edge of the board, the winner first; the board grows by it and its suit or weapon goes to that side, and at each size up both sides get the same new piece.' },
     { key: 'findPool', label: 'Pieces you can find', type: 'pieces', def: ['king', 'knight', 'bishop', 'rook', 'queen', 'wazir', 'ferz', 'alfil', 'dabbaba', 'mao', 'zebra', 'camel', 'grasshopper', 'cannon', 'silver', 'lance', 'squirrel', 'rose', 'nightrider', 'archbishop', 'chancellor',
       'gold', 'copper', 'leopard', 'tiger', 'kirin', 'phoenix', 'elephant', 'woody', 'alibaba', 'threeleaper', 'tripper', 'frog', 'vao', 'bunny', 'shortrook', 'tallrook'],
       help: 'What a run offers when it finds a piece. Pieces vetoed in the catalog are left out anyway.' },
@@ -204,6 +204,21 @@ export const MODES = {
     name: 'Piece trials', blurb: 'A layout from the piece trials: the same army on each side, theirs thinking. Take their King and keep yours.',
     settings: { run: 'single', roll: 'fixed', position: '[shortrook]nkb[tallrook]/5/5/5/5/[Tallrook]BKN[Shortrook]', darkBrain: 'think', skill: '2', style: 'balanced', maxMoves: 0, showReach: true, solve: false, cloud: false, showdown: false }
   },
+  tiles: {
+    // Tile Chess (Timothy, 2026-10-14): the descent, but "every round you
+    // and your opponent pick a tile to reveal around the board, expanding
+    // its size. every tile also contains an icon with a suit or weapon
+    // upgrade on it ... ghosts from descent are replaced with four random
+    // (destroyable) statues, and a rule that gives every piece at the
+    // beginning of the round invincibility until it moves for the first time
+    // in the round ... also no rabbit here for now."
+    name: 'Tile Chess', blurb: 'The descent\u2019s two lines, rook, bishop, King, knight and pawn, facing each other on a five by six board, with four statues in the middle that either side can break. Every piece starts each round in a bubble, and nothing can take it until it moves. Take their King to win the round. Then each of you turns over a tile at the edge of the board, the winner first: the board grows by that square, and the suit or weapon on it is yours. When the board is as big as the next size up, each side gets the same new piece. If they take your King, the run is over.',
+    settings: {
+      run: 'descent', roll: 'fixed', startPieces: 5, maxPieces: 8, startPool: ['rook', 'bishop', 'king', 'knight', 'pawn'], foeLine: 'mirror', rewards: true, jokers: false, ramp: 'steady', outOfMoves: 'fall', upgrades: 'tiles', growAt: 0, carry: false,
+      goal: 'king', promote: 'copy', royal: true, showdown: false, w: 5, h: 6, foes: 4, foePool: ['knight', 'bishop', 'rook'], darkBrain: 'think', skill: '1', style: 'balanced', rabbitMind: 'mind', iq: 3, kinds: 1,
+      foesCapture: true, statues: 4, statuesTake: true, statueRow: false, ghosts: false, bubbles: true, bubbleTurns: 4, maxMoves: 30, lineup: true, inOrder: true, arrange: false, cloud: false, parMin: 3, parMax: 10, difficulty: 'any'
+    }
+  },
   flag: {
     // Capture the flag, with a rabbit for the flag (Timothy, 2026-10-13:
     // "capture the rabbit. rabbit in the center of a 7x7 board. capturing
@@ -264,7 +279,7 @@ const SHOWN = {
   // The session.
   startPieces: runIs('descent', 'rounds'), maxPieces: runIs('descent', 'rounds'), startPool: runIs('descent', 'rounds'),
   rewards: runIs('descent', 'rounds'), jokers: runIs('descent', 'rounds'), findPool: runIs('descent', 'rounds'), ramp: runIs('descent', 'rounds'),
-  upgrades: runIs('descent'), growAt: (S) => S.run === 'descent' && S.upgrades === 'each', foeLine: (S) => S.run === 'descent' && S.upgrades === 'each',
+  upgrades: runIs('descent'), growAt: (S) => S.run === 'descent' && S.upgrades === 'each', foeLine: (S) => S.run === 'descent' && (S.upgrades === 'each' || S.upgrades === 'tiles'),
   carry: runIs('descent'), keepsakes: (S) => S.run === 'descent' && S.carry, fairyFrom: runIs('descent'), startDifficulty: runIs('descent'), boardGrows: runIs('descent'), outOfMoves: runIs('descent'),
   shop: runIs('rounds'), lives: runIs('rounds'),
   courseName: runIs('course'), courseHoles: (S) => S.run === 'course' && S.courseName === 'mixed', balls: () => false, // every golf ball is hit (2026-10-13)
@@ -286,13 +301,14 @@ const SHOWN = {
   iq: (S) => S.rabbitMind === 'mind', traits: (S) => S.rabbitMind === 'mind',
   kinds: (S) => S.darkBrain === 'possessed', skill: (S) => S.darkBrain === 'think', style: (S) => S.darkBrain === 'think',
   goal: (S) => S.run !== 'course',
+  bubbleTurns: (S) => !!S.bubbles,
   captureN: (S) => S.goal === 'capture', rabbitMove: (S) => S.goal === 'carrier', rabbitHop: (S) => S.goal === 'carrier' && S.rabbitMove === 'random', rabbitSides: (S) => S.goal === 'carrier',
   holeMoves: hasBall, ballMove: (S) => hasBall(S) && S.run !== 'course', ballCaptures: hasBall, ballStops: hasBall, sand: hasBall, water: hasBall
 };
 
 /** Does this setting matter for these settings (the mode included)? */
 // With no mode (the workshop), only the rules between settings apply.
-const DEPENDS = ['kfStep', 'kfCool', 'kfFoeCool', 'kfFoeGap', 'cloudOwn', 'shrinkEvery', 'iq', 'traits', 'kinds', 'skill', 'style', 'holeMoves', 'ballMove', 'ballCaptures', 'ballStops', 'dealKing', 'captureN', 'rabbitMove', 'rabbitHop', 'rabbitSides'];
+const DEPENDS = ['kfStep', 'kfCool', 'kfFoeCool', 'kfFoeGap', 'cloudOwn', 'shrinkEvery', 'iq', 'traits', 'kinds', 'skill', 'style', 'holeMoves', 'ballMove', 'ballCaptures', 'ballStops', 'dealKing', 'bubbleTurns', 'captureN', 'rabbitMove', 'rabbitHop', 'rabbitSides'];
 const VARIANT_KEYS = ['variant', 'skill', 'style', 'maxMoves', 'showReach', 'showMyReach', 'showGuards', 'showSafe', 'showBeacons', 'showPins', 'realtime', 'kfStep', 'kfCool', 'kfFoeCool', 'kfFoeGap', 'iq'];
 export const settingShown = (key, S) => {
   // A chess variant brings its own board, pieces and rules: only how they
@@ -392,7 +408,7 @@ export function describe(S) {
     const n = full ? S.w : run === 'course' ? S.mine : S.mine;
     const yours = given ? (S.inOrder && S.startPool.length === S.startPieces ? `${few(S.startPool, 8)}, in that order` : `${S.startPieces} from ${few(S.startPool)}`)
       : `${full ? 'a full row' : n} from ${few(S.minePool)}`;
-    const theirs = given && S.upgrades === 'each' ? (S.foeLine === 'turned' ? 'the same, reversed' : 'the same, mirrored, each piece facing its twin')
+    const theirs = given && (S.upgrades === 'each' || S.upgrades === 'tiles') ? (S.foeLine === 'turned' ? 'the same, reversed' : 'the same, mirrored, each piece facing its twin')
       : S.mirror ? 'a copy of yours' : S.foes || full ? `${full ? 'a full row' : S.foes} from ${few(S.foePool)}` : 'none';
     const loose = S.rabbits ? `${theirs === 'none' ? ';' : ', and'} ${count(S.rabbits, 'loose rabbit')}` : '';
     const ball = run === 'course' ? ', all sliders, and a ball they hit'
@@ -429,7 +445,8 @@ export function describe(S) {
 
   // Growth.
   if (run === 'descent') {
-    const finds = S.upgrades === 'each' ? 'Each new board, both sides get an upgrade: you choose one of two (a suit or a weapon), they get one at random'
+    const finds = S.upgrades === 'tiles' ? 'After every round each side turns over a tile at the edge of the board, the winner first: the board grows by that square, and its suit or weapon goes to that side. At each size up (as many squares as six by seven, then seven by eight, and so on) both sides get the same new piece'
+      : S.upgrades === 'each' ? 'Each new board, both sides get an upgrade: you choose one of two (a suit or a weapon), they get one at random'
       : S.rewards ? `Finishing a board finds you a piece, up to ${S.maxPieces}, then upgrades${S.jokers ? ' and jokers' : ''}` : 'Nothing is found';
     const more = [S.upgrades === 'each' && S.growAt ? `the board is 7 × 7 from depth ${S.growAt}` : '', S.boardGrows ? 'the board grows' : '',
       S.fairyFrom > 1 ? `fairy pieces from depth ${S.fairyFrom}` : '', S.carry ? 'what you find carries over to later descents' : ''].filter(Boolean);
@@ -446,7 +463,7 @@ export function describe(S) {
   L.difficulty = V || S.position ? 'Not measured: it plays as it stands.'
     // One upgrade a board takes each board as dealt (play/main.js findOnce):
     // nothing is searched, and their rabbit's mind is what sharpens.
-    : run === 'descent' && S.upgrades === 'each' ? `Not searched: each board is the two lines as they stand. What climbs is ${S.darkBrain === 'think' ? `how far ahead they look, from ${theirsThink}, a step more every three boards` : `their rabbit’s intelligence, from ${S.iq}, ${label('ramp', S.ramp).toLowerCase()}`}, and the upgrades they get.`
+    : run === 'descent' && (S.upgrades === 'each' || S.upgrades === 'tiles') ? `Not searched: each board is the two lines as they stand. What climbs is ${S.darkBrain === 'think' ? `how far ahead they look, from ${theirsThink}, a step more every three boards` : `their rabbit’s intelligence, from ${S.iq}, ${label('ramp', S.ramp).toLowerCase()}`}, and the upgrades they get.`
     : run === 'descent' ? `Starts at ${S.startDifficulty} of 10 and climbs ${label('ramp', S.ramp).toLowerCase()}${S.realtime ? ', their pieces resting less each board' : ''}${pass.length ? `; each board searched to be ${and(pass)}` : ''}.`
     : `${cap(band)}${run === 'rounds' ? `, climbing ${label('ramp', S.ramp).toLowerCase()}` : ''}${pass.length ? `; each ${run === 'course' ? 'hole' : 'board'} searched to be ${and(pass)}` : ''}.`;
 
@@ -543,12 +560,13 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
       traits: d * k < 2 ? ['messy'] : M.traits
     });
   }
-  if (M.run === 'descent' && M.upgrades === 'each') {
+  if (M.run === 'descent' && (M.upgrades === 'each' || M.upgrades === 'tiles')) {
     // One upgrade a board (2026-10-12): the board is the board, five by five
     // and then seven by seven, rectangular and solid, with its row of
     // statues. Both lineups are carried (hand); what climbs is how hard the
-    // level is aimed and how sharp their rabbits are.
-    const big = M.growAt > 0 && depth >= M.growAt;
+    // level is aimed and how sharp their rabbits are. Tile Chess (2026-10-14)
+    // carries its board too (hand.tiles), which sets its size.
+    const big = M.upgrades === 'each' && M.growAt > 0 && depth >= M.growAt;
     Object.assign(S, { w: big ? 7 : M.w, h: big ? 7 : M.h, shape: M.shape, ground: M.ground, statues: M.statues, foePool: M.foePool, kinds: M.kinds });
     // A side that thinks (2026-10-13, with no rabbit leading it) looks
     // further ahead as it goes down: one step more every three boards.

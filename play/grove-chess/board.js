@@ -628,6 +628,9 @@ export class Board {
       for (const i of tw.eaten) tw.poofs.push({ x: a.pieces[i].x, y: a.pieces[i].y, t0: t - 40, dur: 480, c1: '#7a5133', c2: '#c8462e' });
       if (tw.eaten.size) { sfx.eat(at(tw.landAt)); t += 440; }
     }
+    // A bubble pops (Tile Chess) when its piece first moves, in a pale puff.
+    for (const [A, B] of [[a.pieces, b.pieces], [a.foes, b.foes]])
+      A.forEach((p, i) => { if (p.bubble && B[i] && !B[i].bubble && !B[i].taken) tw.poofs.push({ x: p.x, y: p.y, t0: start, dur: 420, c1: '#e8f6ff', c2: '#96d2ff' }); });
     // The first-turn cloud lifts, in white puffs.
     if (a.cloudy && !b.cloudy && this.day.cloud) {
       for (const sq of this.day.cloud) tw.poofs.push({ x: sq % this.day.W, y: Math.floor(sq / this.day.W), t0: t, dur: 620, c1: '#ffffff', c2: '#dfe6ea' });
