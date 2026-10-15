@@ -737,7 +737,10 @@ const SUIT_BODY = {
   hearts: { wood: '#b52a43', woodLight: '#dc5a70', woodDark: '#6e1626', moss: '#f7c9d1', leaf: '#ffe3e8' },
   // Blue steel, so it is never taken for one of their grey statues.
   gears: { wood: '#6f7d92', woodLight: '#9fadc1', woodDark: '#3a4352', moss: '#cfd8e4', leaf: '#eef2f7' },
-  spirals: { wood: '#e0782a', woodLight: '#f5a560', woodDark: '#8a4412', moss: '#fde0bf', leaf: '#fff0de' },
+  // Purple since 2026-10-15 (Timothy: "spiral should be purple, since
+  // there's just one piece at any given time we don't need the purple
+  // pieces are the bad ones distinction"). Theirs are by suit now too.
+  spirals: { wood: '#7a4fb0', woodLight: '#a07ad3', woodDark: '#3f2463', moss: '#e8dcf7', leaf: '#f4edfc' },
   stars: { wood: '#c9971e', woodLight: '#ecc552', woodDark: '#7a5a0c', moss: '#fff1b0', leaf: '#fff8d8' },
   // Stone (2026-10-15): sandstone, warm, never one of the greys.
   stone: { wood: '#c9a36b', woodLight: '#e3c18d', woodDark: '#86683c', moss: '#ead6b0', leaf: '#f4e7cc' },
@@ -876,7 +879,7 @@ const LOOK_BUILD = {
     }
     return m;
   },
-  spirals: (m) => twist(finish(m, '#fff1dc', '#fff1dc'), 0.19),
+  spirals: (m) => twist(finish(m, '#e8dcf7', '#e8dcf7'), 0.19),
   stars: (m) => {
     const c = collarOf(m);
     finish(m, '#fff3b8', '#fff8d8');
@@ -903,12 +906,13 @@ function carved(m, pebbles = 5) {
 const SUIT_LOOK = Object.fromEntries(Object.entries(LOOK_BUILD).map(([k, fn]) => [k, (build, plinthOf) =>
   fn(marked(build, SUIT_BODY[k === 'sandstone' ? 'stone' : k], k === 'cairn' ? { band: '#bfa77e', base: '#7d6644' } : plinthOf))]));
 
-// Theirs, with tactics (2026-10-15): their leader is purple, crowned in
-// gold. (Sentries were statues with a red eye until Timothy made them a
-// kind of rabbit, the same day: now a red rabbit lights a purple piece.)
+// Theirs, with tactics (2026-10-15): their leader is grey like the rest of
+// theirs in Adventure, crowned in gold on a gold plinth. (Sentries were
+// statues with a red eye until Timothy made them a kind of rabbit, the
+// same day; their pieces were purple until he made them wear their suit.)
 const THEIR_LOOK = {
   crowned: (build) => {
-    const m = withPalette({ ...YOU, ...FOE, band: '#f5c13a', base: '#8c6a12' }, build), { top } = shapeOf(m), gold = '#f5c13a';
+    const m = withPalette({ ...YOU, ...GREY, gold: '#f5c13a', band: '#f5c13a', base: '#8c6a12' }, build), { top } = shapeOf(m), gold = '#f5c13a';
     m.lathe([[1.1, top + 0.1], [1.1, top + 0.55]], gold, { seg: 10 });
     for (let k = 0; k < 6; k++) { const a = (k / 6) * Math.PI * 2; m.cone(Math.cos(a) * 1.0, top + 0.55, Math.sin(a) * 1.0, 0.28, 0.75, gold, { seg: 4 }); m.ball(Math.cos(a) * 1.0, top + 1.35, Math.sin(a) * 1.0, 0.14, '#fff2b0', { seg: 4, rings: 3 }); }
     return m;

@@ -12,7 +12,15 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
-## 2026-10-15, newest: the net, losing a piece, robot loops
+## 2026-10-15, newest: their pieces by suit, one danger colour, Stone every move
+
+From Timothy, and built: Spirals purple; their pieces in Adventure wear
+their suit's look (grey without one) instead of purple; every danger ring
+red (sentries' reach and robots' next squares; the leader's reach no
+longer ringed); and the Stone suit leaves a stone sentry on every move,
+each lasting three turns. In [`docs/adventure.md`](docs/adventure.md).
+
+## 2026-10-15, earlier still: the net, losing a piece, robot loops
 
 From Timothy, and built: a **net** weapon (Adventure's own) that catches
 the first piece it takes each board whole, so it joins your set without

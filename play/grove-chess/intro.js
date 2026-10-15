@@ -119,7 +119,7 @@ export async function playIntro(board, level, { goal = null, section = null, see
     // its own, since theirs goes down the board.
     const theirs = [...new Set(level.foes.map((f) => f.type))].filter((k) => PIECES[k] && !['rabbit', 'ball'].includes(k))
       .filter((k) => fresh(sided(k) ? 'foe:' + k : k));
-    theirs.forEach((k, i) => cards.push({ kind: k, side: 'foe', eyebrow: `Their pieces · ${i + 1} of ${theirs.length}`,
+    theirs.forEach((k, i) => cards.push({ kind: k, side: board.lookOfFoe ? board.lookOfFoe(level.foes.find((f) => f.type === k)) : 'foe', eyebrow: `Their pieces · ${i + 1} of ${theirs.length}`,
       title: `Their ${PIECES[k].name}`, text: descOf(k, level.rules) + (sided(k) ? ' Their forward is down the board, toward you.' : ''),
       demo: true, rules: level.rules }));
     // The first-turn cloud, once.

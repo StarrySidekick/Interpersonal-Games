@@ -33,7 +33,7 @@ import { powerOf } from './power.js';
 
 export const SUITS = {
   hearts: { name: 'Hearts', mark: '♥', colour: '#e0445a', desc: 'A life more: when it is taken it goes back to your first row instead, on a free square you choose (the second row if the first is full, and so on), and the heart is spent.' },
-  spirals: { name: 'Spirals', mark: '@', colour: '#f0903a', desc: 'Round the sides: off the left edge it comes back on at the right, and the other way, like Pac-Man.' },
+  spirals: { name: 'Spirals', mark: '@', colour: '#a77bdc', desc: 'Round the sides: off the left edge it comes back on at the right, and the other way, like Pac-Man.' },
   gears: { name: 'Gears', mark: '⚙', colour: '#8fa6bd', desc: 'Swap: as its move, it can trade squares with any other piece of yours.',
     // With one piece on the board taking turns (Adventure, 2026-10-15).
     setDesc: 'Skip: when it comes up, it can step aside for the next piece of your set, which comes on and moves instead. That costs no move.' },
@@ -42,7 +42,7 @@ export const SUITS = {
   // Adventure only (Timothy, 2026-10-15: "a new suit called stone that lets
   // you leave a sentry behind of your piece"): needs one piece taking turns.
   stone: { name: 'Stone', mark: '◆', colour: '#b08a5a', adventure: true,
-    desc: 'Leave a stone: once a board, as it moves, it can leave a stone copy of itself on the square it leaves. The stone stays, takes any piece of theirs that stands where it attacks, and its lines pin and give check like your piece\u2019s.' }
+    desc: 'Every move, it leaves a stone copy of itself on the square it leaves: a sentry of yours for three turns, then it crumbles. A stone takes any piece of theirs that moves into where it attacks, and its lines pin and give check like your piece\u2019s.' }
 };
 /** The suits every mode deals (Stone is Adventure's own). */
 export const SUIT_KINDS = Object.keys(SUITS).filter((k) => !SUITS[k].adventure);

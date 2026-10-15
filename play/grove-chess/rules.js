@@ -1328,6 +1328,21 @@ function nextAfterLoss(n) {
   n.ci = j;
   n.pieces[0] = { ...n.set[j], x: at.x, y: at.y };
 }
+
+/** Stone (Adventure, 2026-10-15, Timothy: "stone suit now leaves behind a
+    sentry of their piece each time it moves? and it lasts for three moves
+    than disappears"): how many turns a stone stands, their turn just after
+    it is left counted first. */
+export const STONE_TURNS = 3;
+/** The end of a whole turn: every stone of yours has a turn less, and
+    crumbles away when it has none left. Mutates. */
+function stonesAge(n) {
+  if (!n.stones?.length) return;
+  for (const t of n.stones) t.left = (t.left ?? STONE_TURNS) - 1;
+  n.stones = n.stones.filter((t) => t.left > 0);
+}
+/** Everything at the end of a whole turn of theirs. Mutates. */
+function turnOver(n) { stonesAge(n); nextAfterLoss(n); }
 /** Where the next of your set comes on after a loss: the square you came
     onto the board on, or the free square nearest it, out of their reach
     where there is one. */
@@ -1498,7 +1513,6 @@ export function movesFor(s, i) {
   if (p.suit === 'gears' && s.set && setLeft(s) > 1 && s.bonus?.why !== 'gears' && !s.bonus) ms.push({ x: p.x, y: p.y, cap: false, skip: true });
   // Stone (Adventure, 2026-10-15): once a board, any move of it may leave a
   // stone of itself behind, on the square it leaves.
-  if (p.suit === 'stone' && s.stones && !p.stoneUsed) ms = [...ms, ...ms.filter((m) => !m.skip && !m.swap).map((m) => ({ ...m, stone: true }))];
   return ms;
 }
 
@@ -1967,7 +1981,9 @@ export function reachMaps(s, pattern = false) {
     // danger to show (Timothy, 2026-10-13: "the rabbit shouldn't have its
     // moveset present as a purple reach outline"); nor does a rabbit that
     // rides their pieces.
-    if (f.taken || f.flying || f.brain === 'pattern' || f.brain === 'leader' || f.brain === 'carrier' || f.brain === 'still' || f.brain === 'scared') continue;
+    // Adventure's crowned leader takes only in answer to a check, so its
+    // reach is no danger to stand in either (2026-10-15).
+    if (f.taken || f.flying || f.brain === 'pattern' || f.brain === 'leader' || f.brain === 'carrier' || f.brain === 'still' || f.brain === 'scared' || f.brain === 'crown') continue;
     // A piece walking a route (Adventure) only ever goes to its next square.
     if (f.route) { const [dx, dy] = f.pattern[f.i % f.pattern.length]; if ((dx || dy) && canTake(s.day.rules, f)) theirs.add((f.y + dy) * W + f.x + dx); continue; }
     const ms = pieceMoves(s, f, 'foe');
@@ -2492,7 +2508,7 @@ function fullMove(s, mv) {
   if (mv.skip) return mv;
   const p = s.pieces[mv.p];
   if (!p || mv.strike || mv.pass || mv.push || mv.stun || (!p.weapon && !(s.day.rules.promote === 'copy' && p.type === 'pawn'))) return mv;
-  const same = movesFor(s, mv.p).filter((m) => m.x === mv.x && m.y === mv.y && !!m.swap === !!mv.swap && !!m.stone === !!mv.stone);
+  const same = movesFor(s, mv.p).filter((m) => m.x === mv.x && m.y === mv.y && !!m.swap === !!mv.swap);
   const m = same.find((q) => !mv.promote || q.promote === mv.promote) || same[0];
   return m ? { ...m, ...mv, ...(m.strike ? { strike: m.strike } : {}), ...(m.pass ? { pass: m.pass } : {}), ...(m.push ? { push: m.push } : {}), ...(m.stun ? { stun: m.stun } : {}), promote: mv.promote || m.promote } : mv;
 }
@@ -2526,8 +2542,10 @@ export function playerMove(s, mv) {
     if (!m.swap && !m.hop) passGhosts(n, 'you', fx, fy, m.x, m.y, m.wrapped);
     flagHome(n);
     const took = gone() > before || n.foes.reduce((t, f) => t + (f.lives || 1), 0) < lives;
-    // Stone (Adventure): it leaves a stone of itself on the square it left.
-    if (m.stone && n.stones && !p.stoneUsed && !crumbled(n, fx, fy)) { n.stones.push({ type: p.shape || p.type, x: fx, y: fy }); p.stoneUsed = true; }
+    // Stone (Adventure): every move leaves a stone of itself on the square
+    // it left, a sentry of yours for three turns (stonesAge).
+    if (p.suit === 'stone' && n.stones && !crumbled(n, fx, fy) && (fx !== p.x || fy !== p.y) && !n.stones.some((t) => t.x === fx && t.y === fy))
+      n.stones.push({ type: p.shape || p.type, x: fx, y: fy, left: STONE_TURNS });
     openBonus(n, mv.p, took, was);
   }
   // The board cleared (goal 'clear'): the hole opens beside your piece.
@@ -2990,7 +3008,7 @@ export function apply(s, mv) {
   const n = playerMove(s, mv);
   if (n.bonus) return n;
   theirTurn(n);
-  nextAfterLoss(n);
+  turnOver(n);
   if (n.cloudy) delete n.cloudy; // as in respond(): the cloud lifts
   n.t++;
   afterMove(n);
@@ -3004,7 +3022,7 @@ export function respond(n) {
   const c = clone(n);
   if (c.bonus) return c;
   theirTurn(c);
-  nextAfterLoss(c);
+  turnOver(c);
   // Both sides have had their first move: the cloud lifts.
   if (c.cloudy) delete c.cloudy;
   c.t++;
@@ -3020,7 +3038,7 @@ export function respondWith(n, m) {
   const c = clone(n);
   if (c.bonus) return c;
   theirTurn(c, m);
-  nextAfterLoss(c);
+  turnOver(c);
   if (c.cloudy) delete c.cloudy;
   c.t++;
   afterMove(c);
@@ -3049,13 +3067,13 @@ export function replay(day, moves) {
 
 export function stateKey(s) {
   let k = '';
-  for (const p of s.pieces) k += p.taken ? '--' : p.x + ',' + p.y + (p.lives > 1 ? 'L' + p.lives : '') + (p.starUsed ? '*' : '') + (p.stun ? 'z' : '') + (p.bubble ? 'o' : '') + (p.moved && p.type === 'pawn' && s.day.rules.pawnTwo ? 'm' : '') + (p.promoted ? p.type : '') + (p.shape ? '~' + p.shape : '') + (p.stoneUsed ? '^' : '') + (p.netted ? 'n' + p.netted : '') + ';';
+  for (const p of s.pieces) k += p.taken ? '--' : p.x + ',' + p.y + (p.lives > 1 ? 'L' + p.lives : '') + (p.starUsed ? '*' : '') + (p.stun ? 'z' : '') + (p.bubble ? 'o' : '') + (p.moved && p.type === 'pawn' && s.day.rules.pawnTwo ? 'm' : '') + (p.promoted ? p.type : '') + (p.shape ? '~' + p.shape : '') + (p.netted ? 'n' + p.netted : '') + ';';
   if (s.bonus) k += `|b${s.bonus.p}${s.bonus.cap ? 'c' : ''}${s.bonus.why === 'gears' ? 'g' : ''}`;
   if (s.cloudy) k += '|c';
   if (s.day.rules.oneMove) k += `|f${s.ft || 0}`; // whose turn it is on their side
   // Your set (Adventure): which of it is on the board, and what each keeps.
-  if (s.stones?.length) k += '|S' + s.stones.map((t) => `${t.type}${t.x},${t.y}`).join(';');
-  if (s.set) k += `|k${s.ci}` + s.set.map((e, j) => j === s.ci ? '' : (e.lives > 1 ? 'L' + e.lives : '') + (e.starUsed ? '*' : '') + (e.shape ? '~' + e.shape : '') + (e.stoneUsed ? '^' : '') + (e.netted ? 'n' + e.netted : '') + (e.lost ? 'x' : '') + (e.moved && e.type === 'pawn' ? 'm' : '')).join(',');
+  if (s.stones?.length) k += '|S' + s.stones.map((t) => `${t.type}${t.x},${t.y}:${t.left}`).join(';');
+  if (s.set) k += `|k${s.ci}` + s.set.map((e, j) => j === s.ci ? '' : (e.lives > 1 ? 'L' + e.lives : '') + (e.starUsed ? '*' : '') + (e.shape ? '~' + e.shape : '') + (e.netted ? 'n' + e.netted : '') + (e.lost ? 'x' : '') + (e.moved && e.type === 'pawn' ? 'm' : '')).join(',');
   k += '|';
   for (const f of s.foes) k += f.taken ? '--' : f.x + ',' + f.y + ',' + f.i + (f.lives > 1 ? 'L' + f.lives : '') + (f.starUsed ? '*' : '') + (f.mx > 0 ? '+' : '-') + (f.my > 0 ? '+' : '-') + (f.idle ? 'i' + f.idle : '') + (f.stun ? 'z' : '') + (f.bubble ? 'o' : '') + (f.moved && f.type === 'pawn' && s.day.rules.pawnTwo ? 'm' : '') + (f.promoted ? f.type : '') + (f.shape ? '~' + f.shape : '') + (f.brain === 'sentry' ? 's' : '') + ';';
   if (s.flag) k += `|F${s.flag.by || ''}${s.flag.i},${s.flag.x},${s.flag.y}`;

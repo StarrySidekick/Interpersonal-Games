@@ -52,7 +52,7 @@ const PALE = '#e9e4da';   // a possessed piece whose rabbit you do not know
 // no plinth (Timothy, 2026-10-13: "The rabbit that hops on heads should not
 // have a piece base"), in a pale shade of its side's colour.
 const CARRIER_FUR = { you: '#cfe6b4', foe: '#c7b2ea' };
-const SUIT_COLOUR = { hearts: '#e0445a', spirals: '#f0903a', gears: '#8fa6bd', stars: '#e8c547', vines: '#2fb8a0', stone: '#b08a5a' }; // run.js SUITS
+const SUIT_COLOUR = { hearts: '#e0445a', spirals: '#a77bdc', gears: '#8fa6bd', stars: '#e8c547', vines: '#2fb8a0', stone: '#b08a5a' }; // run.js SUITS
 // The plinth of a Changeling wearing another piece's shape: fairy silver.
 const CHANGELING_GLOW = '#d9c8f5';
 const LIFT = 10 / 28;     // the flat board's pixels of height, in model units
@@ -812,7 +812,11 @@ export class Board3D extends Board {
         const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
         band(x0, y0, x1, y1, 4, 'rgba(20,14,8,.45)'); band(x0, y0, x1, y1, 2, col);
       };
-      if (this.reach !== false) for (const sq of R.theirs) ring(sq, 0.07, R.sentry?.has(sq) ? '#e2483a' : LOOK.reachFoe);
+      // With Adventure's tactics, one colour for danger (Timothy, 2026-10-15,
+      // asking what the purple was for, next to the sentries' red): red is
+      // every square where ending your move gets you taken, a sentry's
+      // reach and a robot's next step alike.
+      if (this.reach !== false) for (const sq of R.theirs) ring(sq, 0.07, R.sentry?.has(sq) || s.day.rules.tactics ? '#e2483a' : LOOK.reachFoe);
       // Yours only when asked for (2026-10-11: off by default).
       if (this.reachMine === true) for (const sq of R.yours) ring(sq, 0.2, LOOK.reachYou);
     }
@@ -846,6 +850,14 @@ export class Board3D extends Board {
       for (const [a, b] of [[8, 9], [17, 7], [11, 18], [21, 19], [8, 22]]) { const [px, py] = inSq(sq % W, Math.floor(sq / W), a, b); g.fillStyle = 'rgba(63,107,44,.6)'; g.fillRect(px - 1.5, py - 0.5, 3, 1); g.fillRect(px - 0.5, py - 1.5, 1, 3); }
     }
     if (v.track) this.tracks(g, v.track, line, inSq);
+    // Your stones' turns left (Stone suit), in the near corner of each.
+    for (const t of s.stones || []) {
+      const [px, py] = inSq(t.x, t.y, 4.5, 5.5);
+      g.font = `800 ${Math.round(this.scale * 3.6)}px ui-rounded, "SF Pro Rounded", "Nunito", system-ui, sans-serif`;
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.lineWidth = 2.5; g.strokeStyle = 'rgba(247,240,218,.95)'; g.strokeText(String(t.left ?? 3), px, py);
+      g.fillStyle = '#6e5532'; g.fillText(String(t.left ?? 3), px, py);
+    }
     if (v.paths) this.paths(g, v.paths, line, quad);
   }
 
@@ -933,8 +945,10 @@ export class Board3D extends Board {
     }
     const [dx, dy] = f.pattern[f.i % L], tx = f.x + dx, ty = f.y + dy;
     if (dx || dy) line(elbow([f.x, f.y], [tx, ty]), rgba(col, 0.95), 2.6);
+    // Its next square is framed in its colour, unless the danger ring (red,
+    // in Adventure) frames it already.
     const box = [[4, 4], [24, 4], [24, 24], [4, 24], [4, 4]].map(([a, b]) => inSq(tx, ty, a, b));
-    line(box, rgba(col, 0.95), 2, dx || dy ? null : [2, 2]);
+    if (!(dx || dy) || this.reach === false || !this.day.rules.tactics) line(box, rgba(col, 0.95), 2, dx || dy ? null : [2, 2]);
   }
 
   /** The lines of finished games, one colour per player. */
@@ -1096,12 +1110,14 @@ export class Board3D extends Board {
       if (PIN?.mine.has(i) && !p.taken && this.needle(stand, x, y, h, 100 + i, 'm' + i, at)) this.settleSoon();
     });
     // Your stones (Adventure's Stone suit): weathered copies, striking along
-    // when they take something.
+    // when they take something, sinking a little and smaller each turn as
+    // they wear away (they last three turns).
     (s.stones || []).forEach((st, j) => {
-      let x = st.x, y = st.y, h = 0;
+      const worn = Math.max(0, 3 - (st.left ?? 3));
+      let x = st.x, y = st.y, h = -worn * 0.7;
       const tt = tw?.stones?.[j];
-      if (tt) { const q = tweenPos(tt, at); x = q.x; y = q.y; h = Math.sin(Math.PI * q.k) * 2; }
-      const o = collapse ? { s: away(at - collapse.t0 - 200) } : {};
+      if (tt) { const q = tweenPos(tt, at); x = q.x; y = q.y; h += Math.sin(Math.PI * q.k) * 2; }
+      const o = collapse ? { s: away(at - collapse.t0 - 200) } : worn ? { s: 1 - worn * 0.08 } : {};
       stand(model(st.type, 'cairn'), x, y, h, 600 + j, o);
     });
     // Shields in flight (2026-10-13): from the guard's chest to the front of
@@ -1132,7 +1148,13 @@ export class Board3D extends Board {
       // Adventure's tactics: their leader (crowned); sentry and scared
       // rabbits are inside their pieces like the robots, lighting the
       // plinth in their colour (red, white).
-      const mdl = f.brain === 'crown' ? model(f.type, 'crowned') : f.brain === 'sentry' || f.brain === 'scared' ? model(f.shape || f.type, 'foe', null, this.glowOf(f, k, at)) : f.brain === 'still' ? model(f.shape || f.type, 'grey') : f.brain === 'leader' ? model('rabbit', 'foe', this.fur(f)) : f.brain === 'carrier' ? model('rabbit', 'foe', CARRIER_FUR.foe) : f.suit ? model(f.shape || f.type, 'foe', null, SUIT_COLOUR[f.suit]) : f.shape ? model(f.shape, 'foe', null, CHANGELING_GLOW) : f.brain === 'possessed' ? model(f.type, 'foe', null, this.glowOf(f, k, at)) : model(f.type, 'foe', this.fur(f));
+      // Adventure (2026-10-15, Timothy: "since there's just one piece at any
+      // given time we don't need the purple pieces are the bad ones
+      // distinction ... enemy pieces are just based on their suit"): theirs
+      // wear their suit's look, plain grey without one; the rabbit inside
+      // still colours the plinth.
+      const fl = this.lookOfFoe ? this.lookOfFoe(f) : 'foe';
+      const mdl = f.brain === 'crown' ? model(f.type, 'crowned') : f.brain === 'sentry' || f.brain === 'scared' ? model(f.shape || f.type, fl, null, this.glowOf(f, k, at)) : f.brain === 'still' ? model(f.shape || f.type, 'grey') : f.brain === 'leader' ? model('rabbit', 'foe', this.fur(f)) : f.brain === 'carrier' ? model('rabbit', 'foe', CARRIER_FUR.foe) : f.suit ? model(f.shape || f.type, fl, null, SUIT_COLOUR[f.suit]) : f.shape ? model(f.shape, fl, null, CHANGELING_GLOW) : f.brain === 'possessed' ? model(f.type, fl, null, this.glowOf(f, k, at)) : model(f.type, fl, this.fur(f));
       const fo = collapse ? { s: away(at - collapse.t0 - collapse.delay(f.x, f.y)) } : {};
       stand(mdl, x, y, h, 200 + k, fo);
       armsOf(f, x, y, h, 200 + k, fo, -1);
@@ -1178,7 +1200,7 @@ export class Board3D extends Board {
         rot = k * Math.PI * 2.5;
         sc = k > 0.45 ? 1 - (k - 0.45) / 0.55 : 1;
       }
-      const mdl = tb.possessed ? model('rabbit', 'foe', tb.fur) : (tb.grey ? model(tb.kind, 'grey') : model(tb.kind, 'foe', tb.fur));
+      const mdl = tb.possessed ? model('rabbit', 'foe', tb.fur) : (tb.grey ? model(tb.kind, 'grey') : model(tb.kind, tb.look || 'foe', tb.fur));
       stand(mdl, tb.x, tb.y, h, 600, { rz: rot, ry: rot * 0.6, s: Math.max(0.02, sc) });
     }
     // The opening's possession: a rabbit of each piece's colour hops in out of
