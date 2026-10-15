@@ -57,6 +57,11 @@ you missed. See rule 2 of [the session shape](docs/scope.md#the-session-shape).
 
 ## Playable now
 
+**[Changeling](play/changeling/)**: the daily, simplified (2026-10-15). One
+board a day: you are one chess piece, every move is a capture, and you
+become whatever you take. Clear the board in as few of six tries as you
+can. Design in [`docs/changeling.md`](docs/changeling.md).
+
 **[Grove Chess](play/grove-chess/)**: the first asynchronous, group game (see
 the 2026-10-05 section of [`INTENT.md`](INTENT.md)). One board a day, the same
 for everyone: catch a rabbit that hops in a hidden pattern, using classic and
