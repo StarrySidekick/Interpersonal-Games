@@ -132,11 +132,11 @@ export const SCHEMA = [
     { key: 'still', sub: 'theirs', label: 'Of them, statues', type: 'int', min: 0, max: 12, def: 0,
       help: 'Adventure (Timothy, 2026-10-15: "enemy pieces don\u2019t move, and they are gray like statues"): this many of their pieces are grey statues. A statue never moves and never takes; it is there to be taken. The rest move as set.' },
     { key: 'tactics', sub: 'theirs', label: 'Pins, checks and flight', type: 'bool', def: false,
-      help: 'Adventure (Timothy, 2026-10-15: "opportunities for pinning and other chess technique"): a piece of theirs on your line with another of theirs behind it is pinned and cannot move; their crowned leader answers a check (take, block, flee, or checkmate); skittish pieces flee when attacked, one a turn; sentries take what stands where they attack; your stones (the Stone suit) strike too. Needs short routes.' },
-    { key: 'sentries', sub: 'theirs', label: 'Of the statues, sentries', type: 'int', min: 0, max: 6, def: 0,
-      help: 'With tactics: statues that defend. A sentry never walks, but takes anything of yours that stands where it attacks, moving there.' },
-    { key: 'skittish', sub: 'theirs', label: 'Of the statues, skittish', type: 'int', min: 0, max: 6, def: 0,
-      help: 'With tactics: pieces with a skittish rabbit, which flee when you attack them, only one a turn.' },
+      help: 'Adventure (Timothy, 2026-10-15: "opportunities for pinning and other chess technique"): a piece of theirs on your line with another of theirs behind it is pinned and cannot move; their crowned leader answers a check (take, block, flee, or checkmate); scared pieces flee when attacked, one a turn; sentries take what stands where they attack; your stones (the Stone suit) strike too. Needs short routes.' },
+    { key: 'sentries', sub: 'theirs', label: 'Of the statues, sentry rabbits', type: 'int', min: 0, max: 6, def: 0,
+      help: 'With tactics: pieces with a sentry rabbit inside (red). A sentry never walks, but if anything of yours stands in its reach (shaded red) it leaps to take it.' },
+    { key: 'scared', sub: 'theirs', label: 'Of the statues, scared rabbits', type: 'int', min: 0, max: 6, def: 0,
+      help: 'With tactics: pieces with a scared rabbit inside (white), which run when you attack them, only one a turn.' },
     { key: 'crown', sub: 'theirs', label: 'A crowned leader', type: 'bool', def: false,
       help: 'With tactics: one of the statues is their leader, a crowned King. Attack it and they must answer; checkmate it and the board is yours.' },
     { key: 'rabbits', sub: 'theirs', label: 'Free rabbits', type: 'int', min: 0, max: 4, def: 0,
@@ -973,7 +973,7 @@ function dealRoutes(day, S, rand) {
     } else { f.type = 'pawn'; s.foes[k] = { ...f, i: 0, taken: false }; }
   }
   // Tactics (2026-10-15): of the statues, the leader (a crowned King), then
-  // sentries, then skittish ones, as many as asked and there are statues.
+  // sentries, then scared ones, as many as asked and there are statues.
   if (S.tactics) {
     let still = shuffled(army.filter((k) => day.foes[k].brain === 'still'), rand);
     if (S.crown && still.length) {
@@ -991,14 +991,14 @@ function dealRoutes(day, S, rand) {
       // Its bodyguards: the sentries are the statues nearest it.
       still = still.sort((a, b) => Math.max(Math.abs(day.foes[a].x - lead.x), Math.abs(day.foes[a].y - lead.y)) - Math.max(Math.abs(day.foes[b].x - lead.x), Math.abs(day.foes[b].y - lead.y)));
     }
-    for (let n = 0; n < S.sentries && still.length; n++) day.foes[still.shift()].brain = 'sentry';
-    for (let n = 0; n < S.skittish && still.length; n++) Object.assign(day.foes[still.shift()], { brain: 'skittish', patternName: 'Skittish' });
+    for (let n = 0; n < S.sentries && still.length; n++) Object.assign(day.foes[still.shift()], { brain: 'sentry', patternName: 'Sentry' });
+    for (let n = 0; n < S.scared && still.length; n++) Object.assign(day.foes[still.shift()], { brain: 'scared', patternName: 'Scared' });
   }
   // Somewhere your set can get to (a lone bishop keeps to its colour): every
   // statue, and the hole, moved there if it is not. (Routes already touch it.)
   const free = shuffled([...reach].filter((q) => !used.has(q)), rand);
   const move = (o) => { const q = free.pop(); if (q === undefined) return; used.delete(o.y * W + o.x); o.x = q % W; o.y = Math.floor(q / W); used.add(q); };
-  for (const f of day.foes) if (['still', 'sentry', 'skittish', 'crown'].includes(f.brain) && !reach.has(f.y * W + f.x)) move(f);
+  for (const f of day.foes) if (['still', 'sentry', 'scared', 'crown'].includes(f.brain) && !reach.has(f.y * W + f.x)) move(f);
   if (day.hole && !reach.has(day.hole.y * W + day.hole.x)) move(day.hole);
 }
 

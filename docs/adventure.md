@@ -122,40 +122,42 @@ can; then a hole opens and your piece jumps in.
 
 ## The look of your pieces
 
-In Adventure each piece of yours wears its suit (Timothy, 2026-10-15, in
-three steps: "the vine look should be for the vine suit, we should have
-custom looks for the others that are colored like the suit"; then "your
-pieces should start at gray with no special visual, then the green we have
-should be the green for the vine one. gears should be more prominent ...
-hearts seems not to have a real motif. you can mess with the actual 3d
-model of the piece itself"). Each look is the piece's own shape in its
-colours, built round or reshaped with its motif (`SUIT_LOOK` in
-`models.js`, `model(kind, look)`):
+In Adventure each piece of yours wears its suit. Timothy asked in steps on
+2026-10-15: first vines and suit colours, then "your pieces should start at
+gray with no special visual ... you can mess with the actual 3d model of
+the piece itself", then, after seeing busy ornaments, "the new models for
+suits are a bit much, maybe start from scratch there. more tasteful this
+time while integrating the idea of the suit into the model".
 
-| Suit | Body | Motif |
+So each look is the piece's own shape in its suit's colours, and one thing
+of the suit made part of it, at its collar, where the trim already sits
+(`LOOK_BUILD` in `models.js`, `model(kind, look)`):
+
+| Suit | Body | Its one motif |
 |---|---|---|
-| none | plain pale grey | none |
-| Vines | the Grove's green | two woody vines climbing it, with bright leaves |
-| Hearts | rose red | crowned with a big red heart, a pale heart on its chest, a ring of little hearts round its plinth |
-| Gears | blue steel | its plinth toothed into a gear, two gears round its body, a cog crowning it and one on its chest |
-| Spirals | amber | the piece itself twisted about its axis (`twist`), with a cream stripe wound up it, curled at the top |
-| Stars | gold | a star on its head and four small ones round it |
+| none | plain pale grey | none: cream trim, a gold finial |
+| Vines | the Grove's green | a wreath of eight leaves round the collar |
+| Hearts | rose red | a pale heart locket on its chest, pink trim |
+| Gears | blue steel | a brass collar toothed like a gear |
+| Spirals | amber | the whole piece twisted about its axis |
+| Stars | gold | a star brooch on its chest |
+| Stone | sandstone | two carved bands |
 
-Their statues were made a shade darker the same day, so a plain piece of
-yours (pale grey) is never taken for one of theirs.
+A stone it leaves behind is the same, darker, on pebbles.
 
-How the ornaments sit on the piece: `surface` finds how far out the piece
-is at a height and angle (the farthest corner near there), and each vine,
-stripe, heart or star is placed just outside that. Vines and stripes are
-thin boxes laid end to end (`strand`); leaves are flat diamonds seen from
-both sides (`leaf`); a heart in the round is two balls over a cone
-pointing down (`heart3d`); a gear is a short wide drum with boxes for
-teeth (`cog`). `twist` turns every corner about the axis by an angle that
-grows with its height, and recomputes each face's facing so the renderer
-still culls the right side.
+How a motif finds the collar: each piece is built with its trim and gold
+in two marker colours no piece uses (`MARK_TRIM`, `MARK_GOLD`). `collarOf`
+finds the marked trim faces, so it knows the collar's height and how far
+out it reaches; then `finish` recolours the markers to the suit's accent.
+This works for every piece, including the knight, whose "collar" is its
+mane. `twist` turns every corner about the axis by an angle that grows with
+its height, and recomputes each face's facing so the renderer still culls
+the right side.
 
-The board (`board.lookOf`), the set row, the next-up strip, the intro's
-cards and the fall between boards all use the look.
+Their statues are a shade darker than plain, so a plain piece of yours is
+never taken for one of theirs. The board (`board.lookOf`), the set row, the
+next-up strip, the intro's cards and the fall between boards all use the
+look.
 
 ## How it is built, in Grove terms
 
@@ -273,6 +275,23 @@ pieces, an opponent who can answer only one thing at a time, and something
 precious. Each of these adds one of them back. All in `rules.js`
 (`tacticsTurn`, with `rules.tactics`), dealt by `lab.js` (`dealRoutes`).
 
+**Three kinds of rabbit** (Timothy, 2026-10-15: "i think sentry can be a
+kind of rabbit. there there are rabbits that flee, rabbit that move to
+attack if you enter their highlighted reach, and ones that move a set loop
+of moves, tracing shapes. the three maine categories could be called
+scared, sentry, and robot rabbits"). Every piece of theirs that acts is
+possessed by one, and its fur says which:
+
+- **Robot** rabbits (the route colours) walk a set loop, tracing a shape.
+- **Sentry** rabbits (red) stand still and leap on you if you enter their
+  red-ringed reach.
+- **Scared** rabbits (snow white) run when you attack them.
+
+A statue with no rabbit does nothing. `FUR` in `rabbits.js` holds the
+colours; `patternName` on the piece is 'Sentry' or 'Scared' for the two new
+kinds, so the fur, the possession animation and the pieces sheet all treat
+them as rabbits like the robots.
+
 **First, the turn order changed.** Your piece now becomes the next of your
 set at the end of your move (`nextInSet` in `playerMove`), before they
 answer, so a threat, a pin or a check is made by the piece that will move
@@ -292,14 +311,14 @@ Their turn, in order:
    do not attack; else it is **checkmate**: every piece of theirs falls and
    the board is yours. Attacked twice at once (double check, say your piece
    and a stone), only running will do. A red ring marks a leader in check.
-3. **Flight.** A piece with a **skittish** rabbit (a white plinth) runs to
+3. **Flight.** A piece with a **scared** rabbit (snow white fur) runs to
    a square you do not attack when you attack it, but only one runs a turn,
    the most valuable that can. Attack two at once (a fork) and the other is
    left; pinned, it cannot run. A gold ring marks one that could not run.
 4. **Walkers** take their steps, except the pinned, which hold.
-5. **Sentries** (grey, a red eye and a red plinth) never walk, but each
-   takes anything of yours standing where it attacks, your piece first,
-   then a stone, moving onto it. Their reach is shaded purple.
+5. **Sentries** (a red rabbit) never walk, but each takes anything of
+   yours standing where it attacks, your piece first, then a stone, moving
+   onto it. Their reach is ringed red, so you can see where not to stand.
 6. **Your stones** each take one of theirs that moved this turn into where
    they attack, moving onto it: a trap, not a turret, so a stone never takes
    a statue that only stands on its line.
@@ -311,7 +330,7 @@ move). The stone stays, is yours, strikes as above, pins and gives check
 along its lines, and their pieces can break it. Your Stone piece is
 sandstone with carved bands; a stone left behind is darker, on pebbles.
 
-**Arrival, one at a time:** a sentry from depth 2, a skittish piece from 4,
+**Arrival, one at a time:** a sentry from depth 2, a scared rabbit from 4,
 their leader from 6 (half the boards; most from 9). Pins work from the
 first board.
 
@@ -325,8 +344,8 @@ to a mate sooner than that.
 **In words:** the turn's caption says what happened: "Your rook pins
 their knight: it holds", "Check! Their bishop steps in to block", "Double
 check! Their leader runs", "Checkmate!", "Fork! Their bishop could not run
-as well", "Your stone takes their camel". Tapping a sentry, a skittish
-piece, the leader or a stone says what it does; the pieces sheet lists them.
+as well", "Your stone takes their camel". Tapping a sentry, a scared
+rabbit, the leader or a stone says what it does; the pieces sheet lists them.
 
 **Not built:** idea 6, skewer chains (a free move to take the piece behind
 the one you take).

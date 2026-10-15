@@ -26,7 +26,7 @@ const deal = (d, hand, sd, more = {}) => {
 // Statues and the Changeling (every one of theirs a statue, for this).
 let L = null;
 for (let sd = 1; sd < 200 && !L; sd++) {
-  const lv = deal(3, ['changeling'], sd, { still: 12, sentries: 0, skittish: 0, crown: false });
+  const lv = deal(3, ['changeling'], sd, { still: 12, sentries: 0, scared: 0, crown: false });
   if (R.movesFor(R.initialState(lv), 0).some((mv) => mv.cap)) L = lv;
 }
 ok(L, 'a board where the Changeling can take at once');
@@ -48,7 +48,7 @@ for (const d of [1, 2, 3, 5, 8, 11]) for (let sd = 1; sd <= 12; sd++) {
   const st = R.initialState(lv), W = lv.W;
   const army = st.foes.filter((f) => f.type !== 'rabbit');
   ok(army.some((f) => f.brain === 'possessed'), `depth ${d} (${sd}): at least one of theirs walks a route`);
-  ok(army.every((f) => ['possessed', 'still', 'sentry', 'skittish', 'crown'].includes(f.brain)), `depth ${d} (${sd}): theirs are statues, walkers, sentries, skittish or their leader; nothing that thinks`);
+  ok(army.every((f) => ['possessed', 'still', 'sentry', 'scared', 'crown'].includes(f.brain)), `depth ${d} (${sd}): theirs are statues, walkers, sentries, scared or their leader; nothing that thinks`);
   ok(army.every((f) => f.type !== 'pawn' || f.brain === 'still'), `depth ${d} (${sd}): pawns are statues`);
   const walk = army.filter((f) => f.brain === 'possessed');
   walkers += walk.length;
@@ -196,7 +196,7 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
   ok(run.hand.length === 2 && run.lost.length === 1 && run.hand[0].base === 'rook', 'the piece taken on the board is gone; the rest stay');
 }
 
-// Tactics (2026-10-15): pins, sentries, skittish flight, the leader, stones.
+// Tactics (2026-10-15): pins, sentries, scared flight, the leader, stones.
 // Each on a board set out by hand: a 5 x 5 board, your piece, their pieces.
 {
   const base = deal(1, ['rook'], 7777);
@@ -223,8 +223,8 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
   n = R.respond(s);
   ok(!n.pieces[0].taken, 'a pinned sentry cannot strike');
 
-  // 3. Skittish: attacked twice at once (a fork), only one gets away.
-  s = board({ type: 'knight', x: 2, y: 2 }, [{ type: 'rook', x: 0, y: 1, brain: 'skittish' }, { type: 'bishop', x: 4, y: 3, brain: 'skittish' }]);
+  // 3. Scared: attacked twice at once (a fork), only one gets away.
+  s = board({ type: 'knight', x: 2, y: 2 }, [{ type: 'rook', x: 0, y: 1, brain: 'scared' }, { type: 'bishop', x: 4, y: 3, brain: 'scared' }]);
   n = R.respond(s);
   ok((n.foes[0].x !== 0 || n.foes[0].y !== 1) && n.foes[1].x === 4 && n.foes[1].y === 3 && n.foes[1].trapped, 'a fork: the rook runs, the bishop is left');
   ok(n.tlog.some((l) => l.what === 'flee' && l.k === 0) && n.tlog.some((l) => l.what === 'trapped' && l.k === 1 && l.fork), 'said as a fork');

@@ -698,19 +698,12 @@ function statue(kind) {
 // For the catalog: a statue, as it stands on the board.
 MODELS.statue = () => statue('rook');
 
-// Looks by suit (Adventure, 2026-10-15). Timothy, in three steps: "can you
-// make your pieces look like they are wrapped in 3d vines"; then "the vine
-// look should be for the vine suit, we should have custom looks for the
-// others that are colored like the suit, red for hearts, grey for gears ...
-// yellow for stars"; then "your pieces should start at gray with no special
-// visual, then the green we have should be the green for the vine one.
-// gears should be more prominent on the gear ones. hearts seems not to have
-// a real motif. you can mess with the actual 3d model of the piece itself".
-// So a piece with no suit is plain pale grey, and each suit is the piece's
-// own shape in its colours, built round, or reshaped, with its motif:
-// Vines green with woody vines; Hearts red, crowned with a heart; Gears
-// blue steel standing on a gear, with gears round it; Spirals amber and
-// twisted, with a stripe wound up it; Stars gold with stars.
+// Looks by suit (Adventure, 2026-10-15). Timothy first asked for vines and
+// suit colours, then for plain grey pieces with each suit's motif built into
+// the model, then (the same day) "the new models for suits are a bit much,
+// maybe start from scratch there. more tasteful this time". So a piece with
+// no suit is plain pale grey, and each suit is the piece's own shape in its
+// colours with one thing of the suit at its collar (see LOOK_BUILD).
 
 /** The body colours of each look (moss and leaf are the pale trim the
     builders use for collars and bands). */
@@ -728,8 +721,6 @@ const SUIT_BODY = {
   // A stone it left behind: the same, weathered darker.
   cairn: { wood: '#a3804f', woodLight: '#bf9c69', woodDark: '#664c2a', moss: '#cbb38a', leaf: '#ddc9a4' }
 };
-// Woody vines and bright leaves, to stand out against a green body.
-const VINE = { stem: '#5b3f22', stemDark: '#432e18', leaf: '#8fd25a', leafLight: '#bfeb85' };
 
 /** How far out the model's surface is at height y, toward angle a (from the
     corners near there), or null if nothing is near. */
@@ -768,87 +759,47 @@ function leaf(m, at, a, lift, size, col) {
   m.tri(at, tip, r, col); m.tri(at, r, tip, col);
 }
 
-/** One length of vine (or stripe), from a to b: a thin box laid along it. */
-function strand(m, a, b, w, col) {
-  const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], len = Math.hypot(...d);
-  if (len < 1e-3) return;
-  m.box((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2, w, w, len + w * 0.6, col,
-    { rx: -Math.asin(d[1] / len), ry: Math.atan2(d[0], d[2]) });
+/** A hex colour as the renderer keeps it, [r, g, b]. */
+const rgb3 = (hex) => { const n = parseInt(hex.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+const sameCol = (c, d) => c[0] === d[0] && c[1] === d[1] && c[2] === d[2];
+// The trim and the gold of a piece, built in colours no piece uses, so a
+// look can find its collar and its finial afterwards and make them its own.
+const MARK_TRIM = '#010203', MARK_GOLD = '#030201';
+
+/** Recolour every face of colour `from` to `to`. Mutates. */
+function recolour(m, from, to) {
+  const f = rgb3(from), t = rgb3(to);
+  for (const tri of m.tris) if (sameCol(tri.c, f)) tri.c = t;
 }
 
-/** Vines: two woody vines climbing it in a spiral, with leaves along them,
-    two at each end, and a few at its foot. Mutates. */
-function vines(m) {
-  const { pts, top } = shapeOf(m), y0 = 1.5, y1 = y0 + (top - y0) * 0.8, n = 22;
-  for (const start of [0.4, 0.4 + Math.PI]) {
-    let last = null, lastR = 2;
-    for (let i = 0; i <= n; i++) {
-      const t = i / n, y = y0 + (y1 - y0) * t, a = start + t * Math.PI * 2.4;
-      const r = (surface(pts, a, y) ?? lastR) + 0.28;
-      lastR = r - 0.28;
-      const p = [Math.cos(a) * r, y, Math.sin(a) * r];
-      if (last) strand(m, last, p, 0.5, i % 2 ? VINE.stem : VINE.stemDark);
-      if (i % 3 === 1 && i < n) leaf(m, p, a + (i % 2 ? 0.5 : -0.5), 0.6, 1.5, ((i - 1) / 3) % 2 ? VINE.leaf : VINE.leafLight);
-      last = p;
-    }
-    const a1 = start + Math.PI * 2.4;
-    leaf(m, last, a1 + 0.6, 1.0, 1.4, VINE.leafLight);
-    leaf(m, last, a1 - 0.6, 0.8, 1.2, VINE.leaf);
-  }
-  for (let k = 0; k < 5; k++) {
-    const a = k * 1.3 + 0.2;
-    leaf(m, [Math.cos(a) * 2.2, 1.55, Math.sin(a) * 2.2], a + (k % 2 ? 0.3 : -0.3), 0.15, 1.6, k % 2 ? VINE.leaf : VINE.leafLight);
-  }
-  return m;
+/** Where the piece's collar is (its trim band, or for a knight its mane):
+    the height of it and how far out it reaches there. */
+function collarOf(m) {
+  const mark = rgb3(MARK_TRIM), pts = m.tris.filter((t) => sameCol(t.c, mark)).flatMap((t) => t.p);
+  const { top, ring } = shapeOf(m);
+  if (!pts.length) { const y = 1.5 + (top - 1.5) * 0.55; return { y, r: ring(y), front: ring(y) }; }
+  const y = pts.reduce((a, p) => a + p[1], 0) / pts.length, all = shapeOf(m).pts;
+  return { y, r: Math.max(...pts.map((p) => Math.hypot(p[0], p[2]))), front: surface(all, Math.PI / 2, y) ?? ring(y) };
 }
+
+/** Build a piece in a look's colours, with its trim and gold marked. */
+function marked(build, body, plinthOf) {
+  return withPalette({ ...YOU, ...body, moss: MARK_TRIM, gold: MARK_GOLD, ...plinthOf }, build);
+}
+/** Give the marked trim and gold their colours. Mutates; returns m. */
+function finish(m, trim, gold) { recolour(m, MARK_TRIM, trim); recolour(m, MARK_GOLD, gold); return m; }
 
 /** A heart in the round: two lobes over a cone pointing down, centred on
-    `at`, size s; with a glint if `hi` is given. */
-function heart3d(m, [x, y, z], s, col, hi = null) {
+    `at`, size s. */
+function heart3d(m, [x, y, z], s, col) {
   for (const sx of [-1, 1]) m.ball(x + sx * 0.42 * s, y + 0.22 * s, z, 0.55 * s, col, { seg: 8, rings: 5 });
   m.cone(x, y + 0.2 * s, z, 0.95 * s, 1.2 * s, col, { seg: 8, rot: { rz: Math.PI } });
-  if (hi) m.ball(x - 0.52 * s, y + 0.45 * s, z + 0.3 * s, 0.14 * s, hi, { seg: 5, rings: 3 });
 }
 
-/** Hearts: crowned with a big red heart, a pale heart on its chest, and a
-    ring of little hearts standing round its plinth. */
-function hearts(m) {
-  const { pts, top } = shapeOf(m), y = 1.5 + (top - 1.5) * 0.45;
-  heart3d(m, [0, top + 1.6, 0], 1.9, '#ff3f62', '#ffe0e6');
-  heart3d(m, [0, y, (surface(pts, Math.PI / 2, y) ?? 1.5) + 0.45], 1.1, '#ffe4ea', '#ffffff');
-  for (let k = 0; k < 6; k++) {
-    const a = (k / 6) * Math.PI * 2 + 0.3;
-    heart3d(m, [Math.cos(a) * 3.3, 2.25, Math.sin(a) * 3.3], 0.62, k % 2 ? '#ff5a78' : '#ffc2cd');
-  }
-  return m;
-}
-
-/** A gear of `teeth` teeth, radius r, thickness th, lying flat at `at`
-    (or turned by `rot`), with a hub. */
-function cog(m, at, r, teeth, th, col, hub, rot = {}) {
-  m.group({ t: at, ...rot }, () => {
-    m.lathe([[r, -th / 2], [r, th / 2]], col, { seg: Math.max(8, teeth) });
-    for (let k = 0; k < teeth; k++) {
-      const a = (k / teeth) * Math.PI * 2;
-      m.box(Math.cos(a) * (r + 0.24), 0, Math.sin(a) * (r + 0.24), 0.46, th, 0.42, col, { ry: -a });
-    }
-    m.lathe([[r * 0.38, th / 2], [r * 0.38, th / 2 + 0.12]], hub, { seg: 8 });
-  });
-}
-
-/** Gears: it stands on a gear (its plinth toothed all round), two gears turn
-    round its body, a cog crowns it, and another faces you from its chest. */
-function gears(m) {
-  const { pts, top, ring } = shapeOf(m), iron = '#3f454d', steel = '#e3e8ee', brass = '#c9a24a';
-  for (let k = 0; k < 16; k++) {
-    const a = (k / 16) * Math.PI * 2;
-    m.box(Math.cos(a) * 3.95, 0.55, Math.sin(a) * 3.95, 0.62, 1.1, 0.6, iron, { ry: -a });
-  }
-  for (const f of [0.26, 0.64]) { const y = 1.5 + (top - 1.5) * f; cog(m, [0, y, 0], ring(y) + 0.08, 12, 0.6, iron, brass); }
-  cog(m, [0, top + 0.35, 0], 1.25, 9, 0.45, steel, brass);
-  const cy = 1.5 + (top - 1.5) * 0.45, cz = (surface(pts, Math.PI / 2, cy) ?? 1.4) + 0.25;
-  cog(m, [0, cy, cz], 0.8, 8, 0.32, steel, brass, { rx: Math.PI / 2 });
-  return m;
+/** A little star: six points from its middle. */
+function sparkle(m, c, r, col) {
+  for (const rot of [{}, { rz: Math.PI }, { rz: -Math.PI / 2 }, { rz: Math.PI / 2 }, { rx: Math.PI / 2 }, { rx: -Math.PI / 2 }])
+    m.cone(c[0], c[1], c[2], r * 0.3, r, col, { seg: 4, rot });
 }
 
 /** Turn the model about its axis by k radians for every unit of height
@@ -869,41 +820,52 @@ function twist(m, k) {
   return m;
 }
 
-/** Spirals: the piece itself twisted, and a cream stripe wound up it like a
-    shell, curled at the top. */
-function spirals(m) {
-  twist(m, 0.24);
-  const { pts, top } = shapeOf(m), y0 = 1.6, y1 = 1.5 + (top - 1.5) * 0.92, n = 34, deep = '#b9581a';
-  let last = null;
-  for (let i = 0; i <= n; i++) {
-    const t = i / n, y = y0 + (y1 - y0) * t, a = 0.2 + t * Math.PI * 5;
-    const r = (surface(pts, a, y) ?? 1.2) + 0.12, p = [Math.cos(a) * r, y, Math.sin(a) * r];
-    if (last) strand(m, last, p, 0.42, i % 2 ? '#fff1dc' : '#fbe3c4');
-    last = p;
-  }
-  m.ball(last[0], last[1] + 0.2, last[2], 0.32, deep, { seg: 6, rings: 4 });
-  return m;
-}
+// Each look (2026-10-15, second go: Timothy, "the new models for suits are
+// a bit much, maybe start from scratch there. more tasteful this time while
+// integrating the idea of the suit into the model"): the piece's own shape
+// in the suit's colours, and one thing of the suit made part of it, at its
+// collar, where the trim already is: a wreath of leaves, a heart locket, a
+// geared collar, a twist through the whole piece, a star brooch, carved
+// bands. Its trim and its gold take the suit's accent.
+const LOOK_BUILD = {
+  plain: (m) => finish(m, '#f4f1ea', '#e3bd57'),
+  vines: (m) => {
+    const c = collarOf(m);
+    finish(m, '#a8d77a', '#bfeb85');
+    for (let k = 0; k < 8; k++) {
+      const a = (k / 8) * Math.PI * 2 + 0.2;
+      leaf(m, [Math.cos(a) * (c.r + 0.02), c.y + 0.15, Math.sin(a) * (c.r + 0.02)], a, -0.3, 1.35, k % 2 ? '#9ad85e' : '#c3ec8a');
+    }
+    return m;
+  },
+  hearts: (m) => {
+    const c = collarOf(m);
+    finish(m, '#f7c9d1', '#f2a7b5');
+    heart3d(m, [0, c.y - 0.7, c.front + 0.3], 0.85, '#ffe4ea');
+    return m;
+  },
+  gears: (m) => {
+    const c = collarOf(m), brass = '#c9a24a';
+    finish(m, brass, brass);
+    for (let k = 0; k < 12; k++) {
+      const a = (k / 12) * Math.PI * 2;
+      m.box(Math.cos(a) * (c.r + 0.16), c.y, Math.sin(a) * (c.r + 0.16), 0.34, 0.42, 0.3, brass, { ry: -a });
+    }
+    return m;
+  },
+  spirals: (m) => twist(finish(m, '#fff1dc', '#fff1dc'), 0.19),
+  stars: (m) => {
+    const c = collarOf(m);
+    finish(m, '#fff3b8', '#fff8d8');
+    sparkle(m, [0, c.y - 0.7, c.front + 0.45], 0.85, '#fffbe0');
+    return m;
+  },
+  sandstone: (m) => finish(carved(m, 0), '#86683c', '#e3c18d'),
+  cairn: (m) => finish(carved(m, 8), '#664c2a', '#bf9c69')
+};
 
-/** A little star: six points, from its middle. */
-function sparkle(m, c, r, col, mid) {
-  for (const rot of [{}, { rz: Math.PI }, { rz: -Math.PI / 2 }, { rz: Math.PI / 2 }, { rx: Math.PI / 2 }, { rx: -Math.PI / 2 }])
-    m.cone(c[0], c[1], c[2], r * 0.32, r, col, { seg: 4, rot });
-  m.ball(c[0], c[1], c[2], r * 0.34, mid, { seg: 6, rings: 3 });
-}
-
-/** Stars: a star on its head and little ones round it. */
-function stars(m) {
-  const { pts, top } = shapeOf(m), gold = '#fffbe0', glow = '#ffe14a';
-  sparkle(m, [0, top + 1.3, 0], 1.3, gold, glow);
-  [[1.2, 0.28], [2.6, 0.55], [0.4, 0.78], [3.9, 0.95]].forEach(([a, k], i) => {
-    const y = 1.5 + (top - 1.5) * k, r = (surface(pts, a, y) ?? 1.4) + 0.95;
-    sparkle(m, [Math.cos(a) * r, y, Math.sin(a) * r], i % 2 ? 0.75 : 0.9, gold, glow);
-  });
-  return m;
-}
-
-/** Stone: carved bands round it, and a few pebbles at its foot. */
+/** Stone: carved bands round it, and pebbles at its foot (a stone left on
+    the board has them; a piece of Stone does not). */
 function carved(m, pebbles = 5) {
   const { top, ring } = shapeOf(m), cut = '#6e5532';
   for (const f of [0.3, 0.6]) { const y = 1.5 + (top - 1.5) * f; m.lathe([[ring(y) + 0.06, y - 0.1], [ring(y) + 0.06, y + 0.1]], cut, { seg: 10, caps: false }); }
@@ -915,29 +877,13 @@ function carved(m, pebbles = 5) {
 }
 
 /** The looks, and how each is made: built in its colours, then its motif. */
-const SUIT_LOOK = {
-  // (Not 'stone': that is the Grove's own standing stones, statue().)
-  sandstone: (build, plinthOf) => carved(withPalette({ ...YOU, ...SUIT_BODY.stone, ...plinthOf }, build)),
-  // A stone left on the board: no suit band, a ring of pebbles round it.
-  cairn: (build) => carved(withPalette({ ...YOU, ...SUIT_BODY.cairn, band: '#bfa77e', base: '#7d6644' }, build), 8),
-  plain: (build, plinthOf) => withPalette({ ...YOU, ...SUIT_BODY.plain, ...plinthOf }, build),
-  vines: (build, plinthOf) => vines(withPalette({ ...YOU, ...SUIT_BODY.vines, ...plinthOf }, build)),
-  hearts: (build, plinthOf) => hearts(withPalette({ ...YOU, ...SUIT_BODY.hearts, ...plinthOf }, build)),
-  gears: (build, plinthOf) => gears(withPalette({ ...YOU, ...SUIT_BODY.gears, ...plinthOf }, build)),
-  spirals: (build, plinthOf) => spirals(withPalette({ ...YOU, ...SUIT_BODY.spirals, ...plinthOf }, build)),
-  stars: (build, plinthOf) => stars(withPalette({ ...YOU, ...SUIT_BODY.stars, ...plinthOf }, build))
-};
-// Theirs, with tactics (2026-10-15). A sentry is one of their statues with
-// a red eye that watches; their leader is purple, crowned in gold.
+const SUIT_LOOK = Object.fromEntries(Object.entries(LOOK_BUILD).map(([k, fn]) => [k, (build, plinthOf) =>
+  fn(marked(build, SUIT_BODY[k === 'sandstone' ? 'stone' : k], k === 'cairn' ? { band: '#bfa77e', base: '#7d6644' } : plinthOf))]));
+
+// Theirs, with tactics (2026-10-15): their leader is purple, crowned in
+// gold. (Sentries were statues with a red eye until Timothy made them a
+// kind of rabbit, the same day: now a red rabbit lights a purple piece.)
 const THEIR_LOOK = {
-  sentry: (build) => {
-    const m = withPalette({ ...YOU, ...GREY, band: '#b8423a', base: '#5f2a25' }, build), { pts, top } = shapeOf(m), y = 1.5 + (top - 1.5) * 0.62;
-    const z = (surface(pts, Math.PI / 2, y) ?? 1.4) + 0.1;
-    m.ellipsoid(0, y, z, 0.95, 0.62, 0.3, '#2a0f0c', { seg: 8, rings: 4 });
-    m.ball(0, y, z + 0.2, 0.4, '#ff5a3c', { seg: 6, rings: 4 });
-    m.ball(-0.12, y + 0.12, z + 0.5, 0.1, '#ffd2c4', { seg: 4, rings: 3 });
-    return m;
-  },
   crowned: (build) => {
     const m = withPalette({ ...YOU, ...FOE, band: '#f5c13a', base: '#8c6a12' }, build), { top } = shapeOf(m), gold = '#f5c13a';
     m.lathe([[1.1, top + 0.1], [1.1, top + 0.55]], gold, { seg: 10 });
