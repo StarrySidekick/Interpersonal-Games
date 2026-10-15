@@ -44,7 +44,7 @@ the rook, no choice"). Take every piece of theirs in as few moves as you
 can; then a hole opens and your piece jumps in.
 
 - **One piece on the board.** Your set (everything you have collected, up
-  to five) takes turns: after every turn the piece on the board becomes the
+  to five) takes turns: after every move of yours the piece on the board becomes the
   next of the set, on the same square, in the order you got them, and then
   the first again. The row under the board shows the order: Now, Next, In
   2... Each piece keeps its own suit and weapon while it waits.
@@ -262,54 +262,78 @@ the set's order (customization); something that lasts between runs (the
 descent's roster could carry); a walker's colour learned across runs like
 the daily's rabbits.
 
-## Ideas: chess technique with one piece at a time (brainstorm, not built)
+## Tactics: chess technique with one piece at a time
 
 Timothy, 2026-10-15: "i want to find a way to still have opportunities for
 pinning and other chess technique even though we are working with one
-piece at a time." What chess technique needs, and Adventure lacks: pieces
-that defend each other (so a square can be guarded); lines through pieces
-(pins, skewers, x-rays); an opponent who can answer only one thing at a
-time (so a fork works); and something precious to attack (so a check
-forces a reply). Ideas, each with the technique it brings:
+piece at a time"; then, of seven ideas, "let's do everything but 6. also 5
+should be a new suit called stone that lets you leave a sentry behind of
+your piece." Chess technique needs pieces that defend, lines through
+pieces, an opponent who can answer only one thing at a time, and something
+precious. Each of these adds one of them back. All in `rules.js`
+(`tacticsTurn`, with `rules.tactics`), dealt by `lab.js` (`dealRoutes`).
 
-1. **Pins freeze.** If your piece's line runs through one of theirs to
-   another of theirs behind it, the front one is pinned: it cannot step
-   (a walker holds its square) or take, while the pin holds. The cycle
-   makes pins a timing tool: "pin with the rook, take with the knight
-   next turn." Cheap: the Grove already finds pins (`pinned`) and draws
-   them (the needle).
-2. **Sentries, which defend.** A statue of theirs with eyes: it never walks,
-   but if you land where it sees, it takes you, moving onto your square to
-   do it. Now a piece can be defended or hanging, and the order of
-   captures matters (take the defender first). With pins, a pinned sentry
-   cannot take: pin the guard, then take what it guards. With Hearts, a
-   sacrifice: take a guarded piece, the sentry takes you and leaves its
-   post, your heart sends you home, and what it was guarding is free
-   (deflection, overloading).
-3. **Skittish rabbits, one flees a turn.** A piece with a skittish rabbit
-   steps out of your reach when you attack it, but their side can save
-   only one a turn, like an opponent with one move. Attack two at once (a
-   fork) and one is yours. Threats become moves.
-4. **Their leader.** One piece carries the rabbit that leads them; while
-   you attack it (check), the walkers break route to block or flee.
-   Checks, interposition, discovered checks. The biggest change, and the
-   most likely to muddy "super predictable".
-5. **A waystone of your own.** Once a board, leave a stone on your square
-   that keeps the attack of the piece that left it for a few turns. Two
-   attackers: batteries, discovered attacks, pins held while your piece
-   cycles on.
-6. **Skewer chains.** Taking a piece with another of theirs right behind it
-   on the same line gives a free move to take that one too.
-7. **Trapped, said out loud.** Routes already make zugzwang: a walker must
-   step where it must. Mark a walker whose every next step you attack as
-   trapped (notation only, no new rule).
+**First, the turn order changed.** Your piece now becomes the next of your
+set at the end of your move (`nextInSet` in `playerMove`), before they
+answer, so a threat, a pin or a check is made by the piece that will move
+next turn and can follow it up. On screen nothing looks different.
 
-Recommended first: 1 and 2 together. Two rules give pins, defended pieces,
-removing the defender, capture order, and (with Hearts) deflection and
-overloading. Then 3 for forks. Paths: mastery, vertical (deeper reading
-of the same board) and horizontal (new kinds of plan); notated visually
-(the pin needle, a sentry's sight shaded on the board) and in the turn's
-caption.
+Their turn, in order:
+
+1. **Pins.** A line from your piece, or a stone of yours, through one of
+   theirs to another of theirs behind it pins the front one for the turn:
+   it cannot step, strike, run or block (`tacticalPins`). Only sliding
+   pieces have lines. Pinned pieces wear the Grove's pin needle.
+2. **Check.** Their **leader** is a crowned King (gold plinth, a gold
+   crown). If you attack it they answer: a piece of theirs takes the
+   attacker if one can (the King itself only where nothing else of yours
+   guards that square); else one steps into the line to block, and stands
+   guard there from then on as a sentry; else the King runs to a square you
+   do not attack; else it is **checkmate**: every piece of theirs falls and
+   the board is yours. Attacked twice at once (double check, say your piece
+   and a stone), only running will do. A red ring marks a leader in check.
+3. **Flight.** A piece with a **skittish** rabbit (a white plinth) runs to
+   a square you do not attack when you attack it, but only one runs a turn,
+   the most valuable that can. Attack two at once (a fork) and the other is
+   left; pinned, it cannot run. A gold ring marks one that could not run.
+4. **Walkers** take their steps, except the pinned, which hold.
+5. **Sentries** (grey, a red eye and a red plinth) never walk, but each
+   takes anything of yours standing where it attacks, your piece first,
+   then a stone, moving onto it. Their reach is shaded purple.
+6. **Your stones** each take one of theirs that moved this turn into where
+   they attack, moving onto it: a trap, not a turret, so a stone never takes
+   a statue that only stands on its line.
+
+**The Stone suit** (◆, sandstone, Adventure's own, so it never turns up in
+the other modes): once a board, a piece of Stone may leave a stone copy of
+itself on the square it moves off (the "◆ Leave a stone" button, then the
+move). The stone stays, is yours, strikes as above, pins and gives check
+along its lines, and their pieces can break it. Your Stone piece is
+sandstone with carved bands; a stone left behind is darker, on pebbles.
+
+**Arrival, one at a time:** a sentry from depth 2, a skittish piece from 4,
+their leader from 6 (half the boards; most from 9). Pins work from the
+first board.
+
+**Checkmate is a shortcut**, since it topples the board, so leader boards
+are dealt with care: the King starts with at least three open squares
+round it and two or more from you, the sentries are the statues nearest
+it (its bodyguards), par must be at least 4 plus a third of the depth, and
+an exact search (as far as a budget lets) throws out any board that falls
+to a mate sooner than that.
+
+**In words:** the turn's caption says what happened: "Your rook pins
+their knight: it holds", "Check! Their bishop steps in to block", "Double
+check! Their leader runs", "Checkmate!", "Fork! Their bishop could not run
+as well", "Your stone takes their camel". Tapping a sentry, a skittish
+piece, the leader or a stone says what it does; the pieces sheet lists them.
+
+**Not built:** idea 6, skewer chains (a free move to take the piece behind
+the one you take).
+
+**The solver** now counts a win on their turn (checkmate, or a stone
+taking the last of them) as a win (`solve.js`); before, it was thrown away
+as game over.
 
 ## Open, and Timothy's
 
@@ -321,3 +345,6 @@ caption.
 - The route kinds and their colours, and when each arrives.
 - Wandering clouds, which can hide a walker.
 - Endless, with no final depth.
+- Tactics: whether checkmate should topple the whole board or only take
+  the leader; whether stones should be traps (as now) or strike anything in
+  reach; how strong the leader's bodyguards should be.

@@ -327,7 +327,7 @@ function goalCard() {
   if (session.seen.has('goal')) return null;
   session.seen.add('goal');
   let text = {
-    descent: M.upgrades === 'par' ? 'Take every piece of theirs. When the last one goes, a hole opens beside you and you jump down it to the next board. Grey statues never move. A piece with a rabbit inside walks a short route every turn, the rabbit\u2019s colour says which, and its next step is drawn on the board: stand there and it takes you. You have one piece on the board, and after every turn it becomes the next piece of your set. Every piece you take leaves you its rabbit, and three rabbits of a kind become that piece, which joins your set. If they take the piece on the board, it is gone, and the floor gives way; lose them all and the adventure is over.'
+    descent: M.upgrades === 'par' ? 'Take every piece of theirs. When the last one goes, a hole opens beside you and you jump down it to the next board. Grey statues never move. A piece with a rabbit inside walks a short route every turn, the rabbit\u2019s colour says which, and its next step is drawn on the board: stand there and it takes you. You have one piece on the board, and after every turn it becomes the next piece of your set. Every piece you take leaves you its rabbit, and three rabbits of a kind become that piece, which joins your set. If they take the piece on the board, it is gone, and the floor gives way; lose them all and the adventure is over. Deeper down, chess comes back: a line of yours through one of theirs to another pins it, so it holds still; sentries guard; skittish pieces run when attacked, one a turn, so fork them; and their crowned leader must answer a check. Checkmate it and the whole board falls.'
       : M.upgrades === 'tiles' ? 'Take their King to win the round. After each round you each turn over a tile at the edge of the board, the winner first: the board grows by that square, and the suit or weapon on the tile is yours. When the board has as many squares as the next size up, both sides get the same new piece. Every piece starts each round in a bubble: nothing can take it until it moves. Four statues stand in the middle; either side can break one by taking it. Keep your King: if they take it, the run is over.'
       : M.upgrades === 'each' && M.goal === 'carrier' ? `A rabbit rides one of their pieces. ${M.rabbitMove === 'random' ? `Every ${M.rabbitHop === 1 ? 'turn' : `${M.rabbitHop} turns`} it hops to another, at random.` : 'They can move it to another of their pieces, but that is their move for the turn.'} Take the piece it is on to fall to the next board, where you choose a suit or a weapon and they get one too. Keep your King: if they take it, the descent is over. Anything else of yours they take comes back on the next board.${M.promote === 'copy' ? ' A pawn that reaches the far row becomes a copy of another of your pieces.' : ''}`
       : M.upgrades === 'each' ? 'Take their King to fall to the next board, where each side gets an upgrade. Keep yours: if they take your King, the descent is over. Anything else of yours they take comes back on the next board. One rabbit leads their side, riding on their King: tap it to see what kind it is.'
@@ -555,7 +555,13 @@ function select(i) {
   const passOk = allMoves(now()).some((m) => m.p === -1);
   $('#wait').hidden = !passOk;
   $('#wait').textContent = now().bonus ? 'End turn' : now().day.rules.wait ? 'Wait a turn' : 'Pass (nothing can move)';
-  legal = i == null ? [] : movesFor(now(), i).filter((m) => !m.skip);
+  // Stone (Adventure): with the button pressed, the moves that leave a stone.
+  const stoneable = movesFor(now(), 0).some((m) => m.stone);
+  if (!stoneable) stoneArmed = false;
+  $('#stone').hidden = !stoneable;
+  $('#stone').setAttribute('aria-pressed', String(stoneArmed));
+  $('#stone').textContent = stoneArmed ? '◆ Leaving a stone: pick a move' : '◆ Leave a stone';
+  legal = i == null ? [] : movesFor(now(), i).filter((m) => !m.skip && !!m.stone === stoneArmed);
   // Gears in Adventure: skip to the next piece of your set, by a button.
   const skip = movesFor(now(), 0).find((m) => m.skip), next = skip && setOrder(now())[1];
   $('#skip').hidden = !skip;
@@ -595,6 +601,21 @@ function whatHappened(a, b) {
   });
   // Your set takes turns: say what you are now.
   if (b.set && !b.won && !b.pieces[0].taken && b.pieces[0].type !== a.pieces[0].type) { const n = nameOf(b.pieces[0]).toLowerCase(); bits.push(`Now you are ${/^[aeiou]/.test(n) ? 'an' : 'a'} ${n}.`); }
+  // Adventure's tactics: what their turn was, in words.
+  const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+  const me = b.pieces[0], myName = me ? nameOf(me).toLowerCase() : 'piece';
+  const theirs = (k) => `their ${b.foes[k]?.brain === 'crown' ? 'leader' : nameOf(b.foes[k] || {}).toLowerCase()}`;
+  const by = (l) => (l.by === 'stone' ? 'your stone' : `your ${myName}`);
+  for (const l of b.tlog || []) {
+    if (l.what === 'pin') bits.push(`${cap(by(l))} pins ${theirs(l.k)}: it holds.`);
+    if (l.what === 'check') bits.push(l.how === 'take' ? `Check! ${cap(theirs(l.k))} takes ${by(l)}.` : l.how === 'block' ? `Check! ${cap(theirs(l.k))} steps in to block, and stands guard there now.`
+      : `${l.double ? 'Double check' : 'Check'}! Their leader runs.`);
+    if (l.what === 'mate') bits.push('Checkmate! Their leader is caught, and the rest lay down their arms.');
+    if (l.what === 'flee') bits.push(`${cap(theirs(l.k))} takes fright and runs.`);
+    if (l.what === 'trapped') bits.push(l.fork ? `Fork! ${cap(theirs(l.k))} could not run as well.` : l.pinned ? `${cap(theirs(l.k))} would run, but it is pinned.` : `${cap(theirs(l.k))} has nowhere to run.`);
+    if (l.what === 'sentry' && l.on === 'stone') bits.push(`${cap(theirs(l.k))} breaks your stone.`);
+    if (l.what === 'stone') bits.push(`Your stone takes ${theirs(l.k)}.`);
+  }
   if (b.foeBonus === 'vines') bits.push('Their piece of Vines takes again.');
   if (b.foeBonus === 'stars') bits.push('Their piece of Stars moves twice.');
   b.foes.forEach((f) => {
@@ -638,12 +659,14 @@ function whatHappened(a, b) {
 /** A piece of yours that came back from a heart (2026-10-13): while set,
     tapping one of the squares it could go to puts it there instead. */
 let placing = null;
+/** Stone (Adventure): the next move leaves a stone behind. */
+let stoneArmed = false;
 
 async function play(mv) {
   if (busy || isOver(now())) return;
   busy = true;
   const a = now();
-  sel = null; legal = []; placing = null; pendingPlace = null;
+  sel = null; legal = []; placing = null; pendingPlace = null; stoneArmed = false;
   const mid = playerMove(a, mv);
   shown = mid;
   await board.animate(a, mid, mv);
@@ -706,6 +729,9 @@ $('#board').addEventListener('click', async (e) => {
     .sort((a, b) => (s.pieces[b].rides != null) - (s.pieces[a].rides != null));
   if (here.length) { const at = here.indexOf(sel); return select(at < 0 ? here[0] : at + 1 < here.length ? here[at + 1] : null); }
   select(null);
+  // A stone of yours (Stone suit).
+  const stone = (s.stones || []).find((t) => t.x === x && t.y === y);
+  if (stone) return info(`Your stone, in the shape of a ${nameOf(stone).toLowerCase()}. It stays where it was left. At the end of their turn it takes one of theirs standing where it attacks, and its lines pin and give check like your piece's. Their pieces can break it.`);
   if (s.hole && s.hole.x === x && s.hole.y === y && !s.foes.some((f) => !f.taken && f.x === x && f.y === y)) return info(s.day.rules.goal === 'clear' ? `${EXIT_DESC} It is ${holeOpen(s) ? 'open' : 'shut'}.` : HOLE_DESC);
   if (s.cloudy && s.day.cloud?.has(y * s.day.W + x)) return info(cloudDesc(s.day.rules));
   if (crumbled(s, x, y)) return info(CRUMBLE_DESC);
@@ -725,6 +751,10 @@ $('#board').addEventListener('click', async (e) => {
   if (f?.brain === 'leader') return info(leaderDesc(f, s.day));
   if (f?.brain === 'carrier') return info(carrierText(s, f));
   if (f?.brain === 'still') return info(`A statue of their ${nameOf(f).toLowerCase()}: it never moves and never takes. Take it.`);
+  // Adventure's tactics.
+  if (f?.brain === 'sentry') return info(`A sentry: their ${nameOf(f).toLowerCase()}, with a red eye. It never walks, but at the end of their turn it takes anything of yours standing where it attacks (shaded purple), moving there. Pinned, it cannot strike.`);
+  if (f?.brain === 'skittish') return info(`Their ${nameOf(f).toLowerCase()}, with a skittish rabbit: when you attack it, it runs to a square you do not attack. Their side can save only one a turn, so attack two at once.${f.trapped ? ' Last turn it could not run.' : ''}`);
+  if (f?.brain === 'crown') return info('Their leader, a crowned King. Attack it, and they must answer: take your attacker if they can (the King only if nothing else of yours guards that square), else block the line (the blocker stands guard there after), else the King runs. If none of those works, it is checkmate, and every piece of theirs falls.');
   if (f?.route) return info(`Their ${nameOf(f).toLowerCase()}. ${routeText(f)}`);
   if (f) info(f.mind ? `Their ${nameOf(f)}, with a ${f.patternName ? f.patternName.toLowerCase() + ' ' : ''}rabbit inside (intelligence ${f.mind.iq}).` : `Their ${nameOf(f)}. ${PIECES[f.type].desc}${carriesText(f)}`);
   const fl = flagAt(s);
@@ -733,6 +763,7 @@ $('#board').addEventListener('click', async (e) => {
 
 $('#wait').onclick = () => play({ p: -1, x: 0, y: 0 });
 $('#skip').onclick = () => { const p = now().pieces[0]; if (p) play({ p: 0, x: p.x, y: p.y, skip: true }); };
+$('#stone').onclick = () => { if (!board || busy || isOver(now())) return; stoneArmed = !stoneArmed; haptic(8); select(0); };
 // The best move, for testing (2026-10-14): whatever the mode.
 $('#best').onclick = async () => {
   if (!board || !game || busy || isOver(now())) return;

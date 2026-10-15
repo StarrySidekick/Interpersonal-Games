@@ -38,7 +38,7 @@ import { rng } from '../../engine/seed.js';
 import { model } from './models.js';
 import { LOOK } from './config.js';
 import { Board, tileColour, PIT, TRACK, tweenPos, wraps } from './board.js';
-import { onBoard, brambleCount, holeOpen, nextShrink, statueKind, reachMaps, onHill, guarded, guardedSquares, threats, pinned, ghostAt, gateUp, hiddenFrom, flagAt } from './rules.js';
+import { onBoard, brambleCount, holeOpen, nextShrink, statueKind, reachMaps, onHill, guarded, guardedSquares, threats, pinned, ghostAt, gateUp, hiddenFrom, flagAt, inCheck } from './rules.js';
 import * as sfx from './sounds.js';
 import { haptic } from '../../engine/ui.js';
 
@@ -52,7 +52,7 @@ const PALE = '#e9e4da';   // a possessed piece whose rabbit you do not know
 // no plinth (Timothy, 2026-10-13: "The rabbit that hops on heads should not
 // have a piece base"), in a pale shade of its side's colour.
 const CARRIER_FUR = { you: '#cfe6b4', foe: '#c7b2ea' };
-const SUIT_COLOUR = { hearts: '#e0445a', spirals: '#f0903a', gears: '#8fa6bd', stars: '#e8c547', vines: '#2fb8a0' }; // run.js SUITS
+const SUIT_COLOUR = { hearts: '#e0445a', spirals: '#f0903a', gears: '#8fa6bd', stars: '#e8c547', vines: '#2fb8a0', stone: '#b08a5a' }; // run.js SUITS
 // The plinth of a Changeling wearing another piece's shape: fairy silver.
 const CHANGELING_GLOW = '#d9c8f5';
 const LIFT = 10 / 28;     // the flat board's pixels of height, in model units
@@ -1071,6 +1071,15 @@ export class Board3D extends Board {
       }
       if (PIN?.mine.has(i) && !p.taken && this.needle(stand, x, y, h, 100 + i, 'm' + i, at)) this.settleSoon();
     });
+    // Your stones (Adventure's Stone suit): weathered copies, striking along
+    // when they take something.
+    (s.stones || []).forEach((st, j) => {
+      let x = st.x, y = st.y, h = 0;
+      const tt = tw?.stones?.[j];
+      if (tt) { const q = tweenPos(tt, at); x = q.x; y = q.y; h = Math.sin(Math.PI * q.k) * 2; }
+      const o = collapse ? { s: away(at - collapse.t0 - 200) } : {};
+      stand(model(st.type, 'cairn'), x, y, h, 600 + j, o);
+    });
     // Shields in flight (2026-10-13): from the guard's chest to the front of
     // the piece it now guards, in a low arc, turning a little as they go.
     for (const f of this.flights || []) {
@@ -1096,12 +1105,18 @@ export class Board3D extends Board {
       // The rabbit that leads them (2026-10-13) is a rabbit, not a piece: no
       // plinth, in its trait's colour.
       // A statue of theirs (Adventure) is the piece in grey stone.
-      const mdl = f.brain === 'still' ? model(f.shape || f.type, 'grey') : f.brain === 'leader' ? model('rabbit', 'foe', this.fur(f)) : f.brain === 'carrier' ? model('rabbit', 'foe', CARRIER_FUR.foe) : f.suit ? model(f.shape || f.type, 'foe', null, SUIT_COLOUR[f.suit]) : f.shape ? model(f.shape, 'foe', null, CHANGELING_GLOW) : f.brain === 'possessed' ? model(f.type, 'foe', null, this.glowOf(f, k, at)) : model(f.type, 'foe', this.fur(f));
+      // Adventure's tactics: a sentry (grey, a red eye), their leader
+      // (crowned), a skittish piece (a white rabbit's plinth).
+      const mdl = f.brain === 'sentry' ? model(f.shape || f.type, 'sentry') : f.brain === 'crown' ? model(f.type, 'crowned') : f.brain === 'skittish' ? model(f.shape || f.type, 'foe', null, '#f4f1ea') : f.brain === 'still' ? model(f.shape || f.type, 'grey') : f.brain === 'leader' ? model('rabbit', 'foe', this.fur(f)) : f.brain === 'carrier' ? model('rabbit', 'foe', CARRIER_FUR.foe) : f.suit ? model(f.shape || f.type, 'foe', null, SUIT_COLOUR[f.suit]) : f.shape ? model(f.shape, 'foe', null, CHANGELING_GLOW) : f.brain === 'possessed' ? model(f.type, 'foe', null, this.glowOf(f, k, at)) : model(f.type, 'foe', this.fur(f));
       const fo = collapse ? { s: away(at - collapse.t0 - collapse.delay(f.x, f.y)) } : {};
       stand(mdl, x, y, h, 200 + k, fo);
       armsOf(f, x, y, h, 200 + k, fo, -1);
       foeAt[k] = { x, y, h, i: k };
       if (day.rules.goal === 'target' && day.foes.length > 1 && f.target) stand(ring('#e3bd57'), x, y, 0, 200 + k);
+      // Tactics: gold under a piece that could not run (forked, pinned or
+      // cornered); red under their leader while you attack it.
+      if (!f.taken && f.trapped && !t) stand(ring('#f5c13a'), x, y, 0, 200 + k);
+      if (!f.taken && f.brain === 'crown' && (this.checkFor === s ? this.checkVal : ((this.checkFor = s), (this.checkVal = inCheck(s))))) stand(ring('#e2483a'), x, y, 0, 200 + k);
       if (PIN?.theirs.has(k) && !f.taken && this.needle(stand, x, y, h, 200 + k, 't' + k, at)) this.settleSoon();
     });
     this.standing = { where, foeAt };

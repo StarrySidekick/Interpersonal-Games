@@ -196,7 +196,7 @@ export const MODES = {
     name: 'Adventure', blurb: 'Start with a rook. Take every piece of theirs in as few moves as you can, and jump into the hole that opens. Grey statues stand still; pieces with a rabbit inside walk short routes, and the rabbit\u2019s colour says which. Every piece you take leaves its rabbit with you, and three of a kind become that piece, which joins your set: one piece on the board, turning into the next of your set every turn. Beat par for a choice of suits and weapons.',
     settings: {
       run: 'descent', roll: 'fixed', upgrades: 'par', startPieces: 1, maxPieces: 5, startPool: ['rook'], rewards: true, jokers: false, carry: false, keepsakes: false, outOfMoves: 'fall', fairyFrom: 4, ramp: 'steady',
-      goal: 'clear', captureN: 0, royal: false, showdown: false, promote: 'none', fullRow: false, lineup: false, inOrder: false, mineRows: 1, foeRows: 4, arrange: false, cloud: false, ghosts: false, cycle: true, swordAims: true,
+      goal: 'clear', captureN: 0, royal: false, showdown: false, promote: 'none', fullRow: false, lineup: false, inOrder: false, mineRows: 1, foeRows: 4, arrange: false, cloud: false, ghosts: false, cycle: true, swordAims: true, tactics: true,
       w: 5, h: 5, foes: 3, still: 2, foePool: ['knight', 'bishop', 'rook', 'king'], darkBrain: 'possessed', patterns: 'routes', routeKinds: ['Shuttle'], oneMove: false, kinds: 1, skill: '1', style: 'balanced', rabbitMind: 'pattern', rabbits: 0,
       foesCapture: true, statues: 0, clouds: 0, maxMoves: 40, parMin: 1, parMax: 12, difficulty: 'any', balance: 'off', minEngage: 0, minCeiling: 0
     }
@@ -627,8 +627,16 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
       // no pawn rabbits, so never a pawn in your set.
       foePool: classicUntil(d < M.fairyFrom, ['knight', 'bishop', 'rook', 'king'], ['camel', 'zebra', 'cannon', 'ferz', 'wazir', ...(d >= 8 ? ['queen', 'archbishop', 'changeling'] : [])]),
       clouds: d >= 5 && rand() < 0.3 ? (d >= 9 && rand() < 0.4 ? 2 : 1) : 0,
-      statues: 0, parMin: 1, parMax: Math.min(26, 10 + d * 2), maxMoves: 40, aim: 0
+      // Tactics, one at a time (2026-10-15): a sentry from depth 2, a
+      // skittish piece from 4, their crowned leader from 6.
+      sentries: d < 2 ? 0 : d < 6 ? 1 : d < 10 ? int(1, 2) : int(2, 3),
+      skittish: d < 4 ? 0 : d < 8 ? 1 : int(1, 2),
+      crown: d >= 9 ? rand() < 0.8 : d >= 6 ? rand() < 0.5 : false,
+      statues: 0, parMax: Math.min(26, 10 + d * 2), maxMoves: 40, aim: 0
     });
+    // Checkmate topples the whole board, so a board with their leader must
+    // not fall to one in a move or two: its par has to be longer.
+    S.parMin = S.crown ? 4 + Math.floor(d / 3) : 1;
   }
   if (M.run === 'descent' && M.realtime) {
     // Kung fu: their pieces rest less each level down; the ground stays

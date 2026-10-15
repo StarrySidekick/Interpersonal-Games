@@ -131,6 +131,14 @@ export const SCHEMA = [
     { key: 'foeRows', sub: 'theirs', label: 'Start within the top', type: 'int', min: 1, max: 6, def: 1, unit: 'rows', help: 'Loose rabbits and the hole start up there too, lined up or not.' },
     { key: 'still', sub: 'theirs', label: 'Of them, statues', type: 'int', min: 0, max: 12, def: 0,
       help: 'Adventure (Timothy, 2026-10-15: "enemy pieces don\u2019t move, and they are gray like statues"): this many of their pieces are grey statues. A statue never moves and never takes; it is there to be taken. The rest move as set.' },
+    { key: 'tactics', sub: 'theirs', label: 'Pins, checks and flight', type: 'bool', def: false,
+      help: 'Adventure (Timothy, 2026-10-15: "opportunities for pinning and other chess technique"): a piece of theirs on your line with another of theirs behind it is pinned and cannot move; their crowned leader answers a check (take, block, flee, or checkmate); skittish pieces flee when attacked, one a turn; sentries take what stands where they attack; your stones (the Stone suit) strike too. Needs short routes.' },
+    { key: 'sentries', sub: 'theirs', label: 'Of the statues, sentries', type: 'int', min: 0, max: 6, def: 0,
+      help: 'With tactics: statues that defend. A sentry never walks, but takes anything of yours that stands where it attacks, moving there.' },
+    { key: 'skittish', sub: 'theirs', label: 'Of the statues, skittish', type: 'int', min: 0, max: 6, def: 0,
+      help: 'With tactics: pieces with a skittish rabbit, which flee when you attack them, only one a turn.' },
+    { key: 'crown', sub: 'theirs', label: 'A crowned leader', type: 'bool', def: false,
+      help: 'With tactics: one of the statues is their leader, a crowned King. Attack it and they must answer; checkmate it and the board is yours.' },
     { key: 'rabbits', sub: 'theirs', label: 'Free rabbits', type: 'int', min: 0, max: 4, def: 0,
       help: 'Rabbits loose on the board, on top of the ones inside their pieces.' },
     { key: 'foesCapture', sub: 'theirs', label: 'They can take your pieces', type: 'bool', def: true },
@@ -883,7 +891,7 @@ export function makeLevel(settings, seed) {
     goalKind: goal, hole,
     rules: { goal: ['king', 'rabbit', 'target'].includes(goal) ? 'target' : goal, maxMoves: S.maxMoves, wait: S.wait,
       foesCapture: S.foesCapture, rabbitsEat: S.rabbitsEat, royal: S.royal, ...(S.showdown ? { showdown: true } : {}), ...(S.oneMove ? { oneMove: true } : {}), ...(S.oneMove && !S.foesWait ? { foesMust: true } : {}), ...(day.cloud ? { cloud: true, ...(S.cloudOwn ? { cloudOwn: true } : {}) } : {}), ...(S.realtime ? { realtime: kungfuRules(S) } : {}), first: S.first, ballStops: S.ballStops, ballMove: S.ballMove,
-      ...(S.ballCaptures ? { ballCaptures: true } : {}), ...(S.swordAims ? { swordAims: true } : {}),
+      ...(S.ballCaptures ? { ballCaptures: true } : {}), ...(S.swordAims ? { swordAims: true } : {}), ...(S.tactics ? { tactics: true } : {}),
       ...(S.magic !== 'none' ? { wrap: S.magic } : {}),
       ...(S.geared ? { geared: true } : {}),
       ...(S.movesPerTurn === 2 ? { movesPerTurn: 2 } : {}), ...(S.lazyFoes ? { lazyFoes: true } : {}),
@@ -964,11 +972,33 @@ function dealRoutes(day, S, rand) {
       want--;
     } else { f.type = 'pawn'; s.foes[k] = { ...f, i: 0, taken: false }; }
   }
+  // Tactics (2026-10-15): of the statues, the leader (a crowned King), then
+  // sentries, then skittish ones, as many as asked and there are statues.
+  if (S.tactics) {
+    let still = shuffled(army.filter((k) => day.foes[k].brain === 'still'), rand);
+    if (S.crown && still.length) {
+      const at = still.findIndex((k) => day.foes[k].type === 'king'), k = still.splice(at >= 0 ? at : 0, 1)[0], lead = day.foes[k];
+      Object.assign(lead, { type: 'king', brain: 'crown' });
+      // Room to run: a square with at least three open squares round it,
+      // two or more from you, where your set can get to.
+      const me = day.pieces[0], opens = (q) => [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]]
+        .filter(([dx, dy]) => { const x = (q % W) + dx, y = Math.floor(q / W) + dy; return onBoard(day, x, y) && !day.stumps.has(y * W + x) && !used.has(y * W + x); }).length;
+      const here = lead.y * W + lead.x;
+      if (opens(here) < 3 || Math.max(Math.abs(lead.x - me.x), Math.abs(lead.y - me.y)) < 2) {
+        const spot = shuffled([...reach].filter((q) => !used.has(q) && opens(q) >= 3 && Math.max(Math.abs((q % W) - me.x), Math.abs(Math.floor(q / W) - me.y)) >= 2), rand)[0];
+        if (spot !== undefined) { used.delete(here); lead.x = spot % W; lead.y = Math.floor(spot / W); used.add(spot); }
+      }
+      // Its bodyguards: the sentries are the statues nearest it.
+      still = still.sort((a, b) => Math.max(Math.abs(day.foes[a].x - lead.x), Math.abs(day.foes[a].y - lead.y)) - Math.max(Math.abs(day.foes[b].x - lead.x), Math.abs(day.foes[b].y - lead.y)));
+    }
+    for (let n = 0; n < S.sentries && still.length; n++) day.foes[still.shift()].brain = 'sentry';
+    for (let n = 0; n < S.skittish && still.length; n++) Object.assign(day.foes[still.shift()], { brain: 'skittish', patternName: 'Skittish' });
+  }
   // Somewhere your set can get to (a lone bishop keeps to its colour): every
   // statue, and the hole, moved there if it is not. (Routes already touch it.)
   const free = shuffled([...reach].filter((q) => !used.has(q)), rand);
   const move = (o) => { const q = free.pop(); if (q === undefined) return; used.delete(o.y * W + o.x); o.x = q % W; o.y = Math.floor(q / W); used.add(q); };
-  for (const f of day.foes) if (f.brain === 'still' && !reach.has(f.y * W + f.x)) move(f);
+  for (const f of day.foes) if (['still', 'sentry', 'skittish', 'crown'].includes(f.brain) && !reach.has(f.y * W + f.x)) move(f);
   if (day.hole && !reach.has(day.hole.y * W + day.hole.x)) move(day.hole);
 }
 
@@ -1286,7 +1316,14 @@ export function searchLayouts({ settings, seed, parMin, parMax, maxTries = 400, 
     // Quick (Adventure, 2026-10-15): winnable at the right length is all
     // that is asked; no balance report and no novice games, which are most
     // of the time a search takes.
-    if (quick && r.par && r.par >= parMin) return post({ type: 'done', seed: sd, par: r.par, exact: r.exact, line: r.line, tried: i + 1, balance: null, why: [], thrown, measure: null });
+    if (quick && r.par && r.par >= parMin) {
+      // Their leader (tactics): checkmate topples the board, so make sure
+      // no mate comes sooner than par allows, searching every line exactly
+      // as far as a budget lets (a search that runs out passes the board).
+      const fast = clean(settings).crown && parMin > 1 ? solveLevel(level, { maxDepth: parMin - 1, exactCap: 400000, width: 20000, branch: 99, budget: 40000, deadline: Math.min(t0 + maxMs, Date.now() + 1500) }) : null;
+      if (fast?.par) { thrown['checkmate came too soon'] = (thrown['checkmate came too soon'] || 0) + 1; continue; }
+      return post({ type: 'done', seed: sd, par: r.par, exact: r.exact, line: r.line, tried: i + 1, balance: null, why: [], thrown, measure: null });
+    }
     if (r.par && (fixed || r.par >= parMin)) {
       // Winnable at the right length. Now: is it balanced?
       const balance = assess(level, r, { deadline: t0 + maxMs });

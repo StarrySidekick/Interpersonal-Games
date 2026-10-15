@@ -675,6 +675,17 @@ export class Board {
       sfx.slide(at(tw.turn.t0));
       t = tw.turn.t0 + tw.turn.dur;
     }
+    // Your stones (Adventure's Stone suit): one left behind appears with a
+    // puff of grit; one that strikes slides to what it takes; one broken
+    // goes in a puff.
+    if (b.stones || a.stones) {
+      const A = a.stones || [], B = b.stones || [], W = this.day.W, key = (q) => q.y * W + q.x;
+      for (const q of B) if (!q.from && !A.some((p) => key(p) === key(q))) tw.poofs.push({ x: q.x, y: q.y, t0: start + 120, dur: 480, c1: '#c9a36b', c2: '#f4e7cc', low: true });
+      tw.stones = {};
+      B.forEach((q, j) => { if (q.from && A.some((p) => p.x === q.from[0] && p.y === q.from[1])) tw.stones[j] = { from: q.from, to: [q.x, q.y], t0: t, dur: 280 * slow }; });
+      if (Object.keys(tw.stones).length) { sfx.slide(at(t + 280 * slow)); t += 300 * slow; }
+      for (const p of A) if (!B.some((q) => key(q) === key(p) || (q.from && q.from[0] === p.x && q.from[1] === p.y))) tw.poofs.push({ x: p.x, y: p.y, t0: t, dur: 480, c1: '#a3804f', c2: '#ddc9a4' });
+    }
     // Your set takes its turn (Adventure, 2026-10-15, Timothy: "we need a
     // quick animation for when the pieces cycle on the board"): the piece on
     // the board turns into the next, spinning down into its plinth as the
