@@ -1,0 +1,400 @@
+2026-10-15 | v1 | meadow | king@12 | knight@5 knight@6 queen@9 king@13 bishop@16 king@19 bishop@20 knight@24 king@25 camel@26 bishop@30
+2026-10-16 | v1 | heart | queen@1 | rook@15 king@19 king@20 bishop@24 bishop@25 king@26 pawn@30 king@32 ferz@33 rook@38 knight@39
+2026-10-17 | v1 | well | rook@13 | bishop@1 king@6 knight@7 cannon@8 knight@18 knight@19 knight@22 rook@25 king@26 king@27 queen@32 knight@33
+2026-10-18 | v1 | crossroads | king@10 | knight@14 knight@15 bishop@16 rook@17 bishop@18 queen@19 king@22 rook@28 zebra@30 knight@31 bishop@32 queen@44
+2026-10-19 | v1 | stone | queen@9 | knight@3 bishop@11 wazir@12 knight@15 knight@18 queen@19 knight@23
+2026-10-20 | v1 | mushroom | knight@2 | knight@5 knight@10 queen@12 nightrider@15 pawn@16 knight@17 pawn@18 pawn@24
+2026-10-21 | v1 | pond | queen@2 | knight@4 king@8 king@9 bishop@10 rook@14 rook@15 alfil@22 pawn@28 rook@29
+2026-10-22 | v1 | rabbit | knight@43 | knight@19 archbishop@22 rook@23 pawn@25 archbishop@35 knight@38 rook@42 bishop@46 knight@51 rook@52
+2026-10-23 | v1 | stepping | king@16 | bishop@2 bishop@3 squirrel@8 rook@9 knight@14 knight@15 king@17 pawn@21 king@22 knight@23 rook@34
+2026-10-24 | v1 | diamond | rook@22 | bishop@15 bishop@16 queen@18 pawn@24 knight@25 knight@29 king@30 pawn@31 dabbaba@32 pawn@38 pawn@39
+2026-10-25 | v1 | meadow | bishop@6 | knight@1 rook@9 knight@11 queen@14 bishop@16 knight@22 rook@26 bishop@27 king@32 chancellor@33 pawn@34 queen@35
+2026-10-26 | v1 | heart | queen@29 | rook@17 bishop@20 king@26 rook@27 bishop@30 camel@37 rook@38
+2026-10-27 | v1 | well | queen@32 | knight@2 queen@3 bishop@5 ferz@10 knight@16 king@17 king@23 knight@34
+2026-10-28 | v1 | crossroads | king@33 | cannon@4 bishop@10 knight@16 bishop@21 knight@24 knight@25 pawn@32 rook@38 rook@39 rook@46
+2026-10-29 | v1 | stone | queen@23 | rook@2 pawn@8 knight@12 king@22 knight@25 rook@28 rook@29 zebra@31 bishop@39 knight@44
+2026-10-30 | v1 | mushroom | king@16 | knight@3 pawn@9 bishop@12 knight@13 pawn@15 rook@17 king@18 bishop@25 king@30 wazir@37 knight@38
+2026-10-31 | v1 | pond | queen@39 | rook@2 knight@5 bishop@10 king@12 knight@20 nightrider@27 queen@33 rook@38 king@41 king@45 knight@46 rook@47
+2026-11-01 | v1 | rabbit | bishop@33 | knight@25 alfil@31 knight@34 knight@37 pawn@39 bishop@40 rook@41 rook@43 king@47 knight@48 knight@52 rook@54
+2026-11-02 | v1 | stepping | king@29 | pawn@3 knight@4 queen@15 knight@17 archbishop@21 knight@23 knight@34
+2026-11-03 | v1 | diamond | queen@24 | rook@9 rook@10 pawn@17 squirrel@19 rook@23 pawn@25 queen@30 squirrel@33 rook@38
+2026-11-04 | v1 | meadow | king@15 | knight@1 pawn@8 knight@9 king@14 king@17 bishop@19 rook@20 pawn@21 dabbaba@22
+2026-11-05 | v1 | heart | king@38 | king@1 bishop@7 chancellor@8 bishop@14 king@15 pawn@21 chancellor@23 rook@24 knight@30 king@37 knight@39
+2026-11-06 | v1 | well | queen@33 | rook@6 rook@7 knight@11 bishop@19 knight@22 queen@24 knight@28 camel@29 rook@31 knight@32 king@35
+2026-11-07 | v1 | crossroads | queen@29 | knight@2 knight@9 ferz@11 rook@14 pawn@15 queen@16 pawn@17 king@18 knight@19 pawn@22 pawn@24 bishop@25
+2026-11-08 | v1 | stone | king@20 | knight@2 knight@3 king@11 queen@12 cannon@18 queen@23 king@26 king@29 rook@30 knight@32 rook@37 bishop@45 rook@46
+2026-11-09 | v1 | mushroom | king@9 | knight@1 king@4 king@11 king@12 knight@14 rook@17 zebra@23
+2026-11-10 | v1 | pond | knight@0 | rook@1 rook@2 wazir@7 bishop@8 king@9 king@14 knight@15 pawn@22 king@28
+2026-11-11 | v1 | rabbit | queen@45 | bishop@25 knight@28 knight@29 knight@34 knight@38 bishop@41 nightrider@43 nightrider@47 bishop@53
+2026-11-12 | v1 | stepping | queen@14 | bishop@9 knight@13 king@16 knight@17 bishop@18 knight@19 rook@20 knight@21 pawn@23 knight@27 alfil@34
+2026-11-13 | v1 | diamond | king@21 | knight@9 rook@10 king@15 archbishop@16 pawn@18 knight@22 queen@23 king@24 knight@30 pawn@38 king@45
+2026-11-14 | v1 | meadow | king@30 | king@4 squirrel@9 squirrel@10 queen@16 knight@19 knight@21 king@22 pawn@23 rook@24 king@25 pawn@26 pawn@31
+2026-11-15 | v1 | heart | rook@22 | bishop@4 rook@7 knight@9 rook@10 knight@13 dabbaba@14 king@15 bishop@16 knight@18 rook@20 pawn@23 knight@24 pawn@31
+2026-11-16 | v1 | well | queen@26 | rook@1 king@3 pawn@8 bishop@10 chancellor@11 knight@19 chancellor@22 bishop@27
+2026-11-17 | v1 | crossroads | queen@38 | rook@2 bishop@4 knight@11 camel@23 rook@26 king@32 camel@33 knight@45
+2026-11-18 | v1 | stone | rook@27 | knight@2 king@3 king@9 ferz@10 rook@15 knight@18 rook@20 rook@22 queen@24 bishop@34
+2026-11-19 | v1 | mushroom | king@15 | rook@10 rook@14 bishop@16 cannon@17 cannon@18 knight@19 queen@20 king@24 pawn@25 knight@31 king@32
+2026-11-20 | v1 | pond | king@13 | queen@12 queen@19 zebra@20 bishop@26 rook@33 bishop@34 knight@39 pawn@40 knight@41 knight@46 king@48
+2026-11-21 | v1 | rabbit | queen@19 | knight@11 rook@12 rook@18 queen@26 queen@34 wazir@38 rook@39 rook@40 knight@43 bishop@46 rook@47 pawn@53
+2026-11-22 | v1 | stepping | king@2 | bishop@3 king@8 nightrider@13 queen@15 knight@16 king@17 rook@20 knight@23 queen@27 rook@29 knight@32 king@33 rook@35
+2026-11-23 | v1 | diamond | bishop@26 | rook@10 rook@16 knight@17 pawn@18 queen@24 alfil@30 knight@31 pawn@32
+2026-11-24 | v1 | meadow | knight@15 | king@7 king@8 rook@11 archbishop@12 bishop@14 king@19 bishop@20 queen@24 rook@25
+2026-11-25 | v1 | heart | queen@22 | pawn@5 rook@7 bishop@9 king@15 squirrel@17 knight@20 bishop@21 pawn@26 pawn@29
+2026-11-26 | v1 | well | king@17 | rook@5 knight@10 king@11 king@16 bishop@22 rook@23 king@26 dabbaba@28 queen@32 rook@34 king@35
+2026-11-27 | v1 | crossroads | rook@33 | king@3 bishop@9 rook@10 knight@16 knight@19 queen@21 knight@22 chancellor@23 bishop@27 bishop@29 rook@37
+2026-11-28 | v1 | stone | king@10 | bishop@11 camel@15 bishop@17 bishop@23 rook@25 knight@26 pawn@29 rook@31 knight@33 camel@37 knight@38 queen@39
+2026-11-29 | v1 | mushroom | bishop@17 | knight@1 rook@2 queen@3 queen@4 knight@8 knight@9 queen@10 knight@11 bishop@16 king@18 ferz@24 pawn@30 ferz@38
+2026-11-30 | v1 | pond | queen@6 | knight@5 rook@10 rook@12 rook@19 queen@40 cannon@47 bishop@48
+2026-12-01 | v1 | rabbit | knight@47 | zebra@22 zebra@29 queen@38 knight@45 bishop@46 knight@52 bishop@53 king@54
+2026-12-02 | v1 | stepping | rook@19 | knight@12 wazir@13 bishop@14 wazir@20 king@21 knight@24 knight@26 queen@32 queen@33 bishop@34
+2026-12-03 | v1 | diamond | knight@37 | nightrider@9 bishop@15 knight@18 pawn@19 rook@21 bishop@23 knight@24 bishop@25 knight@27 knight@32 nightrider@39
+2026-12-04 | v1 | meadow | knight@33 | rook@1 alfil@3 king@4 king@12 rook@13 knight@14 rook@15 rook@18 pawn@22 knight@25 queen@31
+2026-12-05 | v1 | heart | knight@8 | rook@2 bishop@9 knight@15 rook@16 pawn@17 knight@18 knight@21 pawn@22 archbishop@23 bishop@30 king@31 knight@32
+2026-12-06 | v1 | well | queen@28 | bishop@9 king@10 squirrel@11 rook@16 bishop@17 rook@22 knight@23 king@24 rook@26 bishop@27 king@32 knight@33 knight@34
+2026-12-07 | v1 | crossroads | queen@34 | rook@18 knight@20 bishop@24 dabbaba@26 rook@31 king@32 knight@33 rook@38
+2026-12-08 | v1 | stone | knight@36 | knight@17 bishop@21 knight@25 chancellor@26 bishop@33 knight@38 queen@39 king@45
+2026-12-09 | v1 | mushroom | bishop@38 | camel@10 king@12 knight@14 pawn@18 knight@23 bishop@24 rook@30 rook@31 king@32 knight@37
+2026-12-10 | v1 | pond | rook@40 | rook@3 king@4 king@6 bishop@12 king@13 ferz@20 knight@26 bishop@34 queen@38 king@41 knight@47
+2026-12-11 | v1 | rabbit | rook@52 | cannon@12 king@25 knight@26 bishop@30 pawn@31 bishop@33 king@38 knight@39 king@45 king@51 bishop@54
+2026-12-12 | v1 | stepping | queen@18 | bishop@1 knight@2 rook@6 knight@12 queen@13 bishop@14 king@15 zebra@16 king@19 queen@20 pawn@24 rook@32
+2026-12-13 | v1 | diamond | knight@30 | wazir@3 knight@10 knight@15 knight@16 knight@18 pawn@19 rook@21 queen@22 pawn@24 rook@25 king@27 bishop@32 wazir@33
+2026-12-14 | v1 | meadow | queen@23 | bishop@7 rook@8 knight@15 knight@19 bishop@20 bishop@25 nightrider@28 knight@32
+2026-12-15 | v1 | heart | king@25 | alfil@4 knight@13 knight@16 knight@18 rook@20 bishop@23 king@26 knight@31
+2026-12-16 | v1 | well | rook@5 | knight@1 rook@2 rook@3 king@4 archbishop@9 bishop@12 knight@23 pawn@27 bishop@33 king@34
+2026-12-17 | v1 | crossroads | king@28 | rook@3 rook@4 bishop@10 pawn@17 knight@22 squirrel@24 squirrel@26 rook@29 pawn@32 rook@37 rook@38
+2026-12-18 | v1 | stone | queen@17 | rook@9 pawn@15 knight@24 knight@25 knight@30 bishop@32 pawn@38 rook@39 knight@40 dabbaba@44
+2026-12-19 | v1 | mushroom | bishop@9 | knight@2 bishop@3 knight@7 bishop@8 rook@15 bishop@16 king@17 queen@18 chancellor@20 bishop@24 rook@32
+2026-12-20 | v1 | pond | king@14 | rook@1 king@2 rook@3 rook@4 camel@5 bishop@7 king@8 king@9 rook@10 bishop@11 king@15 knight@19 bishop@22
+2026-12-21 | v1 | rabbit | king@28 | rook@9 bishop@15 ferz@23 king@29 king@31 knight@32 ferz@35 bishop@43
+2026-12-22 | v1 | stepping | knight@19 | knight@4 knight@8 king@11 bishop@14 knight@15 cannon@16 rook@21 king@23
+2026-12-23 | v1 | diamond | king@38 | knight@10 knight@11 knight@19 zebra@22 knight@23 bishop@26 zebra@30 knight@32 knight@37 knight@45
+2026-12-24 | v1 | meadow | queen@15 | rook@0 rook@1 rook@3 bishop@4 knight@5 pawn@6 bishop@9 rook@10 king@11 wazir@16 rook@17
+2026-12-25 | v1 | heart | queen@15 | rook@5 pawn@13 nightrider@14 queen@17 pawn@19 king@21 pawn@23 knight@26 king@29 bishop@37 pawn@45
+2026-12-26 | v1 | well | rook@11 | alfil@9 knight@10 rook@18 knight@19 alfil@23 king@26 bishop@27 rook@30 rook@32 king@33 knight@34 rook@35
+2026-12-27 | v1 | crossroads | rook@14 | bishop@3 bishop@11 bishop@19 knight@20 rook@21 rook@23 rook@25 king@26 knight@29 knight@32 bishop@33 bishop@37 archbishop@45
+2026-12-28 | v1 | stone | knight@11 | king@20 bishop@23 squirrel@25 king@26 king@32 bishop@38 king@39
+2026-12-29 | v1 | mushroom | queen@2 | knight@4 dabbaba@7 knight@9 queen@15 bishop@17 dabbaba@19 rook@23 queen@24 knight@30
+2026-12-30 | v1 | pond | queen@36 | king@2 pawn@3 knight@7 bishop@15 pawn@21 chancellor@22 knight@35 bishop@37 bishop@43
+2026-12-31 | v1 | rabbit | bishop@39 | knight@23 knight@28 bishop@29 bishop@35 rook@38 camel@43 rook@45 queen@47 bishop@48 pawn@53
+2027-01-01 | v1 | stepping | queen@20 | ferz@2 rook@9 knight@15 king@18 bishop@19 knight@21 bishop@22 knight@26 bishop@29 bishop@33 bishop@34
+2027-01-02 | v1 | diamond | queen@32 | king@16 bishop@21 rook@23 knight@24 cannon@26 rook@29 pawn@30 bishop@33 rook@37 knight@38 knight@39 bishop@45
+2027-01-03 | v1 | meadow | knight@13 | knight@8 knight@9 king@14 knight@20 rook@21 zebra@23 queen@26 pawn@28 knight@29 zebra@30 rook@32 pawn@33
+2027-01-04 | v1 | heart | queen@37 | wazir@8 king@9 rook@15 king@22 knight@23 knight@30 pawn@38 rook@45
+2027-01-05 | v1 | well | knight@33 | king@6 queen@12 queen@22 king@25 rook@26 knight@28 bishop@29 knight@30 nightrider@32
+2027-01-06 | v1 | crossroads | queen@20 | bishop@2 rook@3 rook@9 king@10 bishop@17 pawn@18 queen@26 alfil@34 rook@39 king@46
+2027-01-07 | v1 | stone | queen@24 | archbishop@2 bishop@3 rook@4 knight@9 bishop@10 bishop@12 rook@14 pawn@18 knight@22 knight@27 pawn@30
+2027-01-08 | v1 | mushroom | rook@2 | knight@5 squirrel@9 knight@10 knight@12 knight@13 bishop@15 knight@17 bishop@19 squirrel@24 queen@25 knight@32
+2027-01-09 | v1 | pond | queen@44 | pawn@3 rook@8 king@11 king@15 knight@21 rook@22 knight@28 king@29 king@37 dabbaba@42 rook@43
+2027-01-10 | v1 | rabbit | bishop@45 | bishop@11 king@18 chancellor@19 king@25 rook@29 queen@30 pawn@31 rook@38 chancellor@39 bishop@46 bishop@48 rook@53 king@54
+2027-01-11 | v1 | stepping | king@1 | camel@2 rook@3 king@8 knight@19 camel@21 bishop@26 king@32
+2027-01-12 | v1 | diamond | rook@24 | bishop@16 bishop@17 knight@22 king@23 knight@29 ferz@31 rook@33 ferz@37 pawn@39
+2027-01-13 | v1 | meadow | knight@35 | cannon@4 rook@9 rook@10 bishop@14 king@21 knight@22 king@23 knight@27 cannon@28
+2027-01-14 | v1 | heart | rook@24 | king@1 knight@2 rook@7 knight@10 knight@15 king@19 bishop@21 zebra@30 bishop@31 pawn@37
+2027-01-15 | v1 | well | king@31 | rook@2 knight@6 rook@12 rook@18 knight@19 king@24 king@25 king@26 bishop@30 wazir@32
+2027-01-16 | v1 | crossroads | king@28 | rook@3 knight@4 rook@9 knight@16 bishop@21 king@23 bishop@24 nightrider@29 bishop@31 queen@37 rook@38 pawn@45
+2027-01-17 | v1 | stone | king@24 | king@2 king@3 king@9 queen@10 bishop@17 rook@23 knight@26 rook@27 alfil@29 king@31 king@33 pawn@37
+2027-01-18 | v1 | mushroom | rook@14 | king@7 knight@8 archbishop@11 bishop@12 pawn@19 king@20 bishop@23 queen@24
+2027-01-19 | v1 | pond | bishop@12 | queen@4 rook@5 king@6 squirrel@10 rook@11 pawn@13 knight@19 squirrel@34
+2027-01-20 | v1 | rabbit | knight@46 | knight@25 knight@30 king@31 rook@32 dabbaba@35 rook@37 bishop@38 knight@43 knight@50 dabbaba@52
+2027-01-21 | v1 | stepping | king@22 | bishop@9 bishop@11 chancellor@13 bishop@16 bishop@17 king@19 king@21 bishop@26 knight@27 knight@30 rook@31
+2027-01-22 | v1 | diamond | queen@19 | knight@17 pawn@25 rook@26 bishop@27 camel@29 queen@30 king@31 bishop@33 pawn@37 pawn@39 bishop@45
+2027-01-23 | v1 | meadow | knight@21 | knight@2 pawn@4 ferz@9 ferz@10 knight@15 knight@17 king@22 rook@23 rook@28 pawn@29 knight@34
+2027-01-24 | v1 | heart | knight@8 | king@7 rook@14 king@15 rook@16 knight@17 pawn@21 knight@22 bishop@23 cannon@24 cannon@26 bishop@30 bishop@31 pawn@37
+2027-01-25 | v1 | well | knight@12 | bishop@0 king@1 knight@2 bishop@3 pawn@6 knight@7 pawn@8 zebra@17
+2027-01-26 | v1 | crossroads | king@27 | knight@18 wazir@19 rook@20 wazir@21 knight@23 rook@28 pawn@29 queen@31 rook@33
+2027-01-27 | v1 | stone | king@31 | nightrider@8 queen@12 queen@19 queen@21 knight@24 knight@27 king@30 knight@33 knight@36 nightrider@38
+2027-01-28 | v1 | mushroom | king@17 | bishop@12 bishop@15 alfil@16 pawn@18 knight@20 knight@25 knight@30 king@32 bishop@38 king@39
+2027-01-29 | v1 | pond | bishop@45 | queen@1 bishop@3 archbishop@7 knight@8 bishop@9 rook@15 queen@21 knight@22 king@26 rook@27 bishop@34
+2027-01-30 | v1 | rabbit | queen@30 | rook@18 knight@19 rook@22 queen@24 pawn@25 rook@29 king@31 squirrel@32 knight@36 king@37 knight@38 rook@50
+2027-01-31 | v1 | stepping | king@17 | rook@0 dabbaba@1 bishop@2 queen@3 knight@9 rook@12 knight@13 king@16 rook@20 bishop@22 rook@23 king@29 king@30
+2027-02-01 | v1 | diamond | rook@24 | knight@10 bishop@17 pawn@18 chancellor@22 rook@25 pawn@26 bishop@32 pawn@38
+2027-02-02 | v1 | meadow | rook@28 | camel@10 queen@13 rook@14 rook@16 knight@18 pawn@25 rook@26 pawn@31
+2027-02-03 | v1 | heart | bishop@17 | queen@2 knight@4 knight@9 ferz@10 knight@11 bishop@14 rook@16 bishop@18 king@23 king@24
+2027-02-04 | v1 | well | queen@13 | knight@2 rook@6 king@7 rook@8 knight@10 cannon@11 pawn@12 king@17 pawn@19 knight@22 rook@23
+2027-02-05 | v1 | crossroads | queen@45 | zebra@16 knight@17 queen@24 bishop@25 knight@27 bishop@32 bishop@33 bishop@37 bishop@38 rook@39 knight@46
+2027-02-06 | v1 | stone | knight@2 | wazir@10 knight@11 knight@15 king@17 rook@21 rook@24 bishop@25 knight@26 knight@28 rook@32 knight@37 pawn@39
+2027-02-07 | v1 | mushroom | bishop@11 | nightrider@1 knight@4 nightrider@7 pawn@15 queen@16 bishop@17 knight@19 bishop@23 king@24 king@25 king@30 pawn@31 knight@38
+2027-02-08 | v1 | pond | knight@47 | king@19 rook@26 knight@27 bishop@34 bishop@38 king@44 rook@45 alfil@46
+2027-02-09 | v1 | rabbit | king@32 | queen@19 king@25 knight@31 knight@38 archbishop@40 bishop@43 bishop@45 rook@52 knight@53
+2027-02-10 | v1 | stepping | bishop@24 | knight@9 squirrel@11 queen@13 king@15 knight@20 king@21 knight@22 king@23 bishop@31 knight@34
+2027-02-11 | v1 | diamond | knight@3 | rook@9 bishop@10 queen@16 bishop@18 knight@21 dabbaba@23 bishop@24 rook@26 bishop@30 pawn@33
+2027-02-12 | v1 | meadow | rook@12 | chancellor@3 king@6 bishop@7 knight@14 queen@15 knight@17 chancellor@24 knight@25 queen@28 bishop@30 rook@33
+2027-02-13 | v1 | heart | queen@37 | knight@7 knight@12 bishop@15 camel@17 king@21 rook@23 bishop@24 queen@25 knight@26 rook@29 king@31 bishop@39
+2027-02-14 | v1 | well | queen@16 | king@1 bishop@2 ferz@5 rook@7 queen@8 knight@9 rook@10 knight@13 rook@17 knight@24 rook@26 bishop@32 knight@35
+2027-02-15 | v1 | crossroads | king@17 | knight@3 king@11 knight@16 knight@19 knight@24 bishop@25 cannon@39
+2027-02-16 | v1 | stone | rook@19 | queen@3 knight@4 rook@9 pawn@10 knight@15 king@16 zebra@20 rook@24 bishop@26
+2027-02-17 | v1 | mushroom | bishop@11 | knight@1 bishop@5 king@8 knight@10 rook@15 knight@16 bishop@17 wazir@18 knight@19 knight@23
+2027-02-18 | v1 | pond | queen@45 | nightrider@2 rook@14 knight@15 queen@21 bishop@22 king@28 rook@29 bishop@35 bishop@36 bishop@38 nightrider@44
+2027-02-19 | v1 | rabbit | queen@42 | alfil@19 knight@23 bishop@25 rook@28 queen@30 rook@31 bishop@32 knight@36 knight@38 knight@51
+2027-02-20 | v1 | stepping | rook@2 | archbishop@4 knight@8 knight@9 king@15 knight@17 knight@20 knight@22 queen@24 rook@30 king@31 knight@33
+2027-02-21 | v1 | diamond | bishop@23 | rook@10 bishop@16 squirrel@18 knight@19 king@24 rook@29 king@30 knight@31 knight@32 rook@37 bishop@38 pawn@39 king@45
+2027-02-22 | v1 | meadow | king@5 | knight@1 rook@4 dabbaba@6 bishop@8 king@10 bishop@15 rook@30
+2027-02-23 | v1 | heart | king@1 | chancellor@2 pawn@8 bishop@13 chancellor@22 knight@23 rook@24 bishop@31 rook@37 bishop@38
+2027-02-24 | v1 | well | rook@12 | camel@2 knight@4 knight@6 pawn@9 knight@13 king@18 knight@19 knight@24 pawn@25 pawn@30
+2027-02-25 | v1 | crossroads | king@24 | knight@4 pawn@9 king@11 bishop@17 rook@18 bishop@19 pawn@25 pawn@26 rook@31 rook@32 ferz@34
+2027-02-26 | v1 | stone | king@33 | cannon@3 bishop@9 king@10 pawn@11 pawn@17 king@18 rook@25 bishop@31 cannon@38 king@39 knight@40
+2027-02-27 | v1 | mushroom | bishop@24 | zebra@5 bishop@10 rook@12 pawn@13 rook@16 bishop@20 rook@23 knight@25 rook@30 zebra@31 king@37
+2027-02-28 | v1 | pond | king@20 | king@3 knight@4 wazir@5 bishop@6 king@7 king@9 king@10 rook@11 knight@12 king@13 bishop@15 king@19
+2027-03-01 | v1 | rabbit | knight@46 | king@11 bishop@19 nightrider@24 rook@25 bishop@37 bishop@43 bishop@45 pawn@51
+2027-03-02 | v1 | stepping | knight@13 | knight@9 knight@17 knight@21 knight@22 alfil@32 king@33 king@34 pawn@35
+2027-03-03 | v1 | diamond | queen@10 | bishop@9 knight@11 king@22 archbishop@24 knight@25 knight@29 pawn@30 king@33 king@38 rook@39
+2027-03-04 | v1 | meadow | king@34 | squirrel@1 king@6 knight@9 knight@12 rook@14 bishop@20 rook@21 knight@22 pawn@27 king@28
+2027-03-05 | v1 | heart | rook@8 | knight@5 knight@10 king@18 rook@19 rook@20 bishop@22 bishop@23 rook@25 bishop@31 dabbaba@32
+2027-03-06 | v1 | well | queen@34 | rook@1 rook@7 king@8 rook@10 bishop@13 knight@18 bishop@19 king@25 chancellor@26 rook@27 rook@28 rook@30
+2027-03-07 | v1 | crossroads | rook@24 | bishop@10 rook@11 bishop@17 camel@18 bishop@19 bishop@22 bishop@23 rook@25 knight@30 bishop@31 bishop@37 bishop@39 knight@45
+2027-03-08 | v1 | stone | queen@29 | bishop@2 ferz@8 bishop@10 bishop@14 knight@16 knight@21 pawn@22
+2027-03-09 | v1 | mushroom | knight@15 | rook@1 rook@2 knight@4 queen@5 king@8 knight@9 rook@10 cannon@11 king@13
+2027-03-10 | v1 | pond | king@7 | zebra@2 pawn@8 king@14 bishop@15 pawn@19 bishop@21 bishop@22 king@28 king@29 knight@37
+2027-03-11 | v1 | rabbit | queen@43 | bishop@12 knight@15 bishop@18 rook@19 rook@22 knight@24 king@28 pawn@30 wazir@33 knight@34 pawn@36
+2027-03-12 | v1 | stepping | queen@21 | pawn@2 king@3 pawn@9 knight@16 rook@20 queen@22 knight@29 rook@31 rook@32 nightrider@33
+2027-03-13 | v1 | diamond | queen@18 | rook@3 knight@10 pawn@11 knight@16 king@19 knight@23 bishop@25 bishop@26 bishop@31 bishop@32 alfil@33 knight@45
+2027-03-14 | v1 | meadow | knight@9 | bishop@1 king@2 knight@3 rook@5 pawn@6 knight@7 archbishop@10 rook@11 king@15 pawn@17 archbishop@22 king@23 rook@29
+2027-03-15 | v1 | heart | knight@38 | knight@17 rook@18 squirrel@19 pawn@23 pawn@25 bishop@26 king@32
+2027-03-16 | v1 | well | king@16 | knight@2 rook@3 dabbaba@4 king@5 bishop@9 bishop@10 king@11 queen@23
+2027-03-17 | v1 | crossroads | queen@30 | knight@2 knight@3 pawn@11 rook@15 rook@16 rook@18 bishop@25 chancellor@29 rook@31 bishop@34
+2027-03-18 | v1 | stone | knight@9 | camel@8 knight@11 queen@15 rook@16 camel@18 knight@20 knight@24 rook@25 bishop@30 rook@38 knight@39
+2027-03-19 | v1 | mushroom | knight@24 | king@10 queen@12 queen@13 bishop@15 ferz@18 knight@23 knight@25 bishop@31 king@32 king@37 rook@39
+2027-03-20 | v1 | pond | bishop@35 | rook@1 knight@15 rook@21 queen@22 king@28 rook@29 cannon@36 queen@37 queen@39 bishop@43 knight@44
+2027-03-21 | v1 | rabbit | queen@12 | zebra@16 bishop@19 king@23 bishop@25 bishop@29 king@30 pawn@31 knight@38 rook@39 knight@40 pawn@46 bishop@47 rook@53
+2027-03-22 | v1 | stepping | knight@8 | wazir@0 pawn@1 knight@4 king@6 bishop@13 bishop@15 bishop@20
+2027-03-23 | v1 | diamond | queen@25 | rook@11 knight@16 pawn@24 bishop@26 nightrider@29 nightrider@30 rook@32 knight@39 bishop@45
+2027-03-24 | v1 | meadow | rook@22 | alfil@0 rook@3 knight@4 queen@8 pawn@10 alfil@13 bishop@14 pawn@15 pawn@18
+2027-03-25 | v1 | heart | queen@27 | archbishop@10 knight@17 bishop@22 knight@24 pawn@30 bishop@32 bishop@33 knight@37 rook@38 king@39 archbishop@45
+2027-03-26 | v1 | well | knight@17 | king@2 king@3 knight@4 knight@7 rook@8 bishop@9 knight@10 knight@11 pawn@18 squirrel@23 bishop@28
+2027-03-27 | v1 | crossroads | bishop@26 | knight@4 knight@9 rook@11 king@16 rook@17 king@18 rook@19 knight@20 dabbaba@23 dabbaba@24 pawn@30 king@38
+2027-03-28 | v1 | stone | queen@14 | bishop@3 knight@9 knight@10 rook@15 rook@17 king@18 chancellor@22 king@23 rook@25 rook@26 queen@30 king@36
+2027-03-29 | v1 | mushroom | knight@5 | bishop@10 bishop@12 knight@16 pawn@18 knight@25 rook@30 camel@32 camel@38
+2027-03-30 | v1 | pond | king@36 | ferz@14 knight@22 knight@29 knight@34 king@35 queen@37 rook@38 pawn@40 king@43
+2027-03-31 | v1 | rabbit | rook@30 | bishop@23 king@28 queen@29 knight@36 knight@42 knight@43 rook@44 cannon@47 knight@51
+2027-04-01 | v1 | stepping | knight@21 | knight@2 bishop@3 king@8 bishop@9 rook@11 rook@13 knight@15 bishop@16 bishop@17 zebra@19 queen@29
+2027-04-02 | v1 | diamond | bishop@32 | rook@21 bishop@22 king@23 queen@24 rook@25 queen@26 rook@27 rook@30 knight@31 wazir@37 rook@38
+2027-04-03 | v1 | meadow | rook@8 | king@0 rook@1 nightrider@3 queen@7 rook@9 bishop@11 knight@14 knight@15 rook@25 knight@26 rook@31 pawn@32
+2027-04-04 | v1 | heart | king@45 | rook@4 bishop@11 alfil@15 king@17 king@18 king@19 bishop@23 pawn@25 bishop@31 rook@32 king@38 rook@39
+2027-04-05 | v1 | well | bishop@17 | knight@2 archbishop@6 knight@10 archbishop@13 king@23 knight@26 king@32
+2027-04-06 | v1 | crossroads | rook@10 | knight@11 rook@18 knight@19 knight@23 king@24 squirrel@26 knight@32 rook@34
+2027-04-07 | v1 | stone | queen@26 | rook@3 bishop@4 bishop@9 knight@10 pawn@15 knight@17 rook@19 queen@21 king@23 dabbaba@33
+2027-04-08 | v1 | mushroom | queen@12 | king@2 bishop@3 rook@5 king@9 king@11 rook@15 king@18 knight@19 rook@23 king@24 chancellor@32
+2027-04-09 | v1 | pond | knight@28 | king@1 knight@14 king@15 king@21 knight@22 bishop@29 rook@35 bishop@37 knight@38 camel@42 pawn@43
+2027-04-10 | v1 | rabbit | knight@42 | pawn@19 queen@29 knight@32 rook@33 pawn@35 queen@37 king@39 ferz@41 bishop@45 pawn@47 king@51 knight@52
+2027-04-11 | v1 | stepping | king@8 | cannon@1 rook@3 bishop@4 knight@11 bishop@13 knight@14 rook@15 knight@20 knight@22 bishop@26 cannon@27 knight@31
+2027-04-12 | v1 | diamond | queen@9 | rook@10 king@17 king@18 pawn@24 king@25 bishop@31 zebra@37
+2027-04-13 | v1 | meadow | bishop@31 | bishop@18 bishop@19 rook@20 queen@21 knight@24 wazir@25 bishop@26 pawn@32
+2027-04-14 | v1 | heart | rook@10 | queen@1 nightrider@5 bishop@7 rook@8 bishop@9 king@13 pawn@15 knight@21 nightrider@22 knight@31
+2027-04-15 | v1 | well | knight@9 | bishop@0 knight@1 alfil@3 rook@7 king@8 rook@12 rook@13 bishop@18 rook@19 pawn@32
+2027-04-16 | v1 | crossroads | king@22 | knight@2 archbishop@4 king@9 bishop@10 knight@14 bishop@15 pawn@16 rook@19 rook@23 bishop@28 rook@29
+2027-04-17 | v1 | stone | king@33 | knight@4 knight@15 rook@17 squirrel@20 rook@22 squirrel@25 knight@27 bishop@30 pawn@31 rook@36 knight@40 knight@45
+2027-04-18 | v1 | mushroom | knight@15 | bishop@1 knight@2 knight@7 bishop@8 knight@10 rook@12 rook@16 knight@17 queen@23 bishop@25 dabbaba@37 knight@39
+2027-04-19 | v1 | pond | queen@44 | bishop@5 bishop@11 rook@26 king@36 chancellor@38 knight@39 knight@43 pawn@45
+2027-04-20 | v1 | rabbit | queen@48 | king@11 camel@19 bishop@30 camel@33 knight@38 king@39 rook@40 knight@45 bishop@46
+2027-04-21 | v1 | stepping | rook@19 | bishop@9 knight@13 rook@15 king@16 queen@18 king@21 pawn@22 knight@26 ferz@33
+2027-04-22 | v1 | diamond | bishop@18 | rook@10 rook@17 knight@19 bishop@22 rook@24 cannon@25 bishop@26 rook@27 king@30 knight@32 rook@38
+2027-04-23 | v1 | meadow | queen@2 | rook@3 rook@5 zebra@12 rook@14 knight@20 queen@21 knight@24 pawn@28 rook@29 knight@33 rook@35
+2027-04-24 | v1 | heart | queen@32 | queen@2 knight@8 rook@9 knight@10 pawn@16 pawn@17 bishop@19 wazir@25 bishop@26 queen@31 rook@38 bishop@45
+2027-04-25 | v1 | well | knight@19 | nightrider@1 rook@2 king@4 bishop@5 king@6 rook@7 rook@8 nightrider@9 pawn@11 bishop@13 bishop@16 king@17
+2027-04-26 | v1 | crossroads | rook@18 | queen@4 king@14 bishop@15 rook@22 rook@23 rook@28 rook@32 alfil@44
+2027-04-27 | v1 | stone | knight@12 | knight@3 rook@8 rook@9 king@10 archbishop@17 pawn@18 rook@23 bishop@27 king@29
+2027-04-28 | v1 | mushroom | bishop@23 | squirrel@1 king@3 knight@4 king@7 king@11 bishop@12 bishop@18 rook@19 knight@24 bishop@30
+2027-04-29 | v1 | pond | queen@35 | knight@6 knight@36 knight@38 rook@39 queen@41 dabbaba@42 king@43 rook@44 dabbaba@45 pawn@46 pawn@47
+2027-04-30 | v1 | rabbit | queen@29 | chancellor@18 king@24 chancellor@30 rook@31 pawn@32 bishop@36 king@37 pawn@38 knight@42 pawn@44 king@46
+2027-05-01 | v1 | stepping | bishop@13 | knight@3 queen@5 camel@6 queen@11 knight@14 rook@15 rook@17 king@19 rook@24 knight@27 camel@30 king@31
+2027-05-02 | v1 | diamond | knight@31 | rook@10 bishop@18 queen@21 pawn@22 knight@23 king@24 ferz@26 knight@30 knight@32 rook@37 bishop@38 knight@39 pawn@45
+2027-05-03 | v1 | meadow | king@26 | queen@16 rook@17 queen@20 king@21 rook@22 cannon@23 knight@27 knight@28
+2027-05-04 | v1 | heart | knight@10 | zebra@12 pawn@18 queen@23 rook@25 knight@27 zebra@29 pawn@31 pawn@32
+2027-05-05 | v1 | well | king@23 | knight@6 knight@9 pawn@13 king@16 rook@17 bishop@19 wazir@22 knight@29 knight@33
+2027-05-06 | v1 | crossroads | queen@17 | rook@2 knight@4 king@9 nightrider@16 rook@22 bishop@25 bishop@26 king@31 bishop@33 nightrider@37
+2027-05-07 | v1 | stone | king@25 | knight@9 knight@11 king@17 bishop@23 alfil@24 bishop@29 knight@30 rook@32 king@36 rook@39 bishop@45
+2027-05-08 | v1 | mushroom | bishop@31 | rook@1 king@2 bishop@8 pawn@10 king@14 rook@15 pawn@16 queen@24 knight@25 knight@30 bishop@32 archbishop@38
+2027-05-09 | v1 | pond | queen@41 | king@2 rook@3 knight@5 king@6 pawn@10 knight@19 rook@20 squirrel@33 bishop@38 king@39 rook@46 king@47 rook@48
+2027-05-10 | v1 | rabbit | queen@45 | bishop@22 knight@24 knight@29 bishop@30 knight@33 dabbaba@36 king@38 pawn@39
+2027-05-11 | v1 | stepping | king@3 | knight@2 knight@6 chancellor@8 pawn@13 rook@14 king@19 king@30 king@31 king@32
+2027-05-12 | v1 | diamond | knight@29 | king@10 camel@16 knight@17 king@18 pawn@24 king@26 rook@30 camel@32 king@33 knight@38
+2027-05-13 | v1 | meadow | knight@6 | king@2 bishop@7 rook@19 knight@23 king@27 queen@28 knight@29 knight@32 knight@33 ferz@34
+2027-05-14 | v1 | heart | king@20 | king@7 rook@9 rook@10 rook@12 queen@13 bishop@15 cannon@17 rook@19 knight@24 pawn@27 cannon@38
+2027-05-15 | v1 | well | queen@33 | king@3 king@4 king@5 queen@8 king@9 bishop@10 bishop@13 knight@16 knight@22 pawn@27 knight@28 zebra@32
+2027-05-16 | v1 | crossroads | king@32 | knight@3 bishop@9 king@15 queen@18 wazir@21 rook@22 king@23 bishop@24 king@26 king@27 rook@30 pawn@31 knight@34
+2027-05-17 | v1 | stone | rook@34 | king@9 bishop@11 pawn@17 king@18 nightrider@24 king@26 knight@27 bishop@30
+2027-05-18 | v1 | mushroom | king@17 | knight@2 alfil@7 rook@9 bishop@10 bishop@15 pawn@18 king@23 bishop@37
+2027-05-19 | v1 | pond | queen@10 | bishop@4 knight@6 king@12 knight@13 pawn@19 bishop@20 bishop@26 archbishop@34 archbishop@41 pawn@47
+2027-05-20 | v1 | rabbit | queen@38 | king@23 bishop@31 rook@35 squirrel@36 rook@37 knight@39 rook@41 king@43 king@47 knight@52 squirrel@53
+2027-05-21 | v1 | stepping | queen@22 | dabbaba@2 king@4 rook@8 bishop@9 pawn@13 rook@14 knight@15 bishop@21 bishop@26 rook@31 queen@32
+2027-05-22 | v1 | diamond | king@24 | rook@3 pawn@9 bishop@10 knight@11 bishop@15 pawn@16 knight@17 rook@18 chancellor@21 king@22 knight@26 pawn@30
+2027-05-23 | v1 | meadow | knight@11 | camel@3 knight@6 knight@7 king@8 camel@15 knight@19 pawn@20 rook@22 king@25 knight@29 bishop@32 knight@33 king@34
+2027-05-24 | v1 | heart | knight@24 | bishop@7 rook@10 ferz@11 knight@17 pawn@19 knight@25 bishop@26 king@32
+2027-05-25 | v1 | well | king@22 | king@2 knight@7 rook@8 king@9 cannon@11 king@17 knight@23 bishop@27
+2027-05-26 | v1 | crossroads | bishop@15 | zebra@3 bishop@14 bishop@20 rook@21 king@22 rook@23 knight@25 zebra@26 rook@28 king@32
+2027-05-27 | v1 | stone | knight@32 | bishop@3 knight@8 king@17 knight@21 rook@22 rook@24 rook@25 knight@29 wazir@36 bishop@37 wazir@38
+2027-05-28 | v1 | mushroom | queen@11 | nightrider@3 bishop@5 knight@8 bishop@9 rook@10 bishop@12 king@15 knight@18 rook@23 nightrider@25
+2027-05-29 | v1 | pond | knight@0 | rook@8 pawn@9 king@14 rook@15 alfil@21 knight@22 rook@28 rook@35 bishop@36 knight@37 queen@42
+2027-05-30 | v1 | rabbit | rook@15 | rook@1 king@9 archbishop@16 archbishop@22 king@23 bishop@24 pawn@28 king@30 knight@31 bishop@36 king@37 pawn@43
+2027-05-31 | v1 | stepping | king@32 | squirrel@8 bishop@12 queen@13 pawn@18 squirrel@19 queen@26 bishop@33
+2027-06-01 | v1 | diamond | bishop@21 | rook@15 knight@16 knight@18 king@25 dabbaba@27 dabbaba@29 king@31 rook@37
+2027-06-02 | v1 | meadow | queen@23 | knight@2 chancellor@3 pawn@9 bishop@10 rook@14 knight@18 knight@20 rook@21 pawn@28 bishop@33
+2027-06-03 | v1 | heart | queen@30 | rook@5 knight@9 knight@14 bishop@17 queen@19 pawn@22 king@23 queen@26 camel@27 bishop@33
+2027-06-04 | v1 | well | knight@12 | rook@0 knight@1 king@2 king@3 rook@4 ferz@5 pawn@7 rook@8 queen@9 ferz@10 rook@24
+2027-06-05 | v1 | crossroads | king@10 | cannon@3 pawn@9 king@15 bishop@17 bishop@18 pawn@23 king@24 bishop@25 queen@30 king@31 knight@32 pawn@33
+2027-06-06 | v1 | stone | bishop@38 | queen@10 rook@14 king@16 zebra@21 pawn@22 knight@23 rook@24 rook@28 pawn@30 zebra@32 rook@44 king@45
+2027-06-07 | v1 | mushroom | rook@37 | wazir@8 bishop@14 rook@15 queen@19 knight@23 knight@32 bishop@38
+2027-06-08 | v1 | pond | king@27 | knight@4 bishop@5 knight@13 rook@19 queen@20 queen@26 nightrider@34 rook@41 queen@47
+2027-06-09 | v1 | rabbit | queen@46 | king@18 bishop@29 queen@32 king@39 bishop@40 alfil@45 rook@47 pawn@53 knight@54
+2027-06-10 | v1 | stepping | king@8 | knight@2 knight@3 rook@4 archbishop@9 bishop@11 knight@13 pawn@16 rook@21 rook@31 knight@34
+2027-06-11 | v1 | diamond | king@18 | bishop@10 squirrel@15 knight@17 king@19 king@22 pawn@23 knight@25 bishop@26 king@32 pawn@38
+2027-06-12 | v1 | meadow | queen@21 | rook@0 queen@1 dabbaba@2 bishop@6 bishop@9 rook@13 rook@14 knight@19 king@23 pawn@28 knight@29 knight@32
+2027-06-13 | v1 | heart | queen@38 | rook@4 rook@5 pawn@8 chancellor@11 king@12 knight@13 queen@17 knight@25 knight@26 king@30 rook@31 rook@32 knight@37
+2027-06-14 | v1 | well | king@0 | rook@1 rook@6 rook@8 rook@9 knight@12 queen@24 king@25 camel@31
+2027-06-15 | v1 | crossroads | bishop@11 | ferz@2 queen@4 king@10 knight@17 knight@18 knight@19 pawn@25 pawn@31 king@46
+2027-06-16 | v1 | stone | king@33 | rook@4 bishop@8 rook@10 rook@11 queen@24 king@25 knight@26 queen@39 cannon@46
+2027-06-17 | v1 | mushroom | queen@3 | knight@1 knight@4 rook@5 bishop@9 knight@12 knight@17 king@19 knight@20 bishop@25 zebra@31
+2027-06-18 | v1 | pond | bishop@43 | knight@8 pawn@14 wazir@15 bishop@22 knight@28 wazir@29 bishop@35 king@36 king@37 bishop@42 rook@44
+2027-06-19 | v1 | rabbit | king@23 | king@8 rook@9 king@15 pawn@16 rook@22 king@29 rook@30 knight@31 pawn@32 bishop@37 nightrider@45 pawn@51
+2027-06-20 | v1 | stepping | rook@15 | knight@4 bishop@8 knight@9 rook@11 knight@17 alfil@19 queen@21 king@24 king@26 knight@29 knight@30 bishop@31 rook@33
+2027-06-21 | v1 | diamond | king@33 | rook@10 rook@11 king@18 archbishop@24 king@25 knight@31 king@38 king@39
+2027-06-22 | v1 | meadow | knight@27 | queen@7 bishop@11 bishop@12 king@15 knight@16 squirrel@19 knight@20 squirrel@21 pawn@23
+2027-06-23 | v1 | heart | queen@9 | dabbaba@14 knight@16 knight@29 rook@30 rook@31 bishop@33 pawn@37 knight@38 knight@45
+2027-06-24 | v1 | well | rook@19 | pawn@0 bishop@1 bishop@3 rook@6 bishop@8 rook@13 knight@16 rook@18 chancellor@25 chancellor@29 pawn@30
+2027-06-25 | v1 | crossroads | rook@26 | knight@2 king@10 knight@11 camel@15 camel@17 queen@18 knight@19 knight@33 bishop@34 bishop@39
+2027-06-26 | v1 | stone | king@24 | knight@16 ferz@20 rook@22 rook@23 ferz@25 rook@28 knight@29 king@30 knight@31 pawn@36 bishop@38
+2027-06-27 | v1 | mushroom | knight@12 | rook@10 queen@11 bishop@15 rook@16 knight@17 bishop@18 king@25 king@30 rook@31 bishop@32 cannon@37 pawn@38 queen@39
+2027-06-28 | v1 | pond | king@15 | knight@3 bishop@4 bishop@8 bishop@9 knight@12 queen@14 knight@22 zebra@27
+2027-06-29 | v1 | rabbit | queen@9 | rook@1 rook@15 rook@16 knight@29 rook@30 wazir@31 pawn@36 rook@38 rook@41
+2027-06-30 | v1 | stepping | bishop@21 | knight@1 king@2 bishop@8 bishop@9 pawn@13 rook@14 knight@16 rook@19 rook@20 nightrider@22
+2027-07-01 | v1 | diamond | queen@16 | king@3 king@9 rook@10 knight@18 rook@21 knight@23 knight@24 alfil@26 rook@27 pawn@29 knight@38
+2027-07-02 | v1 | meadow | king@9 | archbishop@1 rook@5 bishop@6 bishop@13 rook@14 bishop@15 knight@26 pawn@27 knight@29 bishop@33 pawn@34
+2027-07-03 | v1 | heart | king@10 | king@1 rook@2 rook@4 pawn@9 squirrel@16 squirrel@19 knight@21 queen@23 queen@25 pawn@29 rook@30
+2027-07-04 | v1 | well | queen@34 | knight@12 bishop@17 knight@19 king@23 dabbaba@24 king@25 rook@26 knight@27 rook@28 knight@30 rook@31 king@32 pawn@33
+2027-07-05 | v1 | crossroads | queen@22 | rook@14 knight@16 knight@27 chancellor@28 rook@32 knight@37 rook@39
+2027-07-06 | v1 | stone | king@16 | rook@10 bishop@15 knight@25 king@26 camel@30 camel@32 pawn@38 knight@39
+2027-07-07 | v1 | mushroom | rook@1 | rook@3 queen@4 rook@5 rook@15 rook@18 knight@20 ferz@23 queen@25 knight@30 king@31
+2027-07-08 | v1 | pond | king@43 | knight@22 knight@29 king@35 queen@36 cannon@37 king@38 rook@39 knight@42 bishop@44 rook@45 rook@46
+2027-07-09 | v1 | rabbit | king@29 | knight@22 rook@23 queen@25 king@30 queen@31 pawn@33 knight@35 knight@36 pawn@37 pawn@38 zebra@44
+2027-07-10 | v1 | stepping | queen@35 | rook@3 rook@8 king@9 bishop@11 king@14 knight@15 knight@19 bishop@21 bishop@23 pawn@26 wazir@32
+2027-07-11 | v1 | diamond | queen@22 | knight@10 bishop@11 nightrider@15 king@16 knight@19 king@21 bishop@23 rook@24 bishop@27 rook@29 bishop@31 rook@32 pawn@39
+2027-07-12 | v1 | meadow | rook@35 | alfil@10 knight@12 rook@16 pawn@17 knight@20 rook@29 knight@33
+2027-07-13 | v1 | heart | rook@24 | bishop@1 knight@5 archbishop@10 archbishop@23 bishop@26 knight@27 knight@32 pawn@33
+2027-07-14 | v1 | well | rook@26 | bishop@9 knight@17 bishop@22 knight@23 bishop@27 rook@28 squirrel@29 squirrel@32 knight@33 pawn@34
+2027-07-15 | v1 | crossroads | knight@31 | knight@15 queen@16 rook@18 rook@19 king@20 bishop@21 king@22 dabbaba@24 bishop@30 pawn@32 bishop@38
+2027-07-16 | v1 | stone | queen@38 | bishop@2 rook@4 king@8 queen@14 knight@17 chancellor@21 knight@23 chancellor@25 knight@27 knight@32
+2027-07-17 | v1 | mushroom | queen@23 | rook@2 queen@3 rook@4 pawn@9 pawn@10 pawn@12 king@16 king@17 king@30 camel@32 bishop@38
+2027-07-18 | v1 | pond | queen@4 | king@1 queen@6 pawn@7 rook@8 knight@11 queen@13 ferz@19 rook@20 knight@26 knight@34 knight@39 ferz@41 bishop@47
+2027-07-19 | v1 | rabbit | queen@37 | cannon@18 rook@24 king@25 pawn@26 rook@32 rook@39 bishop@40 rook@46
+2027-07-20 | v1 | stepping | rook@2 | bishop@3 queen@8 king@13 knight@19 rook@20 zebra@22 bishop@27 zebra@31
+2027-07-21 | v1 | diamond | rook@26 | knight@10 queen@11 bishop@15 bishop@17 bishop@18 pawn@19 rook@22 king@23 wazir@25 pawn@31
+2027-07-22 | v1 | meadow | queen@31 | rook@2 queen@3 nightrider@6 bishop@19 bishop@20 nightrider@22 bishop@25 rook@30 knight@32 knight@33 bishop@34
+2027-07-23 | v1 | heart | knight@2 | alfil@8 rook@10 rook@12 rook@15 king@16 rook@17 king@20 knight@22 pawn@24 bishop@26 pawn@31
+2027-07-24 | v1 | well | queen@26 | knight@1 knight@9 knight@12 archbishop@13 king@18 rook@19 archbishop@24 king@27 king@28 knight@31 knight@32
+2027-07-25 | v1 | crossroads | queen@30 | rook@2 bishop@10 squirrel@15 knight@17 bishop@19 rook@21 queen@23 rook@24 knight@26 queen@27 squirrel@31 rook@32 bishop@39
+2027-07-26 | v1 | stone | bishop@9 | queen@15 rook@17 knight@22 rook@23 dabbaba@24 pawn@25 bishop@31 pawn@37
+2027-07-27 | v1 | mushroom | king@11 | king@4 knight@10 bishop@12 bishop@15 bishop@18 rook@24 chancellor@25 bishop@30 rook@39
+2027-07-28 | v1 | pond | queen@21 | rook@0 rook@1 knight@2 bishop@8 knight@10 knight@15 camel@28 pawn@36 king@42
+2027-07-29 | v1 | rabbit | queen@9 | knight@1 rook@8 knight@15 king@16 pawn@23 ferz@28 knight@30 king@36 bishop@39 knight@43 bishop@51
+2027-07-30 | v1 | stepping | king@19 | rook@0 cannon@2 rook@8 rook@12 queen@16 bishop@18 knight@20 knight@22 rook@24 king@31 rook@35
+2027-07-31 | v1 | diamond | knight@31 | rook@10 rook@15 bishop@16 pawn@18 king@19 zebra@22 king@24 knight@25 knight@26 zebra@30 bishop@39 rook@45
+2027-08-01 | v1 | meadow | bishop@14 | knight@1 rook@2 pawn@6 rook@7 king@8 pawn@12 wazir@13 king@15 knight@19 bishop@22 queen@27 pawn@29 knight@35
+2027-08-02 | v1 | heart | queen@1 | bishop@5 rook@9 bishop@10 bishop@17 nightrider@22 bishop@23 rook@31 nightrider@32
+2027-08-03 | v1 | well | queen@16 | alfil@17 pawn@22 king@23 bishop@27 knight@28 king@32 queen@33 king@34 pawn@35
+2027-08-04 | v1 | crossroads | rook@30 | king@16 knight@17 rook@18 rook@23 king@26 knight@27 bishop@31 queen@32 archbishop@44
+2027-08-05 | v1 | stone | queen@9 | knight@11 bishop@12 rook@16 bishop@19 squirrel@20 bishop@24 king@25 rook@26 bishop@33 queen@44
+2027-08-06 | v1 | mushroom | knight@10 | bishop@2 rook@3 dabbaba@4 knight@8 king@11 pawn@12 knight@17 king@18 bishop@19 knight@23 bishop@30
+2027-08-07 | v1 | pond | king@14 | rook@0 knight@1 chancellor@2 rook@4 bishop@7 king@8 rook@9 bishop@10 bishop@11 king@15 knight@22
+2027-08-08 | v1 | rabbit | queen@23 | king@9 knight@16 rook@25 queen@30 bishop@33 rook@37 bishop@38 rook@39 camel@41 pawn@45 king@46 knight@53
+2027-08-09 | v1 | stepping | knight@24 | knight@2 bishop@6 rook@8 ferz@13 rook@20 rook@26 pawn@27 pawn@32
+2027-08-10 | v1 | diamond | queen@37 | rook@10 bishop@17 cannon@21 knight@24 knight@25 bishop@33 rook@38 rook@39 bishop@45
+2027-08-11 | v1 | meadow | king@11 | queen@2 knight@5 rook@7 bishop@9 knight@13 rook@16 king@18 rook@19 zebra@22
+2027-08-12 | v1 | heart | queen@8 | knight@2 wazir@7 knight@11 knight@14 knight@15 knight@16 pawn@17 bishop@29 king@30 knight@37
+2027-08-13 | v1 | well | king@17 | bishop@5 rook@9 rook@10 knight@16 rook@23 rook@25 nightrider@27 rook@28 king@29 bishop@35
+2027-08-14 | v1 | crossroads | king@3 | king@2 knight@4 king@9 pawn@10 king@11 knight@17 bishop@18 bishop@22 bishop@26 alfil@34 bishop@38 pawn@46
+2027-08-15 | v1 | stone | queen@40 | bishop@12 pawn@18 bishop@20 knight@21 bishop@22 pawn@28 queen@29 bishop@30 rook@31 king@36 pawn@37 archbishop@38 bishop@45
+2027-08-16 | v1 | mushroom | rook@20 | squirrel@1 knight@10 bishop@13 rook@15 bishop@16 rook@17 king@19 queen@31
+2027-08-17 | v1 | pond | knight@4 | king@3 queen@5 king@9 dabbaba@10 king@11 king@12 bishop@13 knight@15 knight@19
+2027-08-18 | v1 | rabbit | queen@22 | bishop@24 king@29 pawn@30 chancellor@31 knight@36 knight@37 knight@42 knight@45 knight@46 pawn@51
+2027-08-19 | v1 | stepping | knight@34 | bishop@1 queen@2 camel@4 king@6 knight@9 rook@14 bishop@16 bishop@21 rook@22 bishop@23 knight@26
+2027-08-20 | v1 | diamond | king@39 | pawn@19 knight@23 ferz@25 bishop@29 bishop@31 rook@32 knight@33 king@37 rook@38 pawn@45
+2027-08-21 | v1 | meadow | king@8 | cannon@6 king@7 pawn@10 king@11 king@12 rook@13 king@16 rook@18 knight@19 rook@24 pawn@25 king@30
+2027-08-22 | v1 | heart | king@16 | bishop@2 pawn@8 king@9 king@11 king@15 knight@19 king@22 rook@23 rook@24 rook@29 zebra@30 knight@31
+2027-08-23 | v1 | well | king@35 | bishop@10 rook@11 rook@17 pawn@22 wazir@23 pawn@28 bishop@29
+2027-08-24 | v1 | crossroads | queen@31 | bishop@3 pawn@4 king@18 knight@19 knight@24 pawn@26 nightrider@33 king@37 bishop@44
+2027-08-25 | v1 | stone | rook@39 | knight@2 king@8 king@11 rook@12 bishop@19 knight@34 bishop@36 rook@37 rook@44 alfil@46
+2027-08-26 | v1 | mushroom | king@8 | rook@1 archbishop@2 rook@3 pawn@9 queen@12 knight@14 knight@15 rook@23 knight@24 queen@30
+2027-08-27 | v1 | pond | queen@40 | king@8 knight@21 king@28 knight@33 king@34 squirrel@37 knight@39 pawn@41 knight@46 queen@48
+2027-08-28 | v1 | rabbit | queen@28 | queen@22 knight@26 knight@29 knight@31 pawn@32 king@33 bishop@36 dabbaba@38 king@40 rook@44 knight@46 pawn@54
+2027-08-29 | v1 | stepping | king@17 | rook@1 bishop@6 chancellor@11 knight@14 king@16 bishop@21 rook@22 knight@27 bishop@29 rook@31 queen@32 bishop@34 queen@35
+2027-08-30 | v1 | diamond | rook@16 | rook@9 queen@11 king@18 bishop@23 camel@29 knight@33 pawn@39
+2027-08-31 | v1 | meadow | queen@12 | knight@2 pawn@7 king@15 king@19 knight@20 pawn@26 bishop@28 ferz@33
+2027-09-01 | v1 | heart | knight@29 | knight@8 pawn@14 rook@16 cannon@17 rook@21 king@23 king@24 queen@30 bishop@33 knight@38
+2027-09-02 | v1 | well | king@28 | bishop@9 knight@22 rook@24 king@26 pawn@27 zebra@29 rook@30 pawn@31 rook@32 pawn@33 king@34
+2027-09-03 | v1 | crossroads | rook@33 | knight@10 wazir@14 king@16 king@19 wazir@20 knight@25 bishop@27 bishop@31 bishop@38 king@39 bishop@46
+2027-09-04 | v1 | stone | king@40 | knight@8 rook@9 rook@10 king@12 bishop@14 rook@17 knight@19 king@20 rook@24 nightrider@32 knight@33 knight@37
+2027-09-05 | v1 | mushroom | rook@19 | rook@1 alfil@2 knight@3 knight@5 knight@7 rook@8 pawn@9 rook@13 king@16 pawn@17 knight@18 rook@20 bishop@23
+2027-09-06 | v1 | pond | rook@20 | bishop@13 bishop@19 bishop@21 rook@27 archbishop@37 rook@41 knight@45
+2027-09-07 | v1 | rabbit | king@50 | bishop@23 pawn@31 knight@35 rook@38 king@39 rook@42 pawn@43 king@44 squirrel@45
+2027-09-08 | v1 | stepping | knight@29 | knight@5 bishop@9 rook@13 king@16 dabbaba@17 rook@19 bishop@20 rook@21 pawn@26 pawn@33
+2027-09-09 | v1 | diamond | rook@22 | bishop@3 knight@10 rook@15 chancellor@16 knight@19 rook@24 knight@25 knight@29 bishop@30 rook@45
+2027-09-10 | v1 | meadow | rook@23 | queen@2 knight@10 knight@12 rook@14 bishop@17 knight@19 camel@21 rook@25 pawn@26 pawn@30 rook@32
+2027-09-11 | v1 | heart | rook@18 | king@4 rook@5 ferz@11 bishop@12 bishop@17 ferz@20 bishop@22 queen@25 rook@26 king@32 bishop@33
+2027-09-12 | v1 | well | knight@22 | bishop@0 rook@1 king@2 rook@3 knight@4 rook@7 king@8 bishop@9 knight@10 king@16 rook@18 cannon@19 knight@26
+2027-09-13 | v1 | crossroads | queen@16 | zebra@3 knight@14 knight@15 king@17 bishop@23 zebra@28 rook@45
+2027-09-14 | v1 | stone | king@32 | knight@3 wazir@9 rook@16 knight@17 knight@22 queen@24 knight@26 wazir@30 knight@37
+2027-09-15 | v1 | mushroom | rook@32 | bishop@2 rook@4 rook@8 nightrider@11 knight@12 bishop@15 knight@19 nightrider@24 knight@30 knight@39
+2027-09-16 | v1 | pond | king@35 | alfil@28 knight@33 king@37 bishop@38 knight@40 pawn@41 knight@42 knight@43 rook@44 knight@46 pawn@48
+2027-09-17 | v1 | rabbit | queen@32 | knight@8 king@9 knight@22 rook@23 archbishop@24 pawn@30 king@31 knight@35 rook@37 king@40 bishop@41
+2027-09-18 | v1 | stepping | queen@21 | squirrel@1 bishop@3 bishop@4 pawn@8 rook@9 knight@11 pawn@14 knight@15 knight@17 rook@20 pawn@22 squirrel@23
+2027-09-19 | v1 | diamond | knight@9 | bishop@16 rook@17 queen@18 queen@21 pawn@22 dabbaba@23 king@24 pawn@29 knight@30 pawn@31 bishop@32 pawn@37 rook@45
+2027-09-20 | v1 | meadow | bishop@10 | bishop@0 rook@3 pawn@8 chancellor@9 bishop@14 pawn@15 rook@22
+2027-09-21 | v1 | heart | queen@45 | knight@5 knight@8 bishop@15 king@17 knight@21 camel@25 bishop@31 bishop@37
+2027-09-22 | v1 | well | rook@8 | knight@3 knight@4 bishop@5 rook@6 knight@9 ferz@10 rook@11 queen@16 rook@17 knight@29
+2027-09-23 | v1 | crossroads | knight@24 | knight@2 bishop@10 cannon@16 king@17 knight@19 bishop@30 knight@31 queen@33 king@37 knight@38 cannon@44
+2027-09-24 | v1 | stone | rook@33 | king@2 zebra@9 bishop@10 rook@11 knight@15 bishop@17 queen@18 bishop@30 rook@32 rook@34 zebra@36
+2027-09-25 | v1 | mushroom | knight@17 | wazir@2 king@3 rook@4 king@8 bishop@9 bishop@10 rook@11 pawn@14 pawn@16 pawn@18 bishop@24 pawn@32
+2027-09-26 | v1 | pond | king@1 | nightrider@2 rook@3 nightrider@4 knight@6 king@7 rook@8 rook@9 rook@11 bishop@12 bishop@14 bishop@15 pawn@20
+2027-09-27 | v1 | rabbit | rook@38 | rook@15 knight@18 knight@22 alfil@30 bishop@31 bishop@37 pawn@39 knight@43
+2027-09-28 | v1 | stepping | rook@20 | rook@0 knight@2 knight@4 knight@11 archbishop@13 rook@15 archbishop@17 rook@21 rook@23
+2027-09-29 | v1 | diamond | queen@33 | bishop@10 pawn@18 squirrel@22 rook@23 bishop@25 pawn@26 bishop@29 knight@31 knight@32 pawn@37
+2027-09-30 | v1 | meadow | knight@25 | queen@9 king@10 knight@11 king@14 bishop@15 pawn@19 pawn@20 dabbaba@22 rook@33 king@34
+2027-10-01 | v1 | heart | rook@33 | rook@4 bishop@20 bishop@21 queen@23 chancellor@25 knight@26 pawn@31 rook@32 king@37 king@38 rook@39
+2027-10-02 | v1 | well | king@27 | bishop@0 knight@13 king@18 rook@19 queen@22 camel@23 knight@24 rook@25 rook@26 rook@31 bishop@32 king@33
+2027-10-03 | v1 | crossroads | queen@3 | bishop@9 rook@14 king@15 queen@16 bishop@17 bishop@19 knight@23 knight@28 pawn@31 knight@32 ferz@37 queen@38
+2027-10-04 | v1 | stone | king@24 | rook@2 bishop@11 knight@16 king@23 knight@29 rook@30 cannon@44
+2027-10-05 | v1 | mushroom | queen@13 | rook@5 knight@8 rook@11 knight@15 king@17 bishop@19 king@23 zebra@24 pawn@25
+2027-10-06 | v1 | pond | queen@27 | knight@3 knight@4 wazir@5 bishop@9 queen@12 pawn@13 knight@15 king@20 bishop@26
+2027-10-07 | v1 | rabbit | queen@33 | nightrider@24 rook@28 king@29 pawn@30 pawn@32 bishop@35 pawn@36 king@37 king@38 rook@39 knight@51
+2027-10-08 | v1 | stepping | queen@14 | bishop@9 knight@13 knight@19 bishop@21 rook@26 rook@27 king@30 alfil@31 king@32 king@33
+2027-10-09 | v1 | diamond | king@38 | rook@10 bishop@11 king@15 rook@16 bishop@17 knight@24 knight@26 archbishop@29 bishop@31 rook@33 knight@39 rook@45
+2027-10-10 | v1 | meadow | king@9 | rook@1 knight@3 king@4 knight@5 king@6 knight@7 rook@8 knight@12 pawn@14 queen@16 bishop@19 squirrel@21 rook@23
+2027-10-11 | v1 | heart | queen@15 | bishop@2 dabbaba@4 knight@5 knight@10 rook@17 knight@18 bishop@20 dabbaba@31
+2027-10-12 | v1 | well | bishop@18 | knight@1 knight@8 knight@12 bishop@17 chancellor@19 pawn@22 queen@25 king@27 bishop@32
+2027-10-13 | v1 | crossroads | queen@4 | rook@3 knight@10 rook@15 knight@17 rook@18 rook@23 camel@25 pawn@29 camel@32
+2027-10-14 | v1 | stone | knight@3 | pawn@8 rook@12 bishop@16 bishop@19 rook@22 king@23 pawn@24 knight@28 knight@31 ferz@36 bishop@44
+2027-10-15 | v1 | mushroom | knight@24 | bishop@2 king@9 rook@10 bishop@11 bishop@15 bishop@19 rook@23 cannon@30 rook@31 knight@32 pawn@39
+2027-10-16 | v1 | pond | king@43 | bishop@7 king@22 zebra@28 rook@29 rook@35 rook@36 knight@37 rook@41 pawn@42 knight@44 king@45
+2027-10-17 | v1 | rabbit | rook@16 | rook@1 bishop@9 pawn@15 knight@18 wazir@23 bishop@24 king@25 pawn@26 king@30 queen@31 knight@36 knight@38 king@52
+2027-10-18 | v1 | stepping | queen@16 | rook@9 knight@11 knight@15 nightrider@17 rook@19 king@22 bishop@33
+2027-10-19 | v1 | diamond | bishop@25 | rook@3 king@9 alfil@10 pawn@15 rook@22 rook@26 rook@29 queen@31
+2027-10-20 | v1 | meadow | king@28 | rook@4 knight@15 knight@16 knight@19 bishop@21 bishop@22 archbishop@27 knight@29 king@34
+2027-10-21 | v1 | heart | king@32 | pawn@8 queen@10 rook@11 knight@12 squirrel@13 rook@18 bishop@19 knight@25 knight@27 queen@31
+2027-10-22 | v1 | well | queen@8 | king@0 knight@2 king@6 pawn@7 dabbaba@10 dabbaba@12 king@13 king@18 pawn@19 bishop@22
+2027-10-23 | v1 | crossroads | king@44 | knight@3 king@14 chancellor@16 chancellor@18 knight@21 king@22 knight@29 king@30 knight@32 bishop@37 pawn@38 king@39
+2027-10-24 | v1 | stone | queen@12 | camel@4 bishop@9 king@11 rook@16 pawn@17 rook@18 knight@19 knight@20 knight@24 pawn@25 bishop@32 rook@34 pawn@40
+2027-10-25 | v1 | mushroom | king@8 | knight@1 ferz@5 rook@7 king@9 rook@10 pawn@11 rook@13
+2027-10-26 | v1 | pond | knight@28 | rook@15 knight@22 pawn@27 bishop@33 cannon@37 rook@39 king@40 pawn@41
+2027-10-27 | v1 | rabbit | king@15 | knight@5 pawn@12 zebra@16 knight@18 king@23 bishop@30 rook@33 queen@34 pawn@40
+2027-10-28 | v1 | stepping | knight@12 | knight@0 king@1 rook@6 knight@8 pawn@13 knight@18 bishop@19 knight@24 rook@26 rook@31 wazir@32
+2027-10-29 | v1 | diamond | knight@32 | king@3 bishop@9 rook@11 pawn@15 rook@17 bishop@21 bishop@29 nightrider@30 rook@33 rook@37 nightrider@39
+2027-10-30 | v1 | meadow | knight@29 | knight@2 knight@8 rook@10 rook@11 alfil@12 knight@15 knight@21 knight@23 pawn@26 rook@33 knight@34 rook@35
+2027-10-31 | v1 | heart | rook@14 | rook@1 knight@2 queen@7 knight@15 archbishop@16 king@18 rook@20 rook@24 king@26 queen@31 bishop@32 knight@33 queen@38
+2027-11-01 | v1 | well | king@28 | knight@11 squirrel@22 king@26 king@27 king@32 queen@33 squirrel@34
+2027-11-02 | v1 | crossroads | rook@9 | rook@2 knight@15 dabbaba@17 knight@22 rook@23 rook@26 knight@30 bishop@31 bishop@44
+2027-11-03 | v1 | stone | king@24 | bishop@3 pawn@11 knight@16 rook@17 rook@19 knight@20 chancellor@25 pawn@31 knight@36 rook@38
+2027-11-04 | v1 | mushroom | queen@39 | rook@1 king@2 rook@7 rook@9 knight@10 bishop@11 knight@14 bishop@15 knight@19 camel@23 camel@25
+2027-11-05 | v1 | pond | king@8 | knight@1 knight@14 knight@15 king@21 rook@22 queen@28 rook@29 knight@35 knight@36 king@43 ferz@44
+2027-11-06 | v1 | rabbit | queen@46 | bishop@12 king@33 knight@34 cannon@35 bishop@36 knight@38 pawn@39 king@42 king@43 knight@47 rook@50 pawn@51
+2027-11-07 | v1 | stepping | king@23 | rook@2 queen@8 bishop@9 rook@13 king@15 rook@17 knight@19 bishop@22 pawn@26 pawn@29 rook@32 rook@33 zebra@35
+2027-11-08 | v1 | diamond | knight@26 | knight@23 knight@30 wazir@31 knight@32 rook@37 bishop@39 knight@45
+2027-11-09 | v1 | meadow | knight@15 | nightrider@1 nightrider@9 knight@12 king@14 queen@16 pawn@19 pawn@21 pawn@23 knight@34
+2027-11-10 | v1 | heart | bishop@26 | knight@1 king@2 knight@5 knight@10 knight@11 alfil@14 rook@18 king@19 king@20 rook@30
+2027-11-11 | v1 | well | king@31 | rook@3 bishop@18 bishop@22 pawn@25 king@26 archbishop@27 bishop@29 rook@32 knight@33 king@34
+2027-11-12 | v1 | crossroads | knight@34 | bishop@10 king@11 squirrel@22 king@23 rook@25 pawn@28 king@31 knight@33 knight@38 queen@39
+2027-11-13 | v1 | stone | queen@8 | knight@9 dabbaba@14 knight@16 king@17 knight@21 knight@22 pawn@24 bishop@25 pawn@28 bishop@29 dabbaba@31 pawn@37
+2027-11-14 | v1 | mushroom | queen@16 | knight@2 rook@3 knight@5 bishop@7 rook@8 rook@10 chancellor@15 pawn@17 queen@18 knight@20 pawn@24 king@30 rook@31
+2027-11-15 | v1 | pond | knight@19 | knight@4 camel@26 knight@34 knight@39 rook@40 king@41 king@48
+2027-11-16 | v1 | rabbit | knight@45 | knight@8 king@15 pawn@16 pawn@23 king@30 knight@31 knight@36 ferz@38 bishop@54
+2027-11-17 | v1 | stepping | knight@13 | rook@0 cannon@2 knight@3 rook@4 knight@5 king@9 knight@11 knight@14 pawn@16
+2027-11-18 | v1 | diamond | bishop@19 | rook@9 knight@10 knight@15 king@16 zebra@21 king@22 rook@23 rook@26 king@27 queen@30 knight@31

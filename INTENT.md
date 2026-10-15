@@ -12,6 +12,25 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
+## 2026-10-15: back to the point, a simple daily (Changeling)
+
+From Timothy: "we've definitely gotten lost in the sauce with this whole
+chess thing." The goal was a daily game as exciting and fun as Wordle or
+Pinstinct, and it became eleven modes. What he asked for instead: a daily
+chess game simple enough for someone mediocre at chess, five minutes or
+less, with a skill ceiling that keeps rising out of reach (the way a great
+Wordle player gets two or three but almost never one), changing every day
+just enough, and if it fits, something whimsical: new pieces, new board
+shapes. No other expectations.
+
+Built: **Changeling** (working name, his to change), `play/changeling/`,
+first on the home page. You are one piece, every move is a capture, and
+you become what you take; clear the board in six tries. The week climbs
+from Monday to Sunday, a fairy piece a day, named board shapes. Design,
+numbers and the path audit: [`docs/changeling.md`](docs/changeling.md).
+Grove Chess and its modes are untouched and still on the home page; which
+of them stay is his call.
+
 ## 2026-10-14, later still: a best-move button, a row of pawns, chess pawns
 
 From Timothy: a Best move button in every mode, for testing; the descent

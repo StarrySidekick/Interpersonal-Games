@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script>try{var t=localStorage.getItem('ig.theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1a13">
+<title>Changeling</title>
+<link rel="stylesheet" href="../../engine/app.css">
+<style>
+  /* The Grove's forest at night, around a board in daylight. */
+  :root {
+    --bg: #0f1a13; --panel: #17251b; --panel-2: #1d2e22; --line: #2b4031;
+    --text: #edf2e6; --dim: #9fb3a0; --accent: #a9d98b; --accent-ink: #13260e;
+    --gold: #f5c13a;
+  }
+  [hidden] { display: none !important; }
+  .pix { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+  .eyebrow { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin: 0 0 2px; }
+  .sub { margin: 0 0 12px; }
+  .rules { font-size: 16px; }
+  #rules { padding: 12px 14px; margin-bottom: 8px; }
+  .rules p { margin: 0 0 8px; }
+  .rules p:last-child { margin: 0; }
+
+  .hud { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin: 4px 0 6px; font-variant-numeric: tabular-nums; }
+  .hud b { font-size: 20px; }
+  .tries { display: inline-flex; gap: 4px; vertical-align: middle; margin-left: 4px; }
+  .tries i { width: 10px; height: 10px; border-radius: 3px; background: var(--panel-2); border: 1px solid var(--line); }
+  .tries i.used { background: var(--dim); border-color: transparent; }
+  .tries i.now { background: var(--gold); border-color: transparent; }
+  #board { width: 100%; max-width: 460px; margin: 0 auto; touch-action: manipulation; cursor: pointer; }
+  #info { min-height: 50px; margin: 10px 0 6px; font-size: 16px; }
+  #info b { color: var(--text); }
+  /* The pieces you have been, in order: your route as a row of shapes. */
+  #chain { display: flex; flex-wrap: wrap; align-items: end; gap: 0 2px; min-height: 40px; margin: 0 0 10px; }
+  #chain canvas { width: 30px; height: 36px; }
+  #chain .arrow { color: var(--dim); font-size: 12px; padding-bottom: 10px; }
+  .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  #end { margin-top: 16px; }
+  .result { font-size: 30px; font-weight: 700; letter-spacing: -.02em; margin: 0 0 4px; }
+  .result .score { display: inline-block; padding: 0 12px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); }
+  .result .score.x { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); }
+  .result .score.one { background: var(--gold); color: #2a1d05; }
+  .pop { animation: pop .5s cubic-bezier(.3, 1.6, .6, 1) both; }
+  @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: none; opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .pop { animation: none; } }
+  .grid { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 15px; line-height: 1.25; letter-spacing: 1px; margin: 8px 0 12px; white-space: pre; }
+  .grid .t { color: var(--accent); }
+  .grid .l { color: var(--line); }
+  .hist { display: grid; grid-template-columns: 18px 1fr; gap: 4px 8px; align-items: center; font-size: 14px; font-variant-numeric: tabular-nums; }
+  .hist span:nth-child(odd) { color: var(--dim); text-align: right; }
+  .bar { background: var(--panel-2); color: var(--text); padding: 1px 6px; border-radius: 4px; min-width: 22px; text-align: right; font-weight: 600; }
+  .bar.today { background: var(--accent); color: var(--accent-ink); }
+  .stack { display: grid; gap: 8px; }
+
+  .kinds { display: grid; gap: 10px; }
+  .kind { display: grid; grid-template-columns: 70px 1fr; gap: 12px; align-items: center; }
+  .kind canvas.diagram { width: 70px; height: 70px; border-radius: 4px; }
+  .kind h3 { margin: 0; font-size: 17px; }
+  .kind p { margin: 0; font-size: 15px; }
+  .tag { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gold); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <a class="back" href="../../">&larr; Hikari Garden</a>
+    <span class="pill" id="daypill">Changeling</span>
+  </div>
+
+  <h1>Changeling</h1>
+  <p class="dim small" id="dayline" style="margin:0 0 2px"></p>
+  <p class="small sub" id="stranger"></p>
+
+  <div class="card rules" id="rules">
+    <p><b>You are the glowing piece.</b> Every move takes a piece, and you become the piece you take. Take them all.</p>
+  </div>
+  <p class="dim small" id="linknote" hidden></p>
+
+  <div class="hud">
+    <span>Try <b id="try">1</b> <span class="tries" id="trydots"></span></span>
+    <span><b id="left">0</b> <span class="dim">left</span></span>
+  </div>
+  <canvas id="board" class="pix" aria-label="The board"></canvas>
+  <p id="info" class="dim"></p>
+  <div id="chain" aria-label="The pieces you have been"></div>
+  <div class="controls" id="controls">
+    <button class="quiet" id="back">Step back</button>
+    <button class="quiet" id="giveup">Finish here</button>
+  </div>
+
+  <section id="end" hidden>
+    <p class="result" id="result"></p>
+    <p class="dim" id="result-note"></p>
+    <div class="grid" id="grid"></div>
+    <div class="stack">
+      <input type="text" id="name" placeholder="Your name, for the link" maxlength="16" autocomplete="nickname">
+      <button class="primary" id="share">Share</button>
+      <p class="small dim" id="share-note" style="margin:0"></p>
+      <button class="quiet" id="friend" hidden></button>
+      <button class="quiet" id="solution">Show a way to clear it</button>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h2>Your days</h2>
+      <div id="record"></div>
+    </div>
+    <p class="small dim" id="tomorrow"></p>
+  </section>
+
+  <details style="margin-top:16px" id="howto">
+    <summary>How to play, and how today's pieces move</summary>
+    <div class="rules" style="margin-bottom:14px">
+      <p><b>You are the glowing piece.</b> Every move takes a piece, and you become the piece you take. Take them all.</p>
+      <p>Gold rings are what you can take now. Tap one and gold corners show what you could take next, as it; tap it again to take it. Tap any other piece to see its moves in purple. The star marks today's stranger.</p>
+      <p>Stuck, or regretting a move? Step back as far as you like. The first step back starts your next try; you get six. Your score is the try you clear it on.</p>
+      <p>Holes in the board stop sliding pieces. Jumping pieces fly over them.</p>
+      <p class="dim">Mondays are gentle and the week gets harder to Sunday. Every day has one fairy piece, a stranger from the long history of chess.</p>
+    </div>
+    <div class="kinds" id="kinds"></div>
+  </details>
+
+  <div class="card" id="testpanel" style="margin-top:16px" hidden>
+    <p class="tag" style="margin:0 0 8px">Test mode</p>
+    <div class="controls">
+      <button class="quiet" id="t-prev">Previous day</button>
+      <button class="quiet" id="t-next">Next day</button>
+      <button class="quiet" id="t-today">Today</button>
+      <button class="quiet" id="t-reset">Clear this day</button>
+    </div>
+    <p class="small dim" id="t-stats" style="margin:10px 0 0"></p>
+  </div>
+
+</div>
+<script type="module" src="game.js"></script>
+</body>
+</html>

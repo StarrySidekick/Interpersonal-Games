@@ -35,6 +35,9 @@ release: confirm the live site serves the new files before saying it is live.
   will hone in on that after we get a solid game loop built"): if it fails,
   say so plainly in the merge and to Timothy, rather than versioning the
   dealer. Once the daily is redesigned, this goes back to must-pass.
+- `node play/changeling/check.mjs` must pass. It proves Changeling's first
+  400 daily boards still deal exactly as stored (2026-10-15). A change to
+  its dealing is a new version in `VERSIONS` (`play/changeling/rules.js`).
 - `node play/grove-chess/betza-check.mjs` must pass. It proves every
   piece's Betza notation gives the same moves as its move code.
 - A syntax check on every changed `.js` file, as a module:
