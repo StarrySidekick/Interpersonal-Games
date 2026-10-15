@@ -192,7 +192,7 @@ export const SCHEMA = [
       // Capture them all and Catch any one are Capture with every one, or
       // one (2026-10-13); still read, so old links and boards play as they did.
       { v: 'all', label: 'Capture them all', hidden: true }, { v: 'any', label: 'Catch any one', hidden: true }],
-      help: 'Capture: take as many of theirs as "How many" says. Take the rabbit’s piece: a rabbit rides their pieces and hops from one to another; take the one it is on. Capture the rabbit, bring it home: a rabbit waits in the middle; take it and it rides your piece, take that piece and it rides theirs; carry it back to your first row (Timothy, 2026-10-13). Catch them, then the ball: the hole stays shut until every possessed piece and loose rabbit is caught, then sink the ball in it. Take them all, then jump in the hole (Adventure, 2026-10-15): the hole stays shut until every piece of theirs is taken, then any piece of yours that lands on it jumps in and wins. King and rabbit make sure they have one. Sink the ball gives you a ball and a moving hole. Mix picks capture, King or rabbit per layout.' },
+      help: 'Capture: take as many of theirs as "How many" says. Take the rabbit’s piece: a rabbit rides their pieces and hops from one to another; take the one it is on. Capture the rabbit, bring it home: a rabbit waits in the middle; take it and it rides your piece, take that piece and it rides theirs; carry it back to your first row (Timothy, 2026-10-13). Catch them, then the ball: the hole stays shut until every possessed piece and loose rabbit is caught, then sink the ball in it. Take them all, then jump in the hole (Adventure, 2026-10-15): taking the last of theirs wins, and a hole opens beside your piece for it to jump into. King and rabbit make sure they have one. Sink the ball gives you a ball and a moving hole. Mix picks capture, King or rabbit per layout.' },
     { key: 'captureN', label: 'How many', type: 'int', min: 0, max: 8, def: 1, unit: 'of theirs',
       help: 'For Capture: take this many of their pieces to win, from one to every one (0).' },
     { key: 'rabbitMove', label: 'The rabbit is moved', type: 'choice', def: 'choose', options: opts(['choose', 'By its side, as a turn'], ['random', 'By itself, at random']),
@@ -724,13 +724,8 @@ export function makeLevel(settings, seed) {
   // their side of the board. (This draws its random numbers only on ball
   // levels, so every other level stays exactly as it was.)
   let hole = null;
-  // The way out of a cleared level: a hole on any free square, shut until
-  // every piece of theirs is taken. It does not move, and nothing becomes
-  // a ball.
-  if (goal === 'clear') {
-    const spot = place(rows);
-    if (spot.x !== undefined) hole = { x: spot.x, y: spot.y, mx: 1, my: 1 };
-  }
+  // (Take them all, then the hole: there is no hole until the board is
+  // cleared; it opens then beside your piece, rules.js exitSpot.)
   if (goal === 'hole' || goal === 'descent') {
     if (pieces.length) pieces[0].type = 'ball';
     const spot = place(top);

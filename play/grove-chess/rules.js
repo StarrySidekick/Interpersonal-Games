@@ -669,9 +669,7 @@ export function look(s, x, y, side = 'you') {
   // The rabbit to capture (goal 'flag', 2026-10-13), while nobody carries
   // it: something either side can take.
   if (s.flag && !s.flag.by && s.flag.x === x && s.flag.y === y) return ENEMY;
-  // (On a clearing level the open hole is ground to land on: movesFor
-  // keeps your pieces from sliding over it, and landing there is the win.)
-  if (s.hole && s.hole.x === x && s.hole.y === y && holeOpen(s) && s.day.rules.goal !== 'clear') return HOLE;
+  if (s.hole && s.hole.x === x && s.hole.y === y && holeOpen(s)) return HOLE;
   const sq = y * s.day.W + x;
   // A statue that can be taken reads as something to take, to either side
   // (not to a ball, which only stops at it).
@@ -1195,7 +1193,7 @@ export function ballDesc(rules) {
 export const descOf = (type, rules) => (type === 'ball' ? ballDesc(rules) : PIECES[type].desc);
 
 export const LOCKED_DESC = 'The hole stays shut until every rabbit is caught. Shut, it is only ground: anything can stand on it and the ball rolls over it. Once it opens, sink the ball to fall through to the next level.';
-export const EXIT_DESC = 'The way down. It stays shut until every piece of theirs is taken; shut, it is only ground, and anything can stand on it. Once it opens, move your piece onto it to jump in and fall to the next level. A piece that slides cannot pass over the open hole (it would fall in); one that leaps can. Take the last of theirs while you stand on it, and you drop straight in.';
+export const EXIT_DESC = 'The way down. It opens beside your piece the moment you take the last of theirs, and your piece jumps in.';
 export const HOLE_DESC = 'The hole. It moves by its own hidden pattern after every turn, bounces off the edges, and waits if anything is in the way. Nothing but the ball can go in it.';
 
 // --- Level rules. ----------------------------------------------------------
@@ -1424,20 +1422,7 @@ export function movesFor(s, i) {
   // up, it may step aside for the next piece of the set, which comes on and
   // moves instead. It costs no move; once a turn.
   if (p.suit === 'gears' && s.set?.length > 1 && s.bonus?.why !== 'gears' && !s.bonus) ms.push({ x: p.x, y: p.y, cap: false, skip: true });
-  return exitMoves(s, p, ms);
-}
-
-/** The way out of a cleared level (goal 'clear', Adventure, 2026-10-15,
-    Timothy: "after the level is completed, a hole opens up and you jump into
-    it to go to the next level"). Once it is open, a move that lands on the
-    hole jumps in (`sink`), and a slide cannot pass over it: it would fall
-    in on the way. A leap goes over, as a knight goes over anything. */
-function exitMoves(s, p, ms) {
-  const h = s.hole;
-  if (s.day.rules.goal !== 'clear' || !h || !holeOpen(s)) return ms;
-  const k = new Set([h.y * s.day.W + h.x]);
-  return ms.filter((m) => m.swap || m.wrapped || !throughCloud(k, s.day.W, p, m))
-    .map((m) => (m.x === h.x && m.y === h.y && !m.swap ? { ...m, sink: true } : m));
+  return ms;
 }
 
 const onFoe = (s, m) => s.foes.some((f) => !f.taken && f.x === m.x && f.y === m.y);
@@ -1563,7 +1548,10 @@ export function isLegal(s, mv) {
 
 function goalMet(s) {
   const g = s.day.rules.goal, F = s.foes;
-  if (g === 'hole' || g === 'descent' || g === 'flag' || g === 'clear') return false; // only the ball (or, clearing, your piece) in the hole, or the rabbit brought home, wins
+  if (g === 'hole' || g === 'descent' || g === 'flag') return false; // only the ball in the hole, or the rabbit brought home, wins
+  // Take them all, then the hole (Adventure): taking the last of theirs
+  // wins, and your piece jumps into the hole that opens beside it.
+  if (g === 'clear') return F.every((f) => !f.target || f.taken);
   if (g === 'any') return F.some((f) => f.taken);
   // Capturing (2026-10-13): any number of theirs, from one to every one
   // (captureN 0). The rabbit riding them is not one of them.
@@ -2404,9 +2392,6 @@ function landMine(n, i, x, y, m = null) {
   if (f) captureFoe(n, f, i);
   if (flagFree(n, y * n.day.W + x)) { n.flag.by = 'you'; n.flag.i = i; }
   if (p.type === 'ball' && n.hole && p.x === n.hole.x && p.y === n.hole.y && holeOpen(n)) n.won = n.sunk = true;
-  // A cleared level: your piece on the open hole jumps in, whether it came
-  // to the hole or took the last of theirs standing on it while it was shut.
-  if (n.day.rules.goal === 'clear' && n.hole && p.x === n.hole.x && p.y === n.hole.y && holeOpen(n)) n.won = n.sunk = true;
   // Catching the last rabbit opens the hole; a ball already resting on
   // the shut hole drops straight in.
   const b = f && n.day.rules.goal === 'descent' && holeOpen(n) && n.pieces.find((q) => q.type === 'ball' && !q.taken);
@@ -2458,7 +2443,25 @@ export function playerMove(s, mv) {
     const took = gone() > before || n.foes.reduce((t, f) => t + (f.lives || 1), 0) < lives;
     openBonus(n, mv.p, took, was);
   }
+  // The board cleared (goal 'clear'): the hole opens beside your piece.
+  if (n.won && n.day.rules.goal === 'clear' && !n.hole) n.hole = exitSpot(n);
   return n;
+}
+
+/** Where the way down opens on a cleared board (Adventure, 2026-10-15,
+    Timothy: "the hole should just be like an animation where the piece
+    jumping in, it's boring to have to move it yourself"): the free square
+    nearest your piece, so the jump in is a short hop. */
+function exitSpot(n) {
+  const p = n.pieces.find((q) => !q.taken) || n.pieces[0], W = n.day.W, H = n.day.H, spots = [];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if ((x === p.x && y === p.y) || !onBoard(n.day, x, y) || statueAt(n, y * W + x) || crumbled(n, x, y) || shrunk(n, x, y)) continue;
+    if (n.foes.some((f) => !f.taken && f.x === x && f.y === y)) continue;
+    spots.push({ x, y, d: Math.max(Math.abs(x - p.x), Math.abs(y - p.y)), m: Math.abs(x - p.x) + Math.abs(y - p.y) });
+  }
+  spots.sort((a, b) => a.d - b.d || a.m - b.m || b.y - a.y || a.x - b.x);
+  const s = spots[0] || { x: p.x, y: p.y };
+  return { x: s.x, y: s.y, mx: 1, my: 1, i: 0 };
 }
 
 // --- Autochess. ------------------------------------------------------------

@@ -193,11 +193,11 @@ export const MODES = {
     // set; every possessed piece moving each turn on a short route; more
     // than five pieces, five drawn at random each board; and new pieces
     // only from capturing, three rabbits of a kind making that piece.
-    name: 'Adventure', blurb: 'Start with one piece: a rook, a bishop or a knight. Take every piece of theirs, then jump into the hole that opens, in as few moves as you can. Grey statues stand still; pieces with a rabbit inside walk short routes, and the rabbit\u2019s colour says which. Every piece you take leaves its rabbit with you, and three of a kind become that piece, which joins your set: one piece on the board, turning into the next of your set every turn. Beat par for a choice of suits and weapons.',
+    name: 'Adventure', blurb: 'Start with a rook. Take every piece of theirs in as few moves as you can, and jump into the hole that opens. Grey statues stand still; pieces with a rabbit inside walk short routes, and the rabbit\u2019s colour says which. Every piece you take leaves its rabbit with you, and three of a kind become that piece, which joins your set: one piece on the board, turning into the next of your set every turn. Beat par for a choice of suits and weapons.',
     settings: {
       run: 'descent', roll: 'fixed', upgrades: 'par', startPieces: 1, maxPieces: 5, startPool: ['rook'], rewards: true, jokers: false, carry: false, keepsakes: false, outOfMoves: 'fall', fairyFrom: 4, ramp: 'steady',
       goal: 'clear', captureN: 0, royal: false, showdown: false, promote: 'none', fullRow: false, lineup: false, inOrder: false, mineRows: 1, foeRows: 4, arrange: false, cloud: false, ghosts: false, cycle: true, swordAims: true,
-      w: 5, h: 5, foes: 3, still: 2, foePool: ['pawn', 'knight', 'bishop', 'rook', 'king'], darkBrain: 'possessed', patterns: 'routes', routeKinds: ['Shuttle'], oneMove: false, kinds: 1, skill: '1', style: 'balanced', rabbitMind: 'pattern', rabbits: 0,
+      w: 5, h: 5, foes: 3, still: 2, foePool: ['knight', 'bishop', 'rook', 'king'], darkBrain: 'possessed', patterns: 'routes', routeKinds: ['Shuttle'], oneMove: false, kinds: 1, skill: '1', style: 'balanced', rabbitMind: 'pattern', rabbits: 0,
       foesCapture: true, statues: 0, clouds: 0, maxMoves: 40, parMin: 1, parMax: 12, difficulty: 'any', balance: 'off', minEngage: 0, minCeiling: 0
     }
   },
@@ -612,14 +612,20 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
     // back first, then with rests, then round a square, then two there.
     const d = depth;
     const size = d <= 2 ? 5 : d <= 7 ? pick([5, 6, 6]) : pick([6, 6, 7]);
-    const theirs = Math.min(9, size + 2, 2 + Math.floor(d * 0.6) + int(0, 1));
-    const movers = Math.max(1, Math.min(5, theirs - 1, 1 + Math.floor(d / 3) + (rand() < 0.35 ? 1 : 0)));
+    // A bit harder from the start (Timothy, 2026-10-15: "early levels should
+    // be a bit harder"): one more of theirs, one more walking, and the
+    // longer routes a depth or two sooner.
+    const theirs = Math.min(9, size + 2, 3 + Math.floor(d * 0.6) + int(0, 1));
+    const movers = Math.max(1, Math.min(5, theirs - 1, 1 + Math.floor((d + 1) / 3) + (rand() < 0.4 ? 1 : 0)));
     Object.assign(S, {
       w: size, h: size, shape: d < 3 ? 'rect' : pick(['rect', 'rect', 'diamond', 'round', 'cross', 'cheese']),
       ground: d < 6 ? 'solid' : pick(['solid', 'solid', 'solid', 'crumble']),
       foes: theirs, still: Math.max(1, theirs - movers), foeRows: size - 1, mineRows: 1, lineup: false, fullRow: false,
-      routeKinds: d <= 2 ? ['Shuttle'] : d <= 4 ? ['Shuttle', 'Doze'] : d <= 7 ? ['Shuttle', 'Doze', 'Box step'] : ['Shuttle', 'Doze', 'Box step', 'Pace'],
-      foePool: classicUntil(d < M.fairyFrom, ['pawn', 'knight', 'bishop', 'rook', 'king'], ['camel', 'zebra', 'cannon', 'ferz', 'wazir', ...(d >= 8 ? ['queen', 'archbishop', 'changeling'] : [])]),
+      routeKinds: d <= 1 ? ['Shuttle'] : d <= 3 ? ['Shuttle', 'Doze'] : d <= 5 ? ['Shuttle', 'Doze', 'Box step'] : ['Shuttle', 'Doze', 'Box step', 'Pace'],
+      // No pawns (Timothy, 2026-10-15: "pawns kind of can't be a thing in
+      // this mode due to them moving in one direction"): none of theirs, so
+      // no pawn rabbits, so never a pawn in your set.
+      foePool: classicUntil(d < M.fairyFrom, ['knight', 'bishop', 'rook', 'king'], ['camel', 'zebra', 'cannon', 'ferz', 'wazir', ...(d >= 8 ? ['queen', 'archbishop', 'changeling'] : [])]),
       clouds: d >= 5 && rand() < 0.3 ? (d >= 9 && rand() < 0.4 ? 2 : 1) : 0,
       statues: 0, parMin: 1, parMax: Math.min(26, 10 + d * 2), maxMoves: 40, aim: 0
     });

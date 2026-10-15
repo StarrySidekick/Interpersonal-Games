@@ -86,32 +86,30 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
   ok(hit, 'a walker steps onto you and takes you');
 }
 
-// The hole: shut until every one of theirs is taken; then a move onto it
-// jumps in and wins, and a slide cannot pass over it.
+// The hole: none while any of theirs is left; taking the last wins, and the
+// hole opens on a free square next to your piece, for it to jump into.
 {
-  const lv = deal(1, ['rook'], 77), st = R.initialState(lv);
-  ok(lv.rules.goal === 'clear' && lv.hole, 'a cleared level has a hole');
-  ok(!R.holeOpen(st), 'the hole is shut while any of theirs is left');
-  const c = R.clone(st);
-  c.foes.forEach((f) => { f.taken = true; });
-  ok(R.holeOpen(c), 'the hole opens once they are all taken');
-  c.pieces[0].type = 'rook';
-  const h = lv.hole;
-  // Put the rook in line with the hole, two squares off, if the board allows.
-  let line = null;
-  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-    const a = [h.x + dx, h.y + dy], b = [h.x + 2 * dx, h.y + 2 * dy], z = [h.x - dx, h.y - dy];
-    if ([a, b, z].every(([x, y]) => R.onBoard(lv, x, y) && !lv.stumps.has(y * lv.W + x))) { line = { a, b, z }; break; }
+  let checked = 0;
+  for (let sd = 1; sd < 40 && checked < 5; sd++) {
+    const lv = deal(1, ['rook'], 900 + sd), st = R.initialState(lv);
+    ok(lv.rules.goal === 'clear' && !lv.hole, 'no hole until the board is cleared');
+    const c = R.clone(st);
+    c.foes.forEach((f, k) => { f.taken = k > 0; });
+    const last = c.foes[0];
+    const mv = R.movesFor(c, 0).find((m) => m.cap && m.x === last.x && m.y === last.y);
+    if (!mv) continue;
+    checked++;
+    const won = R.playerMove(c, { p: 0, ...mv });
+    ok(won.won && won.hole, 'taking the last of theirs wins, and the hole opens');
+    ok(won.hole && Math.max(Math.abs(won.hole.x - mv.x), Math.abs(won.hole.y - mv.y)) <= 1 && !(won.hole.x === mv.x && won.hole.y === mv.y), 'right beside your piece');
   }
-  if (line) {
-    c.pieces[0].x = line.b[0]; c.pieces[0].y = line.b[1];
-    const ms = R.movesFor(c, 0);
-    const into = ms.find((m) => m.x === h.x && m.y === h.y);
-    ok(into?.sink, 'a move onto the open hole jumps in');
-    ok(!ms.some((m) => m.x === line.z[0] && m.y === line.z[1]), 'a slide cannot pass over the open hole');
-    const won = R.playerMove(c, { p: 0, ...into });
-    ok(won.won && won.sunk, 'jumping in wins');
-  } else ok(false, 'no line to the hole on this board');
+  ok(checked >= 3, `boards where the last capture was tried (${checked})`);
+}
+{
+  // No pawns in Adventure (2026-10-15): not among theirs at any depth.
+  let pawns = 0;
+  for (const d of [1, 3, 6, 10]) for (let sd = 1; sd <= 10; sd++) pawns += deal(d, ['rook'], 3000 + d * 20 + sd).foes.filter((f) => f.type === 'pawn').length;
+  ok(pawns === 0, `no pawns among theirs (${pawns})`);
 }
 
 // One piece on the board, taking turns through the set; each keeps its own.
@@ -208,7 +206,7 @@ for (const [d, hand] of [[1, ['rook']], [2, ['bishop']], [4, ['knight', 'rook']]
   if (res.line) {
     const { states, ok: legal } = R.replay(makeLevel(S, res.seed), res.line);
     const end = states[states.length - 1];
-    ok(legal && end.won && end.sunk, `depth ${d}: the par line ends in the hole`);
+    ok(legal && end.won && end.hole, `depth ${d}: the par line clears the board and opens the hole`);
   }
   ok(Date.now() - t0 < 12000, `depth ${d} is found in good time (${Date.now() - t0} ms)`);
 }

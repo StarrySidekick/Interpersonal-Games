@@ -696,9 +696,16 @@ function statue(kind) {
 // For the catalog: a statue, as it stands on the board.
 MODELS.statue = () => statue('rook');
 
-// Stone and vines (2026-10-15, Timothy: "can you make your pieces look like
-// they are wrapped in 3d vines ... more like crumbled stone, with green
-// vines. just want to see if it looks cool"). Your piece's own shape, built
+// Looks by suit (Adventure, 2026-10-15). Timothy first: "can you make your
+// pieces look like they are wrapped in 3d vines ... more like crumbled
+// stone, with green vines"; then: "the vine look should be for the vine
+// suit, we should have custom looks for the others that are colored like
+// the suit, red for hearts, grey for gears ... yellow for stars". Each is
+// your piece's own shape in the suit's colours, with something of the suit
+// added round it. Spirals, his to name, is amber with a cream stripe wound
+// up it like a shell.
+//
+// Vines: your piece's own shape, built
 // in weathered stone, then worn: every corner nudged a little (the same
 // corner the same way, so nothing splits open), some faces darker as if
 // chipped; then two vines climb it in a spiral, hugging its surface, with
@@ -777,6 +784,107 @@ function strand(m, a, b, w, col) {
     { rx: -Math.asin(d[1] / len), ry: Math.atan2(d[0], d[2]) });
 }
 
+/** The body colours of each look (the trim, moss and leaf, is the pale
+    accent the builders use for collars and bands). */
+const SUIT_BODY = {
+  hearts: { wood: '#b52a43', woodLight: '#dc5a70', woodDark: '#6e1626', moss: '#f7c9d1', leaf: '#ffe3e8' },
+  // Blue steel, so it is never taken for one of their grey statues.
+  gears: { wood: '#6f7d92', woodLight: '#9fadc1', woodDark: '#3a4352', moss: '#cfd8e4', leaf: '#eef2f7' },
+  spirals: { wood: '#e0782a', woodLight: '#f5a560', woodDark: '#8a4412', moss: '#fde0bf', leaf: '#fff0de' },
+  stars: { wood: '#c9971e', woodLight: '#ecc552', woodDark: '#7a5a0c', moss: '#fff1b0', leaf: '#fff8d8' }
+};
+
+/** The model's corners, its top, and how far out it is all round at height
+    y (the farthest corner near that height). */
+function shapeOf(m) {
+  const pts = m.tris.flatMap((t) => t.p), top = Math.max(...pts.map((p) => p[1]));
+  const ring = (y) => Math.max(0.6, ...pts.filter((p) => Math.abs(p[1] - y) < 0.5).map((p) => Math.hypot(p[0], p[2])));
+  return { pts, top, ring };
+}
+
+/** Hearts: a heart on its chest, facing you, and a small one on its back. */
+function hearts(m) {
+  const { pts, top } = shapeOf(m), y = 1.5 + (top - 1.5) * 0.48;
+  const heart = (z, s, col, hi) => {
+    // A square turned on its corner, with a round lobe on each upper edge.
+    m.box(0, y - 0.1 * s, z, 0.85 * s, 0.85 * s, 0.32 * s, col, { rz: Math.PI / 4 });
+    for (const sx of [-1, 1]) m.ellipsoid(sx * 0.3 * s, y + 0.2 * s, z, 0.43 * s, 0.43 * s, 0.2 * s, col, { seg: 8, rings: 4 });
+    m.ellipsoid(-0.32 * s, y + 0.3 * s, z + 0.12 * Math.sign(z) * s, 0.12 * s, 0.1 * s, 0.06 * s, hi, { seg: 5, rings: 3 });
+  };
+  heart((surface(pts, Math.PI / 2, y) ?? 1.5) + 0.25, 1.7, '#ffe4ea', '#ffffff');
+  heart(-((surface(pts, -Math.PI / 2, y) ?? 1.5) + 0.2), 1.1, '#ffe4ea', '#ffffff');
+  return m;
+}
+
+/** Gears: a toothed gear round its middle, with rivets, a bright cog on
+    its chest, and a little one at its foot. */
+function gears(m) {
+  const { pts, top, ring } = shapeOf(m), y = 1.5 + (top - 1.5) * 0.3, r = ring(y) + 0.1, iron = '#3f454d', steel = '#e3e8ee';
+  m.lathe([[r, y - 0.32], [r, y + 0.32]], iron, { seg: 12 });
+  const teeth = 10;
+  for (let k = 0; k < teeth; k++) {
+    const a = (k / teeth) * Math.PI * 2;
+    m.box(Math.cos(a) * (r + 0.35), y, Math.sin(a) * (r + 0.35), 0.6, 0.62, 0.55, iron, { ry: -a });
+    if (k % 2 === 0) m.ball(Math.cos(a + 0.3) * (r - 0.15), y + 0.34, Math.sin(a + 0.3) * (r - 0.15), 0.16, steel, { seg: 5, rings: 3 });
+  }
+  // The cog on its chest, facing you.
+  const cy = 1.5 + (top - 1.5) * 0.62, cz = (surface(pts, Math.PI / 2, cy) ?? 1.4) + 0.2;
+  m.group({ t: [0, cy, cz], rx: Math.PI / 2 }, () => {
+    m.lathe([[0.85, -0.15], [0.85, 0.15]], steel, { seg: 10 });
+    for (let k = 0; k < 8; k++) { const a = (k / 8) * Math.PI * 2; m.box(Math.cos(a) * 1.05, 0, Math.sin(a) * 1.05, 0.38, 0.3, 0.38, steel, { ry: -a }); }
+    m.lathe([[0.32, 0.12], [0.32, 0.22]], iron, { seg: 8 });
+  });
+  // The small gear, lying on the plinth.
+  const gx = 2.3, gz = 1.6;
+  m.lathe([[0.75, 1.5], [0.75, 1.75]], iron, { seg: 8, at: [gx, 0, gz] });
+  for (let k = 0; k < 6; k++) { const a = (k / 6) * Math.PI * 2; m.box(gx + Math.cos(a) * 0.9, 1.62, gz + Math.sin(a) * 0.9, 0.32, 0.25, 0.3, iron, { ry: -a }); }
+  return m;
+}
+
+/** Spirals: a cream stripe wound up it, two and a half turns, like a shell. */
+function spirals(m) {
+  const { pts, top } = shapeOf(m), y0 = 1.6, y1 = 1.5 + (top - 1.5) * 0.92, n = 34, cream = '#fff1dc', deep = '#b9581a';
+  let last = null;
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, y = y0 + (y1 - y0) * t, a = 0.2 + t * Math.PI * 5;
+    const r = (surface(pts, a, y) ?? 1.2) + 0.12, p = [Math.cos(a) * r, y, Math.sin(a) * r];
+    if (last) strand(m, last, p, 0.42, i % 2 ? cream : '#fbe3c4');
+    last = p;
+  }
+  // A curl at the top.
+  m.ball(last[0], last[1] + 0.2, last[2], 0.32, deep, { seg: 6, rings: 4 });
+  return m;
+}
+
+/** A little star: six points, from its middle. */
+function sparkle(m, c, r, col, mid) {
+  for (const rot of [{}, { rz: Math.PI }, { rz: -Math.PI / 2 }, { rz: Math.PI / 2 }, { rx: Math.PI / 2 }, { rx: -Math.PI / 2 }])
+    m.cone(c[0], c[1], c[2], r * 0.32, r, col, { seg: 4, rot });
+  m.ball(c[0], c[1], c[2], r * 0.34, mid, { seg: 6, rings: 3 });
+}
+
+/** Stars: a star on its head and little ones round it. */
+function stars(m) {
+  const { pts, top } = shapeOf(m), gold = '#fffbe0', glow = '#ffe14a';
+  sparkle(m, [0, top + 1.3, 0], 1.3, gold, glow);
+  [[1.2, 0.28], [2.6, 0.55], [0.4, 0.78], [3.9, 0.95]].forEach(([a, k], i) => {
+    const y = 1.5 + (top - 1.5) * k, r = (surface(pts, a, y) ?? 1.4) + 0.95;
+    sparkle(m, [Math.cos(a) * r, y, Math.sin(a) * r], i % 2 ? 0.75 : 0.9, gold, glow);
+  });
+  return m;
+}
+
+/** The suits that have a look, and how each is made. */
+const SUIT_LOOK = {
+  vines: (build, plinthOf) => vines(crumble(withPalette({ ...YOU, ...VINE_STONE, ...plinthOf }, build))),
+  hearts: (build, plinthOf) => hearts(withPalette({ ...YOU, ...SUIT_BODY.hearts, ...plinthOf }, build)),
+  gears: (build, plinthOf) => gears(withPalette({ ...YOU, ...SUIT_BODY.gears, ...plinthOf }, build)),
+  spirals: (build, plinthOf) => spirals(withPalette({ ...YOU, ...SUIT_BODY.spirals, ...plinthOf }, build)),
+  stars: (build, plinthOf) => stars(withPalette({ ...YOU, ...SUIT_BODY.stars, ...plinthOf }, build))
+};
+/** Is `look` one of the suits' looks? (For model(kind, look).) */
+export const suitLook = (suit) => (SUIT_LOOK[suit] ? suit : 'you');
+
 /** Two vines climbing model m in a spiral, with leaves. Mutates. */
 function vines(m) {
   const pts = m.tris.flatMap((t) => t.p);
@@ -836,11 +944,11 @@ export function model(kind, side = 'you', fur = null, glow = null) {
   }
   const key = `${kind}:${side}:${glow || ''}`;
   if (side === 'stone') { if (!cache.has(key)) cache.set(key, statue(kind)); return cache.get(key); }
-  // Stone and vines: a piece of yours, worn and overgrown.
-  if (side === 'vine') {
+  // A suit's look (Adventure): a piece of yours, in its suit's colours.
+  if (SUIT_LOOK[side]) {
     if (!cache.has(key)) {
       const build = MODELS[kind] || MODELS[LOOKS.get(kind)] || MODELS.pawn;
-      cache.set(key, vines(crumble(withPalette({ ...YOU, ...VINE_STONE, ...(glow ? { band: glow, base: shade(glow, 0.62) } : {}) }, build))));
+      cache.set(key, SUIT_LOOK[side](build, glow ? { band: glow, base: shade(glow, 0.62) } : {}));
     }
     return cache.get(key);
   }
