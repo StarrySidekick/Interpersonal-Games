@@ -143,11 +143,10 @@ const seen = new IntersectionObserver((entries) => {
 
 const OURS = [
   { head: 'Every day', say: 'The same board for everyone, once a day. Share how you did.', items: [
-    { id: 'changeling', href: '../changeling/', name: 'Changeling', line: 'One puzzle a day. Every move takes a piece, and you become the piece you take. Clear the board in six tries.', tags: ['daily', 'about 5 minutes'], hot: true },
-    { id: 'daily', href: '../grove-chess/', name: 'The rabbit', line: 'Catch the day\'s rabbit, which hops in a hidden pattern. Friends who play from your link join your vine.', tags: ['daily', 'shared'] }
+    { id: 'daily', href: '../grove-chess/', name: 'The rabbit', line: 'Catch the day\'s rabbit, which hops in a hidden pattern. Friends who play from your link join your vine.', tags: ['daily', 'shared'], hot: true }
   ] },
   { head: 'Runs', say: 'Down through the Grove, board after board, until you fall. Different every time.', items: [
-    { id: 'adventure', href: '../changeling/adventure/', name: 'Adventure', line: 'Start with one piece. Take every piece in as few moves as you can, and pick up pieces, suits and weapons on the way down.', tags: ['roguelite', 'new'], hot: true },
+    { id: 'adventure', href: '../grove-chess/play/?mode=adventure', name: 'Adventure', line: 'Start with one piece. Take every piece in as few moves as you can, and pick up pieces, suits and weapons on the way down.', tags: ['roguelite', 'new'], hot: true },
     { id: 'descent', href: '../grove-chess/play/?mode=descent', name: MODES.descent.name, line: 'A full army each, as in chess. Take the piece the rabbit rides to fall to the next board, and choose a suit or a weapon.', tags: ['roguelite', 'armies'] },
     { id: 'tiles', href: '../grove-chess/play/?mode=tiles', name: MODES.tiles.name, line: 'Win a round, turn over a tile at the edge: the board grows, and the suit or weapon on it is yours.', tags: ['rounds', 'armies'] },
     { id: 'kungfu', href: '../grove-chess/play/?mode=kungfu', name: MODES.kungfu.name, line: 'The descent with no turns: move any piece whenever it is ready, and so do they.', tags: ['real time'] }

@@ -151,6 +151,24 @@ const MODELS = {
 
   zebra: () => horse(P.woodLight, P.woodDark, { muzzle: P.woodDark, stripes: P.woodDark }),
 
+  changeling() {
+    // A fairy child left in a human one's place, in the folklore the Grove's
+    // forest comes from: a small cloaked figure with a borrowed pale face,
+    // leaf ears, and a pointed hood that curls back to a gold tip. Invented
+    // here, 2026-10-15, in place of the Changeling daily.
+    const m = plinth(new Model());
+    m.lathe([[2.5, 1.5], [2.1, 2.6], [1.5, 4.8], [1.0, 6.0]], [P.wood, P.wood, P.woodLight]); // cloak
+    m.lathe([[1.3, 5.6], [1.5, 6.0], [1.0, 6.4]], P.moss, { seg: 8 });                     // collar of leaves
+    m.ball(0, 7.4, 0.25, 1.5, P.cream, { seg: 8, rings: 6 });                              // the borrowed face
+    m.ball(0.55, 7.6, 1.55, 0.32, P.eye, { seg: 5, rings: 3 });                            // eyes, too large
+    m.ball(-0.55, 7.6, 1.55, 0.32, P.eye, { seg: 5, rings: 3 });
+    m.ellipsoid(1.75, 7.7, -0.1, 0.22, 0.45, 1.15, P.moss, { rot: { rz: -0.7 } });          // leaf ears
+    m.ellipsoid(-1.75, 7.7, -0.1, 0.22, 0.45, 1.15, P.moss, { rot: { rz: 0.7 } });
+    m.cone(0, 8.0, -0.2, 1.75, 3.6, P.woodDark, { seg: 8, rot: { rx: -0.45 } });           // the hood
+    m.ball(0, 11.0, -1.75, 0.42, P.gold, { seg: 6, rings: 4 });                            // its tip
+    return m;
+  },
+
   alfil() { // al-fil, "the elephant", of shatranj
     const m = plinth(new Model()), g = P.wood, dk = P.woodDark;
     for (const [x, z] of [[1.4, 1.3], [-1.4, 1.3], [1.4, -1.5], [-1.4, -1.5]]) m.lathe([[0.8, 1.5], [0.8, 4.0]], dk, { seg: 6, at: [x, 0, z] });
