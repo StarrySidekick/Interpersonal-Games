@@ -48,8 +48,12 @@ can; then a hole opens and your piece jumps in.
   next of the set, on the same square, in the order you got them, and then
   the first again. The row under the board shows the order: Now, Next, In
   2... Each piece keeps its own suit and weapon while it waits.
-  Right under the board, a strip shows the piece that comes on **next**
-  (outlined) and the one after (faded); it pops when it changes. When the
+  Right under the board, a strip shows your **whole set in the order it
+  comes on**, icons only, each in its suit's look (Timothy, 2026-10-15:
+  "show all pieces in your cycle, and don't show text, just the piece
+  icons"): the next outlined, the rest after it, and the piece on the board
+  now last and faded, since it comes round again after them. It pops when
+  it changes; the names are there for screen readers only. When the
   turn ends, the piece on the board spins down into its plinth and the next
   spins up out of it, with a burst of leaves and a soft grind of stone
   (Timothy, 2026-10-15: "a quick animation for when the pieces cycle on the

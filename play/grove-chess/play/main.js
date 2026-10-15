@@ -264,21 +264,20 @@ function rabbitCounts(s = now()) {
 }
 
 /** Adventure (2026-10-15, Timothy: "a clear little icon thing underneath
-    the board to show what piece comes up next"): right under the board, the
-    piece that comes on after this turn, and the one after that, faded. It
-    pops when it changes. */
+    the board to show what piece comes up next"; then "show all pieces in
+    your cycle, and don't show text, just the piece icons"): right under
+    the board, your whole set in the order it comes on, icons only, each in
+    its suit's look. The next is outlined; the rest follow; the piece on the
+    board now comes last, faded, since it comes round again after them. It
+    pops when it changes. Names are there for screen readers. */
 let lastNext = null;
 function nextUp() {
   const s = now(), box = $('#nextup'), order = s.set ? setOrder(s) : [];
   if (order.length < 2 || s.pieces[0]?.taken || s.won) { box.hidden = true; lastNext = null; return; }
   const icon = (p) => { const cv = el('canvas', { class: 'pix', width: 30, height: 36 }); cv.getContext('2d').drawImage(sprite(p.type, lookOf(p)), 0, 0); return cv; };
-  const marks = (p) => [p.suit && SUITS[p.suit] ? el('span', { class: 'suit', style: `color:${SUITS[p.suit].colour}` }, SUITS[p.suit].mark) : null,
-    p.weapon && WEAPONS[p.weapon] ? el('span', { class: 'suit' }, WEAPONS[p.weapon].mark) : null];
-  const next = order[1], key = `${s.ci}:${next.type}:${s.t}`;
-  box.replaceChildren(
-    el('span', { class: 'lbl' }, 'Next'),
-    el('span', { class: 'slot next' }, icon(next), el('span', {}, ...marks(next), ' ', nameOf(next))),
-    ...(order.length > 2 ? [el('span', { class: 'arrow' }, '›'), el('span', { class: 'slot then' }, icon(order[2]), el('span', { class: 'small' }, nameOf(order[2])))] : []));
+  const queue = [...order.slice(1), order[0]], key = `${s.ci}:${queue.map((p) => p.type).join()}:${s.t}`;
+  box.setAttribute('aria-label', `Next: ${queue.map((p) => nameOf(p).toLowerCase()).join(', then ')}`);
+  box.replaceChildren(...queue.map((p, k) => el('span', { class: `slot ${k === 0 ? 'next' : k === queue.length - 1 ? 'now' : 'then'}`, title: nameOf(p), 'aria-hidden': 'true' }, icon(p))));
   box.hidden = false;
   if (lastNext !== null && lastNext !== key) { box.classList.remove('turn'); void box.offsetWidth; box.classList.add('turn'); }
   lastNext = key;
