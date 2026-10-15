@@ -65,8 +65,9 @@ can.
   a rest is a dashed frame on its own square. **Stand on that square and it
   takes you.** It threatens nothing else, so the purple reach shows only
   that square for it.
-- **The hole** is on the board from the start, shut under a twig cover with
-  a flag beside it. When the last of theirs is taken it opens. A move onto
+- **The hole** is on the board from the start, shut under a twig cover. No
+  flag: that is golf's (Timothy, 2026-10-15: "the hole shouldn't have the
+  flag in this mode"). When the last of theirs is taken it opens. A move onto
   it jumps in. A slide cannot pass over the open hole (it would fall in); a
   leap can. Take the last of theirs while standing on the shut hole and you
   drop straight in. Par counts the jump.
