@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script>try{var t=localStorage.getItem('ig.theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1a13">
+<title>Chess of the Grove</title>
+<link rel="stylesheet" href="../../engine/app.css">
+<style>
+  /* The Grove's forest at night, around boards in daylight. */
+  :root {
+    --bg: #0f1a13; --panel: #17251b; --panel-2: #1d2e22; --line: #2b4031;
+    --text: #edf2e6; --dim: #9fb3a0; --accent: #a9d98b; --accent-ink: #13260e;
+    --gold: #f5c13a;
+  }
+  [hidden] { display: none !important; }
+  .wrap { max-width: 760px; }
+  .eyebrow { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin: 0 0 2px; }
+  .lede { margin: 0 0 6px; }
+  .group { margin-top: 26px; }
+  .group > h2 { margin: 0 0 2px; }
+  .group > p { margin: 0 0 12px; }
+  .list { display: grid; gap: 10px; }
+  @media (min-width: 700px) { .list { grid-template-columns: 1fr 1fr; } }
+  .mode {
+    display: grid; grid-template-columns: 128px 1fr; gap: 12px; align-items: center;
+    text-decoration: none; color: inherit; background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 10px 12px 10px 8px; cursor: pointer; text-align: left; font: inherit;
+  }
+  .mode:hover, .mode:focus-visible { border-color: var(--accent); }
+  .mode .prev { width: 128px; display: grid; place-items: center; min-height: 84px; }
+  .mode canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; max-width: 128px; }
+  .mode h3 { margin: 0 0 2px; font-size: 18px; }
+  .mode p { margin: 0; font-size: 15px; color: var(--dim); line-height: 1.4; }
+  .mode .tags { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .mode .tags span { font-size: 12px; font-weight: 600; color: var(--dim); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
+  .mode .tags span.hot { color: var(--accent-ink); background: var(--accent); border-color: transparent; }
+  .mode .who { font-size: 13px; color: var(--warm); font-weight: 600; margin: 0 0 2px; }
+  .classic { margin-top: 34px; padding-top: 20px; border-top: 1px solid var(--line); }
+  .classic .mode { background: var(--panel-2); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <a class="back" href="../../">&larr; Hikari Garden</a>
+  </div>
+
+  <p class="eyebrow">Hikari Garden</p>
+  <h1>Chess of the Grove</h1>
+  <p class="dim lede">Every chess game made for the Grove, and the old variants they grew from.</p>
+
+  <div id="ours"></div>
+
+  <section class="classic">
+    <h2>Classic variants, to learn</h2>
+    <p class="dim">Real variants from the history of chess, mostly on small boards, each against a side that thinks. A good way to learn how the pieces work together. Each one says who made it and when.</p>
+    <div class="list" id="classic"></div>
+  </section>
+
+</div>
+<script type="module" src="hub.js"></script>
+</body>
+</html>

@@ -57,6 +57,10 @@ you missed. See rule 2 of [the session shape](docs/scope.md#the-session-shape).
 
 ## Playable now
 
+**[Chess of the Grove](play/grove/)** (2026-10-15): every chess game here in
+one list with preview boards, Changeling, Adventure, Grove Chess and its
+modes, and a separate section of classic variants to learn.
+
 **[Changeling](play/changeling/)**: the daily, simplified (2026-10-15). One
 board a day: you are one chess piece, every move is a capture, and you
 become whatever you take. Clear the board in as few of six tries as you

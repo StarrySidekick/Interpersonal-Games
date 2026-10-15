@@ -12,6 +12,25 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
+## 2026-10-15, last: Chess of the Grove, one door for all the chess
+
+From Timothy: the home page's list should have one chess entry, "Chess of
+the Grove"; inside it, our own variations in a more intuitive list with a
+preview board each, and a separate section for the pre-existing variants,
+for learning. A reorganization, and to look better. Built: `play/grove/`.
+Ours are grouped by how you play them (every day; runs; more ways to play;
+the workshop), each with a still of the Grove's own 3D board; the classic
+variants have their own section, with who made each and when, and open in
+the variants mode already chosen. Every Grove page's menu and back link lead
+there. No game changed, and every old link still works.
+
+He also asked why Changeling and Adventure do not use the Grove's 3D board
+and engine. They use its piece models but draw a flat board and have
+engines of their own; Adventure's suits and weapons are a copy of the
+Grove's rules. Whether to move them onto the 3D board (an adapter) or onto
+the Grove's engine is his call. Adventure's grey pieces now use a grey
+palette in `models.js`.
+
 ## 2026-10-15, later: Adventure, a roguelite on Changeling's boards
 
 From Timothy: build on Changeling into a new mode, called Adventure for now.

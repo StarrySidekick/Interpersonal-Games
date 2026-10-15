@@ -633,6 +633,11 @@ MODELS.shrink = () => {
 // swapping it for the length of one build is enough.
 const FOE = { wood: '#6c4795', woodLight: '#9170bd', woodDark: '#3b2558', moss: '#e3d3f2', leaf: '#f1e7fa',
   ...(LOOK.foe !== LOOK_DEFAULTS.foe ? body(LOOK.foe) : {}) };
+// Grey (2026-10-15): a piece in grey stone, for Adventure's pieces that never
+// move (Timothy: "enemy pieces don't move, and they are gray like
+// statues"). They are pieces to take, so they keep their piece's shape;
+// the Grove's statues proper are standing stones of their own (below).
+const GREY = { ...body(LOOK.statue), moss: '#d6d9d1', leaf: '#eceee8', band: '#a7aaa3', base: '#6c6f69' };
 
 // Statues (2026-10-07; they were stumps before) were any classic piece's
 // shape in grey stone. Timothy, 2026-10-10: "statues should be a unique
@@ -707,7 +712,7 @@ export function model(kind, side = 'you', fur = null, glow = null) {
     // darker shade of it underneath.
     const plinthOf = glow ? { band: glow, base: shade(glow, 0.62) } : {};
     const build = MODELS[kind] || MODELS[LOOKS.get(kind)] || MODELS.pawn;
-    cache.set(key, withPalette({ ...(side === 'foe' ? FOE : YOU), ...plinthOf }, build));
+    cache.set(key, withPalette({ ...(side === 'foe' ? FOE : side === 'grey' ? GREY : YOU), ...plinthOf }, build));
   }
   return cache.get(key);
 }

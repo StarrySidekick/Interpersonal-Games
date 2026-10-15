@@ -9,6 +9,9 @@ import { releaseLine } from '../../engine/release.js';
 
 /** Each entry: where it lives (from play/grove-chess/), its name. */
 export const MENU = [
+  // Chess of the Grove (2026-10-15): every chess game here, and the classic
+  // variants, in one list with previews.
+  { id: 'hub', href: '../grove/', label: 'All of Chess of the Grove' },
   { id: 'daily', href: '', label: 'The daily' },
   { id: 'descent', href: 'play/?mode=descent', label: 'The descent' },
   { id: 'kungfu', href: 'play/?mode=kungfu', label: 'Kung fu descent' },

@@ -75,23 +75,8 @@ function sprite(p) {
   const key = `${kind}|${p.side}|${glow}`;
   if (sprites[key]) return sprites[key];
   if (p.side === 'rabbit') return (sprites[key] = snapshot(model('rabbit', 'foe', '#e8dcc6')));
-  if (p.side === 'stone') return (sprites[key] = stone(snapshot(model(kind, 'foe'))));
+  if (p.side === 'stone') return (sprites[key] = snapshot(model(kind, 'grey')));
   return (sprites[key] = snapshot(model(kind, p.side === 'you' ? 'you' : 'foe', null, glow)));
-}
-/** A piece turned to grey stone: each pixel's lightness mapped onto the
-    statues' stone colours, the dark outline kept dark. */
-function stone(c) {
-  const x = c.getContext('2d'), img = x.getImageData(0, 0, c.width, c.height), d = img.data;
-  const lo = [78, 80, 76], hi = [214, 216, 208];
-  for (let i = 0; i < d.length; i += 4) {
-    if (!d[i + 3]) continue;
-    const l = (0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2]) / 255;
-    if (l < 0.12) { d[i] = d[i + 1] = d[i + 2] = 34; continue; }
-    const k = Math.min(1, l * 1.5);
-    for (let j = 0; j < 3; j++) d[i + j] = Math.round(lo[j] + (hi[j] - lo[j]) * k);
-  }
-  x.putImageData(img, 0, 0);
-  return c;
 }
 const P = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x | 0, y | 0, w, h); };
 let L = null;

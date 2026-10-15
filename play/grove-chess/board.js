@@ -836,7 +836,7 @@ export function scene(day, s = null, fur = () => null) {
   // A possessed piece shows its rabbit's colour on its plinth.
   for (const f of (s || day).foes) {
     if (f.taken) continue;
-    const mdl = f.brain === 'possessed' ? model(f.type, 'foe', null, fur(f) || '#e9e4da') : model(f.type, 'foe', fur(f));
+    const mdl = f.side === 'grey' ? model(f.type, 'grey') : f.brain === 'possessed' ? model(f.type, 'foe', null, fur(f) || '#e9e4da') : model(f.type, 'foe', fur(f));
     m.add(mdl, x0(f.x) + T / 2, 0, z0(f.y) + T / 2, id++);
   }
   return m;
