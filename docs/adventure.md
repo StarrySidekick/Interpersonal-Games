@@ -85,6 +85,30 @@ can.
   choice of two; under par, three. Cards are suits and weapons only now:
   new pieces come from rabbits.
 
+## The look of your pieces
+
+Timothy, 2026-10-15: "can you make your pieces look like they are wrapped
+in 3d vines ... more like crumbled stone, with green vines. just want to
+see if it looks cool." In Adventure only, for now, your pieces are their
+own shapes in weathered stone, wrapped in two climbing vines with leaves:
+`model(kind, 'vine')` in `models.js`. How it is made:
+
+- The piece is built as usual from a stone palette (`VINE_STONE`).
+- `crumble` wears it: every corner above the plinth is nudged in or out a
+  little, now and then bitten deeper, by a hash of where it is, so the same
+  corner always moves the same way and the surface never splits; faces are
+  mottled lighter and darker, a few chipped dark, a few gone to moss.
+- `vines` climbs it: two spirals, a turn and a bit each, from the plinth to
+  four fifths of its height. At each step `surface` finds how far out the
+  piece is at that height and angle (the farthest corner nearby) and the
+  vine sits just outside it, as thin boxes laid end to end (`strand`), with
+  diamond leaves (`leaf`, two triangles, drawn from both sides) along it,
+  at its end, and at its foot.
+
+The board (`board.mine`), the set row, the intro's cards and the fall
+between boards all use it. Your pieces were green to tell them from
+theirs; in stone, the vines carry that.
+
 ## How it is built, in Grove terms
 
 It is a descent (`run: 'descent'`) with its own way between levels,

@@ -26,7 +26,7 @@ const SCALE = 2.6;
  * piece in from above (the one you picked on the way down); land brings the
  * next table up and resolves once everything has landed.
  */
-export function startFall(canvas, kinds) {
+export function startFall(canvas, kinds, side = 'you') {
   const ctx = canvas.getContext('2d');
   const w = canvas.width, h = canvas.height, target = makeTarget(w, h);
   const cx = w / 2, cy = h * 0.45;
@@ -88,7 +88,7 @@ export function startFall(canvas, kinds) {
         y = tableTop + above;
         if (!L) s = Math.max(0.01, 1 - k); // nothing to land on (should not happen)
       }
-      mesh.addXf(model(f.kind, 'you'), { t: [x, y, z], ry, rz, s }, 100 + i);
+      mesh.addXf(model(f.kind, side), { t: [x, y, z], ry, rz, s }, 100 + i);
     });
     render(target, mesh, { yaw: 0, pitch: PITCH, scale: SCALE, cx, cy, outline: '#05080a' });
     // The picture goes over the backdrop, keeping the backdrop where it is empty.

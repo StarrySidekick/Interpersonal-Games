@@ -1031,7 +1031,7 @@ export class Board3D extends Board {
       // in a descent, a piece with a suit wears the suit's.
       // A Changeling in another piece's shape is drawn as that piece, on a
       // plinth of its own colour (or its suit's).
-      stand(p.brain === 'carrier' ? model('rabbit', 'you', CARRIER_FUR.you) : model(p.shape || p.type, 'you', null, p.brain === 'possessed' ? this.fur(p) : SUIT_COLOUR[p.suit] || (p.shape ? CHANGELING_GLOW : null)), x, y, h, 100 + i, o);
+      stand(p.brain === 'carrier' ? model('rabbit', 'you', CARRIER_FUR.you) : model(p.shape || p.type, this.mine || 'you', null, p.brain === 'possessed' ? this.fur(p) : SUIT_COLOUR[p.suit] || (p.shape ? CHANGELING_GLOW : null)), x, y, h, 100 + i, o);
       where[i] = { x, y, h, i };
       armsOf(p, x, y, h, 100 + i, o, 1);
       // Guarded (2026-10-11): a shield in front. Since 2026-10-13 it flies
