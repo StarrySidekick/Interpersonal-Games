@@ -111,8 +111,8 @@ can; then a hole opens and your piece jumps in.
   flies (Timothy, 2026-10-15): a diagonal as a staircase, a leap along its
   long side and then its short one, the way a knight's L is drawn;
   a rest is a dashed frame on its own square. **Stand on that square and it
-  takes you.** It threatens nothing else, so the purple reach shows only
-  that square for it.
+  takes you.** It threatens nothing else, so its only danger ring is that
+  square (red, see "One colour for danger" below).
 - **The hole.** Taking the last of theirs wins the board: a hole opens on
   the free square nearest your piece, and your piece hops into it by itself
   (Timothy, 2026-10-15: "the hole should just be like an animation where the
@@ -169,7 +169,7 @@ of the suit made part of it, at its collar, where the trim already sits
 | Vines | the Grove's green | a wreath of eight leaves round the collar |
 | Hearts | rose red | a pale heart locket on its chest, pink trim |
 | Gears | blue steel | a brass collar toothed like a gear |
-| Spirals | amber | the whole piece twisted about its axis |
+| Spirals | purple (amber until 2026-10-15) | the whole piece twisted about its axis |
 | Stars | gold | a star brooch on its chest |
 | Stone | sandstone | two carved bands |
 
@@ -355,11 +355,44 @@ Their turn, in order:
    a statue that only stands on its line.
 
 **The Stone suit** (◆, sandstone, Adventure's own, so it never turns up in
-the other modes): once a board, a piece of Stone may leave a stone copy of
-itself on the square it moves off (the "◆ Leave a stone" button, then the
-move). The stone stays, is yours, strikes as above, pins and gives check
-along its lines, and their pieces can break it. Your Stone piece is
-sandstone with carved bands; a stone left behind is darker, on pebbles.
+the other modes). Since 2026-10-15 (Timothy: "stone suit now leaves behind
+a sentry of their piece each time it moves? and it lasts for three moves
+than disappears"): every move of a piece of Stone leaves a stone copy of
+itself on the square it moves off, with no button to press. Each stone is
+a sentry of yours for three turns: it stands through their turn just after
+it is left and two more, then crumbles away (a puff of grit and the
+crumble sound). A number at its corner counts the turns it has left, and
+it sinks and shrinks a little as it wears. While it stands it strikes as
+above (what moves into its reach), pins and gives check along its lines,
+and their pieces can break it. Your Stone piece is sandstone with carved
+bands; a stone left behind is darker, on pebbles. In rules: the stone is
+pushed in `playerMove` with `left: STONE_TURNS` (3), and `stonesAge` takes
+a turn off each at the end of their turn (`turnOver`, in `respond` and
+`apply`). Before this it was once a board, by a button.
+
+**One colour for danger** (Timothy, 2026-10-15: "not sure what the purple
+highlight is for vs the red"). Purple rings marked two things: a robot
+rabbit's next square, and the crowned leader's reach. Red marked a
+sentry's reach. Now, on a board with tactics, every danger ring is red and
+means one thing: end your move here and something takes you. That is a
+sentry's reach and a robot's next square (its loop no longer frames that
+square in its own colour too, since the red ring does). The leader's reach
+is not ringed at all: it takes only in answer to a check, and then only
+where nothing of yours guards the square (`reachMaps` skips it, which also
+keeps it out of where a lost piece's replacement may land). Other modes
+keep their purple reach.
+
+**Their pieces wear their suit** (Timothy, 2026-10-15: "since there's just
+one piece at any given time we don't need the purple pieces are the bad
+ones distinction we had before. enemy pieces are just based on their
+suit"). In Adventure their pieces are drawn with the same looks as yours
+(`board.lookOfFoe`, `suitLook`): plain grey without a suit, which in
+Adventure is all of them for now. What tells them apart is the plinth: the
+rabbit's colour (a robot's route colour, red for a sentry, white for a
+scared one, gold for the crowned leader), grey for a statue, pale stone
+for yours. The board, the tumble when one is taken, the intro's cards, the
+pieces sheet and the Grove's preview all follow. Spirals turned purple the
+same day, everywhere, since purple no longer means theirs here.
 
 **Arrival, one at a time:** a sentry from depth 2, a scared rabbit from 4,
 their leader from 6 (half the boards; most from 9). Pins work from the

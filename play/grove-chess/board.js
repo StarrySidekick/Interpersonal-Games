@@ -6,7 +6,7 @@
 // 3D models (engine/lowpoly.js).
 
 import { Mesh, Model, snapshot } from '../../engine/lowpoly.js';
-import { model } from './models.js';
+import { model, suitLook } from './models.js';
 import { brambleCount, onBoard, movesFor, holeOpen, nextShrink, PIECES, statueKind, reachMaps, ghostAt, gateUp, hiddenFrom } from './rules.js';
 import * as sfx from './sounds.js';
 import { LOOK } from './config.js';
@@ -464,7 +464,7 @@ export class Board {
         x = q.x; y = q.y;
         lift = t.hop ? Math.sin(Math.PI * q.k) * (t.blocked ? 3 : 9) : 0;
       }
-      things.push({ img: sprite(f.brain === 'leader' ? 'rabbit' : f.shape || f.type, f.brain === 'still' ? 'grey' : 'foe', this.fur(f)), x, y, lift, ring: marked && f.target ? 'rgba(227,189,87,.9)' : null });
+      things.push({ img: sprite(f.brain === 'leader' ? 'rabbit' : f.shape || f.type, f.brain === 'still' ? 'grey' : f.brain !== 'leader' && this.lookOfFoe ? this.lookOfFoe(f) : 'foe', this.fur(f)), x, y, lift, ring: marked && f.target ? 'rgba(227,189,87,.9)' : null });
     });
     (s.clouds || []).forEach((c, i) => {
       let { x, y } = c;
@@ -573,7 +573,7 @@ export class Board {
       const hold = 150 * slow, dur = 720 * slow;
       for (const k of tw.caught) {
         const f = a.foes[k];
-        tw.tumbles.push({ img: sprite(f.type, f.brain === 'still' ? 'grey' : 'foe', this.fur(f)), x: f.x, y: f.y, t0: t, hold, dur: hold + dur,
+        tw.tumbles.push({ img: sprite(f.type, f.brain === 'still' ? 'grey' : this.lookOfFoe ? this.lookOfFoe(f) : 'foe', this.fur(f)), x: f.x, y: f.y, t0: t, hold, dur: hold + dur, look: this.lookOfFoe?.(f),
           kind: f.type, fur: this.fur(f), possessed: f.brain === 'possessed', grey: f.brain === 'still' });
         tw.leaves.push(leafBurst(f.x, f.y, t + hold));
       }
@@ -684,7 +684,10 @@ export class Board {
       tw.stones = {};
       B.forEach((q, j) => { if (q.from && A.some((p) => p.x === q.from[0] && p.y === q.from[1])) tw.stones[j] = { from: q.from, to: [q.x, q.y], t0: t, dur: 280 * slow }; });
       if (Object.keys(tw.stones).length) { sfx.slide(at(t + 280 * slow)); t += 300 * slow; }
-      for (const p of A) if (!B.some((q) => key(q) === key(p) || (q.from && q.from[0] === p.x && q.from[1] === p.y))) tw.poofs.push({ x: p.x, y: p.y, t0: t, dur: 480, c1: '#a3804f', c2: '#ddc9a4' });
+      // A stone gone: broken, or crumbled away at the end of its three turns.
+      let gone = 0;
+      for (const p of A) if (!B.some((q) => key(q) === key(p) || (q.from && q.from[0] === p.x && q.from[1] === p.y))) { tw.poofs.push({ x: p.x, y: p.y, t0: t, dur: 480, c1: '#a3804f', c2: '#ddc9a4' }); gone++; }
+      if (gone) sfx.crumble(at(t));
     }
     // Your set takes its turn (Adventure, 2026-10-15, Timothy: "we need a
     // quick animation for when the pieces cycle on the board"): the piece on
@@ -866,7 +869,9 @@ export function scene(day, s = null, fur = () => null) {
   // A possessed piece shows its rabbit's colour on its plinth.
   for (const f of (s || day).foes) {
     if (f.taken) continue;
-    const mdl = f.side === 'grey' || f.brain === 'still' ? model(f.type, 'grey') : f.brain === 'possessed' ? model(f.type, 'foe', null, fur(f) || '#e9e4da') : model(f.type, 'foe', fur(f));
+    // Adventure (goal 'clear'): theirs by suit, plain grey without one.
+    const fl = day.rules?.goal === 'clear' ? suitLook(f.suit) : 'foe';
+    const mdl = f.side === 'grey' || f.brain === 'still' ? model(f.type, 'grey') : ['possessed', 'sentry', 'scared'].includes(f.brain) ? model(f.type, fl, null, fur(f) || '#e9e4da') : model(f.type, fl, fur(f));
     m.add(mdl, x0(f.x) + T / 2, 0, z0(f.y) + T / 2, id++);
   }
   return m;

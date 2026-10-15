@@ -370,6 +370,7 @@ async function startLevel() {
   game = { states: [initialState(level)], moves: [] };
   board = makeBoard($('#board'), level);
   board.lookOf = M.upgrades === 'par' ? lookOf : null;
+  board.lookOfFoe = M.upgrades === 'par' ? (f) => suitLook(f?.suit) : null;
   board.reach = level.settings.showReach;
   board.reachMine = level.settings.showMyReach;
   board.guards = level.settings.showGuards;
@@ -560,13 +561,7 @@ function select(i) {
   const passOk = allMoves(now()).some((m) => m.p === -1);
   $('#wait').hidden = !passOk;
   $('#wait').textContent = now().bonus ? 'End turn' : now().day.rules.wait ? 'Wait a turn' : 'Pass (nothing can move)';
-  // Stone (Adventure): with the button pressed, the moves that leave a stone.
-  const stoneable = movesFor(now(), 0).some((m) => m.stone);
-  if (!stoneable) stoneArmed = false;
-  $('#stone').hidden = !stoneable;
-  $('#stone').setAttribute('aria-pressed', String(stoneArmed));
-  $('#stone').textContent = stoneArmed ? '◆ Leaving a stone: pick a move' : '◆ Leave a stone';
-  legal = i == null ? [] : movesFor(now(), i).filter((m) => !m.skip && !!m.stone === stoneArmed);
+  legal = i == null ? [] : movesFor(now(), i).filter((m) => !m.skip);
   // Gears in Adventure: skip to the next piece of your set, by a button.
   const skip = movesFor(now(), 0).find((m) => m.skip), next = skip && setOrder(now())[1];
   $('#skip').hidden = !skip;
@@ -670,14 +665,12 @@ function whatHappened(a, b) {
 /** A piece of yours that came back from a heart (2026-10-13): while set,
     tapping one of the squares it could go to puts it there instead. */
 let placing = null;
-/** Stone (Adventure): the next move leaves a stone behind. */
-let stoneArmed = false;
 
 async function play(mv) {
   if (busy || isOver(now())) return;
   busy = true;
   const a = now();
-  sel = null; legal = []; placing = null; pendingPlace = null; stoneArmed = false;
+  sel = null; legal = []; placing = null; pendingPlace = null;
   const mid = playerMove(a, mv);
   shown = mid;
   await board.animate(a, mid, mv);
@@ -748,7 +741,7 @@ $('#board').addEventListener('click', async (e) => {
   select(null);
   // A stone of yours (Stone suit).
   const stone = (s.stones || []).find((t) => t.x === x && t.y === y);
-  if (stone) return info(`Your stone, in the shape of a ${nameOf(stone).toLowerCase()}. It stays where it was left. At the end of their turn it takes one of theirs standing where it attacks, and its lines pin and give check like your piece's. Their pieces can break it.`);
+  if (stone) return info(`Your stone, in the shape of a ${nameOf(stone).toLowerCase()}: a sentry of yours. At the end of their turn it takes one of theirs that moved into where it attacks, and its lines pin and give check like your piece's. Their pieces can break it. It crumbles ${stone.left > 1 ? `after ${stone.left} more turns` : 'after this turn'}.`);
   if (s.hole && s.hole.x === x && s.hole.y === y && !s.foes.some((f) => !f.taken && f.x === x && f.y === y)) return info(s.day.rules.goal === 'clear' ? `${EXIT_DESC} It is ${holeOpen(s) ? 'open' : 'shut'}.` : HOLE_DESC);
   if (s.cloudy && s.day.cloud?.has(y * s.day.W + x)) return info(cloudDesc(s.day.rules));
   if (crumbled(s, x, y)) return info(CRUMBLE_DESC);
@@ -769,7 +762,7 @@ $('#board').addEventListener('click', async (e) => {
   if (f?.brain === 'carrier') return info(carrierText(s, f));
   if (f?.brain === 'still') return info(`A statue of their ${nameOf(f).toLowerCase()}: it never moves and never takes. Take it.`);
   // Adventure's tactics.
-  if (f?.brain === 'sentry') return info(`Their ${nameOf(f).toLowerCase()}, with a sentry rabbit inside (red). It never walks, but if anything of yours stands in its reach (shaded red) when their turn ends, it leaps to take it. Pinned, it cannot.`);
+  if (f?.brain === 'sentry') return info(`Their ${nameOf(f).toLowerCase()}, with a sentry rabbit inside (red). It never walks, but if anything of yours stands in its reach (ringed red) when their turn ends, it leaps to take it. Pinned, it cannot.`);
   if (f?.brain === 'scared') return info(`Their ${nameOf(f).toLowerCase()}, with a scared rabbit inside (white): when you attack it, it runs to a square you do not attack. Their side can save only one a turn, so attack two at once.${f.trapped ? ' Last turn it could not run.' : ''}`);
   if (f?.brain === 'crown') return info('Their leader, a crowned King. Attack it, and they must answer: take your attacker if they can (the King only if nothing else of yours guards that square), else block the line (the blocker stands guard there after), else the King runs. If none of those works, it is checkmate, and every piece of theirs falls.');
   if (f?.route) return info(`Their ${nameOf(f).toLowerCase()}. ${routeText(f)}`);
@@ -780,7 +773,6 @@ $('#board').addEventListener('click', async (e) => {
 
 $('#wait').onclick = () => play({ p: -1, x: 0, y: 0 });
 $('#skip').onclick = () => { const p = now().pieces[0]; if (p) play({ p: 0, x: p.x, y: p.y, skip: true }); };
-$('#stone').onclick = () => { if (!board || busy || isOver(now())) return; stoneArmed = !stoneArmed; haptic(8); select(0); };
 // The best move, for testing (2026-10-14): whatever the mode.
 $('#best').onclick = async () => {
   if (!board || !game || busy || isOver(now())) return;

@@ -249,13 +249,22 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
   n = R.respond(s);
   ok(!n.pieces[0].taken, 'but not one your stone guards');
 
-  // 5. Stone: a piece of Stone leaves a stone; the stone strikes what comes into its reach.
+  // 5. Stone (2026-10-15): every move of a piece of Stone leaves a stone,
+  // which stands for three turns; the stone strikes what comes into its reach.
   s = board({ type: 'rook', x: 0, y: 0, suit: 'stone' }, [walker('knight', 3, 1, [[-1, 2], [1, -2]]), { type: 'pawn', x: 4, y: 4, brain: 'still' }]);
-  const leave = R.movesFor(s, 0).find((m) => m.stone && m.x === 0 && m.y === 1);
-  ok(leave, 'a piece of Stone can leave a stone');
-  n = R.apply(s, { p: 0, ...leave });
-  ok(n.stones.length === 1 && n.pieces[0].stoneUsed, 'it leaves one, once');
-  ok(!R.movesFor(n, 0).some((m) => m.stone), 'and only once a board');
+  ok(!R.movesFor(s, 0).some((m) => m.stone), 'no button: nothing to choose');
+  n = R.apply(s, { p: 0, x: 0, y: 1 });
+  const first = () => n.stones.find((t) => t.x === 0 && t.y === 0);
+  ok(n.stones.length === 1 && first()?.left === R.STONE_TURNS - 1, 'a move leaves a stone where it was, its first turn spent');
+  const life = [first()?.left];
+  for (let k = 0; k < 2; k++) {
+    const mv = R.allMoves(n).find((m) => { const b = R.apply(n, m); return !b.arrived && !R.isOver(b); });
+    if (!mv) break;
+    n = R.apply(n, mv);
+    life.push(first()?.left);
+  }
+  ok(life.join() === '2,1,', `it lasts three turns, then crumbles (${life.join(' ')})`);
+  ok(n.stones.length === 2 && n.stones.every((t) => t.left >= 1 && t.left <= 2), 'every move left one, each with its own turns');
   const st = R.initialState({ ...s.day });
   st.stones = [{ type: 'rook', x: 2, y: 0 }];
   st.foes[0].x = 3; st.foes[0].y = 1; st.foes[0].pattern = [[-1, 2], [1, -2]];

@@ -4,7 +4,7 @@
 
 import { el } from '../../engine/ui.js';
 import { Mesh, makeTarget, render } from '../../engine/lowpoly.js';
-import { model } from './models.js';
+import { model, suitLook } from './models.js';
 import { PIECES, descOf, rabbitDesc, RABBIT_AI_DESC, BRAMBLE_DESC, STUMP_DESC, STATUE_ROW_DESC, statueDesc, HOLE_DESC, EXIT_DESC, CRUMBLE_DESC, SHRINK_DESC, LOCKED_DESC, statueKind, leaderDesc } from './rules.js';
 import { routeText } from './rabbits.js';
 import { diagram } from './board.js';
@@ -60,6 +60,8 @@ export function piecesSheet(dialog, list, day, notes = {}) {
     }
     if (day.foes.length) head(day.foes.length > 1 ? 'Theirs' : day.hole ? 'In your way' : 'The one to catch');
     const seen = new Set();
+    // Adventure (goal 'clear'): theirs wear their suit, plain grey without one.
+    const theirs = (f) => (day.rules.goal === 'clear' ? suitLook(f.suit) : 'foe');
     for (const f of day.foes) {
       const key = f.type + f.brain;
       if (seen.has(key)) continue;
@@ -73,10 +75,10 @@ export function piecesSheet(dialog, list, day, notes = {}) {
         const P = PIECES[f.type];
         if (f.brain === 'still') row(f.type, 'grey', P.name, 'Theirs, a statue', ['A statue of theirs: it never moves and never takes. Take it.', P.desc, ...patentLines(f.type)], false);
         // Adventure's tactics (2026-10-15).
-        else if (f.brain === 'sentry') row(f.type, 'foe', P.name, 'Theirs, a sentry rabbit inside', ['A sentry rabbit (red) never walks, but if anything of yours stands in its reach (shaded red) at the end of their turn, it leaps to take it. Pinned, it cannot.', P.desc], false);
+        else if (f.brain === 'sentry') row(f.type, theirs(f), P.name, 'Theirs, a sentry rabbit inside', ['A sentry rabbit (red) never walks, but if anything of yours stands in its reach (ringed red) at the end of their turn, it leaps to take it. Pinned, it cannot.', P.desc], false);
         else if (f.brain === 'crown') row(f.type, 'crowned', 'Their leader', 'A crowned King', ['Attack it and they must answer: take your attacker, else block the line (the blocker stands guard after), else the King runs. If nothing works, it is checkmate: every piece of theirs falls, and the board is yours.', P.desc], false);
-        else if (f.brain === 'scared') row(f.type, 'foe', P.name, 'Theirs, a scared rabbit inside', ['A scared rabbit (white) runs to a square you do not attack when you attack it. Their side can save only one a turn: attack two at once and one is yours.', P.desc], false);
-        else row(f.type, 'foe', P.name, f.brain === 'possessed' ? 'Theirs, with a rabbit inside' : 'Theirs, and it thinks', [f.route ? routeText(f) : null, P.desc, P.origin, ...patentLines(f.type)], true);
+        else if (f.brain === 'scared') row(f.type, theirs(f), P.name, 'Theirs, a scared rabbit inside', ['A scared rabbit (white) runs to a square you do not attack when you attack it. Their side can save only one a turn: attack two at once and one is yours.', P.desc], false);
+        else row(f.type, theirs(f), P.name, f.brain === 'possessed' ? 'Theirs, with a rabbit inside' : 'Theirs, and it thinks', [f.route ? routeText(f) : null, P.desc, P.origin, ...patentLines(f.type)], true);
       }
     }
     if (day.rules.crumble || day.rules.shrink || day.bramble.length || day.stumps.size || day.ghosts?.size || day.gates?.size || day.clouds?.length) head('On the board');
