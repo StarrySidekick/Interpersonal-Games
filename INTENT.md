@@ -12,7 +12,16 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
-## 2026-10-15, newest: no leader in Adventure
+## 2026-10-15, newest: choose from a set of three; squash
+
+From Timothy, and built: your piece's moves are always lit (no tap to
+select); you choose which of your set goes each move, from a set of three,
+each having its turn before any goes again (Gears two); and weapons no
+longer stop a piece capturing the ordinary way, now called a **squash**.
+Open: how a set of four and five is unlocked (candidates in
+[`docs/adventure.md`](docs/adventure.md), "Open").
+
+## 2026-10-15, before that: no leader in Adventure
 
 From Timothy: "get rid of the leader thing i think that's what confusing
 me." Built: Adventure deals no crowned leader, so no check or checkmate;

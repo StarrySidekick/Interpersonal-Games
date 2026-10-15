@@ -30,14 +30,15 @@
   #status { min-height: 26px; margin: 10px 0 2px; font-weight: 600; }
   /* Adventure: the piece that comes on next, right under the board. */
   #nextup { display: flex; justify-content: center; align-items: center; gap: 6px; margin: 8px auto 0; flex-wrap: wrap; }
-  #nextup .slot { display: flex; align-items: center; padding: 2px 6px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); }
-  #nextup .slot.next { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
-  #nextup .slot.then { opacity: .8; }
-  #nextup .slot.now { opacity: .4; }
+  #nextup .slot { display: flex; align-items: center; justify-content: center; flex: none; width: auto; margin: 0; padding: 2px 6px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); font: inherit; color: inherit; min-height: 44px; min-width: 44px; }
+  #nextup .slot.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  #nextup .slot.ready:not([disabled]) { cursor: pointer; }
+  #nextup .slot.used { opacity: .35; }
+  #nextup .slot[disabled] { cursor: default; }
   #nextup canvas { width: 30px; height: 36px; }
-  #nextup.turn .slot.next { animation: nextpop .45s cubic-bezier(.3, 1.6, .6, 1); }
+  #nextup.turn .slot.on { animation: nextpop .45s cubic-bezier(.3, 1.6, .6, 1); }
   @keyframes nextpop { from { transform: scale(.7); } to { transform: none; } }
-  @media (prefers-reduced-motion: reduce) { #nextup.turn .slot.next { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { #nextup.turn .slot.on { animation: none; } }
   #info { min-height: 44px; font-size: 15px; color: var(--dim); margin-bottom: 10px; }
   .fallnote { text-align: center; font-size: 22px; font-weight: 700; margin: 10px 0 0; }
   #fallcv { display: block; width: 100%; max-width: 420px; margin: 6px auto 0; border-radius: 14px; }
@@ -211,7 +212,6 @@
     <div id="controls">
       <div class="row">
         <button class="quiet" id="wait">Wait a turn</button>
-        <button class="quiet" id="skip" hidden>Skip</button>
         <button class="quiet" id="best" title="Plays the best move it can find for you (for testing)">Best move</button>
         <button class="quiet" id="pieces">Pieces</button>
       </div>

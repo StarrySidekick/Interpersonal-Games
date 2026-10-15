@@ -10,7 +10,7 @@ import { rng } from '../../../engine/seed.js';
 import * as sfx from '../sounds.js';
 import {
   PIECES, descOf, CRUMBLE_DESC, SHRINK_DESC, STUMP_DESC, STATUE_ROW_DESC, statueAt, statueDesc, GHOST_DESC, GATE_DESC, WANDER_DESC, ghostAt, gateUp, cloudOver, hiddenFrom, HOLE_DESC, cloudDesc, sandAt, waterAt, SAND_DESC, WATER_DESC, movesFor, playerMove, respond, isOver, outcome, initialState,
-  allMoves, holeOpen, crumbled, shrunk, apply, showdown, firstCaptures, onBoard, leaderDesc, placeRevived, hopIn, flagAt, carrierOf, rabbitChosen, EXIT_DESC, setOrder, setLeft
+  allMoves, holeOpen, crumbled, shrunk, apply, showdown, firstCaptures, onBoard, leaderDesc, placeRevived, hopIn, flagAt, carrierOf, rabbitChosen, EXIT_DESC, setView, setLeft, setReady, chooseInSet, firstReady
 } from '../rules.js';
 import { pickMove } from '../choose.js';
 import { bestMove } from '../best.js';
@@ -263,38 +263,75 @@ function rabbitCounts(s = now()) {
   return [...out.values()].map(({ type, base, now: n }) => ({ type, have: (base + n) % RABBITS_FOR_PIECE, made: Math.floor((base + n) / RABBITS_FOR_PIECE) })).filter((r) => r.have || r.made);
 }
 
-/** Adventure (2026-10-15, Timothy: "a clear little icon thing underneath
-    the board to show what piece comes up next"; then "show all pieces in
-    your cycle, and don't show text, just the piece icons"): right under
-    the board, your whole set in the order it comes on, icons only, each in
-    its suit's look. The next is outlined; the rest follow; the piece on the
-    board now comes last, faded, since it comes round again after them. It
-    pops when it changes. Names are there for screen readers. */
+/** Adventure (2026-10-15): right under the board, your set, icons only,
+    each in its suit's look (Timothy: "show all pieces in your cycle, and
+    don't show text, just the piece icons"). Since you choose from your set
+    ("you choose between your set ... you have to use all three before you
+    can use them again") it is also where you choose: the one on the board
+    is outlined, the ones still ready this round can be tapped to bring
+    them on instead, and the ones used this round are faded. Lost ones are
+    gone from it. It pops when the piece on the board changes. Names are
+    there for screen readers. */
 let lastNext = null;
 function nextUp() {
-  const s = now(), box = $('#nextup'), order = s.set ? setOrder(s) : [];
-  if (order.length < 2 || s.pieces[0]?.taken || s.won) { box.hidden = true; lastNext = null; return; }
-  const icon = (p) => { const cv = el('canvas', { class: 'pix', width: 30, height: 36 }); cv.getContext('2d').drawImage(sprite(p.type, lookOf(p)), 0, 0); return cv; };
-  const queue = [...order.slice(1), order[0]], key = `${s.ci}:${queue.map((p) => p.type).join()}:${s.t}`;
-  box.setAttribute('aria-label', `Next: ${queue.map((p) => nameOf(p).toLowerCase()).join(', then ')}`);
-  box.replaceChildren(...queue.map((p, k) => el('span', { class: `slot ${k === 0 ? 'next' : k === queue.length - 1 ? 'now' : 'then'}`, title: nameOf(p), 'aria-hidden': 'true' }, icon(p))));
+  const s = now(), box = $('#nextup'), view = s.set ? setView(s).filter((v) => !v.lost) : [];
+  if (view.length < 2 || s.pieces[0]?.taken || s.won) { box.hidden = true; lastNext = null; return; }
+  const icon = (p) => { const cv = el('canvas', { class: 'pix', width: 30, height: 36 }); cv.getContext('2d').drawImage(sprite(p.shape || p.type, lookOf(p)), 0, 0); return cv; };
+  const open = !s.bonus && !busy && !isOver(s), key = `${s.ci}`;
+  box.replaceChildren(...view.map((v) => {
+    const how = v.on ? 'on' : v.ready ? 'ready' : 'used', name = nameOf(v.p);
+    const b = el('button', { class: `slot ${how}`, title: name, 'aria-label': `${name}${v.on ? ', on the board' : v.ready ? ', ready' : ', used this round'}`, 'aria-pressed': String(v.on), disabled: !open || !v.ready || v.on ? '' : null }, icon(v.p));
+    if (open && v.ready && !v.on) b.addEventListener('click', () => choose(v.j));
+    return b;
+  }));
   box.hidden = false;
   if (lastNext !== null && lastNext !== key) { box.classList.remove('turn'); void box.offsetWidth; box.classList.add('turn'); }
   lastNext = key;
 }
 
-/** Adventure (2026-10-15): your set in the order it takes turns, from the
-    piece on the board now; and your rabbits, three of a kind to a piece. */
+/** Bring piece j of your set onto the board (Adventure): the piece there
+    spins down into its plinth and this one spins up; then its moves light. */
+async function choose(j) {
+  const s = now();
+  if (busy || !s.set || s.bonus || isOver(s) || j === s.ci || !setReady(s, j)) return;
+  busy = true;
+  const c = chooseInSet(s, j);
+  game.states[game.states.length - 1] = c;
+  haptic(8);
+  sel = null; legal = []; placing = null;
+  await board.animate(s, c, { p: -1 });
+  busy = false;
+  select(null);
+}
+
+/** At the start of your turn (Adventure): if the piece on the board has had
+    its turn this round, the first of your set that is ready comes on, as a
+    start; tap another under the board to choose it instead. */
+async function readyUp() {
+  const s = now();
+  if (!s.set || s.bonus || isOver(s) || setReady(s, s.ci)) return;
+  const j = firstReady(s);
+  if (j < 0) return;
+  busy = true;
+  const c = chooseInSet(s, j);
+  game.states[game.states.length - 1] = c;
+  await board.animate(s, c, { p: -1 });
+  busy = false;
+}
+
+/** Adventure (2026-10-15): your set, each with its suit and weapon and
+    whether it is on the board, ready or used this round; and your rabbits,
+    three of a kind to a piece. */
 function setRow() {
   const s = now(), box = $('#playhand');
-  const order = s.set ? setOrder(s) : s.pieces.slice(0, 1);
-  box.replaceChildren(...order.map((p, k) => {
-    const cv = el('canvas', { class: 'pix', width: 30, height: 36 });
-    cv.getContext('2d').drawImage(sprite(p.type, lookOf(p)), 0, 0);
+  const view = s.set ? setView(s).filter((v) => !v.lost) : s.pieces.slice(0, 1).map((p) => ({ p, on: true }));
+  box.replaceChildren(...view.map((v) => {
+    const p = v.p, cv = el('canvas', { class: 'pix', width: 30, height: 36 });
+    cv.getContext('2d').drawImage(sprite(p.shape || p.type, lookOf(p)), 0, 0);
     const mark = [p.suit && SUITS[p.suit] ? el('span', { class: 'suit', style: `color:${SUITS[p.suit].colour}` }, SUITS[p.suit].mark + ' ') : null,
       p.weapon && WEAPONS[p.weapon] ? el('span', { class: 'suit' }, WEAPONS[p.weapon].mark + (p.wl > 1 ? p.wl : '') + ' ') : null];
-    return el('div', { class: `handcell${k === 0 ? ' picked' : ''}` },
-      el('span', { class: 'dim' }, k === 0 ? (p.taken ? 'Taken' : 'Now') : k === 1 ? 'Next' : `In ${k}`), cv, el('span', {}, mark, nameOf(p)));
+    return el('div', { class: `handcell${v.on ? ' picked' : ''}` },
+      el('span', { class: 'dim' }, v.on ? (p.taken ? 'Taken' : 'Now') : v.ready ? 'Ready' : 'Used'), cv, el('span', {}, mark, nameOf(p)));
   }));
   // Taken from your set on this board, and caught in your net.
   const fell = (s.set || []).filter((e) => e.lost);
@@ -331,7 +368,7 @@ function goalCard() {
   if (session.seen.has('goal')) return null;
   session.seen.add('goal');
   let text = {
-    descent: M.upgrades === 'par' ? 'Take every piece of theirs. When the last one goes, a hole opens beside you and you jump down it to the next board. Grey statues never move. A piece with a rabbit inside walks a short loop every turn, the rabbit\u2019s colour says which; the whole loop is drawn on the board, its next step boldest: stand there and it takes you. You have one piece on the board, and after every turn it becomes the next piece of your set. Every piece you take leaves you its rabbit, and three rabbits of a kind become that piece, which joins your set. If they take the piece on the board, it is gone for good, and the next of your set comes on where you came in; lose every one and the adventure is over. A net catches the first piece it takes on a board whole, with no rabbits needed. There are three kinds of rabbit inside their pieces: robot rabbits walk a set loop; sentry rabbits (red) leap at anything of yours that stands in their reach; scared rabbits (white) run when attacked, one a turn, so fork them. A line of yours through one of theirs to another pins it, so it holds still.'
+    descent: M.upgrades === 'par' ? 'Take every piece of theirs. When the last one goes, a hole opens beside you and you jump down it to the next board. Grey statues never move. A piece with a rabbit inside walks a short loop every turn, the rabbit\u2019s colour says which; the whole loop is drawn on the board, its next step boldest: stand there and it takes you. You have one piece on the board at a time: before each move, choose which of your set it is, from the icons under the board. Each piece of the set must have its turn before any goes again (a piece of Gears gets two). Landing on a piece of theirs squashes it, as in chess; a weapon adds a way of its own. Every piece you take leaves you its rabbit, and three rabbits of a kind become that piece, which joins your set. If they take the piece on the board, it is gone for good, and another of your set comes on where you came in; lose every one and the adventure is over. A net catches the first piece it takes on a board whole, with no rabbits needed. There are three kinds of rabbit inside their pieces: robot rabbits walk a set loop; sentry rabbits (red) leap at anything of yours that stands in their reach; scared rabbits (white) run when attacked, one a turn, so fork them. A line of yours through one of theirs to another pins it, so it holds still.'
       : M.upgrades === 'tiles' ? 'Take their King to win the round. After each round you each turn over a tile at the edge of the board, the winner first: the board grows by that square, and the suit or weapon on the tile is yours. When the board has as many squares as the next size up, both sides get the same new piece. Every piece starts each round in a bubble: nothing can take it until it moves. Four statues stand in the middle; either side can break one by taking it. Keep your King: if they take it, the run is over.'
       : M.upgrades === 'each' && M.goal === 'carrier' ? `A rabbit rides one of their pieces. ${M.rabbitMove === 'random' ? `Every ${M.rabbitHop === 1 ? 'turn' : `${M.rabbitHop} turns`} it hops to another, at random.` : 'They can move it to another of their pieces, but that is their move for the turn.'} Take the piece it is on to fall to the next board, where you choose a suit or a weapon and they get one too. Keep your King: if they take it, the descent is over. Anything else of yours they take comes back on the next board.${M.promote === 'copy' ? ' A pawn that reaches the far row becomes a copy of another of your pieces.' : ''}`
       : M.upgrades === 'each' ? 'Take their King to fall to the next board, where each side gets an upgrade. Keep yours: if they take your King, the descent is over. Anything else of yours they take comes back on the next board. One rabbit leads their side, riding on their King: tap it to see what kind it is.'
@@ -548,29 +585,34 @@ function carrierText(s, f) {
 /** What a turn a suit left open says. */
 function bonusLine(s) {
   const p = s.pieces[s.bonus.p], name = nameOf(p);
-  if (s.bonus.why === 'gears') return `Gears: skipped. Your ${name.toLowerCase()} comes on: its move.`;
   return s.bonus.why === 'vines' ? `Vines: your ${name} can take again. Take one, or end the turn.`
     : `Stars: your ${name} moves again. Move it, or end the turn.`;
 }
 
+/** One piece on the board (Adventure): its moves are always lit, with no
+    tap needed (Timothy, 2026-10-15: "since we have one piece you shouldn't
+    need to tap it to see where you can move"). */
+const solo = () => M.upgrades === 'par';
+
 function select(i) {
+  const s0 = now(), auto = i == null && solo() && !placing && s0.pieces[0] && !s0.pieces[0].taken && !isOver(s0);
+  if (auto) i = s0.bonus ? s0.bonus.p : 0;
   sel = i;
   // Waiting is off by default (2026-10-10): the button shows only when it
   // is allowed, when a suit left the turn open, or when nothing can move.
   const passOk = allMoves(now()).some((m) => m.p === -1);
   $('#wait').hidden = !passOk;
   $('#wait').textContent = now().bonus ? 'End turn' : now().day.rules.wait ? 'Wait a turn' : 'Pass (nothing can move)';
-  legal = i == null ? [] : movesFor(now(), i).filter((m) => !m.skip);
-  // Gears in Adventure: skip to the next piece of your set, by a button.
-  const skip = movesFor(now(), 0).find((m) => m.skip), next = skip && setOrder(now())[1];
-  $('#skip').hidden = !skip;
-  if (next) $('#skip').textContent = `⚙ Skip to the ${nameOf(next).toLowerCase()}`;
-  if (i == null) info(level.hole ? (holeOpen(now()) ? 'Tap a piece to see where it can go. The hole is open.' : 'Tap a piece to see where it can go. The hole opens once every rabbit is caught.') : 'Tap a piece to light up where it can go.');
+  legal = i == null ? [] : movesFor(now(), i);
+  if (auto) info(now().set && setView(now()).filter((v) => !v.lost).length > 1 ? 'Tap a lit square to move there, or a piece under the board to bring it on instead.' : 'Tap a lit square to move there.');
+  else if (i == null) info(level.hole ? (holeOpen(now()) ? 'Tap a piece to see where it can go. The hole is open.' : 'Tap a piece to see where it can go. The hole opens once every rabbit is caught.') : 'Tap a piece to light up where it can go.');
   else {
     const p = now().pieces[i], type = p.type;
     if (p.brain === 'carrier') info(`Your rabbit, riding your ${nameOf(now().pieces[p.rides] || p)}: if they take the piece it rides, you lose. ${legal.length ? 'Tap another of your pieces to move it there; that is your move for the turn.' : hopIn(now()) ? 'It hops by itself, at random.' : 'It has nowhere to go right now.'}`);
     else info(`${nameOf({ type })}: ${descOf(type, now().day.rules)}${carriesText(p, M.upgrades === 'par')}${legal.length || p.stun ? '' : ' It has nowhere to go right now.'}`);
   }
+  // Your set under the board (Adventure): what can be chosen now.
+  if (solo() && session?.run) { setRow(); nextUp(); }
   draw();
 }
 
@@ -594,7 +636,10 @@ function whatHappened(a, b) {
       const c = rabbitCounts(b).find((q) => q.type === f.type), was = rabbitCounts(a).find((q) => q.type === f.type);
       const name = nameOf(f).toLowerCase();
       if (f.netted) { bits.push(`You netted their ${name}: it joins your set after this board.`); return; }
-      bits.push(`You took their ${name}. ${c && c.made > (was?.made || 0) ? `That is three ${name} rabbits: ${/^[aeiou]/.test(name) ? 'an' : 'a'} ${name} joins your set after this board.` : `Its rabbit comes with you (${name} rabbits: ${c?.have || 0} of ${RABBITS_FOR_PIECE}).`}`);
+      // Landing on it, the ordinary chess way, is a squash (Timothy,
+      // 2026-10-15); a weapon's strike only takes.
+      const squashed = b.pieces.some((p) => !p.taken && p.x === a.foes[k].x && p.y === a.foes[k].y);
+      bits.push(`You ${squashed ? 'squash' : 'take'} their ${name}. ${c && c.made > (was?.made || 0) ? `That is three ${name} rabbits: ${/^[aeiou]/.test(name) ? 'an' : 'a'} ${name} joins your set after this board.` : `Its rabbit comes with you (${name} rabbits: ${c?.have || 0} of ${RABBITS_FOR_PIECE}).`}`);
       return;
     }
     bits.push(f.brain === 'leader' ? `You took the rabbit that leads them.` : f.mind || f.brain === 'possessed' ? `You took their ${nameOf(f)}, and the rabbit inside is yours.` : `You took their ${nameOf(f)}.`);
@@ -619,7 +664,7 @@ function whatHappened(a, b) {
   // A piece of your set taken (Adventure): gone, and the next comes on.
   if (b.arrived) {
     const t = b.foes.find((f) => !f.taken && f.ate === 0), left = setLeft(b);
-    bits.push(`${t ? cap(theirs(b.foes.indexOf(t))) : 'They'} took your ${nameOf(b.arrived.lost).toLowerCase()}: it is gone for good. Your ${myName} comes on where you came in${left > 1 ? ` (${left} pieces left)` : ', your last piece'}.`);
+    bits.push(`${t ? cap(theirs(b.foes.indexOf(t))) : 'They'} ${t ? 'squashes' : 'took'} your ${nameOf(b.arrived.lost).toLowerCase()}: it is gone for good. Your ${myName} comes on where you came in${left > 1 ? ` (${left} pieces left)` : ', your last piece'}.`);
   }
   if (b.foeBonus === 'vines') bits.push('Their piece of Vines takes again.');
   if (b.foeBonus === 'stars') bits.push('Their piece of Stars moves twice.');
@@ -668,8 +713,20 @@ let placing = null;
 async function play(mv) {
   if (busy || isOver(now())) return;
   busy = true;
-  const a = now();
+  let a = now();
   sel = null; legal = []; placing = null; pendingPlace = null;
+  // Your set (Adventure): every move says which piece of it moved; one that
+  // names another than the piece on the board (the best-move button) brings
+  // it on first.
+  if (mv.p >= 0 && a.set && !a.bonus) {
+    if (mv.as != null && mv.as !== a.ci && setReady(a, mv.as)) {
+      const c = chooseInSet(a, mv.as);
+      game.states[game.states.length - 1] = c;
+      await board.animate(a, c, { p: -1 });
+      a = c;
+    }
+    mv = { ...mv, as: a.ci };
+  }
   const mid = playerMove(a, mv);
   shown = mid;
   await board.animate(a, mid, mv);
@@ -692,6 +749,8 @@ async function play(mv) {
   // A suit left the turn open (Vines, Stars): the same piece goes again.
   if (b.bonus) { haptic([12, 30, 12]); sfx.gain(); status(bonusLine(b)); return select(b.bonus.p); }
   status(whatHappened(a, b));
+  // Your set (Adventure): a ready piece comes on, as a start.
+  await readyUp();
   // Hearts: one of yours is back on your first row; you may put it on
   // another free square there.
   if (b.revived?.side === 'you' && b.revived.options.length > 1) {
@@ -722,7 +781,7 @@ $('#board').addEventListener('click', async (e) => {
   // Hearts: putting the piece that came back on another square of its row.
   if (placing) {
     const m = legal.find((q) => q.x === x && q.y === y && q.place != null);
-    if (m) { game.states[game.states.length - 1] = placeRevived(s, m.place); pendingPlace = m.place; placing = null; legal = []; sfx.gain(); draw(); return status('There. Your move.'); }
+    if (m) { game.states[game.states.length - 1] = placeRevived(s, m.place); pendingPlace = m.place; placing = null; legal = []; sfx.gain(); select(null); return status('There. Your move.'); }
     placing = null; legal = [];
   }
   if (sel != null) {
@@ -736,6 +795,9 @@ $('#board').addEventListener('click', async (e) => {
   // goes rabbit first, then the piece under it, then neither.
   const here = s.pieces.map((p, k) => k).filter((k) => !s.pieces[k].taken && s.pieces[k].x === x && s.pieces[k].y === y)
     .sort((a, b) => (s.pieces[b].rides != null) - (s.pieces[a].rides != null));
+  // One piece on the board (Adventure): its moves are lit already; tapping
+  // it says what it is.
+  if (here.length && solo()) return select(here[0]);
   if (here.length) { const at = here.indexOf(sel); return select(at < 0 ? here[0] : at + 1 < here.length ? here[at + 1] : null); }
   select(null);
   // A stone of yours (Stone suit).
@@ -771,7 +833,6 @@ $('#board').addEventListener('click', async (e) => {
 });
 
 $('#wait').onclick = () => play({ p: -1, x: 0, y: 0 });
-$('#skip').onclick = () => { const p = now().pieces[0]; if (p) play({ p: 0, x: p.x, y: p.y, skip: true }); };
 // The best move, for testing (2026-10-14): whatever the mode.
 $('#best').onclick = async () => {
   if (!board || !game || busy || isOver(now())) return;
@@ -930,7 +991,7 @@ async function adventureOver(end) {
   const sub = [fell.length && run.hand.length ? `Lost on this board: your ${fell.join(', ')}.` : '',
     ...netted.map((t) => `In your net: ${a(t).toLowerCase()} ${PIECES[t].name.toLowerCase()} joins your set.`),
     ...made.map((t) => `Three ${PIECES[t].name.toLowerCase()} rabbits: ${a(t).toLowerCase()} ${PIECES[t].name.toLowerCase()} joins your set.`),
-    run.hand.length > run.maxPieces ? `You have ${run.hand.length} pieces: each board, ${run.maxPieces} of them take turns, drawn at random.` : ''].filter(Boolean).join(' ');
+    run.hand.length > run.maxPieces ? `You have ${run.hand.length} pieces: each board, ${run.maxPieces} of them are your set, drawn at random.` : ''].filter(Boolean).join(' ');
   return between({ note: `Depth ${session.n}`, sub, rewards: true, cards, rewardNote: note, fall: true });
 }
 
