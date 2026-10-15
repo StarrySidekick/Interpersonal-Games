@@ -628,9 +628,9 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
       foePool: classicUntil(d < M.fairyFrom, ['knight', 'bishop', 'rook', 'king'], ['camel', 'zebra', 'cannon', 'ferz', 'wazir', ...(d >= 8 ? ['queen', 'archbishop', 'changeling'] : [])]),
       clouds: d >= 5 && rand() < 0.3 ? (d >= 9 && rand() < 0.4 ? 2 : 1) : 0,
       // Tactics, one at a time (2026-10-15): a sentry from depth 2, a
-      // skittish piece from 4, their crowned leader from 6.
+      // scared piece from 4, their crowned leader from 6.
       sentries: d < 2 ? 0 : d < 6 ? 1 : d < 10 ? int(1, 2) : int(2, 3),
-      skittish: d < 4 ? 0 : d < 8 ? 1 : int(1, 2),
+      scared: d < 4 ? 0 : d < 8 ? 1 : int(1, 2),
       crown: d >= 9 ? rand() < 0.8 : d >= 6 ? rand() < 0.5 : false,
       statues: 0, parMax: Math.min(26, 10 + d * 2), maxMoves: 40, aim: 0
     });

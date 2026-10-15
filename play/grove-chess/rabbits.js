@@ -23,8 +23,11 @@ export const FUR = {
   // Adventure's routes (lab.js ROUTES): Doze, Box step and Pace walk the
   // shapes of the patterns of those names; the shuttle is new.
   'Shuttle': '#ef8d32',
-  // A skittish rabbit (Adventure's tactics): it runs when attacked.
-  'Skittish': '#f4f1ea',
+  // Adventure's three kinds of rabbit (2026-10-15, Timothy: "rabbits that
+  // flee, rabbits that move to attack if you enter their highlighted reach,
+  // and ones that move a set loop of moves, tracing shapes ... scared,
+  // sentry, and robot rabbits"). Robots wear their route's colour (above).
+  'Scared': '#f4f1ea', 'Sentry': '#d94a3d',
   'Hopscotch': '#e8a33d', 'Zigzag': '#3fae9f', 'Wobble': '#e07a9a', 'Sidestep': '#8f7fd1',
   'Knight’s jig': '#4f86d6', 'Long leap': '#c45a3c', 'Corner run': '#e3cc3c', 'Box step': '#6f9a48',
   'Spiral': '#a855c4', 'Two up, one back': '#8b6a4f', 'Skip': '#e2865a', 'Drift': '#93aec4',
@@ -34,7 +37,7 @@ export const FUR = {
 
 /** A word for each fur, for sentences. */
 export const FUR_WORD = {
-  'Doze': 'sky blue', 'Lurk': 'slate', 'Pace': 'crimson', 'Shuttle': 'tangerine', 'Skittish': 'snow white',
+  'Doze': 'sky blue', 'Lurk': 'slate', 'Pace': 'crimson', 'Shuttle': 'tangerine', 'Scared': 'snow white', 'Sentry': 'red',
   'Hopscotch': 'amber', 'Zigzag': 'teal', 'Wobble': 'pink', 'Sidestep': 'lavender',
   'Knight’s jig': 'blue', 'Long leap': 'rust', 'Corner run': 'yellow', 'Box step': 'moss green',
   'Spiral': 'violet', 'Two up, one back': 'brown', 'Skip': 'orange', 'Drift': 'mist blue',
@@ -50,7 +53,7 @@ export const ROUTE_SAY = {
 };
 
 /** "A tangerine rabbit inside walks it there and back, ..." */
-export const routeText = (f) => `A ${FUR_WORD[f.patternName] || ''} rabbit inside walks it ${ROUTE_SAY[f.patternName] || 'on a route'} (${f.patternName}), and it takes you if you stand where it steps next. Its whole route is dashed on the board, and its next step drawn solid.`;
+export const routeText = (f) => `A robot rabbit (${FUR_WORD[f.patternName] || ''}, ${f.patternName}) walks it ${ROUTE_SAY[f.patternName] || 'on a route'}, tracing its shape over and over, and it takes you if you stand where it steps next. Its whole route is dashed on the board, and its next step drawn solid.`;
 
 const KEY = 'ig.grove.rabbits.v1';
 

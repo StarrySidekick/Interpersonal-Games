@@ -12,9 +12,17 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
-## 2026-10-15, latest: chess technique in Adventure
+## 2026-10-15, newest: tasteful suit looks, three kinds of rabbit
 
-From Timothy: pins, sentries, skittish pieces, their crowned leader with
+From Timothy, and built: suit looks redone from scratch, each the piece's
+own shape in its colours with one motif at its collar; and sentries made a
+kind of rabbit, so their pieces are possessed by **robot** rabbits (walk a
+loop), **sentry** rabbits (red, strike into their reach) or **scared**
+rabbits (white, run). In [`docs/adventure.md`](docs/adventure.md).
+
+## 2026-10-15, earlier: chess technique in Adventure
+
+From Timothy: pins, sentries, scared pieces, their crowned leader with
 check and checkmate, a Stone suit that leaves a stone of your piece, and
 trapped pieces said out loud; not skewer chains. Built, in
 [`docs/adventure.md`](docs/adventure.md) ("Tactics"). Your piece now turns

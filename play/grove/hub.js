@@ -89,7 +89,7 @@ const PREVIEW = {
 };
 for (const id of ['adventure', 'descent', 'kungfu', 'tiles', 'golf', 'flag', 'autochess', 'chaos']) PREVIEW[id] = () => [firstLevel(id)];
 // Adventure's walkers wear their rabbits' colours, as in play.
-PREVIEW.adventure = () => [firstLevel('adventure'), (f) => (f.brain === 'possessed' && FUR[f.patternName]) || null];
+PREVIEW.adventure = () => [firstLevel('adventure'), (f) => (['possessed', 'sentry', 'scared'].includes(f.brain) && FUR[f.patternName]) || null];
 for (const id of VARIANT_ORDER) PREVIEW[`v:${id}`] = () => [makeLevel({ ...modeDefaults('variants'), variant: id }, 1)];
 
 // Draw each preview when its card comes into view, one at a time.

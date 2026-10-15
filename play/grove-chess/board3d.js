@@ -812,7 +812,7 @@ export class Board3D extends Board {
         const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
         band(x0, y0, x1, y1, 4, 'rgba(20,14,8,.45)'); band(x0, y0, x1, y1, 2, col);
       };
-      if (this.reach !== false) for (const sq of R.theirs) ring(sq, 0.07, LOOK.reachFoe);
+      if (this.reach !== false) for (const sq of R.theirs) ring(sq, 0.07, R.sentry?.has(sq) ? '#e2483a' : LOOK.reachFoe);
       // Yours only when asked for (2026-10-11: off by default).
       if (this.reachMine === true) for (const sq of R.yours) ring(sq, 0.2, LOOK.reachYou);
     }
@@ -1105,9 +1105,10 @@ export class Board3D extends Board {
       // The rabbit that leads them (2026-10-13) is a rabbit, not a piece: no
       // plinth, in its trait's colour.
       // A statue of theirs (Adventure) is the piece in grey stone.
-      // Adventure's tactics: a sentry (grey, a red eye), their leader
-      // (crowned), a skittish piece (a white rabbit's plinth).
-      const mdl = f.brain === 'sentry' ? model(f.shape || f.type, 'sentry') : f.brain === 'crown' ? model(f.type, 'crowned') : f.brain === 'skittish' ? model(f.shape || f.type, 'foe', null, '#f4f1ea') : f.brain === 'still' ? model(f.shape || f.type, 'grey') : f.brain === 'leader' ? model('rabbit', 'foe', this.fur(f)) : f.brain === 'carrier' ? model('rabbit', 'foe', CARRIER_FUR.foe) : f.suit ? model(f.shape || f.type, 'foe', null, SUIT_COLOUR[f.suit]) : f.shape ? model(f.shape, 'foe', null, CHANGELING_GLOW) : f.brain === 'possessed' ? model(f.type, 'foe', null, this.glowOf(f, k, at)) : model(f.type, 'foe', this.fur(f));
+      // Adventure's tactics: their leader (crowned); sentry and scared
+      // rabbits are inside their pieces like the robots, lighting the
+      // plinth in their colour (red, white).
+      const mdl = f.brain === 'crown' ? model(f.type, 'crowned') : f.brain === 'sentry' || f.brain === 'scared' ? model(f.shape || f.type, 'foe', null, this.glowOf(f, k, at)) : f.brain === 'still' ? model(f.shape || f.type, 'grey') : f.brain === 'leader' ? model('rabbit', 'foe', this.fur(f)) : f.brain === 'carrier' ? model('rabbit', 'foe', CARRIER_FUR.foe) : f.suit ? model(f.shape || f.type, 'foe', null, SUIT_COLOUR[f.suit]) : f.shape ? model(f.shape, 'foe', null, CHANGELING_GLOW) : f.brain === 'possessed' ? model(f.type, 'foe', null, this.glowOf(f, k, at)) : model(f.type, 'foe', this.fur(f));
       const fo = collapse ? { s: away(at - collapse.t0 - collapse.delay(f.x, f.y)) } : {};
       stand(mdl, x, y, h, 200 + k, fo);
       armsOf(f, x, y, h, 200 + k, fo, -1);
@@ -1230,7 +1231,7 @@ export class Board3D extends Board {
   async possess(stop = () => false) {
     const s = this.shown, t0 = performance.now(), list = [];
     s?.foes.forEach((f, k) => {
-      if (f.brain !== 'possessed' || f.taken) return;
+      if (!['possessed', 'sentry', 'scared'].includes(f.brain) || f.taken) return;
       list.push({ k, x: f.x, y: f.y, dx: (list.length % 2 ? 1 : -1) * 0.6, fur: this.fur(f) || PALE, t0: t0 + list.length * 380, dur: 1000 });
     });
     if (!list.length) return;

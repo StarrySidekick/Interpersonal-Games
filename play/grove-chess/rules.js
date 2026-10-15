@@ -239,8 +239,8 @@ export const holeOpen = (s) => (s.day.rules.goal !== 'descent' && s.day.rules.go
 export function canTake(rules, f) {
   // A statue of theirs (Adventure, 2026-10-15) never takes anything.
   if (f.brain === 'still') return false;
-  // A skittish piece (Adventure's tactics) runs; it never takes.
-  if (f.brain === 'skittish') return false;
+  // A scared piece (Adventure's tactics) runs; it never takes.
+  if (f.brain === 'scared') return false;
   return f.type === 'rabbit' ? (rules.rabbitsEat ?? rules.foesCapture) : rules.foesCapture;
 }
 
@@ -1889,8 +1889,8 @@ function hash01(str) {
  */
 export function reachMaps(s, pattern = false) {
   s = seenBy(s, 'you'); // a piece hidden in a cloud shows no reach (2026-10-13)
-  const W = s.day.W, yours = new Set(), theirs = new Set();
-  if (s.won) return { yours, theirs, threat: theirs };
+  const W = s.day.W, yours = new Set(), theirs = new Set(), sentry = new Set();
+  if (s.won) return { yours, theirs, threat: theirs, sentry };
   s.pieces.forEach((p, i) => {
     if (p.taken || p.flying) return;
     for (const m of movesFor(s, i)) if (!m.swap && !m.skip) { yours.add(m.y * W + m.x); for (const q of capturesOf(m, W)) yours.add(q); }
@@ -1901,11 +1901,13 @@ export function reachMaps(s, pattern = false) {
     // danger to show (Timothy, 2026-10-13: "the rabbit shouldn't have its
     // moveset present as a purple reach outline"); nor does a rabbit that
     // rides their pieces.
-    if (f.taken || f.flying || f.brain === 'pattern' || f.brain === 'leader' || f.brain === 'carrier' || f.brain === 'still' || f.brain === 'skittish') continue;
+    if (f.taken || f.flying || f.brain === 'pattern' || f.brain === 'leader' || f.brain === 'carrier' || f.brain === 'still' || f.brain === 'scared') continue;
     // A piece walking a route (Adventure) only ever goes to its next square.
     if (f.route) { const [dx, dy] = f.pattern[f.i % f.pattern.length]; if ((dx || dy) && canTake(s.day.rules, f)) theirs.add((f.y + dy) * W + f.x + dx); continue; }
     const ms = pieceMoves(s, f, 'foe');
     for (const m of ms) { theirs.add(m.y * W + m.x); for (const q of capturesOf(m, W)) theirs.add(q); }
+    // A sentry rabbit's reach (Adventure): stand in it and it leaps.
+    if (f.brain === 'sentry') for (const m of ms) { sentry.add(m.y * W + m.x); for (const q of capturesOf(m, W)) sentry.add(q); }
     // A sword strikes round every square it could land on: all of those are
     // dangerous to stand on.
     if (f.weapon === 'sword') for (const m of ms) for (const [dx, dy] of SWORD[Math.max(1, Math.min(3, f.wl || 1))]) {
@@ -1921,7 +1923,7 @@ export function reachMaps(s, pattern = false) {
   // shows its reach, and a pawn its empty diagonals (patternReach). The
   // look through their own pieces, ghosts and gates (releases 56 and 57)
   // is gone. `threat` is the same set, for the shields.
-  return { yours, theirs, threat: theirs };
+  return { yours, theirs, threat: theirs, sentry };
 }
 
 
@@ -2503,7 +2505,7 @@ function exitSpot(n) {
 //    leader flees to a square you do not attack; else it is checkmate, and
 //    every piece of theirs lays down its arms. Attacked twice at once
 //    (double check), only fleeing will do.
-// 3. Flight. One piece of theirs with a skittish rabbit that you attack
+// 3. Flight. One piece of theirs with a scared rabbit that you attack
 //    steps out of reach: the most valuable that can. Only one a turn: attack
 //    two at once (a fork) and the other stays to be taken.
 // 4. The walkers take their steps, except the pinned, which hold.
@@ -2582,7 +2584,7 @@ function tacticsTurn(s) {
   for (const k of pins.keys()) { s.foes[k].pinned = true; log.push({ what: 'pin', k, by: pins.get(k).kind }); }
   const free = (k) => !s.foes[k].taken && !pins.has(k) && !acted.has(k);
   const quiet = (f) => pieceMoves(s, f, 'foe').filter((m) => !m.cap && !m.swap);
-  const toSentry = (f) => { f.brain = 'sentry'; delete f.pattern; delete f.patternName; delete f.route; };
+  const toSentry = (f) => { f.brain = 'sentry'; f.patternName = 'Sentry'; delete f.pattern; delete f.route; };
   const value = (f) => PIECES[f.type]?.value || 1;
   const mate = () => {
     for (const f of s.foes) if (!f.taken) f.taken = true;
@@ -2602,7 +2604,7 @@ function tacticsTurn(s) {
         const guarded = () => { const t = c.kind === 'piece' ? s.pieces[0] : s.stones[c.j]; const was = { x: t.x, y: t.y }; t.x = -99; t.y = -99; const g = yourControl(s).has(csq); t.x = was.x; t.y = was.y; return g; };
         for (let k = 0; k < s.foes.length && !done; k++) {
           const f = s.foes[k];
-          if (!free(k) || !canTake(s.day.rules, f) || f.brain === 'skittish') continue;
+          if (!free(k) || !canTake(s.day.rules, f) || f.brain === 'scared') continue;
           const m = pieceMoves(s, f, 'foe').find((q) => q.cap && q.x === c.p.x && q.y === c.p.y);
           if (!m || (f.brain === 'crown' && guarded())) continue;
           foeLand(s, k, m); acted.add(k);
@@ -2613,7 +2615,7 @@ function tacticsTurn(s) {
         const line = between(W, c.p.x, c.p.y, lead.x, lead.y);
         for (let k = 0; k < s.foes.length && !done && line.length; k++) {
           const f = s.foes[k];
-          if (!free(k) || k === lk || !['possessed', 'sentry', 'skittish'].includes(f.brain)) continue;
+          if (!free(k) || k === lk || !['possessed', 'sentry', 'scared'].includes(f.brain)) continue;
           const m = quiet(f).find((q) => line.includes(q.y * W + q.x));
           if (!m) continue;
           landFoe(s, f, m.x, m.y); acted.add(k); toSentry(f);
@@ -2634,9 +2636,9 @@ function tacticsTurn(s) {
   }
   if (lost(s)) return;
 
-  // 3. Flight: the most valuable skittish piece you attack that can get away.
-  const shy = s.foes.some((f, k) => f.brain === 'skittish' && !f.taken && !acted.has(k)), ctl = shy ? yourControl(s) : null;
-  const scared = !shy ? [] : s.foes.map((f, k) => k).filter((k) => s.foes[k].brain === 'skittish' && !s.foes[k].taken && !acted.has(k) && ctl.has(s.foes[k].y * W + s.foes[k].x))
+  // 3. Flight: the most valuable scared piece you attack that can get away.
+  const shy = s.foes.some((f, k) => f.brain === 'scared' && !f.taken && !acted.has(k)), ctl = shy ? yourControl(s) : null;
+  const scared = !shy ? [] : s.foes.map((f, k) => k).filter((k) => s.foes[k].brain === 'scared' && !s.foes[k].taken && !acted.has(k) && ctl.has(s.foes[k].y * W + s.foes[k].x))
     .sort((a, b) => value(s.foes[b]) - value(s.foes[a]) || a - b);
   let fled = false;
   for (const k of scared) {
