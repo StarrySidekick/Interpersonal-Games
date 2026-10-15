@@ -96,10 +96,10 @@ export const RUN_SCHEMA = [
     { key: 'maxPieces', label: 'Most pieces you can carry', type: 'int', min: 1, max: 8, def: 6 },
     { key: 'rewards', label: 'Finishing a level finds you something', type: 'bool', def: true,
       help: 'A new piece while you have room; once your hand is full, an upgrade: a suit, fusing two pieces, or a joker. Pieces of theirs you take are claimed, and can be combined with yours after the level.' },
-    { key: 'upgrades', label: 'Between levels', type: 'choice', def: 'finds', options: opts(['finds', 'Find pieces, then upgrades'], ['each', 'One upgrade a board, each side'], ['tiles', 'Turn over tiles (Tile Chess)']),
-      help: 'Find pieces, then upgrades: a new piece while you have room, then suits, fusing and jokers; pieces of theirs you take can be combined with yours. One upgrade a board, each side (Timothy, 2026-10-12): every new board you choose one of two, a piece to combine with one of yours or a suit for one, and they get one at random. They carry a lineup down as you do, and a Rabbit with it. Turn over tiles (Tile Chess, 2026-10-14): after every round each side turns over a tile at the edge of the board, the winner first; the board grows by it and its suit or weapon goes to that side, and at each size up both sides get the same new piece.' },
+    { key: 'upgrades', label: 'Between levels', type: 'choice', def: 'finds', options: opts(['finds', 'Find pieces, then upgrades'], ['each', 'One upgrade a board, each side'], ['tiles', 'Turn over tiles (Tile Chess)'], ['par', 'By par (Adventure)']),
+      help: 'Find pieces, then upgrades: a new piece while you have room, then suits, fusing and jokers; pieces of theirs you take can be combined with yours. One upgrade a board, each side (Timothy, 2026-10-12): every new board you choose one of two, a piece to combine with one of yours or a suit for one, and they get one at random. They carry a lineup down as you do, and a Rabbit with it. Turn over tiles (Tile Chess, 2026-10-14): after every round each side turns over a tile at the edge of the board, the winner first; the board grows by it and its suit or weapon goes to that side, and at each size up both sides get the same new piece. By par (Adventure, 2026-10-15): over par you get one upgrade, on par a choice of two, under par a choice of three: suits, weapons, and a new piece now and then, up to the most you can hold.' },
     { key: 'findPool', label: 'Pieces you can find', type: 'pieces', def: ['king', 'knight', 'bishop', 'rook', 'queen', 'wazir', 'ferz', 'alfil', 'dabbaba', 'mao', 'zebra', 'camel', 'grasshopper', 'cannon', 'silver', 'lance', 'squirrel', 'rose', 'nightrider', 'archbishop', 'chancellor',
-      'gold', 'copper', 'leopard', 'tiger', 'kirin', 'phoenix', 'elephant', 'woody', 'alibaba', 'threeleaper', 'tripper', 'frog', 'vao', 'bunny', 'shortrook', 'tallrook'],
+      'changeling', 'gold', 'copper', 'leopard', 'tiger', 'kirin', 'phoenix', 'elephant', 'woody', 'alibaba', 'threeleaper', 'tripper', 'frog', 'vao', 'bunny', 'shortrook', 'tallrook'],
       help: 'What a run offers when it finds a piece. Pieces vetoed in the catalog are left out anyway.' },
     { key: 'jokers', label: 'Jokers can turn up', type: 'bool', def: true, help: 'Rules for the rest of a run: Double Time, Foresight, Recruiter, Lazy Rabbits, Overtime.' },
     { key: 'shop', label: 'Spend acorns in a shop', type: 'bool', def: false,
@@ -174,6 +174,25 @@ export const MODES = {
       run: 'descent', roll: 'fixed', startPieces: 5, maxPieces: 8, startPool: ['rook', 'bishop', 'king', 'knight', 'rook'], pawnRow: true, foeLine: 'mirror', rewards: true, jokers: false, ramp: 'steady', outOfMoves: 'fall', upgrades: 'each', growAt: 6, carry: false,
       goal: 'carrier', rabbitMove: 'choose', rabbitHop: 3, rabbitSides: 'theirs', promote: 'copy', royal: true, showdown: true, w: 5, h: 6, foes: 4, foePool: ['knight', 'bishop', 'rook'], darkBrain: 'think', skill: '1', style: 'balanced', rabbitMind: 'mind', iq: 3, kinds: 1,
       foesCapture: true, statues: 0, statueRow: false, ghosts: true, maxMoves: 30, lineup: true, inOrder: true, arrange: false, cloud: false, parMin: 3, parMax: 10, difficulty: 'any'
+    }
+  },
+  adventure: {
+    // Timothy, 2026-10-15: Changeling's roguelite, rebuilt as a Grove mode.
+    // "pieces are not forced to capture, and aren't doppelgangers. you start
+    // with either a rook, bishop, or knight. enemy pieces don't move, and
+    // they are gray like statues. later levels have regular purple pieces
+    // that move. you start with one piece, you discover more pieces (up to
+    // four) over time. has the suit and weapon system. levels can also
+    // feature moving neutral pieces. goals is to capture all pieces in as
+    // few moves is possible. getting within par gives more upgrade options
+    // ... levels get progressively harder in some random way. each run is
+    // different." The board climbs in levelSettings (upgrades 'par').
+    name: 'Adventure', blurb: 'Start with one piece: a rook, a bishop or a knight. Take every piece of theirs in as few moves as you can. Most are grey statues that never move; deeper down, purple ones that do, and wandering clouds that hide what is under them. Beat par to choose from more upgrades: suits, weapons, and new pieces, up to four. Lose every piece and the adventure is over.',
+    settings: {
+      run: 'descent', roll: 'fixed', upgrades: 'par', startPieces: 1, maxPieces: 4, startPool: ['rook'], rewards: true, jokers: false, carry: false, keepsakes: false, outOfMoves: 'fall', fairyFrom: 4, ramp: 'steady',
+      goal: 'capture', captureN: 0, royal: false, showdown: false, promote: 'none', fullRow: false, lineup: false, inOrder: false, mineRows: 1, foeRows: 4, arrange: false, cloud: false, ghosts: false,
+      w: 5, h: 5, foes: 3, still: 3, foePool: ['pawn', 'knight', 'bishop', 'rook', 'king'], darkBrain: 'think', skill: '1', style: 'balanced', rabbitMind: 'pattern', rabbits: 0,
+      foesCapture: true, statues: 0, clouds: 0, maxMoves: 40, parMin: 1, parMax: 10, difficulty: 'any', balance: 'off', minEngage: 0, minCeiling: 0
     }
   },
   kungfu: {
@@ -574,6 +593,29 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
     // A side that thinks (2026-10-13, with no rabbit leading it) looks
     // further ahead as it goes down: one step more every three boards.
     if (M.darkBrain === 'think') S.skill = String(Math.min(3, +M.skill + Math.floor(((depth - 1) * k) / 3)));
+  }
+  if (M.run === 'descent' && M.upgrades === 'par') {
+    // Adventure (2026-10-15): harder every board, in a way picked at random
+    // from what the depth allows. More of theirs; a bigger board, and from
+    // depth 3 an odd shape; wandering clouds from depth 3 on about half the
+    // boards; from depth 4 some of theirs that move, more of them deeper;
+    // fairy pieces among theirs from "Fairy pieces from depth". Most of
+    // theirs are statues (still): they never move, they are there to take.
+    const d = depth;
+    const size = d <= 2 ? 5 : d <= 7 ? pick([5, 6, 6]) : pick([6, 6, 7]);
+    const movers = d >= 4 && rand() < Math.min(1, 0.55 + d * 0.05) ? Math.min(3, 1 + Math.floor((d - 4) / 5) + (rand() < 0.3 ? 1 : 0)) : 0;
+    const theirs = Math.min(9, size + 2, 2 + Math.floor(d * 0.6) + int(0, 1));
+    Object.assign(S, {
+      w: size, h: size, shape: d < 3 ? 'rect' : pick(['rect', 'rect', 'diamond', 'round', 'cross', 'cheese']),
+      ground: d < 6 ? 'solid' : pick(['solid', 'solid', 'solid', 'crumble']),
+      foes: theirs, still: Math.max(1, theirs - movers), foeRows: size - 1, mineRows: 1, lineup: false, fullRow: false,
+      foePool: classicUntil(d < M.fairyFrom, ['pawn', 'knight', 'bishop', 'rook', 'king'], ['camel', 'zebra', 'cannon', 'ferz', 'wazir', ...(d >= 8 ? ['queen', 'archbishop', 'changeling'] : [])]),
+      clouds: d >= 3 && rand() < 0.45 ? (d >= 9 && rand() < 0.4 ? 2 : 1) : 0,
+      // Theirs that move look one move ahead, then two from depth 9; never
+      // three, which makes every board slow to find.
+      statues: 0, skill: d < 9 ? '1' : '2',
+      parMin: 1, parMax: Math.min(24, 8 + d * 2), maxMoves: 40, aim: 0
+    });
   }
   if (M.run === 'descent' && M.realtime) {
     // Kung fu: their pieces rest less each level down; the ground stays

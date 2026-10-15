@@ -450,7 +450,7 @@ export class Board {
       if (tw?.mine?.[i]) ({ x, y } = tweenPos(tw.mine[i], at));
       let lift = 0;
       if (this.landing) { lift = this.landing(i, at); if (lift === null) return; }
-      things.push({ img: sprite(p.type, p.side || 'you'), x, y, lift }); // (a demo of their piece sets side)
+      things.push({ img: sprite(p.shape || p.type, p.side || 'you'), x, y, lift }); // (a demo of their piece sets side)
     });
     const marked = day.rules.goal === 'target' && day.foes.length > 1;
     s.foes.forEach((f, k) => {
@@ -464,7 +464,7 @@ export class Board {
         x = q.x; y = q.y;
         lift = t.hop ? Math.sin(Math.PI * q.k) * (t.blocked ? 3 : 9) : 0;
       }
-      things.push({ img: sprite(f.brain === 'leader' ? 'rabbit' : f.type, 'foe', this.fur(f)), x, y, lift, ring: marked && f.target ? 'rgba(227,189,87,.9)' : null });
+      things.push({ img: sprite(f.brain === 'leader' ? 'rabbit' : f.shape || f.type, f.brain === 'still' ? 'grey' : 'foe', this.fur(f)), x, y, lift, ring: marked && f.target ? 'rgba(227,189,87,.9)' : null });
     });
     (s.clouds || []).forEach((c, i) => {
       let { x, y } = c;
@@ -573,8 +573,8 @@ export class Board {
       const hold = 150 * slow, dur = 720 * slow;
       for (const k of tw.caught) {
         const f = a.foes[k];
-        tw.tumbles.push({ img: sprite(f.type, 'foe', this.fur(f)), x: f.x, y: f.y, t0: t, hold, dur: hold + dur,
-          kind: f.type, fur: this.fur(f), possessed: f.brain === 'possessed' });
+        tw.tumbles.push({ img: sprite(f.type, f.brain === 'still' ? 'grey' : 'foe', this.fur(f)), x: f.x, y: f.y, t0: t, hold, dur: hold + dur,
+          kind: f.type, fur: this.fur(f), possessed: f.brain === 'possessed', grey: f.brain === 'still' });
         tw.leaves.push(leafBurst(f.x, f.y, t + hold));
       }
       sfx.caught(at(t));
@@ -836,7 +836,7 @@ export function scene(day, s = null, fur = () => null) {
   // A possessed piece shows its rabbit's colour on its plinth.
   for (const f of (s || day).foes) {
     if (f.taken) continue;
-    const mdl = f.side === 'grey' ? model(f.type, 'grey') : f.brain === 'possessed' ? model(f.type, 'foe', null, fur(f) || '#e9e4da') : model(f.type, 'foe', fur(f));
+    const mdl = f.side === 'grey' || f.brain === 'still' ? model(f.type, 'grey') : f.brain === 'possessed' ? model(f.type, 'foe', null, fur(f) || '#e9e4da') : model(f.type, 'foe', fur(f));
     m.add(mdl, x0(f.x) + T / 2, 0, z0(f.y) + T / 2, id++);
   }
   return m;

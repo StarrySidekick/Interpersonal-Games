@@ -13,6 +13,7 @@ export const MENU = [
   // variants, in one list with previews.
   { id: 'hub', href: '../grove/', label: 'All of Chess of the Grove' },
   { id: 'daily', href: '', label: 'The daily' },
+  { id: 'adventure', href: 'play/?mode=adventure', label: 'Adventure' },
   { id: 'descent', href: 'play/?mode=descent', label: 'The descent' },
   { id: 'kungfu', href: 'play/?mode=kungfu', label: 'Kung fu descent' },
   { id: 'tiles', href: 'play/?mode=tiles', label: 'Tile Chess' },

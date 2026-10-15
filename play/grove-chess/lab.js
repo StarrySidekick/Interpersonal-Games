@@ -120,11 +120,13 @@ export const SCHEMA = [
     { key: 'mineRows', sub: 'yours', label: 'Start within the bottom', type: 'int', min: 1, max: 5, def: 1, unit: 'rows', help: 'When not lined up.' },
     { key: 'arrange', sub: 'yours', label: 'Lay out your pieces first', type: 'bool', def: true,
       help: 'Before the first move, put your pieces where you like in your first two rows (Timothy, 2026-10-10). Nowhere that lets either side take a piece on its first move. Par is worked out again for your layout.' },
-    { key: 'foes', sub: 'theirs', label: 'Pieces', type: 'int', min: 0, max: 8, def: 3, help: 'Dark versions of chess and fairy pieces.' },
+    { key: 'foes', sub: 'theirs', label: 'Pieces', type: 'int', min: 0, max: 12, def: 3, help: 'Dark versions of chess and fairy pieces.' },
     { key: 'foePool', sub: 'theirs', label: 'Dealt from', type: 'pieces', rabbit: true, def: ['king', 'knight', 'bishop', 'rook'] },
     { key: 'foeDupes', sub: 'theirs', label: 'Repeats allowed', type: 'bool', def: true },
     { key: 'mirror', sub: 'theirs', label: 'Mirror your pieces instead', type: 'bool', def: false, help: 'They get a copy of your hand, facing you, like chess.' },
-    { key: 'foeRows', sub: 'theirs', label: 'Start within the top', type: 'int', min: 1, max: 5, def: 1, unit: 'rows', help: 'Loose rabbits and the hole start up there too, lined up or not.' },
+    { key: 'foeRows', sub: 'theirs', label: 'Start within the top', type: 'int', min: 1, max: 6, def: 1, unit: 'rows', help: 'Loose rabbits and the hole start up there too, lined up or not.' },
+    { key: 'still', sub: 'theirs', label: 'Of them, statues', type: 'int', min: 0, max: 12, def: 0,
+      help: 'Adventure (Timothy, 2026-10-15: "enemy pieces don\u2019t move, and they are gray like statues"): this many of their pieces are grey statues. A statue never moves and never takes; it is there to be taken. The rest move as set.' },
     { key: 'rabbits', sub: 'theirs', label: 'Free rabbits', type: 'int', min: 0, max: 4, def: 0,
       help: 'Rabbits loose on the board, on top of the ones inside their pieces.' },
     { key: 'foesCapture', sub: 'theirs', label: 'They can take your pieces', type: 'bool', def: true },
@@ -213,7 +215,7 @@ export const SCHEMA = [
       help: 'How much faster an expert wins than a novice: 10 means twice as fast. A high ceiling is easy to win in many moves and hard to win in few. 0 lets anything through.' },
     { key: 'solve', label: 'Only deal winnable levels', type: 'bool', def: true,
       help: 'The solver plays each layout first and throws out any it cannot win in time. It also sets par.' },
-    { key: 'parMax', label: 'Winnable within', type: 'int', min: 2, max: 15, def: 10, unit: 'moves' },
+    { key: 'parMax', label: 'Winnable within', type: 'int', min: 2, max: 30, def: 10, unit: 'moves' },
     { key: 'parMin', label: 'But not in fewer than', type: 'int', min: 1, max: 12, def: 3, unit: 'moves' },
     { key: 'balance', label: 'Balance rules', type: 'choice', def: 'on', options: opts(['off', 'Off'], ['on', 'On'], ['strict', 'Strict']),
       help: 'On: no piece on either side can capture on its first move, every piece of yours can move at the start, and every strange piece (fairy pieces, and the grasshopper-like ones that need the right circumstances) has a job: it makes a catch in the winning line, or the level is worse without it. Strict: every piece has a job. Needs the solver.' }
@@ -740,6 +742,10 @@ export function makeLevel(settings, seed) {
       f.mx = rand() < 0.5 ? 1 : -1; f.my = rand() < 0.5 ? 1 : -1; f.hops = S.hops;
     }
   });
+  // Statues of theirs (Adventure, 2026-10-15): the first `still` of their
+  // pieces never move and never take; they are there to be taken. Drawn in
+  // grey. (No random numbers, so levels without them deal as before.)
+  if (S.still > 0) foes.filter((f) => f.type !== 'rabbit').slice(0, S.still).forEach((f) => { f.brain = 'still'; delete f.pattern; delete f.patternName; });
   // One rabbit leads them (darkBrain 'rabbit', 2026-10-13): a Rabbit on
   // their King's head (one given in their lineup, or a new one), with a
   // trait and an intelligence. Their pieces think as it says (leaderMind).
@@ -1122,7 +1128,7 @@ export function bandOf(S) {
   return BANDS[S.difficulty] || BANDS.any;
 }
 
-export function searchLayouts({ settings, seed, parMin, parMax, maxTries = 400, maxMs = 15000, fixed = false, pool }, post) {
+export function searchLayouts({ settings, seed, parMin, parMax, maxTries = 400, maxMs = 15000, fixed = false, pool, quick = false }, post) {
   // A chess variant has one starting position and nothing to search for.
   if (clean(settings).variant !== 'none' || clean(settings).position) return post({ type: 'done', seed, par: null, tried: 1, thrown: {}, measure: null });
   if (clean(settings).mode === 'auto') return searchAutoLayouts({ settings, seed, parMin, maxMs, fixed, pool }, post);
@@ -1142,6 +1148,10 @@ export function searchLayouts({ settings, seed, parMin, parMax, maxTries = 400, 
     }
     const r = solveLevel(level, { maxDepth: parMax, deadline: t0 + maxMs });
     tried = i + 1;
+    // Quick (Adventure, 2026-10-15): winnable at the right length is all
+    // that is asked; no balance report and no novice games, which are most
+    // of the time a search takes.
+    if (quick && r.par && r.par >= parMin) return post({ type: 'done', seed: sd, par: r.par, exact: r.exact, line: r.line, tried: i + 1, balance: null, why: [], thrown, measure: null });
     if (r.par && (fixed || r.par >= parMin)) {
       // Winnable at the right length. Now: is it balanced?
       const balance = assess(level, r, { deadline: t0 + maxMs });
@@ -1165,7 +1175,7 @@ export function searchLayouts({ settings, seed, parMin, parMax, maxTries = 400, 
     post({ type: 'progress', tried });
     if (Date.now() - t0 > maxMs) break;
   }
-  if (best && !best.balance) best.balance = assess(makeLevel(settings, best.seed), best, { deadline: Date.now() + 3000 });
+  if (best && !best.balance && !quick) best.balance = assess(makeLevel(settings, best.seed), best, { deadline: Date.now() + 3000 });
   post({ type: 'failed', tried, best, thrown });
 }
 

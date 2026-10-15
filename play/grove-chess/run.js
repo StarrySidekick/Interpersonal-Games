@@ -55,6 +55,7 @@ export function carriesText(p) {
   const bits = [];
   if (SUITS[p.suit]) bits.push(`${SUITS[p.suit].mark} ${SUITS[p.suit].name}: ${SUITS[p.suit].desc}${p.suit === 'hearts' && (p.lives || 1) < 2 ? ' (Spent.)' : ''}`);
   if (WEAPONS[p.weapon]) bits.push(`${WEAPONS[p.weapon].mark} ${weaponName(p.weapon, p.wl || 1)}: ${WEAPONS[p.weapon].desc(p.wl || 1)}`);
+  if (p.shape && PIECES[p.shape]) bits.push(`In the shape of a ${PIECES[p.shape].name}: it moves like one until it takes something else.`);
   if (p.stun) bits.push('Stunned: it sits out its side’s next turn.');
   return bits.length ? ' ' + bits.join(' ') : '';
 }
@@ -392,6 +393,8 @@ export function canCombine(h, type, royal = false) {
   // A rabbit is not fused with anything: its hops cannot be written down to
   // join another piece's (it has no Betza). Two rabbits still make a veteran.
   if ((type === 'bunny' || h.base === 'bunny' || h.fused?.includes('bunny')) && !(h.base === type && !h.fused)) return false;
+  // Nor is a Changeling: what it can do changes as it plays.
+  if ((type === 'changeling' || h.base === 'changeling' || h.fused?.includes('changeling')) && !(h.base === type && !h.fused)) return false;
   const bases = h.fused || [h.base];
   if (bases.length === 1 && h.base === type) return (h.lives || 1) < 3;
   if (royal && h.base === 'king' && !h.fused) return false;
@@ -537,4 +540,39 @@ export function foeTake(run, card, rand) {
 export function boardCardText(card) {
   if (card.kind === 'merge') return { title: PIECES[card.type].name, text: `${PIECES[card.type].desc} Choose a piece of yours to combine it with: the same kind makes a veteran with a heart more; another kind fuses, with every move of both.`, tag: PIECES[card.type].kind === 'fairy' ? 'A fairy piece' : 'A classic piece' };
   return cardText(card);
+}
+
+// --- Adventure (Timothy, 2026-10-15). ----------------------------------------
+
+/** Par's slack in Adventure: the solver's route plus one to depth 5, two to
+    depth 11, three after, since deeper boards are harder to read; so under
+    par is always possible. */
+export const adventureSlack = (depth) => (depth <= 5 ? 1 : depth <= 11 ? 2 : 3);
+/** How a board went against par: 'under', 'par' or 'over' (not cleared
+    counts as over). */
+export const parVerdict = (moves, par, won) => (!won || !par ? 'over' : moves < par ? 'under' : moves === par ? 'par' : 'over');
+/** "you always get one though, par gives you two, better than par gives three" */
+export const PAR_CARDS = { under: 3, par: 2, over: 1 };
+
+/** Adventure's cards after a board: `n` of them, never the same twice. A
+    new piece comes first while you have room, after depths 2, 4 and 7 (so
+    even a single card brings it), and now and then otherwise; the rest are
+    suits and weapons some piece of yours can take (a weapon it has already
+    goes up a level). The run's depth is already the next one. */
+export function adventureCards(run, n, rand, veto = [], fairy = true, pool = null) {
+  const cleared = run.depth - 1, room = run.hand.length < run.maxPieces;
+  const pieceCard = () => {
+    const have = new Set(run.hand.map((h) => h.base));
+    const cards = rewardsFor({ ...run, hand: run.hand.slice(0, run.maxPieces - 1) }, rand, veto, fairy)
+      .filter((c) => c.kind === 'piece' && (!pool || pool.includes(c.type)));
+    return cards.find((c) => !have.has(c.type)) || cards[0] || null;
+  };
+  const out = [];
+  if (room && ([2, 4, 7].includes(cleared) || (run.hand.length === 1 && cleared >= 2))) { const c = pieceCard(); if (c) out.push(c); }
+  const rest = [];
+  if (run.hand.some((h) => !h.suit)) for (const suit of Object.keys(SUITS)) rest.push({ kind: 'suit', suit });
+  for (const w of WEAPON_ORDER) if (run.hand.some((h) => canTakeWeapon(h, w, run.made))) rest.push({ kind: 'weapon', weapon: w });
+  if (room && !out.length && rand() < 0.35) { const c = pieceCard(); if (c) rest.push(c); }
+  while (out.length < n && rest.length) out.push(rest.splice(Math.floor(rand() * rest.length), 1)[0]);
+  return out;
 }

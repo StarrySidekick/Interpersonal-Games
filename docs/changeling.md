@@ -1,5 +1,13 @@
 # Changeling
 
+> **Shelved, 2026-10-15.** Timothy: "shelve changeling mode for now.
+> everything should be in the grove. as a consolation, create a changeling
+> fairy piece." The page still plays and its links still open; it is off
+> the Chess of the Grove list. The idea lives on as the Changeling, a Grove
+> fairy piece that takes on the moves of what it takes
+> ([`grove-pieces.md`](grove-pieces.md)). Adventure, first built on this
+> page's boards, is now a Grove mode ([`adventure.md`](adventure.md)).
+
 A daily chess puzzle, built 2026-10-15 at [`play/changeling/`](../play/changeling/).
 What Timothy asked for, in short: a daily chess game as simple and as
 much fun as Wordle or Pinstinct; playable by someone mediocre at chess;

@@ -12,6 +12,25 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
+## 2026-10-15, after that: everything in the Grove
+
+From Timothy: "adventure should be rebuilt as a grove mode, shelve
+changeling mode for now. everything should be in the grove. as a
+consolation, create a changeling fairy piece." Done:
+
+- **Adventure is a Grove mode**, `play/grove-chess/play/?mode=adventure`,
+  on the Grove's rules, 3D board, runner, solver, suits and weapons. Their
+  grey statues are a new level setting (`still`), neutral movers are the
+  Grove's wandering clouds, par comes from the Grove's solver, and the
+  cards between boards are the Grove's, one to three by par. The
+  standalone page is gone; its address forwards. Details:
+  [`docs/adventure.md`](docs/adventure.md).
+- **Changeling is shelved**: off Chess of the Grove and the home page. Its
+  page still plays and its links still open.
+- **The Changeling is a Grove fairy piece**: a king until it takes
+  something, then whatever it last took. In the pieces catalog, findable in
+  Adventure and the descent's finds, among theirs deep in Adventure.
+
 ## 2026-10-15, last: Chess of the Grove, one door for all the chess
 
 From Timothy: the home page's list should have one chess entry, "Chess of

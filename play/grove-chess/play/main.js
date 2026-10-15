@@ -30,7 +30,8 @@ import { MODES, modeSettings, saveModeSettings, resetModeSettings, cleanMode, PA
 import {
   newRun, rewardsFor, applyReward, cardText, handSettings, afterLevel, pieceOf, SUITS, JOKERS,
   WAYSTONES, litWaystones, newlyLit, startChoices, keepsakeCards, acornsFor, priceOf, shopStock,
-  canCombine, applyCombine, combineText, boardCards, boardCardText, applyMerge, mergeTargets, foeUpgrade, WEAPONS, canTakeWeapon, carriesText, foeCanUse, foeTake
+  canCombine, applyCombine, combineText, boardCards, boardCardText, applyMerge, mergeTargets, foeUpgrade, WEAPONS, canTakeWeapon, carriesText, foeCanUse, foeTake,
+  adventureCards, adventureSlack, parVerdict, PAR_CARDS
 } from '../run.js';
 import { setupPanel, setupState, playOut } from '../autosetup.js';
 import { VARIANTS, VARIANT_ORDER, differs } from '../variants.js';
@@ -172,7 +173,7 @@ function findOnce(n, hand, attempt) {
   // as they stand, so it is laid out straight away, with no search and no par.
   if (oneBoard()) return Promise.resolve({ settings, seed: session.seed + n * 1000, par: null, measure: null, autoBest: null, setups: null, passed: true });
   const msg = { settings, seed: session.seed + n * 1000, parMin: settings.parMin, parMax: settings.parMax, maxMs: 15000,
-    pool: rabbitPool(settings, myRabbits(), Math.max(1, settings.mine)) };
+    pool: rabbitPool(settings, myRabbits(), Math.max(1, settings.mine)), quick: M.upgrades === 'par' };
   if (M.roll !== 'fixed') msg.maxMs = 8000;
   return new Promise((resolve) => {
     const done = (data) => {
@@ -286,6 +287,9 @@ async function startLevel() {
   // one after), so under par, a birdie, means finding the best line or
   // near it; and par is the hole's stroke limit.
   if (M.run === 'course' && par) { par += session.n <= 2 ? 2 : 1; level.rules = { ...level.rules, maxMoves: par }; }
+  // Adventure (2026-10-15): par is the solver's route plus some slack, more
+  // the deeper you are, so under par is always possible.
+  if (M.upgrades === 'par' && par) par += adventureSlack(session.n);
   game = { states: [initialState(level)], moves: [] };
   board = makeBoard($('#board'), level);
   board.reach = level.settings.showReach;
@@ -630,6 +634,7 @@ $('#board').addEventListener('click', async (e) => {
   const f = s.foes.find((f) => seen(f) && f.rides != null) || s.foes.find(seen);
   if (f?.brain === 'leader') return info(leaderDesc(f, s.day));
   if (f?.brain === 'carrier') return info(carrierText(s, f));
+  if (f?.brain === 'still') return info(`A statue of their ${nameOf(f).toLowerCase()}: it never moves and never takes. Take it.`);
   if (f) info(f.mind ? `Their ${nameOf(f)}, with a ${f.patternName ? f.patternName.toLowerCase() + ' ' : ''}rabbit inside (intelligence ${f.mind.iq}).` : `Their ${nameOf(f)}. ${PIECES[f.type].desc}${carriesText(f)}`);
   const fl = flagAt(s);
   if (!f && fl && !fl.by && fl.x === x && fl.y === y) info('The rabbit to capture: take it, and the piece that took it carries it. Bring it back to your first row to win; if they take the piece carrying it, it is theirs to bring home.');
@@ -737,6 +742,19 @@ async function levelOver(end) {
     if (!calm()) { await sleep(400); if (board.collapse) await board.collapse(); }
     return between({ note: `Depth ${session.n}`, board: true, fall: true });
   }
+  if (M.upgrades === 'par') {
+    // Adventure: over par one upgrade, on par a choice of two, under par a
+    // choice of three (Timothy, 2026-10-15). Not cleared counts as over.
+    const how = parVerdict(end.t, par, won);
+    session.n++; session.run.depth = session.n;
+    if (!test) { const r = mine(); r.best = Math.max(r.best || 0, session.n); saveRecords(); }
+    status(!won ? 'Out of moves: the floor gives way anyway.' : `${{ under: 'Under par', par: 'On par', over: 'Over par' }[how]}. The floor gives way.`);
+    if (!calm()) { await sleep(400); if (board.collapse) await board.collapse(); }
+    const cards = adventureCards(session.run, PAR_CARDS[how], rng(`reward:${session.seed}:${session.n}`), catalog.vetoed, session.n >= M.fairyFrom, M.findPool);
+    const note = !won ? 'Out of moves, but you take one thing with you.' : how === 'under' ? `Under par: ${end.t} moves, par ${par}. Choose one of three.`
+      : how === 'par' ? `On par: ${end.t} moves. Choose one of two.` : `Over par: ${end.t} moves, par ${par}. Take it; beat par for a choice.`;
+    return between({ note: `Depth ${session.n}`, rewards: true, cards, rewardNote: note, fall: true });
+  }
   // Recruiter: the first piece you took joins you, if there is room.
   let recruited = null;
   if (won && session.run.jokers.includes('recruiter') && session.firstCatch && PIECES[session.firstCatch]?.kind !== 'quarry'
@@ -763,7 +781,7 @@ async function levelOver(end) {
 
 let fall = null;
 
-async function between({ note, sub = '', rewards = false, combine = false, shop: shopping = false, fall: falling = false, board: newBoard = false, won = false }) {
+async function between({ note, sub = '', rewards = false, combine = false, shop: shopping = false, fall: falling = false, board: newBoard = false, won = false, cards: rewardCards = null, rewardNote = null }) {
   show('between');
   $('#betweennote').textContent = note;
   $('#betweensub').textContent = sub;
@@ -771,7 +789,7 @@ async function between({ note, sub = '', rewards = false, combine = false, shop:
   const kinds = session.run ? session.run.hand.map((h) => pieceOf(h, session.run.made).type) : [];
   fall = falling && !calm() && kinds.length ? startFall($('#fallcv'), kinds) : null;
   $('#fallcv').hidden = !fall;
-  if (rewards && session.run) await reward({ k: 0, note: null });
+  if (rewards && session.run) await reward({ k: 0, note: rewardNote, cards: rewardCards });
   if (shopping && session.run) await shop();
   if (newBoard && session.run) await (M.upgrades === 'tiles' ? tileStep(won) : boardUpgrade());
   if (combine && session.run && session.claimed?.length) await combineStep();
@@ -1157,6 +1175,7 @@ async function prepareTitle() {
   waystoneList();
   courseList();
   variantList();
+  starterList();
   await previewFirst();
 }
 
@@ -1217,6 +1236,23 @@ function waystoneList() {
     box.append(el('div', { class: `waystone${lit ? ' lit' : ''}` }, el('span', { class: 'stone', 'aria-hidden': 'true' }, lit ? '◆' : '◇'),
       el('span', {}, el('b', {}, `Depth ${w.depth}: ${w.name}. `), lit ? w.text : `Reach depth ${w.depth} to light it.`,
         idle ? ' (Off in this mode\u2019s settings: "Waystones give upgrades at the start".)' : '')));
+  }
+}
+
+/** Adventure: the piece you start with (Timothy, 2026-10-15: "you start
+    with either a rook, bishop, or knight"). */
+function starterList() {
+  const box = $('#starters');
+  box.replaceChildren();
+  box.hidden = M.upgrades !== 'par';
+  if (box.hidden) return;
+  box.append(el('p', { class: 'small dim', style: 'margin:0' }, 'Start with'));
+  for (const k of ['rook', 'bishop', 'knight']) {
+    const on = M.startPool.length === 1 && M.startPool[0] === k, cv = el('canvas', { class: 'pix', width: 30, height: 36, style: 'width:30px;height:36px' });
+    cv.getContext('2d').drawImage(sprite(k, 'you'), 0, 0);
+    box.append(el('button', { class: `coursecard${on ? ' on' : ''}`, 'aria-pressed': String(on), style: 'grid-template-columns:34px 1fr;align-items:center;column-gap:10px',
+      onclick: () => { M = cleanMode({ ...M, startPool: [k] }); if (!test) saveModeSettings(modeId, M); haptic(10); prepareTitle(); } },
+    cv, el('span', {}, el('b', {}, PIECES[k].name), el('br'), el('span', { class: 'small dim' }, PIECES[k].desc))));
   }
 }
 
