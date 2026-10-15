@@ -10,7 +10,7 @@ import { rng } from '../../../engine/seed.js';
 import * as sfx from '../sounds.js';
 import {
   PIECES, descOf, CRUMBLE_DESC, SHRINK_DESC, STUMP_DESC, STATUE_ROW_DESC, statueAt, statueDesc, GHOST_DESC, GATE_DESC, WANDER_DESC, ghostAt, gateUp, cloudOver, hiddenFrom, HOLE_DESC, cloudDesc, sandAt, waterAt, SAND_DESC, WATER_DESC, movesFor, playerMove, respond, isOver, outcome, initialState,
-  allMoves, holeOpen, crumbled, shrunk, apply, showdown, firstCaptures, onBoard, leaderDesc, placeRevived, hopIn, flagAt, carrierOf, rabbitChosen
+  allMoves, holeOpen, crumbled, shrunk, apply, showdown, firstCaptures, onBoard, leaderDesc, placeRevived, hopIn, flagAt, carrierOf, rabbitChosen, EXIT_DESC, setOrder
 } from '../rules.js';
 import { pickMove } from '../choose.js';
 import { bestMove } from '../best.js';
@@ -20,7 +20,7 @@ import { scene, sceneFrame, sprite, crispWidth } from '../board.js';
 import { piecesSheet } from '../sheet.js';
 import { playIntro } from '../intro.js';
 import { makeLevel, searchLayouts, decodeLevel, rabbitPool, GOAL_PILL, summary } from '../lab.js';
-import { FUR, FUR_WORD, caughtRabbits, recordCatch } from '../rabbits.js';
+import { FUR, FUR_WORD, caughtRabbits, recordCatch, routeText } from '../rabbits.js';
 import { makeBoard } from '../board3d.js';
 import { startFall } from '../fall.js';
 import { fillMenu } from '../menu.js';
@@ -31,7 +31,7 @@ import {
   newRun, rewardsFor, applyReward, cardText, handSettings, afterLevel, pieceOf, SUITS, JOKERS,
   WAYSTONES, litWaystones, newlyLit, startChoices, keepsakeCards, acornsFor, priceOf, shopStock,
   canCombine, applyCombine, combineText, boardCards, boardCardText, applyMerge, mergeTargets, foeUpgrade, WEAPONS, canTakeWeapon, carriesText, foeCanUse, foeTake,
-  adventureCards, adventureSlack, parVerdict, PAR_CARDS
+  adventureCards, adventureSlack, parVerdict, PAR_CARDS, adventureSet, afterAdventure, takeRabbits, RABBITS_FOR_PIECE
 } from '../run.js';
 import { setupPanel, setupState, playOut } from '../autosetup.js';
 import { VARIANTS, VARIANT_ORDER, differs } from '../variants.js';
@@ -134,6 +134,12 @@ function newSession() {
   session.dealt = session.run ? JSON.stringify(session.run.hand) : null;
 }
 
+/** Adventure's set for board n: which of your pieces take turns on it
+    (all of them, up to five; past that, five drawn at random). The same
+    for the same pieces, so finding the board and playing it agree. Null
+    outside Adventure: the whole hand plays. */
+const setFor = (n) => (M.upgrades === 'par' && session.run ? adventureSet(session.run, rng(`set:${session.seed}:${n}:${session.run.hand.length}`)) : null);
+
 /** Has your set changed from the one you were dealt (a piece found, lost,
     swapped on the title, suited or fused)? Timothy, 2026-10-10: "you should
     be allowed to organize pieces only after your default set you start
@@ -143,7 +149,7 @@ const setChanged = () => !!session.run && JSON.stringify(session.run.hand) !== s
 /** The level for level number n of this session, found on a background
     thread (and kept, so asking again is free). */
 function find(n = session.n) {
-  const hand = session.run ? handSettings(session.run) : null;
+  const hand = session.run ? handSettings(session.run, setFor(n)) : null;
   if (hand && session.run.tiles) hand.tiles = layout(session.run.tiles);
   const key = `${n}|${JSON.stringify(hand?.hand || null)}|${JSON.stringify(hand?.handMods || null)}|${JSON.stringify(hand?.foeHand || null)}|${JSON.stringify(hand?.foeMods || null)}|${(session.run?.jokers || []).join(',')}|${hand?.tiles ? hand.tiles.open.join('.') : ''}`;
   if (session.found.has(key)) return session.found.get(key);
@@ -229,9 +235,43 @@ function draw() {
 }
 
 function hud() {
+  if (M.upgrades === 'par' && session?.run) setRow();
   $('#movecount').textContent = now().t;
   const hop = hopIn(now());
   $('#movemax').textContent = [level.rules.maxMoves && !(M.run === 'course' && par) ? `of ${level.rules.maxMoves}` : '', par ? `${M.run === 'course' ? 'of ' : '· '}par ${par}` : '', hop ? `· the rabbit hops ${hop === 1 ? 'next turn' : `in ${hop}`}` : ''].filter(Boolean).join(' ');
+}
+
+/** Adventure's rabbits, as they stand now: what the run has kept, and what
+    this board has taken so far. [{ type, have, made }]: `have` of the next
+    three of that kind, and how many pieces this board has made. */
+function rabbitCounts(s = now()) {
+  const kept = session.run.rabbits || {}, out = new Map();
+  for (const [type, n] of Object.entries(kept)) out.set(type, { type, base: n, now: 0 });
+  for (const f of s.foes) if (f.taken && PIECES[f.type] && !['rabbit', 'bunny', 'ball'].includes(f.type)) {
+    if (!out.has(f.type)) out.set(f.type, { type: f.type, base: 0, now: 0 });
+    out.get(f.type).now++;
+  }
+  return [...out.values()].map(({ type, base, now: n }) => ({ type, have: (base + n) % RABBITS_FOR_PIECE, made: Math.floor((base + n) / RABBITS_FOR_PIECE) })).filter((r) => r.have || r.made);
+}
+
+/** Adventure (2026-10-15): your set in the order it takes turns, from the
+    piece on the board now; and your rabbits, three of a kind to a piece. */
+function setRow() {
+  const s = now(), box = $('#playhand');
+  const order = s.set ? setOrder(s) : s.pieces.slice(0, 1);
+  box.replaceChildren(...order.map((p, k) => {
+    const cv = el('canvas', { class: 'pix', width: 30, height: 36 });
+    cv.getContext('2d').drawImage(sprite(p.type, 'you'), 0, 0);
+    const mark = [p.suit && SUITS[p.suit] ? el('span', { class: 'suit', style: `color:${SUITS[p.suit].colour}` }, SUITS[p.suit].mark + ' ') : null,
+      p.weapon && WEAPONS[p.weapon] ? el('span', { class: 'suit' }, WEAPONS[p.weapon].mark + (p.wl > 1 ? p.wl : '') + ' ') : null];
+    return el('div', { class: `handcell${k === 0 ? ' picked' : ''}` },
+      el('span', { class: 'dim' }, k === 0 ? (p.taken ? 'Taken' : 'Now') : k === 1 ? 'Next' : `In ${k}`), cv, el('span', {}, mark, nameOf(p)));
+  }));
+  const bench = session.run.hand.length - (session.pick?.length || session.run.hand.length);
+  if (bench > 0) box.append(el('div', { class: 'handcell' }, el('span', { class: 'dim' }, 'Resting'), el('span', {}, `${bench} more`), el('span', { class: 'small dim' }, 'next board, maybe')));
+  const r = rabbitCounts(s);
+  if (r.length) box.append(el('div', { class: 'handcell' }, el('span', { class: 'dim' }, 'Rabbits'),
+    ...r.map((c) => el('span', { class: 'small' }, `${PIECES[c.type].name}: ${c.made ? `a new one${c.have ? ` + ${c.have}/${RABBITS_FOR_PIECE}` : ''}` : `${c.have}/${RABBITS_FOR_PIECE}`}`))));
 }
 
 /** Your hand, as a row of little pieces with their suits. */
@@ -257,7 +297,8 @@ function goalCard() {
   if (session.seen.has('goal')) return null;
   session.seen.add('goal');
   let text = {
-    descent: M.upgrades === 'tiles' ? 'Take their King to win the round. After each round you each turn over a tile at the edge of the board, the winner first: the board grows by that square, and the suit or weapon on the tile is yours. When the board has as many squares as the next size up, both sides get the same new piece. Every piece starts each round in a bubble: nothing can take it until it moves. Four statues stand in the middle; either side can break one by taking it. Keep your King: if they take it, the run is over.'
+    descent: M.upgrades === 'par' ? 'Take every piece of theirs, then jump into the hole: it opens once they are all gone. Grey statues never move. A piece with a rabbit inside walks a short route every turn, the rabbit\u2019s colour says which, and its next step is drawn on the board: stand there and it takes you. You have one piece on the board, and after every turn it becomes the next piece of your set. Every piece you take leaves you its rabbit, and three rabbits of a kind become that piece, which joins your set. If they take the piece on the board, it is gone, and the floor gives way; lose them all and the adventure is over.'
+      : M.upgrades === 'tiles' ? 'Take their King to win the round. After each round you each turn over a tile at the edge of the board, the winner first: the board grows by that square, and the suit or weapon on the tile is yours. When the board has as many squares as the next size up, both sides get the same new piece. Every piece starts each round in a bubble: nothing can take it until it moves. Four statues stand in the middle; either side can break one by taking it. Keep your King: if they take it, the run is over.'
       : M.upgrades === 'each' && M.goal === 'carrier' ? `A rabbit rides one of their pieces. ${M.rabbitMove === 'random' ? `Every ${M.rabbitHop === 1 ? 'turn' : `${M.rabbitHop} turns`} it hops to another, at random.` : 'They can move it to another of their pieces, but that is their move for the turn.'} Take the piece it is on to fall to the next board, where you choose a suit or a weapon and they get one too. Keep your King: if they take it, the descent is over. Anything else of yours they take comes back on the next board.${M.promote === 'copy' ? ' A pawn that reaches the far row becomes a copy of another of your pieces.' : ''}`
       : M.upgrades === 'each' ? 'Take their King to fall to the next board, where each side gets an upgrade. Keep yours: if they take your King, the descent is over. Anything else of yours they take comes back on the next board. One rabbit leads their side, riding on their King: tap it to see what kind it is.'
       : M.goal === 'king' ? 'Take their King to fall to the next level, where you find something. Keep yours: if they take your King, the descent is over. Any other piece of yours that is taken is gone for good.'
@@ -281,6 +322,7 @@ async function startLevel() {
   const found = await find(session.n);
   level = makeLevel(found.settings, found.seed);
   session.claimed = [];
+  session.pick = setFor(session.n);
   par = found.par; measured = found.measure; autoBest = found.autoBest; setups = found.setups;
   // Golf (2026-10-13): par or better wins the hole. Par is the fewest
   // strokes the solver found plus some slack (two on the first two holes,
@@ -326,7 +368,7 @@ async function startLevel() {
   show('play');
   keepAwake();
   hud();
-  handRow($('#playhand'));
+  if (M.upgrades !== 'par') handRow($('#playhand'));
   $('#setup').hidden = true;
   $('#arrange').hidden = true; arranging = null;
   kf?.stop(); kf = null;
@@ -482,7 +524,7 @@ function select(i) {
   $('#wait').hidden = !passOk;
   $('#wait').textContent = now().bonus ? 'End turn' : now().day.rules.wait ? 'Wait a turn' : 'Pass (nothing can move)';
   legal = i == null ? [] : movesFor(now(), i);
-  if (i == null) info(level.hole ? (holeOpen(now()) ? 'Tap a piece to see where it can go. The hole is open.' : 'Tap a piece to see where it can go. The hole opens once every rabbit is caught.') : 'Tap a piece to light up where it can go.');
+  if (i == null) info(level.hole ? (holeOpen(now()) ? `Tap a piece to see where it can go. The hole is open${level.rules.goal === 'clear' ? ': jump in' : ''}.` : `Tap a piece to see where it can go. The hole opens once ${level.rules.goal === 'clear' ? 'every piece of theirs is taken' : 'every rabbit is caught'}.`) : 'Tap a piece to light up where it can go.');
   else {
     const p = now().pieces[i], type = p.type;
     if (p.brain === 'carrier') info(`Your rabbit, riding your ${nameOf(now().pieces[p.rides] || p)}: if they take the piece it rides, you lose. ${legal.length ? 'Tap another of your pieces to move it there; that is your move for the turn.' : hopIn(now()) ? 'It hops by itself, at random.' : 'It has nowhere to go right now.'}`);
@@ -504,7 +546,20 @@ function noteCatches(a, b) {
 
 function whatHappened(a, b) {
   const bits = [];
-  b.foes.forEach((f, k) => { if (f.taken && !a.foes[k].taken) bits.push(f.brain === 'leader' ? `You took the rabbit that leads them.` : f.mind || f.brain === 'possessed' ? `You took their ${nameOf(f)}, and the rabbit inside is yours.` : `You took their ${nameOf(f)}.`); });
+  b.foes.forEach((f, k) => {
+    if (!f.taken || a.foes[k].taken) return;
+    if (M.upgrades === 'par' && session?.run) {
+      // Adventure: every piece taken leaves its rabbit with you.
+      const c = rabbitCounts(b).find((q) => q.type === f.type), was = rabbitCounts(a).find((q) => q.type === f.type);
+      const name = nameOf(f).toLowerCase();
+      bits.push(`You took their ${name}. ${c && c.made > (was?.made || 0) ? `That is three ${name} rabbits: ${/^[aeiou]/.test(name) ? 'an' : 'a'} ${name} joins your set after this board.` : `Its rabbit comes with you (${name} rabbits: ${c?.have || 0} of ${RABBITS_FOR_PIECE}).`}`);
+      return;
+    }
+    bits.push(f.brain === 'leader' ? `You took the rabbit that leads them.` : f.mind || f.brain === 'possessed' ? `You took their ${nameOf(f)}, and the rabbit inside is yours.` : `You took their ${nameOf(f)}.`);
+  });
+  if (b.day.rules.goal === 'clear' && b.hole && holeOpen(b) && !holeOpen(a) && !b.won) bits.push('That was the last of them: the hole is open. Jump in.');
+  // Your set takes turns: say what you are now.
+  if (b.set && !b.won && !b.pieces[0].taken && b.pieces[0].type !== a.pieces[0].type) { const n = nameOf(b.pieces[0]).toLowerCase(); bits.push(`Now you are ${/^[aeiou]/.test(n) ? 'an' : 'a'} ${n}.`); }
   if (b.foeBonus === 'vines') bits.push('Their piece of Vines takes again.');
   if (b.foeBonus === 'stars') bits.push('Their piece of Stars moves twice.');
   b.foes.forEach((f) => {
@@ -521,7 +576,7 @@ function whatHappened(a, b) {
   if (ma && mb && ma.rides !== mb.rides) bits.push(`Your rabbit hops to your ${nameOf(b.pieces[mb.rides])}.`);
   const fa = flagAt(a), fb = flagAt(b);
   if (fb && fa && fb.by !== fa.by) bits.push(fb.by === 'you' ? 'You have the rabbit: bring it back to your first row.' : fb.by === 'foe' ? 'They have the rabbit: take the piece carrying it.' : 'The rabbit is loose.');
-  if (b.hole && !holeOpen(a) && holeOpen(b)) bits.push('The hole is open.');
+  if (b.hole && !holeOpen(a) && holeOpen(b) && b.day.rules.goal !== 'clear') bits.push('The hole is open.');
   // Golf (2026-10-13): a ball into the water goes back to the tee.
   b.pieces.forEach((p, i) => { if (p.splash && p.splash.t !== a.pieces[i].splash?.t) bits.push('Splash: into the water, and back to the tee.'); });
   if (b.shrunk.length > a.shrunk.length) bits.push('A square fell off the edge.');
@@ -616,7 +671,7 @@ $('#board').addEventListener('click', async (e) => {
     .sort((a, b) => (s.pieces[b].rides != null) - (s.pieces[a].rides != null));
   if (here.length) { const at = here.indexOf(sel); return select(at < 0 ? here[0] : at + 1 < here.length ? here[at + 1] : null); }
   select(null);
-  if (s.hole && s.hole.x === x && s.hole.y === y) return info(HOLE_DESC);
+  if (s.hole && s.hole.x === x && s.hole.y === y && !s.foes.some((f) => !f.taken && f.x === x && f.y === y)) return info(s.day.rules.goal === 'clear' ? `${EXIT_DESC} It is ${holeOpen(s) ? 'open' : 'shut'}.` : HOLE_DESC);
   if (s.cloudy && s.day.cloud?.has(y * s.day.W + x)) return info(cloudDesc(s.day.rules));
   if (crumbled(s, x, y)) return info(CRUMBLE_DESC);
   if (shrunk(s, x, y)) return info(SHRINK_DESC);
@@ -635,6 +690,7 @@ $('#board').addEventListener('click', async (e) => {
   if (f?.brain === 'leader') return info(leaderDesc(f, s.day));
   if (f?.brain === 'carrier') return info(carrierText(s, f));
   if (f?.brain === 'still') return info(`A statue of their ${nameOf(f).toLowerCase()}: it never moves and never takes. Take it.`);
+  if (f?.route) return info(`Their ${nameOf(f).toLowerCase()}. ${routeText(f)}`);
   if (f) info(f.mind ? `Their ${nameOf(f)}, with a ${f.patternName ? f.patternName.toLowerCase() + ' ' : ''}rabbit inside (intelligence ${f.mind.iq}).` : `Their ${nameOf(f)}. ${PIECES[f.type].desc}${carriesText(f)}`);
   const fl = flagAt(s);
   if (!f && fl && !fl.by && fl.x === x && fl.y === y) info('The rabbit to capture: take it, and the piece that took it carries it. Bring it back to your first row to win; if they take the piece carrying it, it is theirs to bring home.');
@@ -720,6 +776,7 @@ async function levelOver(end) {
     if (M.shop) return between({ note: `Round ${session.n}`, shop: true });
     return between({ note: `Round ${session.n}`, rewards: won && M.rewards });
   }
+  if (M.upgrades === 'par') return adventureOver(end);
   // A descent.
   const allGone = end.pieces.every((p) => p.taken);
   const kingGone = level.rules.royal && end.pieces.some((p) => p.taken && p.type === 'king');
@@ -742,19 +799,6 @@ async function levelOver(end) {
     if (!calm()) { await sleep(400); if (board.collapse) await board.collapse(); }
     return between({ note: `Depth ${session.n}`, board: true, fall: true });
   }
-  if (M.upgrades === 'par') {
-    // Adventure: over par one upgrade, on par a choice of two, under par a
-    // choice of three (Timothy, 2026-10-15). Not cleared counts as over.
-    const how = parVerdict(end.t, par, won);
-    session.n++; session.run.depth = session.n;
-    if (!test) { const r = mine(); r.best = Math.max(r.best || 0, session.n); saveRecords(); }
-    status(!won ? 'Out of moves: the floor gives way anyway.' : `${{ under: 'Under par', par: 'On par', over: 'Over par' }[how]}. The floor gives way.`);
-    if (!calm()) { await sleep(400); if (board.collapse) await board.collapse(); }
-    const cards = adventureCards(session.run, PAR_CARDS[how], rng(`reward:${session.seed}:${session.n}`), catalog.vetoed, session.n >= M.fairyFrom, M.findPool);
-    const note = !won ? 'Out of moves, but you take one thing with you.' : how === 'under' ? `Under par: ${end.t} moves, par ${par}. Choose one of three.`
-      : how === 'par' ? `On par: ${end.t} moves. Choose one of two.` : `Over par: ${end.t} moves, par ${par}. Take it; beat par for a choice.`;
-    return between({ note: `Depth ${session.n}`, rewards: true, cards, rewardNote: note, fall: true });
-  }
   // Recruiter: the first piece you took joins you, if there is room.
   let recruited = null;
   if (won && session.run.jokers.includes('recruiter') && session.firstCatch && PIECES[session.firstCatch]?.kind !== 'quarry'
@@ -775,6 +819,37 @@ async function levelOver(end) {
     + (recruited ? `Your first catch, the ${PIECES[recruited].name.toLowerCase()}, comes with you. ` : '')
     + lit.map((w) => `A waystone is lit at depth ${w.depth}: ${w.text}${w.id.startsWith('keepsake') && !M.keepsakes ? ' (Off for now: "Waystones give upgrades at the start" in the settings.)' : ''}`).join(' ');
   return between({ note: `Depth ${session.n}`, sub, rewards: won && M.rewards, combine: won, fall: true });
+}
+
+/**
+ * The end of an Adventure board (2026-10-15). Cleared: you jumped into the
+ * hole. Not cleared: out of moves, or they took the piece on the board, and
+ * the floor gives way anyway. Either way the piece they took is gone for
+ * good, every piece you took leaves its rabbit, three of a kind become that
+ * piece in your set, and you choose a card: one over par (or not cleared),
+ * a choice of two on par, three under. Lose your last piece and the
+ * adventure is over.
+ */
+async function adventureOver(end) {
+  const run = session.run, won = end.won, took = !won && end.pieces[0]?.taken ? nameOf(end.pieces[0]).toLowerCase() : null;
+  afterAdventure(run, end, session.pick || [0]);
+  const made = takeRabbits(run, end);
+  if (!run.hand.length) { status(`They took your ${took || 'last piece'}.`); await sleep(1600); return runOver('Every piece you had is gone.'); }
+  const how = parVerdict(end.t, par, won);
+  session.n++; run.depth = session.n;
+  if (!test) { const r = mine(); r.best = Math.max(r.best || 0, session.n); saveRecords(); }
+  status(won ? `${{ under: 'Under par', par: 'On par', over: 'Over par' }[how]}. Down the hole.`
+    : took ? `They took your ${took}: it is gone. The floor gives way.` : 'Out of moves: the floor gives way anyway.');
+  // Into the hole, you are already falling; otherwise the floor goes.
+  if (!calm()) { await sleep(won ? 700 : 400); if (!won && board.collapse) await board.collapse(); }
+  if (made.length) { sfx.fanfare(3); haptic([30, 40, 30, 40, 60]); }
+  const cards = adventureCards(run, PAR_CARDS[how], rng(`reward:${session.seed}:${session.n}`));
+  const note = !won ? 'Not cleared, but you take one thing with you.' : how === 'under' ? `Under par: ${end.t} moves, par ${par}. Choose one of three.`
+    : how === 'par' ? `On par: ${end.t} moves. Choose one of two.` : `Over par: ${end.t} moves, par ${par}. Take it; beat par for a choice.`;
+  const a = (t) => (/^[aeiou]/i.test(PIECES[t].name) ? 'An' : 'A');
+  const sub = [...made.map((t) => `Three ${PIECES[t].name.toLowerCase()} rabbits: ${a(t).toLowerCase()} ${PIECES[t].name.toLowerCase()} joins your set.`),
+    run.hand.length > run.maxPieces ? `You have ${run.hand.length} pieces: each board, ${run.maxPieces} of them take turns, drawn at random.` : ''].filter(Boolean).join(' ');
+  return between({ note: `Depth ${session.n}`, sub, rewards: true, cards, rewardNote: note, fall: true });
 }
 
 // --- Between levels: the fall, and what you find. -------------------------------

@@ -5,7 +5,8 @@
 import { el } from '../../engine/ui.js';
 import { Mesh, makeTarget, render } from '../../engine/lowpoly.js';
 import { model } from './models.js';
-import { PIECES, descOf, rabbitDesc, RABBIT_AI_DESC, BRAMBLE_DESC, STUMP_DESC, STATUE_ROW_DESC, statueDesc, HOLE_DESC, CRUMBLE_DESC, SHRINK_DESC, LOCKED_DESC, statueKind, leaderDesc } from './rules.js';
+import { PIECES, descOf, rabbitDesc, RABBIT_AI_DESC, BRAMBLE_DESC, STUMP_DESC, STATUE_ROW_DESC, statueDesc, HOLE_DESC, EXIT_DESC, CRUMBLE_DESC, SHRINK_DESC, LOCKED_DESC, statueKind, leaderDesc } from './rules.js';
+import { routeText } from './rabbits.js';
 import { diagram } from './board.js';
 import { patent } from './betza.js';
 
@@ -48,7 +49,10 @@ export function piecesSheet(dialog, list, day, notes = {}) {
       const P = PIECES[type];
       row(type, 'you', P.name, P.kind === 'fairy' ? 'Fairy piece' : P.kind === 'special' ? 'Special' : 'Classic', [descOf(type, day.rules), P.origin, ...patentLines(type)], true);
     }
-    if (day.hole) {
+    if (day.hole && day.rules.goal === 'clear') {
+      head('The goal');
+      row('flag', 'you', 'The hole', 'Jump in once they are all taken', [EXIT_DESC], false);
+    } else if (day.hole) {
       head('The goal');
       row('flag', 'you', 'The hole', 'Sink the ball here', [HOLE_DESC, day.rules.goal === 'descent' ? LOCKED_DESC : null,
         day.rules.ballStops ? 'On this level the ball has to come to rest on the hole; rolling over it is not enough.' : 'The ball drops in if it rolls over it.'],
@@ -68,7 +72,7 @@ export function piecesSheet(dialog, list, day, notes = {}) {
       } else {
         const P = PIECES[f.type];
         if (f.brain === 'still') row(f.type, 'grey', P.name, 'Theirs, a statue', ['A statue of theirs: it never moves and never takes. Take it.', P.desc, ...patentLines(f.type)], false);
-        else row(f.type, 'foe', P.name, f.brain === 'possessed' ? 'Theirs, with a rabbit inside' : 'Theirs, and it thinks', [P.desc, P.origin, ...patentLines(f.type)], true);
+        else row(f.type, 'foe', P.name, f.brain === 'possessed' ? 'Theirs, with a rabbit inside' : 'Theirs, and it thinks', [f.route ? routeText(f) : null, P.desc, P.origin, ...patentLines(f.type)], true);
       }
     }
     if (day.rules.crumble || day.rules.shrink || day.bramble.length || day.stumps.size || day.ghosts?.size || day.gates?.size || day.clouds?.length) head('On the board');

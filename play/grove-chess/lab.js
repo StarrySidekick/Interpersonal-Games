@@ -16,7 +16,7 @@
 // of its own version, so it still builds exactly the level it was.
 
 import { rng, shuffled } from '../../engine/seed.js';
-import { PIECES, onBoard, initialState, autoApply, isOver, TRAITS, leaderMind, WEAPON_KINDS, canArm } from './rules.js';
+import { PIECES, onBoard, initialState, autoApply, isOver, TRAITS, leaderMind, WEAPON_KINDS, canArm, foeMovesAny, routeSquares, movesFor } from './rules.js';
 import { PATTERNS } from './day.js';
 import { EXTRA_PATTERNS } from './rabbits.js';
 
@@ -120,6 +120,8 @@ export const SCHEMA = [
     { key: 'mineRows', sub: 'yours', label: 'Start within the bottom', type: 'int', min: 1, max: 5, def: 1, unit: 'rows', help: 'When not lined up.' },
     { key: 'arrange', sub: 'yours', label: 'Lay out your pieces first', type: 'bool', def: true,
       help: 'Before the first move, put your pieces where you like in your first two rows (Timothy, 2026-10-10). Nowhere that lets either side take a piece on its first move. Par is worked out again for your layout.' },
+    { key: 'cycle', sub: 'yours', label: 'One piece on the board, taking turns', type: 'bool', def: false,
+      help: 'Adventure (Timothy, 2026-10-15: "every turn you cycle through your piece set. so there is still always just one piece on the board"): only your first piece stands on the board, and after every turn it becomes the next piece of your set, in order, on the same square.' },
     { key: 'foes', sub: 'theirs', label: 'Pieces', type: 'int', min: 0, max: 12, def: 3, help: 'Dark versions of chess and fairy pieces.' },
     { key: 'foePool', sub: 'theirs', label: 'Dealt from', type: 'pieces', rabbit: true, def: ['king', 'knight', 'bishop', 'rook'] },
     { key: 'foeDupes', sub: 'theirs', label: 'Repeats allowed', type: 'bool', def: true },
@@ -167,8 +169,11 @@ export const SCHEMA = [
       help: 'Which kinds of mind can turn up. Aggressive goes for you; Hunter for your strongest piece; Shy keeps away; Guard stays with its own side; Messy is all over the place; Habit keeps a learnable pattern but steps round trouble.' },
     { key: 'rabbitBrain', sub: 'rabbits', label: 'Rabbits move by', type: 'choice', def: 'pattern', options: opts(['pattern', 'Hidden pattern'], ['ai', 'Thinking']) },
     { key: 'patterns', sub: 'rabbits', label: 'Rabbit patterns', type: 'choice', def: 'all', options: opts(
-      ['all', 'Every named kind'], ['daily', 'The daily set'], ['short', 'Random, 2 hops'], ['mid', 'Random, 3 to 4'], ['long', 'Random, 5 to 8'], ['wild', 'Random, big jumps']),
-      help: 'For free rabbits and the ones inside pieces. Every named kind has its own colour; "every named kind" adds three that pause.' },
+      ['all', 'Every named kind'], ['daily', 'The daily set'], ['short', 'Random, 2 hops'], ['mid', 'Random, 3 to 4'], ['long', 'Random, 5 to 8'], ['wild', 'Random, big jumps'], ['routes', 'Short routes (Adventure)']),
+      help: 'For free rabbits and the ones inside pieces. Every named kind has its own colour; "every named kind" adds three that pause. Short routes (Adventure, 2026-10-15): a rabbit inside a piece walks it along a short route made of that piece\u2019s own moves, there and back or round a square, that always comes home and can never get it stuck; a piece with no such route (a pawn) is a statue. Each route has its colour.' },
+    { key: 'routeKinds', sub: 'rabbits', label: 'Routes', type: 'multi', def: ['Shuttle', 'Doze', 'Box step', 'Pace'],
+      options: [{ v: 'Shuttle', label: 'Shuttle: there and back' }, { v: 'Doze', label: 'Doze: rest, there, rest, back' }, { v: 'Box step', label: 'Box step: round a square' }, { v: 'Pace', label: 'Pace: two there, rest, two back, rest' }],
+      help: 'For short routes: which kinds can turn up.' },
     { key: 'hops', sub: 'rabbits', label: 'Rabbit hops per turn', type: 'int', min: 1, max: 3, def: 1 },
     { key: 'realtime', sub: 'live', label: 'Kung fu: no turns', type: 'bool', def: false,
       help: 'Real time, after Kung-Fu Chess (2002): move any piece of yours whenever it is ready, and so do they. A move takes time to travel, so a piece can dodge, and a piece that has moved rests before it moves again. Take their King.' },
@@ -181,11 +186,11 @@ export const SCHEMA = [
   { ...part('goal'), fields: [
     { key: 'goal', label: 'How you win', type: 'choice', def: 'king', options: [...opts(
       ['king', 'Take their King'], ['capture', 'Capture'], ['carrier', 'Take the rabbit’s piece'], ['flag', 'Capture the rabbit, bring it home'],
-      ['descent', 'Catch them, then the ball'], ['rabbit', 'Catch the rabbit'], ['target', 'A marked one'], ['hole', 'Sink the ball'], ['mix', 'Mix it up']),
+      ['descent', 'Catch them, then the ball'], ['clear', 'Take them all, then jump in the hole'], ['rabbit', 'Catch the rabbit'], ['target', 'A marked one'], ['hole', 'Sink the ball'], ['mix', 'Mix it up']),
       // Capture them all and Catch any one are Capture with every one, or
       // one (2026-10-13); still read, so old links and boards play as they did.
       { v: 'all', label: 'Capture them all', hidden: true }, { v: 'any', label: 'Catch any one', hidden: true }],
-      help: 'Capture: take as many of theirs as "How many" says. Take the rabbit’s piece: a rabbit rides their pieces and hops from one to another; take the one it is on. Capture the rabbit, bring it home: a rabbit waits in the middle; take it and it rides your piece, take that piece and it rides theirs; carry it back to your first row (Timothy, 2026-10-13). Catch them, then the ball: the hole stays shut until every possessed piece and loose rabbit is caught, then sink the ball in it. King and rabbit make sure they have one. Sink the ball gives you a ball and a moving hole. Mix picks capture, King or rabbit per layout.' },
+      help: 'Capture: take as many of theirs as "How many" says. Take the rabbit’s piece: a rabbit rides their pieces and hops from one to another; take the one it is on. Capture the rabbit, bring it home: a rabbit waits in the middle; take it and it rides your piece, take that piece and it rides theirs; carry it back to your first row (Timothy, 2026-10-13). Catch them, then the ball: the hole stays shut until every possessed piece and loose rabbit is caught, then sink the ball in it. Take them all, then jump in the hole (Adventure, 2026-10-15): the hole stays shut until every piece of theirs is taken, then any piece of yours that lands on it jumps in and wins. King and rabbit make sure they have one. Sink the ball gives you a ball and a moving hole. Mix picks capture, King or rabbit per layout.' },
     { key: 'captureN', label: 'How many', type: 'int', min: 0, max: 8, def: 1, unit: 'of theirs',
       help: 'For Capture: take this many of their pieces to win, from one to every one (0).' },
     { key: 'rabbitMove', label: 'The rabbit is moved', type: 'choice', def: 'choose', options: opts(['choose', 'By its side, as a turn'], ['random', 'By itself, at random']),
@@ -647,6 +652,13 @@ export function makeLevel(settings, seed) {
   const mySpots = exact ? null : T && ordered ? twoRows(myRow, myTypes.length, (r, n) => tileLine(T.home[0] + r, n, 1))
     : ordered ? twoRows(myRow, myTypes.length, (r, n) => inRow(rows[r] ?? rows[0], n)) : S.lineup ? lineUp(rows, myTypes.length) : null;
   let pieces = exact ? fromCells(S.cells, S.cellMods, 'you') : myTypes.map((type, i) => ({ type, ...(mySpots ? mySpots[i] : place(bottom)), ...(S.handMods?.[i] || {}) }));
+  // One piece on the board, taking turns (cycle, Adventure): the first of
+  // the set stands there; the rest wait in order, and their squares are free.
+  if (S.cycle && pieces.length > 1 && !exact) {
+    day.cycle = pieces.map(({ x, y, ...own }) => own);
+    for (const p of pieces.slice(1)) if (p.x !== undefined) taken.delete(p.y * W + p.x);
+    pieces = pieces.slice(0, 1);
+  }
 
   let foes;
   if (exact) foes = fromCells(S.foeCells, S.foeCellMods, 'foe');
@@ -694,6 +706,8 @@ export function makeLevel(settings, seed) {
   // Rabbits, then the ball: every rabbit is marked, and the hole stays shut
   // until they are all caught.
   if (goal === 'descent') foes.forEach((f) => { if (f.type === 'rabbit' || S.darkBrain === 'possessed') f.target = true; });
+  // Take them all, then the hole: every one of theirs is marked.
+  if (goal === 'clear') foes.forEach((f) => { if (f.type !== 'rabbit') f.target = true; });
 
   // Capture the rabbit (2026-10-13, Timothy: "rabbit in the center of a 7x7
   // board"): it waits on the middle square, which nothing else is dealt onto.
@@ -708,6 +722,13 @@ export function makeLevel(settings, seed) {
   // their side of the board. (This draws its random numbers only on ball
   // levels, so every other level stays exactly as it was.)
   let hole = null;
+  // The way out of a cleared level: a hole on any free square, shut until
+  // every piece of theirs is taken. It does not move, and nothing becomes
+  // a ball.
+  if (goal === 'clear') {
+    const spot = place(rows);
+    if (spot.x !== undefined) hole = { x: spot.x, y: spot.y, mx: 1, my: 1 };
+  }
   if (goal === 'hole' || goal === 'descent') {
     if (pieces.length) pieces[0].type = 'ball';
     const spot = place(top);
@@ -726,7 +747,8 @@ export function makeLevel(settings, seed) {
   // before version 3 come out exactly as they did.)
   const pickPattern = () => (S.patterns === 'daily' ? PATTERNS[Math.floor(rand() * PATTERNS.length)]
     : S.patterns === 'all' ? ALL_PATTERNS[Math.floor(rand() * ALL_PATTERNS.length)] : randomPattern(S.patterns, rand));
-  const possessed = S.darkBrain === 'possessed' ? foes.filter((f) => f.type !== 'rabbit') : [];
+  const routes = S.darkBrain === 'possessed' && S.patterns === 'routes';
+  const possessed = S.darkBrain === 'possessed' && !routes ? foes.filter((f) => f.type !== 'rabbit') : [];
   const kindPats = possessed.length ? Array.from({ length: Math.min(S.kinds, possessed.length) }, pickPattern) : [];
   foes.forEach((f) => {
     if (possessed.includes(f)) {
@@ -745,7 +767,7 @@ export function makeLevel(settings, seed) {
   // Statues of theirs (Adventure, 2026-10-15): the first `still` of their
   // pieces never move and never take; they are there to be taken. Drawn in
   // grey. (No random numbers, so levels without them deal as before.)
-  if (S.still > 0) foes.filter((f) => f.type !== 'rabbit').slice(0, S.still).forEach((f) => { f.brain = 'still'; delete f.pattern; delete f.patternName; });
+  if (S.still > 0 && !routes) foes.filter((f) => f.type !== 'rabbit').slice(0, S.still).forEach((f) => { f.brain = 'still'; delete f.pattern; delete f.patternName; });
   // One rabbit leads them (darkBrain 'rabbit', 2026-10-13): a Rabbit on
   // their King's head (one given in their lineup, or a new one), with a
   // trait and an intelligence. Their pieces think as it says (leaderMind).
@@ -859,7 +881,7 @@ export function makeLevel(settings, seed) {
     if (S.rabbitSides === 'both') ride(pieces, false);
   }
 
-  return Object.assign(day, {
+  Object.assign(day, {
     seed, settings: S, shrinkKey: seed, pieces, foes,
     goalKind: goal, hole,
     rules: { goal: ['king', 'rabbit', 'target'].includes(goal) ? 'target' : goal, maxMoves: S.maxMoves, wait: S.wait,
@@ -877,6 +899,120 @@ export function makeLevel(settings, seed) {
     ai: lead || { skill: +S.skill, style: S.style },
     tracks: S.tracks
   });
+  if (routes) dealRoutes(day, S, rand);
+  return day;
+}
+
+// --- Routes (Adventure, 2026-10-15). -------------------------------------------
+// Timothy: "enemy pieces possessed by rabbits still move each turn, each one
+// of them. rabbits have colors like before representing what set pattern
+// that move in. the pattern should generally be short, super predictable,
+// and not land the piece in a stuck position."
+//
+// A route is made of the piece's own moves: `v` is one of its moves, the
+// shortest of its kind (a rook's one square, a knight's L), and `w` another.
+// Each kind of route has a name and a colour of fur, the Grove's own where
+// one already walks that shape. Every route comes home, so it repeats
+// forever; it is dealt only where every square of it is free, no two routes
+// share a square, and it never bounces off an edge (routeSquares, rules.js).
+// Nothing but your piece can stand in its way: a piece that finds you on
+// its next square takes you, or, if it cannot, waits and tries again.
+
+const neg = ([x, y]) => [-x, -y];
+export const ROUTES = {
+  Shuttle: { len: 2, steps: (v) => [v, neg(v)] },
+  Doze: { len: 4, steps: (v) => [[0, 0], v, [0, 0], neg(v)] },
+  'Box step': { len: 4, steps: (v, w) => [v, w, neg(v), neg(w)], two: true },
+  Pace: { len: 6, steps: (v) => [v, v, [0, 0], neg(v), neg(v), [0, 0]] }
+};
+
+/** The routes a level allows, by its routeKinds setting: a list of names. */
+const routeKinds = (S) => (S.routeKinds?.length ? S.routeKinds : Object.keys(ROUTES)).filter((k) => ROUTES[k]);
+
+/** Give each piece of theirs a route, or make it a statue: as many as the
+    level wants moving (all but `still`), tried in a random order, each with
+    a random kind of route that fits. Mutates the level. */
+function dealRoutes(day, S, rand) {
+  const s = initialState(day), W = day.W, used = new Set(), reach = setReach(day);
+  // Your square, and the hole, are off every route.
+  for (const p of day.pieces) used.add(p.y * W + p.x);
+  if (day.hole) used.add(day.hole.y * W + day.hole.x);
+  const army = day.foes.map((f, k) => k).filter((k) => day.foes[k].type !== 'rabbit' && day.foes[k].type !== 'bunny');
+  // Every other piece's own square is off this one's route.
+  for (const k of army) used.add(day.foes[k].y * W + day.foes[k].x);
+  let want = Math.max(0, army.length - S.still);
+  for (const k of shuffled(army, rand)) {
+    const f = day.foes[k];
+    const route = want > 0 ? findRoute(s, k, used, routeKinds(S), rand, reach) : null;
+    if (route) {
+      Object.assign(f, { brain: 'possessed', pattern: route.steps, patternName: route.name, route: true, mx: 1, my: 1 });
+      for (const q of route.squares) used.add(q);
+      want--;
+    } else { f.brain = 'still'; delete f.pattern; delete f.patternName; delete f.route; }
+    s.foes[k] = { ...f, i: 0, taken: false };
+  }
+  // Pawns cannot walk a route (they never step back), so a level dealt all
+  // pawns would have nobody walking: a pawn becomes another of the pool.
+  const walkers = S.foePool.filter((t) => t !== 'pawn' && PIECES[t]);
+  for (const k of shuffled(army.filter((j) => day.foes[j].type === 'pawn'), rand)) {
+    if (want <= 0 || !walkers.length) break;
+    const f = day.foes[k];
+    f.type = walkers[Math.floor(rand() * walkers.length)];
+    s.foes[k] = { ...f, i: 0, taken: false };
+    const route = findRoute(s, k, used, routeKinds(S), rand, reach);
+    if (route) {
+      Object.assign(f, { brain: 'possessed', pattern: route.steps, patternName: route.name, route: true, mx: 1, my: 1 });
+      for (const q of route.squares) used.add(q);
+      s.foes[k] = { ...f, i: 0, taken: false };
+      want--;
+    } else { f.type = 'pawn'; s.foes[k] = { ...f, i: 0, taken: false }; }
+  }
+  // Somewhere your set can get to (a lone bishop keeps to its colour): every
+  // statue, and the hole, moved there if it is not. (Routes already touch it.)
+  const free = shuffled([...reach].filter((q) => !used.has(q)), rand);
+  const move = (o) => { const q = free.pop(); if (q === undefined) return; used.delete(o.y * W + o.x); o.x = q % W; o.y = Math.floor(q / W); used.add(q); };
+  for (const f of day.foes) if (f.brain === 'still' && !reach.has(f.y * W + f.x)) move(f);
+  if (day.hole && !reach.has(day.hole.y * W + day.hole.x)) move(day.hole);
+}
+
+/** Every square your set can get to from where you start, on the board
+    with nothing else on it, whichever of your pieces is on the board: the
+    squares where theirs can be taken. */
+function setReach(day) {
+  const s = initialState(day), W = day.W, me = s.pieces[0];
+  if (!me) return new Set();
+  const types = [...new Set((day.cycle || day.pieces).map((p) => p.type))];
+  s.foes = []; s.hole = null; delete s.set; delete s.clouds;
+  const seen = new Set([me.y * W + me.x]), todo = [me.y * W + me.x];
+  while (todo.length) {
+    const q = todo.pop();
+    for (const type of types) {
+      s.pieces = [{ type, x: q % W, y: Math.floor(q / W), taken: false }];
+      for (const m of movesFor(s, 0)) { const k = m.y * W + m.x; if (!seen.has(k)) { seen.add(k); todo.push(k); } }
+    }
+  }
+  return seen;
+}
+
+/** A route for piece k of theirs, that walks only on squares not `used`
+    (its own aside): { name, steps, squares }, or null. */
+function findRoute(s, k, used, kinds, rand, reach = null) {
+  const f = s.foes[k], W = s.day.W, home = f.y * W + f.x;
+  // Its own shortest moves: nothing between where it is and where it lands.
+  const g = (a, b) => (b ? g(b, a % b) : a);
+  const vs = foeMovesAny(s, k).filter((m) => !m.cap && g(Math.abs(m.x - f.x), Math.abs(m.y - f.y)) === 1).map((m) => [m.x - f.x, m.y - f.y]);
+  if (!vs.length) return null;
+  for (const name of shuffled(kinds, rand)) {
+    const R = ROUTES[name];
+    for (const v of shuffled(vs, rand)) {
+      const ws = R.two ? shuffled(vs.filter((w) => w[0] * v[0] + w[1] * v[1] === 0 && (w[0] || w[1])), rand) : [null];
+      for (const w of ws) {
+        const steps = R.steps(v, w), squares = routeSquares(s, k, steps);
+        if (squares && squares.every((q) => q === home || !used.has(q)) && (!reach || squares.some((q) => reach.has(q)))) return { name, steps, squares };
+      }
+    }
+  }
+  return null;
 }
 
 /** Kung fu's timings, in the rules: ms a square, and each side's rest. */
@@ -948,7 +1084,7 @@ export const GOAL_TEXT = {
 export const GOAL_PILL = {
   capture: 'Capture', carrier: 'Take the rabbit’s piece', flag: 'Bring the rabbit home',
   descent: 'Catch them, then the ball', all: 'Capture them all', king: 'Take their King', rabbit: 'Catch the rabbit', any: 'Catch any one', target: 'Catch the marked one',
-  hole: 'Sink the ball'
+  hole: 'Sink the ball', clear: 'Take them all, then the hole'
 };
 
 /** One line saying what a level is. */
@@ -1146,7 +1282,9 @@ export function searchLayouts({ settings, seed, parMin, parMax, maxTries = 400, 
       const o = openingCaptures(level);
       if (o.yours || o.theirs) { skipped++; thrown['a piece could capture on the first move'] = (thrown['a piece could capture on the first move'] || 0) + 1; continue; }
     }
-    const r = solveLevel(level, { maxDepth: parMax, deadline: t0 + maxMs });
+    // Quick (Adventure) skips the balance report, so it can afford a wider
+    // search for a truer par.
+    const r = solveLevel(level, { maxDepth: parMax, deadline: quick ? Math.min(t0 + maxMs, Date.now() + 2500) : t0 + maxMs, ...(quick ? { exactCap: 20000, width: 240, branch: 16, budget: 400000 } : {}) });
     tried = i + 1;
     // Quick (Adventure, 2026-10-15): winnable at the right length is all
     // that is asked; no balance report and no novice games, which are most

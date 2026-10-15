@@ -12,6 +12,20 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
+## 2026-10-15, latest: Adventure with rabbits, a hole, and a set that takes turns
+
+From Timothy: rabbits possessing their pieces again; a hole that opens when
+the board is cleared, which you jump into; one piece on the board, cycling
+through your set every turn; every possessed piece moving every turn, on a
+short, predictable pattern in its rabbit's colour that never gets it stuck;
+past five pieces, five drawn at random each board; and pieces earned by
+capturing, three rabbits of a kind making that piece. Built, in
+[`docs/adventure.md`](docs/adventure.md). Decided without him, and his to
+change: the piece they take is gone for good and the board ends there (the
+floor gives way); rabbits come from statues too, not only from possessed
+pieces; a new piece joins between boards, not mid-board; pawns can join
+your set like anything else.
+
 ## 2026-10-15, after that: everything in the Grove
 
 From Timothy: "adventure should be rebuilt as a grove mode, shelve

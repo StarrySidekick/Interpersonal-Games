@@ -20,6 +20,9 @@ export const EXTRA_PATTERNS = [
 
 export const FUR = {
   'Doze': '#78c3dc', 'Lurk': '#5c6b7c', 'Pace': '#c8435f',
+  // Adventure's routes (lab.js ROUTES): Doze, Box step and Pace walk the
+  // shapes of the patterns of those names; the shuttle is new.
+  'Shuttle': '#ef8d32',
   'Hopscotch': '#e8a33d', 'Zigzag': '#3fae9f', 'Wobble': '#e07a9a', 'Sidestep': '#8f7fd1',
   'Knight’s jig': '#4f86d6', 'Long leap': '#c45a3c', 'Corner run': '#e3cc3c', 'Box step': '#6f9a48',
   'Spiral': '#a855c4', 'Two up, one back': '#8b6a4f', 'Skip': '#e2865a', 'Drift': '#93aec4',
@@ -29,12 +32,23 @@ export const FUR = {
 
 /** A word for each fur, for sentences. */
 export const FUR_WORD = {
-  'Doze': 'sky blue', 'Lurk': 'slate', 'Pace': 'crimson',
+  'Doze': 'sky blue', 'Lurk': 'slate', 'Pace': 'crimson', 'Shuttle': 'tangerine',
   'Hopscotch': 'amber', 'Zigzag': 'teal', 'Wobble': 'pink', 'Sidestep': 'lavender',
   'Knight’s jig': 'blue', 'Long leap': 'rust', 'Corner run': 'yellow', 'Box step': 'moss green',
   'Spiral': 'violet', 'Two up, one back': 'brown', 'Skip': 'orange', 'Drift': 'mist blue',
   'Aggressive': 'red', 'Hunter': 'burnt orange', 'Shy': 'pale blue', 'Guard': 'deep green', 'Messy': 'candy pink', 'Habit': 'gold'
 };
+
+/** Adventure's routes in words (lab.js ROUTES), for a piece that walks one. */
+export const ROUTE_SAY = {
+  'Shuttle': 'there and back, a move every turn',
+  'Doze': 'a rest, a move there, a rest, a move back',
+  'Box step': 'round a square, a move every turn',
+  'Pace': 'two moves there, a rest, two moves back, a rest'
+};
+
+/** "A tangerine rabbit inside walks it there and back, ..." */
+export const routeText = (f) => `A ${FUR_WORD[f.patternName] || ''} rabbit inside walks it ${ROUTE_SAY[f.patternName] || 'on a route'} (${f.patternName}), and it takes you if you stand where it steps next. Its whole route is dashed on the board, and its next step drawn solid.`;
 
 const KEY = 'ig.grove.rabbits.v1';
 
