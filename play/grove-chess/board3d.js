@@ -866,6 +866,7 @@ export class Board3D extends Board {
       if (f.brain !== 'pattern' && f.brain !== 'possessed') return;
       const col = (f.brain === 'possessed' && this.fur(f)) || TRACK[n % TRACK.length];
       n++;
+      if (f.route) { if (!f.taken) this.route(g, f, col, line, inSq); return; }
       const P = [];
       for (const st of track) { const q = st.foes[k]; if (q.taken) break; P.push([q.x, q.y]); }
       for (let i = 1; i < P.length; i++) {
@@ -886,6 +887,24 @@ export class Board3D extends Board {
         line([this.mid(...P[i - 1]), this.mid(...P[i])], rgba(col, 0.55), 1.3, [2, 3]);
       }
     }
+  }
+
+  /** A route (Adventure, 2026-10-15): all of it, faint and dashed, from
+      where the piece stands round to where it ends up again; and its next
+      step, solid, to a frame on the square it moves to next turn. A rest
+      next: a dashed frame on its own square. The colour is its rabbit's. */
+  route(g, f, col, line, inSq) {
+    const L = f.pattern.length, pts = [[f.x, f.y]];
+    let x = f.x, y = f.y;
+    for (let j = 0; j < L; j++) {
+      const [dx, dy] = f.pattern[(f.i + j) % L];
+      if (dx || dy) { x += dx; y += dy; pts.push([x, y]); }
+    }
+    for (let j = 1; j < pts.length; j++) line([this.mid(...pts[j - 1]), this.mid(...pts[j])], rgba(col, 0.4), 1.2, [2, 3]);
+    const [dx, dy] = f.pattern[f.i % L], tx = f.x + dx, ty = f.y + dy;
+    if (dx || dy) line([this.mid(f.x, f.y), this.mid(tx, ty)], rgba(col, 0.9), 2);
+    const box = [[4, 4], [24, 4], [24, 24], [4, 24], [4, 4]].map(([a, b]) => inSq(tx, ty, a, b));
+    line(box, rgba(col, 0.95), 2, dx || dy ? null : [2, 2]);
   }
 
   /** The lines of finished games, one colour per player. */
@@ -978,9 +997,10 @@ export class Board3D extends Board {
       // carrier goes, up on top.
       const carrier = p.rides != null ? s.pieces[p.rides] : null;
       if (carrier && !carrier.taken) { h += HEAD * BIG; if (tw?.piece?.i === p.rides) ({ x, y } = tweenPos(tw.piece, at)); }
-      if (s.sunk && p.type === 'ball') {
+      if (s.sunk && (p.type === 'ball' || s.day.rules.goal === 'clear')) {
         // The ball rolls to the hole, then drops into it: from above, it
-        // shrinks away into the dark.
+        // shrinks away into the dark. (So does your piece, jumping in at
+        // the end of a cleared level.)
         if (collapse) { x = s.hole.x; y = s.hole.y; o = { s: away(at - collapse.t0 - 150) }; }
         else if (!tw?.sinkAt || at >= tw.sinkAt + 420) return;
         else if (at > tw.sinkAt) o = { s: 1 - ((at - tw.sinkAt) / 420) ** 2 };
@@ -1000,7 +1020,7 @@ export class Board3D extends Board {
         }
       }
       if (this.landing) { const l = this.landing(i, at); if (l === null) return; h += l * LIFT; }
-      if (collapse && !(s.sunk && p.type === 'ball')) {
+      if (collapse && !(s.sunk && (p.type === 'ball' || s.day.rules.goal === 'clear'))) {
         // Falling, from above: tipping over and shrinking away.
         const k = at - collapse.t0 - 260 - i * 110;
         if (k > 0) o = { rz: (i % 2 ? 1 : -1) * Math.min(1.2, k / 700), rx: Math.min(0.8, k / 900), s: away(k) };

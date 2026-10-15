@@ -444,7 +444,7 @@ export class Board {
       // An eaten piece stays on the board until whatever ate it lands.
       if (p.taken && !(tw?.eaten?.has(i) && at < tw.landAt)) return;
       // A sunk ball rolls to the hole, then it is gone.
-      if (s.sunk && p.type === 'ball' && !(tw?.sinkAt && at < tw.sinkAt)) return;
+      if (s.sunk && (p.type === 'ball' || s.day.rules.goal === 'clear') && !(tw?.sinkAt && at < tw.sinkAt)) return;
       let x = p.x, y = p.y;
       if (tw?.piece?.i === i) ({ x, y } = tweenPos(tw.piece, at));
       if (tw?.mine?.[i]) ({ x, y } = tweenPos(tw.mine[i], at));

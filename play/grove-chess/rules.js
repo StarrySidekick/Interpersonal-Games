@@ -227,9 +227,11 @@ function breakStatue(s, x, y) {
 }
 
 /** Is the hole open? On a descent level it stays shut until every rabbit
-    has been caught; anywhere else it is always open. A shut hole is just
-    ground: anything can stand on it and the ball rolls straight over. */
-export const holeOpen = (s) => s.day.rules.goal !== 'descent' || s.foes.every((f) => !f.target || f.taken);
+    has been caught, and on a clearing level (Adventure, goal 'clear') until
+    every piece of theirs has been; anywhere else it is always open. A shut
+    hole is just ground: anything can stand on it and the ball rolls
+    straight over. */
+export const holeOpen = (s) => (s.day.rules.goal !== 'descent' && s.day.rules.goal !== 'clear') || s.foes.every((f) => !f.target || f.taken);
 
 /** Can this foe take your pieces? Rabbits have their own rule (and by
     default they do not eat); the first daily boards, which predate it, fall
@@ -651,7 +653,9 @@ export function look(s, x, y, side = 'you') {
   // The rabbit to capture (goal 'flag', 2026-10-13), while nobody carries
   // it: something either side can take.
   if (s.flag && !s.flag.by && s.flag.x === x && s.flag.y === y) return ENEMY;
-  if (s.hole && s.hole.x === x && s.hole.y === y && holeOpen(s)) return HOLE;
+  // (On a clearing level the open hole is ground to land on: movesFor
+  // keeps your pieces from sliding over it, and landing there is the win.)
+  if (s.hole && s.hole.x === x && s.hole.y === y && holeOpen(s) && s.day.rules.goal !== 'clear') return HOLE;
   const sq = y * s.day.W + x;
   // A statue that can be taken reads as something to take, to either side
   // (not to a ball, which only stops at it).
@@ -1175,6 +1179,7 @@ export function ballDesc(rules) {
 export const descOf = (type, rules) => (type === 'ball' ? ballDesc(rules) : PIECES[type].desc);
 
 export const LOCKED_DESC = 'The hole stays shut until every rabbit is caught. Shut, it is only ground: anything can stand on it and the ball rolls over it. Once it opens, sink the ball to fall through to the next level.';
+export const EXIT_DESC = 'The way down. It stays shut until every piece of theirs is taken; shut, it is only ground, and anything can stand on it. Once it opens, move your piece onto it to jump in and fall to the next level. A piece that slides cannot pass over the open hole (it would fall in); one that leaps can. Take the last of theirs while you stand on it, and you drop straight in.';
 export const HOLE_DESC = 'The hole. It moves by its own hidden pattern after every turn, bounces off the edges, and waits if anything is in the way. Nothing but the ball can go in it.';
 
 // --- Level rules. ----------------------------------------------------------
@@ -1222,8 +1227,42 @@ export function initialState(day) {
   // piece at the beginning of the round invincibility until it moves for the
   // first time in the round, denoted by a bubble around the piece").
   if (day.rules.bubbles) for (const q of [...s.pieces, ...s.foes]) if (!['ball', 'bunny', 'rabbit'].includes(q.type)) q.bubble = true;
+  // Your set, taking turns on one square (Adventure, 2026-10-15): the piece
+  // on the board is the first of them.
+  if (day.cycle?.length > 1) { s.set = day.cycle.map((e) => ({ ...e })); s.ci = 0; }
   if (day.rules.first === 'them') { foesAct(s); s.opened = true; }
   return s;
+}
+
+// --- Your set, taking turns (Adventure, 2026-10-15). -------------------------
+// Timothy: "every turn you cycle through your piece set. so there is still
+// always just one piece on the board." The board holds one piece of yours;
+// at the end of every turn it becomes the next piece of your set, in order,
+// on the same square, and after the last comes the first again. Each piece
+// of the set keeps what is its own (its suit, its weapon, a heart spent, a
+// Changeling's borrowed shape) while it waits its turn.
+
+/** What a piece carries that is about where it is and what is happening to
+    it now, not what it is: these stay on the board when it changes. */
+const PLACE = ['x', 'y', 'from', 'taken', 'rides', 'stun', 'bubble', 'ate', 'blocked', 'rested', 'wounded', 'splash'];
+
+/** The end of a turn: the piece on the board becomes the next of your set.
+    Mutates. */
+function nextInSet(n) {
+  const p = n.pieces[0];
+  if (!n.set || n.set.length < 2 || !p || p.taken || n.won) return;
+  const own = {}, keep = {};
+  for (const [k, v] of Object.entries(p)) (PLACE.includes(k) ? keep : own)[k] = v;
+  n.set[n.ci] = own;
+  n.ci = (n.ci + 1) % n.set.length;
+  n.pieces[0] = { ...n.set[n.ci], ...keep };
+}
+
+/** Your set's order from the piece on the board on: what it is now, what
+    it will be next turn, and so on. Each is { type, suit, weapon, ... }. */
+export function setOrder(s) {
+  if (!s.set) return [];
+  return s.set.map((_, k) => (k === 0 ? s.pieces[0] : s.set[(s.ci + k) % s.set.length]));
 }
 
 export function clone(s) {
@@ -1231,7 +1270,8 @@ export function clone(s) {
     hole: s.hole ? { ...s.hole } : null, gone: s.gone.slice(), shrunk: s.shrunk ? s.shrunk.slice() : [], open: s.open ? s.open.slice() : [], won: s.won, sunk: s.sunk,
     bonus: s.bonus || null, treasure: s.treasure || 0, foeTreasure: s.foeTreasure || 0, ft: s.ft || 0, ...(s.cloudy ? { cloudy: true } : {}),
     ...(s.ghostGone ? { ghostGone: s.ghostGone.slice(), ghostsLost: s.ghostsLost || 0 } : {}), ...(s.clouds ? { clouds: s.clouds.map((c) => ({ ...c })) } : {}),
-    ...(s.flag ? { flag: { ...s.flag } } : {}), ...(s.flagLost ? { flagLost: true } : {}), ...(s.ep ? { ep: { ...s.ep } } : {}) };
+    ...(s.flag ? { flag: { ...s.flag } } : {}), ...(s.flagLost ? { flagLost: true } : {}), ...(s.ep ? { ep: { ...s.ep } } : {}),
+    ...(s.set ? { set: s.set.map((e) => ({ ...e })), ci: s.ci } : {}) };
 }
 
 const youLook = (s) => (x, y) => look(s, x, y, 'you');
@@ -1363,7 +1403,20 @@ export function movesFor(s, i) {
   if (p.suit === 'gears') {
     s.pieces.forEach((q, k) => { if (k !== i && !q.taken && q.type !== 'ball' && q.rides == null && q.brain !== 'carrier') ms.push({ x: q.x, y: q.y, cap: false, swap: true }); });
   }
-  return ms;
+  return exitMoves(s, p, ms);
+}
+
+/** The way out of a cleared level (goal 'clear', Adventure, 2026-10-15,
+    Timothy: "after the level is completed, a hole opens up and you jump into
+    it to go to the next level"). Once it is open, a move that lands on the
+    hole jumps in (`sink`), and a slide cannot pass over it: it would fall
+    in on the way. A leap goes over, as a knight goes over anything. */
+function exitMoves(s, p, ms) {
+  const h = s.hole;
+  if (s.day.rules.goal !== 'clear' || !h || !holeOpen(s)) return ms;
+  const k = new Set([h.y * s.day.W + h.x]);
+  return ms.filter((m) => m.swap || m.wrapped || !throughCloud(k, s.day.W, p, m))
+    .map((m) => (m.x === h.x && m.y === h.y && !m.swap ? { ...m, sink: true } : m));
 }
 
 const onFoe = (s, m) => s.foes.some((f) => !f.taken && f.x === m.x && f.y === m.y);
@@ -1488,7 +1541,7 @@ export function isLegal(s, mv) {
 
 function goalMet(s) {
   const g = s.day.rules.goal, F = s.foes;
-  if (g === 'hole' || g === 'descent' || g === 'flag') return false; // only the ball in the hole, or the rabbit brought home, wins
+  if (g === 'hole' || g === 'descent' || g === 'flag' || g === 'clear') return false; // only the ball (or, clearing, your piece) in the hole, or the rabbit brought home, wins
   if (g === 'any') return F.some((f) => f.taken);
   // Capturing (2026-10-13): any number of theirs, from one to every one
   // (captureN 0). The rabbit riding them is not one of them.
@@ -1692,8 +1745,32 @@ function possessedStep(s, f, force = false) {
     const key = [off ? 1 : 0, delta(s.day, m.x - tx, 'x') ** 2 + delta(s.day, m.y - ty, 'y') ** 2, mx * mx + my * my, m.y, m.x];
     if (!bk || before(key, bk)) { best = m; bk = key; }
   }
-  if (!best) { f.blocked = true; return; }
+  // A piece walking a route (Adventure) that cannot take its step tries the
+  // same step next turn, so it never falls out of step with its route.
+  if (!best) { f.blocked = true; if (f.route) f.i = (f.i + f.pattern.length - 1) % f.pattern.length; return; }
   foeLand(s, s.foes.indexOf(f), best);
+}
+
+/**
+ * Where a piece of theirs would walk with pattern `steps` from where it
+ * stands: the squares of one whole turn round the pattern, on the level as
+ * dealt and with nothing else moving. Null if it would ever be blocked,
+ * bounce off an edge, or not end back where it began, facing the same way.
+ * For dealing Adventure's routes (lab.js), which have to be safe from
+ * getting stuck. Does not change s.
+ */
+export function routeSquares(s, k, steps) {
+  const c = clone(s), f = c.foes[k];
+  c.pieces = []; // nothing of yours in the way: a route is checked bare
+  Object.assign(f, { pattern: steps, i: 0, mx: 1, my: 1, brain: 'possessed', route: true });
+  const W = s.day.W, home = f.y * W + f.x, out = [home];
+  for (let n = 0; n < steps.length; n++) {
+    possessedStep(c, f);
+    if (f.blocked || f.mx !== 1 || f.my !== 1) return null;
+    const at = f.y * W + f.x;
+    if (!out.includes(at)) out.push(at);
+  }
+  return f.y * W + f.x === home ? out : null;
 }
 
 /** The pattern foes all hop, the possessed pieces take their steps, and
@@ -1801,6 +1878,8 @@ export function reachMaps(s, pattern = false) {
     // moveset present as a purple reach outline"); nor does a rabbit that
     // rides their pieces.
     if (f.taken || f.flying || f.brain === 'pattern' || f.brain === 'leader' || f.brain === 'carrier' || f.brain === 'still') continue;
+    // A piece walking a route (Adventure) only ever goes to its next square.
+    if (f.route) { const [dx, dy] = f.pattern[f.i % f.pattern.length]; if ((dx || dy) && canTake(s.day.rules, f)) theirs.add((f.y + dy) * W + f.x + dx); continue; }
     const ms = pieceMoves(s, f, 'foe');
     for (const m of ms) { theirs.add(m.y * W + m.x); for (const q of capturesOf(m, W)) theirs.add(q); }
     // A sword strikes round every square it could land on: all of those are
@@ -2303,6 +2382,9 @@ function landMine(n, i, x, y, m = null) {
   if (f) captureFoe(n, f, i);
   if (flagFree(n, y * n.day.W + x)) { n.flag.by = 'you'; n.flag.i = i; }
   if (p.type === 'ball' && n.hole && p.x === n.hole.x && p.y === n.hole.y && holeOpen(n)) n.won = n.sunk = true;
+  // A cleared level: your piece on the open hole jumps in, whether it came
+  // to the hole or took the last of theirs standing on it while it was shut.
+  if (n.day.rules.goal === 'clear' && n.hole && p.x === n.hole.x && p.y === n.hole.y && holeOpen(n)) n.won = n.sunk = true;
   // Catching the last rabbit opens the hole; a ball already resting on
   // the shut hole drops straight in.
   const b = f && n.day.rules.goal === 'descent' && holeOpen(n) && n.pieces.find((q) => q.type === 'ball' && !q.taken);
@@ -2588,6 +2670,7 @@ export function apply(s, mv) {
   if (n.bonus) return n;
   theirTurn(n);
   if (n.cloudy) delete n.cloudy; // as in respond(): the cloud lifts
+  nextInSet(n);
   n.t++;
   afterMove(n);
   return n;
@@ -2602,6 +2685,7 @@ export function respond(n) {
   theirTurn(c);
   // Both sides have had their first move: the cloud lifts.
   if (c.cloudy) delete c.cloudy;
+  nextInSet(c);
   c.t++;
   afterMove(c);
   return c;
@@ -2616,6 +2700,7 @@ export function respondWith(n, m) {
   if (c.bonus) return c;
   theirTurn(c, m);
   if (c.cloudy) delete c.cloudy;
+  nextInSet(c);
   c.t++;
   afterMove(c);
   return c;
@@ -2647,6 +2732,8 @@ export function stateKey(s) {
   if (s.bonus) k += `|b${s.bonus.p}${s.bonus.cap ? 'c' : ''}`;
   if (s.cloudy) k += '|c';
   if (s.day.rules.oneMove) k += `|f${s.ft || 0}`; // whose turn it is on their side
+  // Your set (Adventure): which of it is on the board, and what each keeps.
+  if (s.set) k += `|k${s.ci}` + s.set.map((e, j) => j === s.ci ? '' : (e.lives > 1 ? 'L' + e.lives : '') + (e.starUsed ? '*' : '') + (e.shape ? '~' + e.shape : '') + (e.moved && e.type === 'pawn' ? 'm' : '')).join(',');
   k += '|';
   for (const f of s.foes) k += f.taken ? '--' : f.x + ',' + f.y + ',' + f.i + (f.lives > 1 ? 'L' + f.lives : '') + (f.starUsed ? '*' : '') + (f.mx > 0 ? '+' : '-') + (f.my > 0 ? '+' : '-') + (f.idle ? 'i' + f.idle : '') + (f.stun ? 'z' : '') + (f.bubble ? 'o' : '') + (f.moved && f.type === 'pawn' && s.day.rules.pawnTwo ? 'm' : '') + (f.promoted ? f.type : '') + (f.shape ? '~' + f.shape : '') + ';';
   if (s.flag) k += `|F${s.flag.by || ''}${s.flag.i},${s.flag.x},${s.flag.y}`;

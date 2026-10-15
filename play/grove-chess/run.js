@@ -237,9 +237,10 @@ export function cardText(card) {
 /** What a hand piece carries, for a level: hearts, suit, weapon. */
 const modOf = (h) => ({ ...(h.lives > 1 ? { lives: h.lives } : {}), ...(h.suit ? { suit: h.suit } : {}), ...(h.weapon ? { weapon: h.weapon, wl: h.wl || 1 } : {}), ...(h.row === 1 ? { row: 1 } : {}) });
 
-export function handSettings(run) {
+export function handSettings(run, pick = null) {
   const types = [], mods = [];
-  for (const h of run.hand) {
+  // Adventure's set for this board (adventureSet), or the whole hand.
+  for (const h of pick ? pick.map((i) => run.hand[i]) : run.hand) {
     const { type } = pieceOf(h, run.made);
     types.push(type);
     mods.push(modOf(h));
@@ -554,25 +555,72 @@ export const parVerdict = (moves, par, won) => (!won || !par ? 'over' : moves < 
 /** "you always get one though, par gives you two, better than par gives three" */
 export const PAR_CARDS = { under: 3, par: 2, over: 1 };
 
-/** Adventure's cards after a board: `n` of them, never the same twice. A
-    new piece comes first while you have room, after depths 2, 4 and 7 (so
-    even a single card brings it), and now and then otherwise; the rest are
+/** Adventure's cards after a board: `n` of them, never the same twice:
     suits and weapons some piece of yours can take (a weapon it has already
-    goes up a level). The run's depth is already the next one. */
-export function adventureCards(run, n, rand, veto = [], fairy = true, pool = null) {
-  const cleared = run.depth - 1, room = run.hand.length < run.maxPieces;
-  const pieceCard = () => {
-    const have = new Set(run.hand.map((h) => h.base));
-    const cards = rewardsFor({ ...run, hand: run.hand.slice(0, run.maxPieces - 1) }, rand, veto, fairy)
-      .filter((c) => c.kind === 'piece' && (!pool || pool.includes(c.type)));
-    return cards.find((c) => !have.has(c.type)) || cards[0] || null;
-  };
-  const out = [];
-  if (room && ([2, 4, 7].includes(cleared) || (run.hand.length === 1 && cleared >= 2))) { const c = pieceCard(); if (c) out.push(c); }
-  const rest = [];
+    goes up a level). New pieces come from rabbits, not cards (below). */
+export function adventureCards(run, n, rand) {
+  const rest = [], out = [];
   if (run.hand.some((h) => !h.suit)) for (const suit of Object.keys(SUITS)) rest.push({ kind: 'suit', suit });
   for (const w of WEAPON_ORDER) if (run.hand.some((h) => canTakeWeapon(h, w, run.made))) rest.push({ kind: 'weapon', weapon: w });
-  if (room && !out.length && rand() < 0.35) { const c = pieceCard(); if (c) rest.push(c); }
   while (out.length < n && rest.length) out.push(rest.splice(Math.floor(rand() * rest.length), 1)[0]);
   return out;
+}
+
+// --- Adventure's set and its rabbits (2026-10-15). ------------------------------
+// Timothy: "when you get another piece, it now enters your set, and every
+// turn you cycle through your piece set ... when you collect more than 5
+// pieces, instead of then entering your set to cycle you now shuffle out of
+// your total randomly each level as to which ones land in your set five
+// piece cycle for that round ... you have to capture three of a piece to
+// get a copy of it, so capturing gives you a rabbit of that piece, and three
+// rabbits combine into one piece that enters your set."
+//
+// run.hand is everything you have collected; the set is the part of it that
+// takes turns on the board this level (at most run.maxPieces, five).
+
+/** How many rabbits of one kind make that piece. */
+export const RABBITS_FOR_PIECE = 3;
+
+/** This board's set: indexes into run.hand, in the order you got them. All
+    of them while they fit; past that, as many as fit, drawn at random. */
+export function adventureSet(run, rand) {
+  const all = run.hand.map((_, i) => i);
+  if (all.length <= run.maxPieces) return all;
+  const pool = all.slice(), out = [];
+  while (out.length < run.maxPieces) out.push(pool.splice(Math.floor(rand() * pool.length), 1)[0]);
+  return out.sort((a, b) => a - b);
+}
+
+/** After an Adventure board: the piece of the set that was on the board
+    when they took it is gone for good; hearts spent stay spent. `pick` is
+    the board's set (adventureSet). Mutates. */
+export function afterAdventure(run, end, pick) {
+  const gone = new Set();
+  pick.forEach((h, j) => {
+    const onBoard = !end.set || j === end.ci, live = onBoard ? end.pieces[0] : end.set[j];
+    if (!live) return;
+    if (onBoard && live.taken) { gone.add(h); return; }
+    if (run.hand[h].lives > 1) run.hand[h] = { ...run.hand[h], lives: live.lives ?? run.hand[h].lives };
+  });
+  for (const h of gone) run.lost.push(run.hand[h]);
+  run.hand = run.hand.filter((_, i) => !gone.has(i));
+}
+
+/** The rabbits of what you took on a board, one for each piece of theirs
+    taken, kept by kind; every three of a kind become that piece, which joins
+    your collection. Returns the kinds of piece made. Mutates. */
+export function takeRabbits(run, end) {
+  run.rabbits = run.rabbits || {};
+  const made = [];
+  for (const f of end.foes) {
+    if (!f.taken || !PIECES[f.type] || ['rabbit', 'bunny', 'ball'].includes(f.type)) continue;
+    run.rabbits[f.type] = (run.rabbits[f.type] || 0) + 1;
+    if (run.rabbits[f.type] >= RABBITS_FOR_PIECE) {
+      run.rabbits[f.type] -= RABBITS_FOR_PIECE;
+      run.hand.push({ base: f.type });
+      run.found.push(f.type);
+      made.push(f.type);
+    }
+  }
+  return made;
 }

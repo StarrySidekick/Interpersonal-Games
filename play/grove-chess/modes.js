@@ -187,12 +187,18 @@ export const MODES = {
     // few moves is possible. getting within par gives more upgrade options
     // ... levels get progressively harder in some random way. each run is
     // different." The board climbs in levelSettings (upgrades 'par').
-    name: 'Adventure', blurb: 'Start with one piece: a rook, a bishop or a knight. Take every piece of theirs in as few moves as you can. Most are grey statues that never move; deeper down, purple ones that do, and wandering clouds that hide what is under them. Beat par to choose from more upgrades: suits, weapons, and new pieces, up to four. Lose every piece and the adventure is over.',
+    // The same day, later: "i want rabbits possessing the pieces again ...
+    // after the level is completed, a hole opens up and you jump into it to
+    // go to the next level"; one piece on the board, cycling through your
+    // set; every possessed piece moving each turn on a short route; more
+    // than five pieces, five drawn at random each board; and new pieces
+    // only from capturing, three rabbits of a kind making that piece.
+    name: 'Adventure', blurb: 'Start with one piece: a rook, a bishop or a knight. Take every piece of theirs, then jump into the hole that opens, in as few moves as you can. Grey statues stand still; pieces with a rabbit inside walk short routes, and the rabbit\u2019s colour says which. Every piece you take leaves its rabbit with you, and three of a kind become that piece, which joins your set: one piece on the board, turning into the next of your set every turn. Beat par for a choice of suits and weapons.',
     settings: {
-      run: 'descent', roll: 'fixed', upgrades: 'par', startPieces: 1, maxPieces: 4, startPool: ['rook'], rewards: true, jokers: false, carry: false, keepsakes: false, outOfMoves: 'fall', fairyFrom: 4, ramp: 'steady',
-      goal: 'capture', captureN: 0, royal: false, showdown: false, promote: 'none', fullRow: false, lineup: false, inOrder: false, mineRows: 1, foeRows: 4, arrange: false, cloud: false, ghosts: false,
-      w: 5, h: 5, foes: 3, still: 3, foePool: ['pawn', 'knight', 'bishop', 'rook', 'king'], darkBrain: 'think', skill: '1', style: 'balanced', rabbitMind: 'pattern', rabbits: 0,
-      foesCapture: true, statues: 0, clouds: 0, maxMoves: 40, parMin: 1, parMax: 10, difficulty: 'any', balance: 'off', minEngage: 0, minCeiling: 0
+      run: 'descent', roll: 'fixed', upgrades: 'par', startPieces: 1, maxPieces: 5, startPool: ['rook'], rewards: true, jokers: false, carry: false, keepsakes: false, outOfMoves: 'fall', fairyFrom: 4, ramp: 'steady',
+      goal: 'clear', captureN: 0, royal: false, showdown: false, promote: 'none', fullRow: false, lineup: false, inOrder: false, mineRows: 1, foeRows: 4, arrange: false, cloud: false, ghosts: false, cycle: true,
+      w: 5, h: 5, foes: 3, still: 2, foePool: ['pawn', 'knight', 'bishop', 'rook', 'king'], darkBrain: 'possessed', patterns: 'routes', routeKinds: ['Shuttle'], oneMove: false, kinds: 1, skill: '1', style: 'balanced', rabbitMind: 'pattern', rabbits: 0,
+      foesCapture: true, statues: 0, clouds: 0, maxMoves: 40, parMin: 1, parMax: 12, difficulty: 'any', balance: 'off', minEngage: 0, minCeiling: 0
     }
   },
   kungfu: {
@@ -469,6 +475,7 @@ export function describe(S) {
   if (run === 'descent') {
     const finds = S.upgrades === 'tiles' ? 'After every round each side turns over a tile at the edge of the board, the winner first: the board grows by that square, and its suit or weapon goes to that side. At each size up (as many squares as six by seven, then seven by eight, and so on) both sides get the same new piece'
       : S.upgrades === 'each' ? 'Each new board, both sides get an upgrade: you choose one of two (a suit or a weapon), they get one at random'
+      : S.upgrades === 'par' ? `Every piece of theirs you take leaves you its rabbit, and three of a kind become that piece, which joins your set; past ${S.maxPieces}, each board draws ${S.maxPieces} of them at random. After each board, a suit or a weapon: one over par, a choice of two on par, three under`
       : S.rewards ? `Finishing a board finds you a piece, up to ${S.maxPieces}, then upgrades${S.jokers ? ' and jokers' : ''}` : 'Nothing is found';
     const more = [S.upgrades === 'each' && S.growAt ? `the board is 7 × 7 from depth ${S.growAt}` : '', S.boardGrows ? 'the board grows' : '',
       S.fairyFrom > 1 ? `fairy pieces from depth ${S.fairyFrom}` : '', S.carry ? 'what you find carries over to later descents' : ''].filter(Boolean);
@@ -597,24 +604,24 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
   if (M.run === 'descent' && M.upgrades === 'par') {
     // Adventure (2026-10-15): harder every board, in a way picked at random
     // from what the depth allows. More of theirs; a bigger board, and from
-    // depth 3 an odd shape; wandering clouds from depth 3 on about half the
-    // boards; from depth 4 some of theirs that move, more of them deeper;
-    // fairy pieces among theirs from "Fairy pieces from depth". Most of
-    // theirs are statues (still): they never move, they are there to take.
+    // depth 3 an odd shape; wandering clouds from depth 5 on some boards;
+    // fairy pieces among theirs from "Fairy pieces from depth". Some of
+    // theirs are statues (still), which never move; the rest have a rabbit
+    // inside and walk a short route (patterns 'routes'), one of them on the
+    // first board and more deeper, with longer routes as you go: there and
+    // back first, then with rests, then round a square, then two there.
     const d = depth;
     const size = d <= 2 ? 5 : d <= 7 ? pick([5, 6, 6]) : pick([6, 6, 7]);
-    const movers = d >= 4 && rand() < Math.min(1, 0.55 + d * 0.05) ? Math.min(3, 1 + Math.floor((d - 4) / 5) + (rand() < 0.3 ? 1 : 0)) : 0;
     const theirs = Math.min(9, size + 2, 2 + Math.floor(d * 0.6) + int(0, 1));
+    const movers = Math.max(1, Math.min(5, theirs - 1, 1 + Math.floor(d / 3) + (rand() < 0.35 ? 1 : 0)));
     Object.assign(S, {
       w: size, h: size, shape: d < 3 ? 'rect' : pick(['rect', 'rect', 'diamond', 'round', 'cross', 'cheese']),
       ground: d < 6 ? 'solid' : pick(['solid', 'solid', 'solid', 'crumble']),
       foes: theirs, still: Math.max(1, theirs - movers), foeRows: size - 1, mineRows: 1, lineup: false, fullRow: false,
+      routeKinds: d <= 2 ? ['Shuttle'] : d <= 4 ? ['Shuttle', 'Doze'] : d <= 7 ? ['Shuttle', 'Doze', 'Box step'] : ['Shuttle', 'Doze', 'Box step', 'Pace'],
       foePool: classicUntil(d < M.fairyFrom, ['pawn', 'knight', 'bishop', 'rook', 'king'], ['camel', 'zebra', 'cannon', 'ferz', 'wazir', ...(d >= 8 ? ['queen', 'archbishop', 'changeling'] : [])]),
-      clouds: d >= 3 && rand() < 0.45 ? (d >= 9 && rand() < 0.4 ? 2 : 1) : 0,
-      // Theirs that move look one move ahead, then two from depth 9; never
-      // three, which makes every board slow to find.
-      statues: 0, skill: d < 9 ? '1' : '2',
-      parMin: 1, parMax: Math.min(24, 8 + d * 2), maxMoves: 40, aim: 0
+      clouds: d >= 5 && rand() < 0.3 ? (d >= 9 && rand() < 0.4 ? 2 : 1) : 0,
+      statues: 0, parMin: 1, parMax: Math.min(26, 10 + d * 2), maxMoves: 40, aim: 0
     });
   }
   if (M.run === 'descent' && M.realtime) {
