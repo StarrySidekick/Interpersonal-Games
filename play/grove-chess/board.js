@@ -439,7 +439,7 @@ export class Board {
       const sq = day.bramble[i];
       things.push({ img: sprite('bramble'), x: sq % day.W, y: Math.floor(sq / day.W), under: true });
     }
-    if (hole) things.push({ img: sprite('flag'), x: hole.x + 0.32, y: hole.y + 0.12 });
+    if (hole && day.rules.goal !== 'clear') things.push({ img: sprite('flag'), x: hole.x + 0.32, y: hole.y + 0.12 });
     if (!this.hidePieces) s.pieces.forEach((p, i) => {
       // An eaten piece stays on the board until whatever ate it lands.
       if (p.taken && !(tw?.eaten?.has(i) && at < tw.landAt)) return;
@@ -829,7 +829,7 @@ export function scene(day, s = null, fur = () => null) {
     // A shut hole (rabbits still loose) has its twig cover on.
     const shut = !holeOpen(s || { day, foes: day.foes });
     m.add(new Model().lathe([[3.3, 0.02], [3.3, 0.08]], shut ? '#8a6a3c' : '#1a130b', { seg: 12 }), x0(h.x) + T / 2, 0, z0(h.y) + T / 2, id++);
-    m.add(model('flag'), x0(h.x) + T / 2 + 2, 0, z0(h.y) + T / 2 - 1, id++);
+    if (day.rules?.goal !== 'clear') m.add(model('flag'), x0(h.x) + T / 2 + 2, 0, z0(h.y) + T / 2 - 1, id++);
   }
   if (day.bramble.length) at('bramble', 'you', day.bramble[0] % W, Math.floor(day.bramble[0] / W), id++);
   for (const p of (s || day).pieces) if (!p.taken) at(p.type, 'you', p.x, p.y, id++);

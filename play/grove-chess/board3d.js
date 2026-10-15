@@ -984,7 +984,9 @@ export class Board3D extends Board {
     if (s.hole && !collapse) {
       let hx = s.hole.x, hy = s.hole.y;
       if (tw?.hole) ({ x: hx, y: hy } = tweenPos(tw.hole, at));
-      stand(model('flag'), hx + 0.3, hy + 0.15, 0, 300);
+      // A flag marks golf's hole; Adventure's way down is just a hole
+      // (Timothy, 2026-10-15: "the hole shouldn't have the flag in this mode").
+      if (day.rules.goal !== 'clear') stand(model('flag'), hx + 0.3, hy + 0.15, 0, 300);
     }
     // Yours.
     // Shields only where something could take: none on a golf hole.
