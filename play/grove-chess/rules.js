@@ -265,6 +265,20 @@ export function canTake(rules, f) {
 // `push` ([{ from, to }], to -1 when the pushed piece is taken), `stun`.
 
 const SWORD = { 1: [[0, 1]], 2: [[0, 1], [-1, 0], [1, 0]], 3: [[0, 1], [-1, 0], [1, 0], [-1, 1], [1, 1]] };
+// A sword that aims (rules.swordAims, Adventure, 2026-10-15, Timothy: "the
+// sword should be based on the direction you move, not just the space
+// above"): the same fan, turned to face the way the move went, to the
+// nearest of the eight directions. Each is a turn of that direction in
+// eighths: straight on (1), and square to each side (2), and half way
+// between (3).
+const DIR8 = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]];
+const SWORD_AIM = { 1: [0], 2: [0, 2, -2], 3: [0, 2, -2, 1, -1] };
+/** The squares a sword that aims strikes, for a move by (dx, dy) landing
+    on (x, y): as [dx, dy] steps from where it lands. */
+export function swordAim(dx, dy, lv) {
+  const d = Math.round(Math.atan2(dy, dx) / (Math.PI / 4));
+  return SWORD_AIM[Math.max(1, Math.min(3, lv || 1))].map((k) => DIR8[(((d + k) % 8) + 8) % 8]);
+}
 const MACE = { 1: [[0, 1], [0, -1]], 2: [[0, 1], [0, -1], [-1, 0], [1, 0]], 3: [[0, 1], [0, -1], [-1, 0], [1, 0], [-1, 1], [1, 1], [-1, -1], [1, -1]] };
 export const WEAPON_KINDS = ['sword', 'lance', 'mace'];
 
@@ -313,7 +327,9 @@ function armed(s, p, side, ms) {
   if (p.weapon === 'sword') {
     return ms.filter((m) => m.swap || !m.cap).map((m) => {
       if (m.swap) return m;
-      const strike = around(m, SWORD[lv]).filter((q) => takeable(s, side, q));
+      const strike = (s.day.rules.swordAims
+        ? swordAim(m.x - p.x, m.y - p.y, lv).map(([dx, dy]) => sqOf(m.x + dx, m.y + dy)).filter((q) => q >= 0 && q !== home)
+        : around(m, SWORD[lv])).filter((q) => takeable(s, side, q));
       return strike.length ? { ...m, strike } : m;
     });
   }
@@ -1403,6 +1419,11 @@ export function movesFor(s, i) {
   if (p.suit === 'gears') {
     s.pieces.forEach((q, k) => { if (k !== i && !q.taken && q.type !== 'ball' && q.rides == null && q.brain !== 'carrier') ms.push({ x: q.x, y: q.y, cap: false, swap: true }); });
   }
+  // Gears in a set that takes turns (Adventure, 2026-10-15, Timothy: "of
+  // gears should allow you to skip the piece in the cycle"): when it comes
+  // up, it may step aside for the next piece of the set, which comes on and
+  // moves instead. It costs no move; once a turn.
+  if (p.suit === 'gears' && s.set?.length > 1 && s.bonus?.why !== 'gears' && !s.bonus) ms.push({ x: p.x, y: p.y, cap: false, skip: true });
   return exitMoves(s, p, ms);
 }
 
@@ -1523,9 +1544,10 @@ export function allMoves(s) { return withGrid(s, () => allMoves0(s)); }
 function allMoves0(s) {
   const out = [];
   if (s.bonus) {
-    // Waiting ends a turn a suit left open.
+    // Waiting ends a turn a suit left open (after Gears, only if the piece
+    // that came on cannot move).
     for (const m of movesFor(s, s.bonus.p)) out.push({ p: s.bonus.p, ...m });
-    return [{ p: -1, x: 0, y: 0, cap: false }, ...out];
+    return s.bonus.why === 'gears' && out.length ? out : [{ p: -1, x: 0, y: 0, cap: false }, ...out];
   }
   s.pieces.forEach((_, i) => { for (const m of movesFor(s, i)) out.push({ p: i, ...m }); });
   return s.day.rules.wait || !out.length ? [{ p: -1, x: 0, y: 0, cap: false }, ...out] : out;
@@ -1534,7 +1556,7 @@ function allMoves0(s) {
 const canMove = (s) => s.pieces.some((_, i) => movesFor(s, i).length);
 
 export function isLegal(s, mv) {
-  if (mv.p === -1) return !s.won && (!!s.bonus || s.day.rules.wait || !canMove(s));
+  if (mv.p === -1) return !s.won && ((!!s.bonus && s.bonus.why !== 'gears') || s.day.rules.wait || !canMove(s));
   if (mv.p < 0 || mv.p >= s.pieces.length || s.pieces[mv.p].taken) return false;
   return movesFor(s, mv.p).some((m) => m.x === mv.x && m.y === mv.y);
 }
@@ -1869,7 +1891,7 @@ export function reachMaps(s, pattern = false) {
   if (s.won) return { yours, theirs, threat: theirs };
   s.pieces.forEach((p, i) => {
     if (p.taken || p.flying) return;
-    for (const m of movesFor(s, i)) if (!m.swap) { yours.add(m.y * W + m.x); for (const q of capturesOf(m, W)) yours.add(q); }
+    for (const m of movesFor(s, i)) if (!m.swap && !m.skip) { yours.add(m.y * W + m.x); for (const q of capturesOf(m, W)) yours.add(q); }
     if (pattern && p.type !== 'ball') for (const k of patternReach(s, p, 'you', true)) yours.add(k);
   });
   for (const f of s.foes) {
@@ -2397,6 +2419,7 @@ function landMine(n, i, x, y, m = null) {
     its weapon does, and the promotion if one is named (the strongest if
     not). Moves of pieces with nothing of the kind are left as they are. */
 function fullMove(s, mv) {
+  if (mv.skip) return mv;
   const p = s.pieces[mv.p];
   if (!p || mv.strike || mv.pass || mv.push || mv.stun || (!p.weapon && !(s.day.rules.promote === 'copy' && p.type === 'pawn'))) return mv;
   const same = movesFor(s, mv.p).filter((m) => m.x === mv.x && m.y === mv.y && !!m.swap === !!mv.swap);
@@ -2411,6 +2434,8 @@ export function playerMove(s, mv) {
   if (mv.p >= 0) mv = fullMove(s, mv);
   const n = clone(s), was = n.bonus;
   n.bonus = null;
+  // Gears: the next of your set comes on, and the turn stays open for it.
+  if (mv.skip && n.set) { nextInSet(n); n.bonus = { p: 0, cap: false, why: 'gears' }; return n; }
   delete n.broke; delete n.bumped; delete n.revived;
   // En passant on theirs is now or never.
   if (n.ep?.side === 'foe') delete n.ep;
@@ -2729,7 +2754,7 @@ export function replay(day, moves) {
 export function stateKey(s) {
   let k = '';
   for (const p of s.pieces) k += p.taken ? '--' : p.x + ',' + p.y + (p.lives > 1 ? 'L' + p.lives : '') + (p.starUsed ? '*' : '') + (p.stun ? 'z' : '') + (p.bubble ? 'o' : '') + (p.moved && p.type === 'pawn' && s.day.rules.pawnTwo ? 'm' : '') + (p.promoted ? p.type : '') + (p.shape ? '~' + p.shape : '') + ';';
-  if (s.bonus) k += `|b${s.bonus.p}${s.bonus.cap ? 'c' : ''}`;
+  if (s.bonus) k += `|b${s.bonus.p}${s.bonus.cap ? 'c' : ''}${s.bonus.why === 'gears' ? 'g' : ''}`;
   if (s.cloudy) k += '|c';
   if (s.day.rules.oneMove) k += `|f${s.ft || 0}`; // whose turn it is on their side
   // Your set (Adventure): which of it is on the board, and what each keeps.

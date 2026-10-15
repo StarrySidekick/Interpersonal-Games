@@ -674,6 +674,17 @@ export class Board {
       sfx.slide(at(tw.turn.t0));
       t = tw.turn.t0 + tw.turn.dur;
     }
+    // Your set takes its turn (Adventure, 2026-10-15, Timothy: "we need a
+    // quick animation for when the pieces cycle on the board"): the piece on
+    // the board turns into the next, spinning down into its plinth as the
+    // next spins up, with a burst of leaves between (board3d.js draws it).
+    const p0 = a.pieces[0], p1 = b.pieces[0];
+    if (a.set && b.set && a.ci !== b.ci && p0 && p1 && !p1.taken && !b.won) {
+      tw.morph = { i: 0, from: p0, t0: t + 60 * slow, dur: 560 * slow };
+      tw.leaves.push(leafBurst(p1.x, p1.y, tw.morph.t0 + tw.morph.dur * 0.42));
+      sfx.turn(at(tw.morph.t0));
+      t = tw.morph.t0 + tw.morph.dur;
+    }
     for (const x of [tw.piece, tw.hole, ...Object.values(tw.foes), ...Object.values(tw.mine || {})]) wrapTween(x, this.day);
     this.tw = tw;
     return this.runUntil(Math.max(t, tw.crumble ? tw.crumble.t0 + tw.crumble.dur : 0));

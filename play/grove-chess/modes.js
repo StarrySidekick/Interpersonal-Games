@@ -196,7 +196,7 @@ export const MODES = {
     name: 'Adventure', blurb: 'Start with one piece: a rook, a bishop or a knight. Take every piece of theirs, then jump into the hole that opens, in as few moves as you can. Grey statues stand still; pieces with a rabbit inside walk short routes, and the rabbit\u2019s colour says which. Every piece you take leaves its rabbit with you, and three of a kind become that piece, which joins your set: one piece on the board, turning into the next of your set every turn. Beat par for a choice of suits and weapons.',
     settings: {
       run: 'descent', roll: 'fixed', upgrades: 'par', startPieces: 1, maxPieces: 5, startPool: ['rook'], rewards: true, jokers: false, carry: false, keepsakes: false, outOfMoves: 'fall', fairyFrom: 4, ramp: 'steady',
-      goal: 'clear', captureN: 0, royal: false, showdown: false, promote: 'none', fullRow: false, lineup: false, inOrder: false, mineRows: 1, foeRows: 4, arrange: false, cloud: false, ghosts: false, cycle: true,
+      goal: 'clear', captureN: 0, royal: false, showdown: false, promote: 'none', fullRow: false, lineup: false, inOrder: false, mineRows: 1, foeRows: 4, arrange: false, cloud: false, ghosts: false, cycle: true, swordAims: true,
       w: 5, h: 5, foes: 3, still: 2, foePool: ['pawn', 'knight', 'bishop', 'rook', 'king'], darkBrain: 'possessed', patterns: 'routes', routeKinds: ['Shuttle'], oneMove: false, kinds: 1, skill: '1', style: 'balanced', rabbitMind: 'pattern', rabbits: 0,
       foesCapture: true, statues: 0, clouds: 0, maxMoves: 40, parMin: 1, parMax: 12, difficulty: 'any', balance: 'off', minEngage: 0, minCeiling: 0
     }

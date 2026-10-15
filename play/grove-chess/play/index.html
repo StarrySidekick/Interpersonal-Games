@@ -28,6 +28,17 @@
   .chipline { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
   #board { width: 100%; max-width: 460px; margin: 0 auto; touch-action: manipulation; }
   #status { min-height: 26px; margin: 10px 0 2px; font-weight: 600; }
+  /* Adventure: the piece that comes on next, right under the board. */
+  #nextup { display: flex; justify-content: center; align-items: center; gap: 8px; margin: 8px auto 0; font-size: 14px; }
+  #nextup .slot { display: flex; align-items: center; gap: 4px; padding: 2px 10px 2px 4px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); }
+  #nextup .slot.next { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  #nextup .slot.then { opacity: .6; }
+  #nextup canvas { width: 30px; height: 36px; }
+  #nextup .lbl { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+  #nextup .arrow { color: var(--dim); }
+  #nextup.turn .slot.next { animation: nextpop .45s cubic-bezier(.3, 1.6, .6, 1); }
+  @keyframes nextpop { from { transform: scale(.7); } to { transform: none; } }
+  @media (prefers-reduced-motion: reduce) { #nextup.turn .slot.next { animation: none; } }
   #info { min-height: 44px; font-size: 15px; color: var(--dim); margin-bottom: 10px; }
   .fallnote { text-align: center; font-size: 22px; font-weight: 700; margin: 10px 0 0; }
   #fallcv { display: block; width: 100%; max-width: 420px; margin: 6px auto 0; border-radius: 14px; }
@@ -177,6 +188,7 @@
     </div>
     <div class="chipline" id="chips"></div>
     <canvas id="board" class="pix" aria-label="The board"></canvas>
+    <div id="nextup" aria-live="polite" hidden></div>
     <p id="status"></p>
     <p id="info"></p>
     <div id="setup" hidden>
@@ -201,6 +213,7 @@
     <div id="controls">
       <div class="row">
         <button class="quiet" id="wait">Wait a turn</button>
+        <button class="quiet" id="skip" hidden>Skip</button>
         <button class="quiet" id="best" title="Plays the best move it can find for you (for testing)">Best move</button>
         <button class="quiet" id="pieces">Pieces</button>
       </div>

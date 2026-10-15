@@ -238,7 +238,7 @@ function draw() {
 }
 
 function hud() {
-  if (M.upgrades === 'par' && session?.run) setRow();
+  if (M.upgrades === 'par' && session?.run) { setRow(); nextUp(); }
   $('#movecount').textContent = now().t;
   const hop = hopIn(now());
   $('#movemax').textContent = [level.rules.maxMoves && !(M.run === 'course' && par) ? `of ${level.rules.maxMoves}` : '', par ? `${M.run === 'course' ? 'of ' : '· '}par ${par}` : '', hop ? `· the rabbit hops ${hop === 1 ? 'next turn' : `in ${hop}`}` : ''].filter(Boolean).join(' ');
@@ -255,6 +255,27 @@ function rabbitCounts(s = now()) {
     out.get(f.type).now++;
   }
   return [...out.values()].map(({ type, base, now: n }) => ({ type, have: (base + n) % RABBITS_FOR_PIECE, made: Math.floor((base + n) / RABBITS_FOR_PIECE) })).filter((r) => r.have || r.made);
+}
+
+/** Adventure (2026-10-15, Timothy: "a clear little icon thing underneath
+    the board to show what piece comes up next"): right under the board, the
+    piece that comes on after this turn, and the one after that, faded. It
+    pops when it changes. */
+let lastNext = null;
+function nextUp() {
+  const s = now(), box = $('#nextup'), order = s.set ? setOrder(s) : [];
+  if (order.length < 2 || s.pieces[0]?.taken || s.won) { box.hidden = true; lastNext = null; return; }
+  const icon = (p) => { const cv = el('canvas', { class: 'pix', width: 30, height: 36 }); cv.getContext('2d').drawImage(sprite(p.type, myLook()), 0, 0); return cv; };
+  const marks = (p) => [p.suit && SUITS[p.suit] ? el('span', { class: 'suit', style: `color:${SUITS[p.suit].colour}` }, SUITS[p.suit].mark) : null,
+    p.weapon && WEAPONS[p.weapon] ? el('span', { class: 'suit' }, WEAPONS[p.weapon].mark) : null];
+  const next = order[1], key = `${s.ci}:${next.type}:${s.t}`;
+  box.replaceChildren(
+    el('span', { class: 'lbl' }, 'Next'),
+    el('span', { class: 'slot next' }, icon(next), el('span', {}, ...marks(next), ' ', nameOf(next))),
+    ...(order.length > 2 ? [el('span', { class: 'arrow' }, '›'), el('span', { class: 'slot then' }, icon(order[2]), el('span', { class: 'small' }, nameOf(order[2])))] : []));
+  box.hidden = false;
+  if (lastNext !== null && lastNext !== key) { box.classList.remove('turn'); void box.offsetWidth; box.classList.add('turn'); }
+  lastNext = key;
 }
 
 /** Adventure (2026-10-15): your set in the order it takes turns, from the
@@ -516,6 +537,7 @@ function carrierText(s, f) {
 /** What a turn a suit left open says. */
 function bonusLine(s) {
   const p = s.pieces[s.bonus.p], name = nameOf(p);
+  if (s.bonus.why === 'gears') return `Gears: skipped. Your ${name.toLowerCase()} comes on: its move.`;
   return s.bonus.why === 'vines' ? `Vines: your ${name} can take again. Take one, or end the turn.`
     : `Stars: your ${name} moves again. Move it, or end the turn.`;
 }
@@ -527,12 +549,16 @@ function select(i) {
   const passOk = allMoves(now()).some((m) => m.p === -1);
   $('#wait').hidden = !passOk;
   $('#wait').textContent = now().bonus ? 'End turn' : now().day.rules.wait ? 'Wait a turn' : 'Pass (nothing can move)';
-  legal = i == null ? [] : movesFor(now(), i);
+  legal = i == null ? [] : movesFor(now(), i).filter((m) => !m.skip);
+  // Gears in Adventure: skip to the next piece of your set, by a button.
+  const skip = movesFor(now(), 0).find((m) => m.skip), next = skip && setOrder(now())[1];
+  $('#skip').hidden = !skip;
+  if (next) $('#skip').textContent = `⚙ Skip to the ${nameOf(next).toLowerCase()}`;
   if (i == null) info(level.hole ? (holeOpen(now()) ? `Tap a piece to see where it can go. The hole is open${level.rules.goal === 'clear' ? ': jump in' : ''}.` : `Tap a piece to see where it can go. The hole opens once ${level.rules.goal === 'clear' ? 'every piece of theirs is taken' : 'every rabbit is caught'}.`) : 'Tap a piece to light up where it can go.');
   else {
     const p = now().pieces[i], type = p.type;
     if (p.brain === 'carrier') info(`Your rabbit, riding your ${nameOf(now().pieces[p.rides] || p)}: if they take the piece it rides, you lose. ${legal.length ? 'Tap another of your pieces to move it there; that is your move for the turn.' : hopIn(now()) ? 'It hops by itself, at random.' : 'It has nowhere to go right now.'}`);
-    else info(`${nameOf({ type })}: ${descOf(type, now().day.rules)}${carriesText(p)}${legal.length || p.stun ? '' : ' It has nowhere to go right now.'}`);
+    else info(`${nameOf({ type })}: ${descOf(type, now().day.rules)}${carriesText(p, M.upgrades === 'par')}${legal.length || p.stun ? '' : ' It has nowhere to go right now.'}`);
   }
   draw();
 }
@@ -701,6 +727,7 @@ $('#board').addEventListener('click', async (e) => {
 });
 
 $('#wait').onclick = () => play({ p: -1, x: 0, y: 0 });
+$('#skip').onclick = () => { const p = now().pieces[0]; if (p) play({ p: 0, x: p.x, y: p.y, skip: true }); };
 // The best move, for testing (2026-10-14): whatever the mode.
 $('#best').onclick = async () => {
   if (!board || !game || busy || isOver(now())) return;
@@ -936,7 +963,7 @@ function reward({ k = 0, note = null, cards: given = null, room = false, auto = 
     const head = note || (given ? 'A keepsake, from the waystones. Take one.' : run.hand.length < run.maxPieces ? 'Something is down here with you. Take one of them.' : 'Your hand is full. Take an upgrade.');
     box.replaceChildren(el('p', { class: 'center' }, head),
       ...cards.map((c) => {
-        const t = boardCardText(c), cv = el('canvas', { class: 'model', width: 30, height: 36 });
+        const t = boardCardText(c, M.upgrades === 'par'), cv = el('canvas', { class: 'model', width: 30, height: 36 });
         if (c.kind === 'piece' || c.kind === 'merge') cv.getContext('2d').drawImage(sprite(c.type, 'you'), 0, 0);
         return el('button', { class: 'offercard', onclick: () => choose(c) },
           el('div', {}, c.kind === 'piece' || c.kind === 'merge' ? cv : el('div', { style: `font-size:40px;text-align:center;color:${c.suit ? SUITS[c.suit].colour : c.weapon ? WEAPONS[c.weapon].colour : 'var(--accent)'}` }, c.suit ? SUITS[c.suit].mark : c.weapon ? WEAPONS[c.weapon].mark : c.kind === 'fuse' ? '✦' : c.kind === 'promote' ? '▲' : '❀')),

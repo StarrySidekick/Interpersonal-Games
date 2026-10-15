@@ -47,6 +47,32 @@ can.
   next of the set, on the same square, in the order you got them, and then
   the first again. The row under the board shows the order: Now, Next, In
   2... Each piece keeps its own suit and weapon while it waits.
+  Right under the board, a strip shows the piece that comes on **next**
+  (outlined) and the one after (faded); it pops when it changes. When the
+  turn ends, the piece on the board spins down into its plinth and the next
+  spins up out of it, with a burst of leaves and a soft grind of stone
+  (Timothy, 2026-10-15: "a quick animation for when the pieces cycle on the
+  board ... a clear little icon thing underneath the board to show what
+  piece comes up next").
+- **Suits and weapons, redone for one piece taking turns** (Timothy,
+  2026-10-15):
+  - **Gears** ("should allow you to skip the piece in the cycle"): when
+    your piece of Gears comes up, a button lets it step aside: the next
+    piece of the set comes on straight away and moves this turn instead.
+    It costs no move, and works once a turn (the piece that comes on cannot
+    skip again, nor pass unless it has no move). In rules: a `skip` move in
+    `movesFor`, which `playerMove` turns into `nextInSet` and a turn left
+    open (`bonus.why = 'gears'`), like Stars and Vines.
+  - **Sword** ("should be based on the direction you move, not just the
+    space above"): with `swordAims` (a lab setting, on in Adventure) it
+    strikes the square past where it lands, in the direction it moved, to
+    the nearest of the eight directions (a knight's L counts as diagonal);
+    level 2 adds the squares to either side of that, level 3 the two
+    between (`swordAim` in `rules.js`). Elsewhere it still strikes toward
+    the other side.
+  - Their words follow (`suitDesc`, `weaponDesc` in `run.js`), on cards and
+    when you tap the piece. Hearts, Spirals, Stars, Vines, the lance and
+    the mace are as they were.
 - **Theirs.** Grey statues never move and never take. The rest have a
   rabbit inside and **walk a route every turn, all of them**. A route is
   made of the piece's own moves, so it is easy to read: a rook's route is
