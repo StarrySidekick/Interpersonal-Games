@@ -8,7 +8,7 @@
 // far you go, so a try is one guess at the route, the way a row is one
 // guess in Wordle. Six tries.
 
-import { deal, solve, targets, pathOf, occupancy, aWayToClear, PIECES, SHAPES, dayNumber, feelOf, FIRST_DAY } from './rules.js';
+import { deal, solve, targets, moveSet, pathOf, occupancy, aWayToClear, PIECES, SHAPES, SHAPE_ORDER, FAIRIES, dayNumber, feelOf, FIRST_DAY } from './rules.js';
 import { $, el, haptic, themeToggle } from '../../engine/ui.js';
 import { tone, noise, soundToggle } from '../../engine/sound.js';
 import { logSitting } from '../../engine/record.js';
@@ -21,8 +21,11 @@ import { hz } from '../grove-chess/sounds.js';
 const TRIES = 6;
 const C = 28, RIM = 5, TOP = 18;            // a square, the rim, room above the top row for tall pieces
 const LIGHT = '#b9dc9b', DARK = '#f6efd7';  // the Grove's grass and cream
-const GOLD = '#f5c13a', PURPLE = '#9a5ad6';
+const GOLD = '#f5c13a';
 const GLOW = '#f5c13a';                     // your piece's plinth: the changeling inside it
+// Squares coloured as on the Grove's boards: the piece you picked up, and
+// the pieces it can take.
+const SEL = ['#e9b02a', 0.75], CATCH = ['#e2603e', 0.72], PEEK = ['#9a5ad6', 0.3], PEEKED = ['#9a5ad6', 0.6];
 
 // --- The day. ----------------------------------------------------------------
 
@@ -36,6 +39,9 @@ const weekday = (date) => asDate(date).toLocaleDateString(undefined, { weekday: 
 const params = new URLSearchParams(location.search);
 const TEST = params.has('test');
 const today = localDate();
+// The days check.mjs holds steady: every one of them can be played in test
+// mode.
+const LAST_DAY = addDays(FIRST_DAY, 399);
 
 // A link can carry a day, a name and that person's tries (see makeLink).
 function readLink() {
@@ -46,14 +52,16 @@ function readLink() {
 }
 const link = readLink();
 let date = params.get('d') && TEST ? params.get('d') : link?.date || today;
-if (date < FIRST_DAY) date = FIRST_DAY;
+if (!/^\d{4}-\d\d-\d\d$/.test(date) || date < FIRST_DAY) date = FIRST_DAY;
 
 // --- What this browser remembers. -------------------------------------------
 // Each day: the route you are on (pieces' indices), which try it is, whether
 // you are stepping back, every finished try, and the result. Kept so a
 // reload, or coming back hours later, carries on where you were.
 
-const KEY = 'changeling.v1';
+// Test mode keeps its own days, so trying out boards ahead of time leaves
+// your real days, and your record, as they were.
+const KEY = TEST ? 'changeling.test.v1' : 'changeling.v1';
 function loadStore() {
   try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.days) return s; } catch { /* blocked or corrupt: start fresh */ }
   return { days: {}, name: '' };
@@ -72,8 +80,9 @@ function openDay(d) {
   level.pieces.forEach((p, i) => { sqIndex[p.sq] = i; });
   entry = store.days[date] || (store.days[date] = { route: [], tries: 1, back: false, log: [], done: null });
   tune = melody(date, N);
-  view.aim = view.peek = null;
+  view.sel = false; view.peek = null;
   view.anim = null; view.parts = []; view.replay = null;
+  if (TEST) history.replaceState(null, '', `?test&d=${date}`);
   sizeBoard();
   paintHead();
   paintKinds();
@@ -93,13 +102,11 @@ const leftOf = (route) => N - route.length;
 function options(route, mask = maskOf(route), host = hostOf(route)) {
   return targets(level, occupancy(level, mask), host.sq, host.kind).map((s) => sqIndex[s]);
 }
-/** What piece j could take if you took it now. */
-const afterTaking = (route, j) => options([...route, j]);
 
 // --- Drawing. ------------------------------------------------------------------
 
 const cv = $('#board'), g = cv.getContext('2d');
-const view = { aim: null, peek: null, anim: null, parts: [], replay: null };
+const view = { sel: false, peek: null, anim: null, parts: [], replay: null };
 const sprites = {};
 const sprite = (kind, mine) => sprites[kind + mine] || (sprites[kind + mine] = snapshot(model(kind, mine ? 'you' : 'foe', null, mine ? GLOW : null)));
 
@@ -121,27 +128,16 @@ function crisp() {
 }
 addEventListener('resize', () => { crisp(); });
 
-function ring(sq, col, w = 2, inset = 1) {
-  const x = cellX(sq) + inset, y = cellY(sq) + inset, n = C - inset * 2;
-  P(x, y, n, w, col); P(x, y + n - w, n, w, col); P(x, y, w, n, col); P(x + n - w, y, w, n, col);
-}
-/** Four corner marks inside a square: drawn over the pieces, so they show
-    on an occupied square where a dot would hide under the piece. */
-function corners(sq, col) {
-  const x = cellX(sq) + 3, y = cellY(sq) + 3, n = C - 6, k = 6;
-  for (const [cx, cy, sx, sy] of [[x, y, 1, 1], [x + n, y, -1, 1], [x, y + n, 1, -1], [x + n, y + n, -1, -1]]) {
-    P(sx > 0 ? cx : cx - k, sy > 0 ? cy : cy - 2, k, 2, col);
-    P(sx > 0 ? cx : cx - 2, sy > 0 ? cy : cy - k, 2, k, col);
-  }
-}
 /** A small star in a square's top corner: today's stranger. */
 function star(sq) {
   const x = cellX(sq) + C - 7, y = cellY(sq) + 2;
   P(x + 2, y, 1, 5, GOLD); P(x, y + 2, 5, 1, GOLD); P(x + 1, y + 1, 3, 3, GOLD); P(x + 2, y + 2, 1, 1, '#fff6d0');
 }
-function dot(sq, col, r = 2) {
-  const cx = cellX(sq) + C / 2, cy = cellY(sq) + C / 2 + 7;
-  P(cx - r, cy - r, r * 2, r * 2, col);
+/** Colour a moved k of the way to colour b. */
+function mix(a, b, k) {
+  const A = parseInt(a.slice(1), 16), B = parseInt(b.slice(1), 16);
+  const ch = (sh) => Math.round(((A >> sh) & 255) + ((((B >> sh) & 255) - ((A >> sh) & 255)) * k));
+  return `rgb(${ch(16)},${ch(8)},${ch(0)})`;
 }
 function drawSprite(img, px, py, lift = 0, shadow = 'rgba(40,30,10,.22)') {
   // (px, py) is the middle of the square the piece stands on.
@@ -151,7 +147,8 @@ function drawSprite(img, px, py, lift = 0, shadow = 'rgba(40,30,10,.22)') {
 }
 const mid = (sq) => [cellX(sq) + C / 2, cellY(sq) + C / 2];
 
-function tiles() {
+/** The board's squares. `tint` colours some of them: square -> [colour, how much]. */
+function tiles(tint = new Map()) {
   g.clearRect(0, 0, cv.width, cv.height);
   const { W, H, on } = level;
   for (const pass of [0, 1])
@@ -163,27 +160,32 @@ function tiles() {
   for (let s = 0; s < W * H; s++) {
     if (!on[s]) continue;
     const x = s % W, y = (s / W) | 0;
-    P(cellX(s), cellY(s), C, C, (x + y) % 2 === 0 ? LIGHT : DARK);
+    const base = (x + y) % 2 === 0 ? LIGHT : DARK, t = tint.get(s);
+    P(cellX(s), cellY(s), C, C, t ? mix(base, t[0], t[1]) : base);
   }
 }
 
 /** One frame. `show` is the route on the board (the live one, or a replay's). */
 function draw(now = performance.now()) {
   const show = view.replay ? view.replay.route : entry.route;
-  const mask = maskOf(show), host = hostOf(show);
-  tiles();
+  const mask = maskOf(show), host = hostOf(show), occ = occupancy(level, mask);
+  const live = !view.anim && !view.replay && !entry.done;
 
-  // Rings: gold on what you can take; with one aimed at, what it could take
-  // next as dots; purple on what a piece you peeked at could take.
-  if (!view.anim && !view.replay && !entry.done) {
-    const opts = options(show);
-    for (const j of opts) ring(level.pieces[j].sq, GOLD, j === view.aim ? 3 : 2);
-    if (view.aim != null) {
-      const path = pathOf(level, host.sq, level.pieces[view.aim].sq, host.kind);
-      for (const s of path.slice(1, -1)) dot(s, 'rgba(245,193,58,.85)', 1);
-    }
-    if (view.peek != null) ring(level.pieces[view.peek].sq, PURPLE, 2);
+  // Coloured squares: the piece you picked up, gold, and what it can take,
+  // red, as on the Grove's boards; a piece you tapped to look at, purple,
+  // with its moves.
+  const tint = new Map();
+  if (live && view.peek != null) {
+    const p = level.pieces[view.peek];
+    for (const s of moveSet(level, occ, p.sq, p.kind)) tint.set(s, PEEK);
+    tint.set(p.sq, PEEKED);
   }
+  if (live && view.sel) {
+    tint.set(host.sq, SEL);
+    for (const j of options(show)) tint.set(level.pieces[j].sq, CATCH);
+  }
+  tiles(tint);
+
   // Today's stranger wears a star.
   for (let j = 0; j < N; j++) if ((mask & (1 << j)) && level.pieces[j].kind === level.fairy) star(level.pieces[j].sq);
 
@@ -223,16 +225,6 @@ function draw(now = performance.now()) {
     if (t.alpha != null) g.globalAlpha = t.alpha;
     drawSprite(t.img, t.x, t.y, t.lift || 0, t.mine ? 'rgba(245,193,58,.45)' : undefined);
     g.globalAlpha = 1;
-  }
-
-  // What the piece you aimed at, or peeked at, could take: marks over the
-  // pieces, gold for where your aim leads, purple for a peek.
-  if (!view.anim && !view.replay && !entry.done) {
-    if (view.aim != null) for (const k of afterTaking(show, view.aim)) corners(level.pieces[k].sq, GOLD);
-    if (view.peek != null) {
-      const p = level.pieces[view.peek];
-      for (const s of targets(level, occupancy(level, mask), p.sq, p.kind)) corners(s, PURPLE);
-    }
   }
 
   // Leaves and sparks from a piece just taken.
@@ -290,7 +282,7 @@ const pluck = (deg, at = 0, vol = 1) => {
   tone({ f: f * 2, type: 'sine', at, dur: 0.18, vol: 0.06 * vol });
 };
 const SFX = {
-  aim: () => tone({ f: 880, f2: 990, type: 'sine', dur: 0.05, vol: 0.06 }),
+  pick: () => tone({ f: 880, f2: 990, type: 'sine', dur: 0.05, vol: 0.06 }),
   peek: () => tone({ f: 520, type: 'sine', dur: 0.05, vol: 0.05 }),
   take: (i, at) => { pluck(tune[i], at); noise({ at, dur: 0.12, vol: 0.06, from: 4000, to: 1500, type: 'bandpass', q: 2 }); },
   leap: () => tone({ f: 300, f2: 520, type: 'triangle', dur: 0.12, vol: 0.06 }),
@@ -317,29 +309,34 @@ function settle() {
   a.done?.();
 }
 
+// As in the Grove's other modes: tap your piece to pick it up, and the
+// pieces it can take turn red; tap one to move there and take it. Your piece
+// stays picked up after a move, since it is the only one you have. Tap any
+// other piece to see how it moves; tap an empty square to put yours down.
 cv.addEventListener('click', (e) => {
   settle();
-  if (view.anim || view.replay) return;
-  const sq = cellAt(e);
+  if (view.anim || view.replay || entry.done) return;
+  const sq = cellAt(e), route = entry.route, mask = maskOf(route), host = hostOf(route);
   const j = sq == null ? -1 : sqIndex[sq];
-  const route = entry.route, mask = maskOf(route);
-  if (j < 0 || !(mask & (1 << j)) || entry.done) {
-    view.aim = view.peek = null;
-    paintInfo(); redraw();
+  const piece = j >= 0 && (mask & (1 << j)) ? j : -1;
+  if (sq === host.sq) {
+    view.sel = !view.sel; view.peek = null;
+    if (view.sel) SFX.pick();
+  } else if (view.sel && piece >= 0 && options(route).includes(piece)) {
+    take(piece);
     return;
-  }
-  if (options(route).includes(j)) {
-    if (view.aim === j) { take(j); return; }
-    view.aim = j; view.peek = null; SFX.aim();
+  } else if (piece >= 0) {
+    view.peek = view.peek === piece ? null : piece;
+    SFX.peek();
   } else {
-    view.peek = view.peek === j ? null : j; view.aim = null; SFX.peek();
+    view.sel = false; view.peek = null;
   }
   paintInfo(); redraw();
 });
 
 function take(j) {
   const from = hostOf(entry.route);
-  view.aim = view.peek = null;
+  view.peek = null;
   entry.back = false;
   entry.route.push(j);
   const to = level.pieces[j], i = entry.route.length - 1;
@@ -374,7 +371,7 @@ $('#back').onclick = () => {
     entry.back = true;
   }
   const j = entry.route.pop(), host = hostOf(entry.route);
-  view.aim = view.peek = null;
+  view.peek = null;
   saveStore();
   SFX.back();
   hop('back', level.pieces[j].sq, host.sq, level.pieces[j].kind, host.kind, j, () => update());
@@ -440,17 +437,11 @@ function paintInfo() {
     info.replaceChildren(entry.done.cleared ? 'Cleared. Every piece taken.' : `Done for today, with ${entry.done.best} left at best.`);
     return;
   }
-  if (view.aim != null) {
-    const p = level.pieces[view.aim], next = afterTaking(route, view.aim).length;
-    info.replaceChildren('Take the ', el('b', {}, name(p.kind)), ' and become it? ',
-      left === 1 ? 'It is the last one.' : next ? `From there you could take ${next}.` : 'From there you could take nothing, which would end this try.',
-      ' Tap it again to take it.');
-    return;
-  }
   if (view.peek != null) {
     const p = level.pieces[view.peek];
     const could = targets(level, occupancy(level, maskOf(route)), p.sq, p.kind).length;
-    info.replaceChildren('The ', el('b', {}, name(p.kind)), `: ${lower(say(p.kind))} From where it stands it could take ${could}. You can't reach it from here yet.`);
+    info.replaceChildren('The ', el('b', {}, name(p.kind)), `: ${lower(say(p.kind))} From where it stands it could take ${could}. `,
+      opts.includes(view.peek) ? 'Yours can take it: tap your piece, then this one.' : 'Yours can\'t reach it from here yet.');
     return;
   }
   if (!opts.length) {
@@ -459,9 +450,13 @@ function paintInfo() {
     return;
   }
   const newcomer = !Object.values(store.days).some((e) => e.done);
+  if (!view.sel) {
+    info.replaceChildren('You are the ', el('b', {}, name(host.kind)), `: ${lower(say(host.kind))} Tap it to pick it up.`,
+      newcomer && !route.length ? ' Tap any other piece to see how it moves.' : '');
+    return;
+  }
   info.replaceChildren('You are the ', el('b', {}, name(host.kind)), `: ${lower(say(host.kind))} `,
-    `You can take ${opts.length === 1 ? 'one' : opts.length}, in gold.`,
-    newcomer && !route.length ? ' Tap one to see where it leads, and again to take it. Tap any other piece to see how it moves.' : '');
+    `You can take ${opts.length === 1 ? 'one' : opts.length}, in red. Tap one to move there and become it.`);
 }
 
 function paintHud() {
@@ -648,12 +643,46 @@ function paintTest() {
   $('#t-stats').textContent = `${date}, dealer v${level.version}, ${N} pieces, start ${level.start.kind}. ` +
     `Routes ${solved.ways}, clearing ${solved.clear}, random player clears ${(solved.p * 100).toFixed(2)}% and leaves ${solved.left.toFixed(1)}. ` +
     `Dealt on candidate ${level.tries}.`;
+  paintCalendar();
 }
+
+/** Every dealt day, a month at a time, coloured by how it went: tap one to
+    play it. Shapes and strangers come round in fixed orders, so the
+    calendar can name them without dealing the boards. */
+function paintCalendar() {
+  const box = $('#t-days'), months = [];
+  for (let d = FIRST_DAY; d <= LAST_DAY; d = addDays(d, 1)) {
+    const key = d.slice(0, 7);
+    if (!months.length || months[months.length - 1].key !== key) months.push({ key, days: [] });
+    months[months.length - 1].days.push(d);
+  }
+  const cyc = (list, i) => list[((i % list.length) + list.length) % list.length];
+  box.replaceChildren(...months.map(({ key, days }) => {
+    const title = asDate(days[0]).toLocaleDateString(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    const lead = asDate(days[0]).getUTCDay();
+    return el('div', { class: 'month' }, el('h3', {}, title),
+      el('div', { class: 'wk' },
+        ...['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((w) => el('span', {}, w)),
+        ...Array.from({ length: lead }, () => el('span', {})),
+        ...days.map((d) => {
+          const e = store.days[d], n = dayNumber(d);
+          const cls = [e?.done ? (e.done.cleared ? 'ok' : 'x') : e?.route?.length || e?.log?.length ? 'on' : '', d === date ? 'cur' : '', d === today ? 'today' : ''].join(' ');
+          const what = `#${n + 1}, ${nice(d)}: ${SHAPES[cyc(SHAPE_ORDER, n)].name}, the ${name(cyc(FAIRIES, n))}, ${feelOf(d)}` +
+            (e?.done ? (e.done.cleared ? `. Cleared on try ${e.done.tries}.` : '. Not cleared.') : '');
+          return el('button', { type: 'button', class: cls, title: what, 'aria-label': what, onclick: () => { openDay(d); scrollTo({ top: 0, behavior: 'smooth' }); } }, String(+d.slice(8)));
+        })));
+  }));
+}
+$('#testlink').hidden = TEST;
 if (TEST) {
   $('#t-prev').onclick = () => openDay(addDays(date, -1) < FIRST_DAY ? FIRST_DAY : addDays(date, -1));
   $('#t-next').onclick = () => openDay(addDays(date, 1));
   $('#t-today').onclick = () => openDay(today);
   $('#t-reset').onclick = () => { delete store.days[date]; saveStore(); openDay(date); };
+  $('#t-resetall').onclick = () => {
+    if (!confirm('Clear every test-mode day? Your real days are kept apart and stay as they are.')) return;
+    store.days = {}; saveStore(); openDay(date);
+  };
 }
 
 // --- Start. ---------------------------------------------------------------------

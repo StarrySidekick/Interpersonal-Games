@@ -60,6 +60,15 @@
   .kind canvas.diagram { width: 70px; height: 70px; border-radius: 4px; }
   .kind h3 { margin: 0; font-size: 17px; }
   .kind p { margin: 0; font-size: 15px; }
+  .cal h3 { font-size: 15px; margin: 14px 0 6px; }
+  .cal .wk { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cal .wk > span { font-size: 11px; color: var(--dim); text-align: center; }
+  .cal button { min-height: 36px; padding: 0; font-size: 14px; border-radius: 8px; width: 100%; font-variant-numeric: tabular-nums; }
+  .cal button.ok { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+  .cal button.x { background: var(--panel); color: var(--dim); }
+  .cal button.on { border-color: var(--gold); }
+  .cal button.today { font-weight: 800; text-decoration: underline; }
+  .cal button.cur { outline: 2px solid var(--text); outline-offset: 1px; }
   .tag { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gold); }
 </style>
 </head>
@@ -76,7 +85,7 @@
   <p class="small sub" id="stranger"></p>
 
   <div class="card rules" id="rules">
-    <p><b>You are the glowing piece.</b> Every move takes a piece, and you become the piece you take. Take them all.</p>
+    <p><b>You are the glowing piece.</b> Tap it, then tap a piece it can reach. Every move takes a piece, and you become the piece you take. Take them all.</p>
   </div>
   <p class="dim small" id="linknote" hidden></p>
 
@@ -114,7 +123,8 @@
     <summary>How to play, and how today's pieces move</summary>
     <div class="rules" style="margin-bottom:14px">
       <p><b>You are the glowing piece.</b> Every move takes a piece, and you become the piece you take. Take them all.</p>
-      <p>Gold rings are what you can take now. Tap one and gold corners show what you could take next, as it; tap it again to take it. Tap any other piece to see its moves in purple. The star marks today's stranger.</p>
+      <p>Tap your piece to pick it up: the pieces it can take turn red. Tap one to move there and take it. Your piece stays picked up for the next move.</p>
+      <p>Tap any other piece to see how it moves. The star marks today's stranger.</p>
       <p>Stuck, or regretting a move? Step back as far as you like. The first step back starts your next try; you get six. Your score is the try you clear it on.</p>
       <p>Holes in the board stop sliding pieces. Jumping pieces fly over them.</p>
       <p class="dim">Mondays are gentle and the week gets harder to Sunday. Every day has one fairy piece, a stranger from the long history of chess.</p>
@@ -131,7 +141,11 @@
       <button class="quiet" id="t-reset">Clear this day</button>
     </div>
     <p class="small dim" id="t-stats" style="margin:10px 0 0"></p>
+    <p class="small dim" style="margin:10px 0 0">Every dealt day. Green: cleared. Grey: not cleared. Gold edge: started. Test mode keeps its own days, apart from your real ones.</p>
+    <div class="cal" id="t-days"></div>
+    <button class="danger" id="t-resetall" style="margin-top:12px">Clear every test day</button>
   </div>
+  <p class="small dim center" id="testlink" style="margin-top:16px"><a href="?test">Test mode: play any day</a></p>
 
 </div>
 <script type="module" src="game.js"></script>

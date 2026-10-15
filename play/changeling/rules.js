@@ -110,6 +110,36 @@ export function targets(b, occ, sq, kind) {
   return out;
 }
 
+/** Every square a `kind` on `sq` moves through or onto: where its leaps
+    land, and along each line the squares up to and including the first
+    piece. Its move set, for drawing as rings, the way the Grove's other
+    modes show every piece's reach (they stop at the first piece it could
+    take). A cannon's line runs on over the piece it jumps, to the piece it
+    would take. */
+export function moveSet(b, occ, sq, kind) {
+  const { W, H, on } = b, x0 = sq % W, y0 = (sq / W) | 0, v = VEC[kind], out = new Set();
+  const inside = (x, y) => x >= 0 && y >= 0 && x < W && y < H && on[y * W + x];
+  for (const [dx, dy] of v.leap) {
+    const x = x0 + dx, y = y0 + dy;
+    if (inside(x, y)) out.add(y * W + x);
+  }
+  for (const [dx, dy] of v.slide) {
+    for (let x = x0 + dx, y = y0 + dy; inside(x, y); x += dx, y += dy) {
+      out.add(y * W + x);
+      if (occ[y * W + x] >= 0) break;
+    }
+  }
+  for (const [dx, dy] of v.hop) {
+    let screen = false;
+    for (let x = x0 + dx, y = y0 + dy; inside(x, y); x += dx, y += dy) {
+      if (occ[y * W + x] >= 0 && !screen) { screen = true; continue; }
+      out.add(y * W + x);
+      if (occ[y * W + x] >= 0) break;
+    }
+  }
+  return [...out];
+}
+
 /** The squares a piece of `kind` on `sq` would move through or over on its
     way to `to`: for drawing its path. Leaps have none. */
 export function pathOf(b, from, to, kind) {
@@ -235,7 +265,7 @@ const WEEK = [
 // The fairy pieces in the order the days bring them. Each appears once or
 // twice on its day, and since a clear takes every piece, every clear uses it.
 export const FAIRIES = ['camel', 'ferz', 'cannon', 'zebra', 'wazir', 'nightrider', 'alfil', 'archbishop', 'squirrel', 'dabbaba', 'chancellor'];
-const SHAPE_ORDER = ['meadow', 'heart', 'well', 'crossroads', 'stone', 'mushroom', 'pond', 'rabbit', 'stepping', 'diamond'];
+export const SHAPE_ORDER = ['meadow', 'heart', 'well', 'crossroads', 'stone', 'mushroom', 'pond', 'rabbit', 'stepping', 'diamond'];
 // How often each classic piece turns up among the rest. Queens are rare: a
 // queen is a gift, since she can reach so much.
 const CLASSIC = [['knight', 5], ['bishop', 4], ['rook', 4], ['pawn', 3], ['king', 3], ['queen', 1]];

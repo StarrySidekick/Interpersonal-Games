@@ -25,9 +25,12 @@ pieces or new board shapes. The name is a working name and his to change.
   squirrel, dabbaba, chancellor), marked with a star. A clear takes every
   piece, so every clear uses it, and the dealer makes sure you get to move
   as it at least once.
-- Tap a gold-ringed piece to aim: gold corners show what you could take
-  next, as it. Tap it again to take it. Tap any other piece to see its moves
-  in purple.
+- **Moving, as in the Grove's other modes** (Timothy, 2026-10-15): tap your
+  piece to pick it up, and the pieces it can take turn red; tap one to move
+  there and take it. Your piece stays picked up after a move, since it is
+  the only one you have. Tap any other piece to see its moves on their own.
+  Only this shading, no rings (Timothy, 2026-10-15: "I just need the move
+  shading that shows up when you tap a piece to move it").
 
 ## Why this shape
 
@@ -62,6 +65,32 @@ pieces and colours, and a tune: each piece you take plays the next note of
 the day's melody, so a clear plays all of it, and a try that stops short
 leaves it unfinished.
 
+## Prior art (checked 2026-10-15)
+
+The core rule is not new. Timothy asked whether it had been done; it has.
+
+- **No More Kings**, Christian Montoya, 2015 (itch.io, iOS): every move
+  must capture, you become what you capture, take every piece on the way
+  to the king. Essentially Changeling's rule, on a plain 8 x 8 board with
+  the king taken last. https://montoya.itch.io/no-more-kings
+- **Echo Chess**, Sami Ramly (Echo Chunk), 2023: you become ("echo") what
+  you capture and clear the board, with daily puzzles; moves to empty
+  squares appear to be allowed, so captures are not forced. Raised $1.4M
+  in 2024 billed as "Wordle for chess". The closest daily game to this
+  one. https://news.ycombinator.com/item?id=37327895
+- Smaller games with the same rule: Checkmate Tactics (ahne, 2025), Monster
+  Chess (Graham Marlow, 2025), Mate'Morphosis (Wise Monke, 2026).
+- The capture-only half alone: ThinkFun's **Solitaire Chess** (Vesa
+  Timonen, 2010) and Chess.com's **Solo Chess** (2018), where pieces never
+  change.
+- The rule as a chess variant: **Mutation (Frankfurt) Chess**, John E.
+  Bosley, 1986, and **Cannibal Chess** (chessvariants.com); **Take & Make**
+  in chess problems borrows the captured piece's move for one move.
+
+Not found anywhere: this rule with fairy pieces (riders, hoppers, odd
+leapers), on boards with holes, or with a dealer that climbs through the
+week. Those are what make Changeling its own; the rule is shared.
+
 ## The dealer, and how hard each day is
 
 `rules.js`, `deal(date)`. Version 1 from 2026-10-15.
@@ -95,6 +124,16 @@ in the page, not stored, and [`check.mjs`](../play/changeling/check.mjs)
 proves the first 400 days still deal exactly as stored in `boards.txt`.
 **A shipped board never changes:** a change to dealing, pieces or rules is
 a new version in `VERSIONS` with a future start date.
+
+## Testing
+
+`?test` on the address, or the "Test mode: play any day" link at the foot
+of the page. It adds a calendar of all 400 dealt days (the ones
+`check.mjs` holds steady), coloured by how each went; tap one to play it.
+Test mode keeps its own days in this browser (`changeling.test.v1`), so
+playing ahead leaves your real days and your record untouched, and it shows
+each board's numbers: routes, clearing routes, the random player's chance,
+and which candidate the dealer kept.
 
 ## Paths
 
