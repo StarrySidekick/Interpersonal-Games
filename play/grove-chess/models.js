@@ -655,7 +655,9 @@ const FOE = { wood: '#6c4795', woodLight: '#9170bd', woodDark: '#3b2558', moss: 
 // move (Timothy: "enemy pieces don't move, and they are gray like
 // statues"). They are pieces to take, so they keep their piece's shape;
 // the Grove's statues proper are standing stones of their own (below).
-const GREY = { ...body(LOOK.statue), moss: '#d6d9d1', leaf: '#eceee8', band: '#a7aaa3', base: '#6c6f69' };
+// A shade darker than the statue colour since 2026-10-15, so it is never
+// taken for a plain piece of yours in Adventure, which is pale grey.
+const GREY = { ...body(blend(LOOK.statue, '#000000', 0.16)), moss: '#c9ccc4', leaf: '#e2e4de', band: '#979a93', base: '#5f625c' };
 
 // Statues (2026-10-07; they were stumps before) were any classic piece's
 // shape in grey stone. Timothy, 2026-10-10: "statues should be a unique
@@ -696,56 +698,34 @@ function statue(kind) {
 // For the catalog: a statue, as it stands on the board.
 MODELS.statue = () => statue('rook');
 
-// Looks by suit (Adventure, 2026-10-15). Timothy first: "can you make your
-// pieces look like they are wrapped in 3d vines ... more like crumbled
-// stone, with green vines"; then: "the vine look should be for the vine
-// suit, we should have custom looks for the others that are colored like
-// the suit, red for hearts, grey for gears ... yellow for stars". Each is
-// your piece's own shape in the suit's colours, with something of the suit
-// added round it. Spirals, his to name, is amber with a cream stripe wound
-// up it like a shell.
-//
-// Vines: your piece's own shape, built
-// in weathered stone, then worn: every corner nudged a little (the same
-// corner the same way, so nothing splits open), some faces darker as if
-// chipped; then two vines climb it in a spiral, hugging its surface, with
-// leaves along them.
-const VINE_STONE = { wood: '#a39c8f', woodLight: '#c2bbae', woodDark: '#6b655b', moss: '#cdc6b7', leaf: '#ddd7ca' };
-const VINE = { vine: '#3d6e2a', vineDark: '#2c5320', leaf: '#6aa84a', leafLight: '#8cc464' };
+// Looks by suit (Adventure, 2026-10-15). Timothy, in three steps: "can you
+// make your pieces look like they are wrapped in 3d vines"; then "the vine
+// look should be for the vine suit, we should have custom looks for the
+// others that are colored like the suit, red for hearts, grey for gears ...
+// yellow for stars"; then "your pieces should start at gray with no special
+// visual, then the green we have should be the green for the vine one.
+// gears should be more prominent on the gear ones. hearts seems not to have
+// a real motif. you can mess with the actual 3d model of the piece itself".
+// So a piece with no suit is plain pale grey, and each suit is the piece's
+// own shape in its colours, built round, or reshaped, with its motif:
+// Vines green with woody vines; Hearts red, crowned with a heart; Gears
+// blue steel standing on a gear, with gears round it; Spirals amber and
+// twisted, with a stripe wound up it; Stars gold with stars.
 
-/** A number in [0, 1) from three, the same every time. */
-function hash3(x, y, z) {
-  let h = Math.imul(Math.round(x * 50) | 0, 73856093) ^ Math.imul(Math.round(y * 50) | 0, 19349663) ^ Math.imul(Math.round(z * 50) | 0, 83492791);
-  h = Math.imul(h ^ (h >>> 13), 0x5bd1e995);
-  return ((h ^ (h >>> 15)) >>> 0) / 4294967296;
-}
-
-/** Wear a model built in stone: corners above the plinth pushed in or out
-    a little, and faces mottled, some chipped dark. Mutates. */
-function crumble(m) {
-  const seen = new Map();
-  const nudge = (p) => {
-    if (p[1] <= 1.6) return p; // the plinth stays true
-    const k = `${p[0].toFixed(2)},${p[1].toFixed(2)},${p[2].toFixed(2)}`;
-    if (!seen.has(k)) {
-      const r = Math.hypot(p[0], p[2]), h = hash3(p[0], p[1], p[2]);
-      const dr = (h - 0.55) * 0.5 - (h < 0.08 ? 0.35 : 0); // now and then a bite out of it
-      const f = r > 0.05 ? Math.max(0.6, (r + dr) / r) : 1;
-      seen.set(k, [p[0] * f, p[1] + (hash3(p[2], p[0], p[1]) - 0.5) * 0.18, p[2] * f]);
-    }
-    return seen.get(k);
-  };
-  m.tris.forEach((t, i) => {
-    t.p = t.p.map(nudge);
-    const c = t.p.reduce((a, p) => a + p[1], 0) / 3;
-    if (c <= 1.6) return;
-    const h = hash3(i * 0.37, c, t.p[0][0]), k = h < 0.12 ? 0.68 : 0.9 + h * 0.18;
-    // Moss in the low places: a few faces gone green.
-    if (h > 0.93) { t.c = [92, 126, 70].map((v) => Math.round(v * (0.85 + (h - 0.93) * 3))); return; }
-    t.c = t.c.map((v) => Math.max(0, Math.min(255, Math.round(v * k))));
-  });
-  return m;
-}
+/** The body colours of each look (moss and leaf are the pale trim the
+    builders use for collars and bands). */
+const SUIT_BODY = {
+  // Pale, warm grey: plain, and well lighter than their statues' grey.
+  plain: { wood: '#d9d3c6', woodLight: '#efeadf', woodDark: '#9b9486', moss: '#f4f1ea', leaf: '#fbf9f4' },
+  vines: { wood: P.wood, woodLight: P.woodLight, woodDark: P.woodDark, moss: P.moss, leaf: P.leaf },
+  hearts: { wood: '#b52a43', woodLight: '#dc5a70', woodDark: '#6e1626', moss: '#f7c9d1', leaf: '#ffe3e8' },
+  // Blue steel, so it is never taken for one of their grey statues.
+  gears: { wood: '#6f7d92', woodLight: '#9fadc1', woodDark: '#3a4352', moss: '#cfd8e4', leaf: '#eef2f7' },
+  spirals: { wood: '#e0782a', woodLight: '#f5a560', woodDark: '#8a4412', moss: '#fde0bf', leaf: '#fff0de' },
+  stars: { wood: '#c9971e', woodLight: '#ecc552', woodDark: '#7a5a0c', moss: '#fff1b0', leaf: '#fff8d8' }
+};
+// Woody vines and bright leaves, to stand out against a green body.
+const VINE = { stem: '#5b3f22', stemDark: '#432e18', leaf: '#8fd25a', leafLight: '#bfeb85' };
 
 /** How far out the model's surface is at height y, toward angle a (from the
     corners near there), or null if nothing is near. */
@@ -764,6 +744,14 @@ function surface(pts, a, y) {
   return best;
 }
 
+/** The model's corners, its top, and how far out it is all round at height
+    y (the farthest corner near that height). */
+function shapeOf(m) {
+  const pts = m.tris.flatMap((t) => t.p), top = Math.max(...pts.map((p) => p[1]));
+  const ring = (y) => Math.max(0.6, ...pts.filter((p) => Math.abs(p[1] - y) < 0.5).map((p) => Math.hypot(p[0], p[2])));
+  return { pts, top, ring };
+}
+
 /** A leaf: a flat diamond from `at`, pointing out along angle a and up by
     `lift`, seen from both sides. */
 function leaf(m, at, a, lift, size, col) {
@@ -776,7 +764,7 @@ function leaf(m, at, a, lift, size, col) {
   m.tri(at, tip, r, col); m.tri(at, r, tip, col);
 }
 
-/** One length of vine, from a to b: a thin box laid along the way. */
+/** One length of vine (or stripe), from a to b: a thin box laid along it. */
 function strand(m, a, b, w, col) {
   const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], len = Math.hypot(...d);
   if (len < 1e-3) return;
@@ -784,74 +772,111 @@ function strand(m, a, b, w, col) {
     { rx: -Math.asin(d[1] / len), ry: Math.atan2(d[0], d[2]) });
 }
 
-/** The body colours of each look (the trim, moss and leaf, is the pale
-    accent the builders use for collars and bands). */
-const SUIT_BODY = {
-  hearts: { wood: '#b52a43', woodLight: '#dc5a70', woodDark: '#6e1626', moss: '#f7c9d1', leaf: '#ffe3e8' },
-  // Blue steel, so it is never taken for one of their grey statues.
-  gears: { wood: '#6f7d92', woodLight: '#9fadc1', woodDark: '#3a4352', moss: '#cfd8e4', leaf: '#eef2f7' },
-  spirals: { wood: '#e0782a', woodLight: '#f5a560', woodDark: '#8a4412', moss: '#fde0bf', leaf: '#fff0de' },
-  stars: { wood: '#c9971e', woodLight: '#ecc552', woodDark: '#7a5a0c', moss: '#fff1b0', leaf: '#fff8d8' }
-};
-
-/** The model's corners, its top, and how far out it is all round at height
-    y (the farthest corner near that height). */
-function shapeOf(m) {
-  const pts = m.tris.flatMap((t) => t.p), top = Math.max(...pts.map((p) => p[1]));
-  const ring = (y) => Math.max(0.6, ...pts.filter((p) => Math.abs(p[1] - y) < 0.5).map((p) => Math.hypot(p[0], p[2])));
-  return { pts, top, ring };
-}
-
-/** Hearts: a heart on its chest, facing you, and a small one on its back. */
-function hearts(m) {
-  const { pts, top } = shapeOf(m), y = 1.5 + (top - 1.5) * 0.48;
-  const heart = (z, s, col, hi) => {
-    // A square turned on its corner, with a round lobe on each upper edge.
-    m.box(0, y - 0.1 * s, z, 0.85 * s, 0.85 * s, 0.32 * s, col, { rz: Math.PI / 4 });
-    for (const sx of [-1, 1]) m.ellipsoid(sx * 0.3 * s, y + 0.2 * s, z, 0.43 * s, 0.43 * s, 0.2 * s, col, { seg: 8, rings: 4 });
-    m.ellipsoid(-0.32 * s, y + 0.3 * s, z + 0.12 * Math.sign(z) * s, 0.12 * s, 0.1 * s, 0.06 * s, hi, { seg: 5, rings: 3 });
-  };
-  heart((surface(pts, Math.PI / 2, y) ?? 1.5) + 0.25, 1.7, '#ffe4ea', '#ffffff');
-  heart(-((surface(pts, -Math.PI / 2, y) ?? 1.5) + 0.2), 1.1, '#ffe4ea', '#ffffff');
-  return m;
-}
-
-/** Gears: a toothed gear round its middle, with rivets, a bright cog on
-    its chest, and a little one at its foot. */
-function gears(m) {
-  const { pts, top, ring } = shapeOf(m), y = 1.5 + (top - 1.5) * 0.3, r = ring(y) + 0.1, iron = '#3f454d', steel = '#e3e8ee';
-  m.lathe([[r, y - 0.32], [r, y + 0.32]], iron, { seg: 12 });
-  const teeth = 10;
-  for (let k = 0; k < teeth; k++) {
-    const a = (k / teeth) * Math.PI * 2;
-    m.box(Math.cos(a) * (r + 0.35), y, Math.sin(a) * (r + 0.35), 0.6, 0.62, 0.55, iron, { ry: -a });
-    if (k % 2 === 0) m.ball(Math.cos(a + 0.3) * (r - 0.15), y + 0.34, Math.sin(a + 0.3) * (r - 0.15), 0.16, steel, { seg: 5, rings: 3 });
+/** Vines: two woody vines climbing it in a spiral, with leaves along them,
+    two at each end, and a few at its foot. Mutates. */
+function vines(m) {
+  const { pts, top } = shapeOf(m), y0 = 1.5, y1 = y0 + (top - y0) * 0.8, n = 22;
+  for (const start of [0.4, 0.4 + Math.PI]) {
+    let last = null, lastR = 2;
+    for (let i = 0; i <= n; i++) {
+      const t = i / n, y = y0 + (y1 - y0) * t, a = start + t * Math.PI * 2.4;
+      const r = (surface(pts, a, y) ?? lastR) + 0.28;
+      lastR = r - 0.28;
+      const p = [Math.cos(a) * r, y, Math.sin(a) * r];
+      if (last) strand(m, last, p, 0.5, i % 2 ? VINE.stem : VINE.stemDark);
+      if (i % 3 === 1 && i < n) leaf(m, p, a + (i % 2 ? 0.5 : -0.5), 0.6, 1.5, ((i - 1) / 3) % 2 ? VINE.leaf : VINE.leafLight);
+      last = p;
+    }
+    const a1 = start + Math.PI * 2.4;
+    leaf(m, last, a1 + 0.6, 1.0, 1.4, VINE.leafLight);
+    leaf(m, last, a1 - 0.6, 0.8, 1.2, VINE.leaf);
   }
-  // The cog on its chest, facing you.
-  const cy = 1.5 + (top - 1.5) * 0.62, cz = (surface(pts, Math.PI / 2, cy) ?? 1.4) + 0.2;
-  m.group({ t: [0, cy, cz], rx: Math.PI / 2 }, () => {
-    m.lathe([[0.85, -0.15], [0.85, 0.15]], steel, { seg: 10 });
-    for (let k = 0; k < 8; k++) { const a = (k / 8) * Math.PI * 2; m.box(Math.cos(a) * 1.05, 0, Math.sin(a) * 1.05, 0.38, 0.3, 0.38, steel, { ry: -a }); }
-    m.lathe([[0.32, 0.12], [0.32, 0.22]], iron, { seg: 8 });
-  });
-  // The small gear, lying on the plinth.
-  const gx = 2.3, gz = 1.6;
-  m.lathe([[0.75, 1.5], [0.75, 1.75]], iron, { seg: 8, at: [gx, 0, gz] });
-  for (let k = 0; k < 6; k++) { const a = (k / 6) * Math.PI * 2; m.box(gx + Math.cos(a) * 0.9, 1.62, gz + Math.sin(a) * 0.9, 0.32, 0.25, 0.3, iron, { ry: -a }); }
+  for (let k = 0; k < 5; k++) {
+    const a = k * 1.3 + 0.2;
+    leaf(m, [Math.cos(a) * 2.2, 1.55, Math.sin(a) * 2.2], a + (k % 2 ? 0.3 : -0.3), 0.15, 1.6, k % 2 ? VINE.leaf : VINE.leafLight);
+  }
   return m;
 }
 
-/** Spirals: a cream stripe wound up it, two and a half turns, like a shell. */
+/** A heart in the round: two lobes over a cone pointing down, centred on
+    `at`, size s; with a glint if `hi` is given. */
+function heart3d(m, [x, y, z], s, col, hi = null) {
+  for (const sx of [-1, 1]) m.ball(x + sx * 0.42 * s, y + 0.22 * s, z, 0.55 * s, col, { seg: 8, rings: 5 });
+  m.cone(x, y + 0.2 * s, z, 0.95 * s, 1.2 * s, col, { seg: 8, rot: { rz: Math.PI } });
+  if (hi) m.ball(x - 0.52 * s, y + 0.45 * s, z + 0.3 * s, 0.14 * s, hi, { seg: 5, rings: 3 });
+}
+
+/** Hearts: crowned with a big red heart, a pale heart on its chest, and a
+    ring of little hearts standing round its plinth. */
+function hearts(m) {
+  const { pts, top } = shapeOf(m), y = 1.5 + (top - 1.5) * 0.45;
+  heart3d(m, [0, top + 1.6, 0], 1.9, '#ff3f62', '#ffe0e6');
+  heart3d(m, [0, y, (surface(pts, Math.PI / 2, y) ?? 1.5) + 0.45], 1.1, '#ffe4ea', '#ffffff');
+  for (let k = 0; k < 6; k++) {
+    const a = (k / 6) * Math.PI * 2 + 0.3;
+    heart3d(m, [Math.cos(a) * 3.3, 2.25, Math.sin(a) * 3.3], 0.62, k % 2 ? '#ff5a78' : '#ffc2cd');
+  }
+  return m;
+}
+
+/** A gear of `teeth` teeth, radius r, thickness th, lying flat at `at`
+    (or turned by `rot`), with a hub. */
+function cog(m, at, r, teeth, th, col, hub, rot = {}) {
+  m.group({ t: at, ...rot }, () => {
+    m.lathe([[r, -th / 2], [r, th / 2]], col, { seg: Math.max(8, teeth) });
+    for (let k = 0; k < teeth; k++) {
+      const a = (k / teeth) * Math.PI * 2;
+      m.box(Math.cos(a) * (r + 0.24), 0, Math.sin(a) * (r + 0.24), 0.46, th, 0.42, col, { ry: -a });
+    }
+    m.lathe([[r * 0.38, th / 2], [r * 0.38, th / 2 + 0.12]], hub, { seg: 8 });
+  });
+}
+
+/** Gears: it stands on a gear (its plinth toothed all round), two gears turn
+    round its body, a cog crowns it, and another faces you from its chest. */
+function gears(m) {
+  const { pts, top, ring } = shapeOf(m), iron = '#3f454d', steel = '#e3e8ee', brass = '#c9a24a';
+  for (let k = 0; k < 16; k++) {
+    const a = (k / 16) * Math.PI * 2;
+    m.box(Math.cos(a) * 3.95, 0.55, Math.sin(a) * 3.95, 0.62, 1.1, 0.6, iron, { ry: -a });
+  }
+  for (const f of [0.26, 0.64]) { const y = 1.5 + (top - 1.5) * f; cog(m, [0, y, 0], ring(y) + 0.08, 12, 0.6, iron, brass); }
+  cog(m, [0, top + 0.35, 0], 1.25, 9, 0.45, steel, brass);
+  const cy = 1.5 + (top - 1.5) * 0.45, cz = (surface(pts, Math.PI / 2, cy) ?? 1.4) + 0.25;
+  cog(m, [0, cy, cz], 0.8, 8, 0.32, steel, brass, { rx: Math.PI / 2 });
+  return m;
+}
+
+/** Turn the model about its axis by k radians for every unit of height
+    above the plinth: a twist. Mutates. */
+function twist(m, k) {
+  const turn = ([x, y, z], at) => { const a = k * Math.max(0, at - 1.6), c = Math.cos(a), s = Math.sin(a); return [x * c - z * s, y, x * s + z * c]; };
+  for (const t of m.tris) {
+    const was = t.n;
+    t.p = t.p.map((p) => turn(p, p[1]));
+    if (t.vn) t.vn = t.vn.map((n, i) => turn(n, t.p[i][1]));
+    const u = [t.p[1][0] - t.p[0][0], t.p[1][1] - t.p[0][1], t.p[1][2] - t.p[0][2]], v = [t.p[2][0] - t.p[0][0], t.p[2][1] - t.p[0][1], t.p[2][2] - t.p[0][2]];
+    let n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+    const l = Math.hypot(...n) || 1;
+    n = n.map((q) => q / l);
+    const mid = (t.p[0][1] + t.p[1][1] + t.p[2][1]) / 3, w = turn(was, mid);
+    t.n = n[0] * w[0] + n[1] * w[1] + n[2] * w[2] < 0 ? n.map((q) => -q) : n;
+  }
+  return m;
+}
+
+/** Spirals: the piece itself twisted, and a cream stripe wound up it like a
+    shell, curled at the top. */
 function spirals(m) {
-  const { pts, top } = shapeOf(m), y0 = 1.6, y1 = 1.5 + (top - 1.5) * 0.92, n = 34, cream = '#fff1dc', deep = '#b9581a';
+  twist(m, 0.24);
+  const { pts, top } = shapeOf(m), y0 = 1.6, y1 = 1.5 + (top - 1.5) * 0.92, n = 34, deep = '#b9581a';
   let last = null;
   for (let i = 0; i <= n; i++) {
     const t = i / n, y = y0 + (y1 - y0) * t, a = 0.2 + t * Math.PI * 5;
     const r = (surface(pts, a, y) ?? 1.2) + 0.12, p = [Math.cos(a) * r, y, Math.sin(a) * r];
-    if (last) strand(m, last, p, 0.42, i % 2 ? cream : '#fbe3c4');
+    if (last) strand(m, last, p, 0.42, i % 2 ? '#fff1dc' : '#fbe3c4');
     last = p;
   }
-  // A curl at the top.
   m.ball(last[0], last[1] + 0.2, last[2], 0.32, deep, { seg: 6, rings: 4 });
   return m;
 }
@@ -874,46 +899,18 @@ function stars(m) {
   return m;
 }
 
-/** The suits that have a look, and how each is made. */
+/** The looks, and how each is made: built in its colours, then its motif. */
 const SUIT_LOOK = {
-  vines: (build, plinthOf) => vines(crumble(withPalette({ ...YOU, ...VINE_STONE, ...plinthOf }, build))),
+  plain: (build, plinthOf) => withPalette({ ...YOU, ...SUIT_BODY.plain, ...plinthOf }, build),
+  vines: (build, plinthOf) => vines(withPalette({ ...YOU, ...SUIT_BODY.vines, ...plinthOf }, build)),
   hearts: (build, plinthOf) => hearts(withPalette({ ...YOU, ...SUIT_BODY.hearts, ...plinthOf }, build)),
   gears: (build, plinthOf) => gears(withPalette({ ...YOU, ...SUIT_BODY.gears, ...plinthOf }, build)),
   spirals: (build, plinthOf) => spirals(withPalette({ ...YOU, ...SUIT_BODY.spirals, ...plinthOf }, build)),
   stars: (build, plinthOf) => stars(withPalette({ ...YOU, ...SUIT_BODY.stars, ...plinthOf }, build))
 };
-/** Is `look` one of the suits' looks? (For model(kind, look).) */
-export const suitLook = (suit) => (SUIT_LOOK[suit] ? suit : 'you');
-
-/** Two vines climbing model m in a spiral, with leaves. Mutates. */
-function vines(m) {
-  const pts = m.tris.flatMap((t) => t.p);
-  const top = Math.max(...pts.map((p) => p[1]));
-  const y0 = 1.5, y1 = y0 + (top - y0) * 0.8, n = 22;
-  for (const start of [0.4, 0.4 + Math.PI]) {
-    let last = null, lastR = 2;
-    for (let i = 0; i <= n; i++) {
-      const t = i / n, y = y0 + (y1 - y0) * t, a = start + t * Math.PI * 2.4;
-      const r = (surface(pts, a, y) ?? lastR) + 0.28;
-      lastR = r - 0.28;
-      const p = [Math.cos(a) * r, y, Math.sin(a) * r];
-      if (last) strand(m, last, p, 0.5, i % 2 ? VINE.vine : VINE.vineDark);
-      // A leaf every few turns of the vine, standing out from it.
-      if (i % 3 === 1 && i < n) leaf(m, p, a + (i % 2 ? 0.5 : -0.5), 0.6, 1.5, ((i - 1) / 3) % 2 ? VINE.leaf : VINE.leafLight);
-      last = p;
-    }
-    // Two leaves where it ends.
-    const a1 = start + Math.PI * 2.4;
-    leaf(m, last, a1 + 0.6, 1.0, 1.4, VINE.leafLight);
-    leaf(m, last, a1 - 0.6, 0.8, 1.2, VINE.leaf);
-  }
-  // A few leaves at its foot, on the plinth.
-  for (let k = 0; k < 5; k++) {
-    const a = k * 1.3 + 0.2;
-    leaf(m, [Math.cos(a) * 2.2, 1.55, Math.sin(a) * 2.2], a + (k % 2 ? 0.3 : -0.3), 0.15, 1.6, k % 2 ? VINE.leaf : VINE.leafLight);
-  }
-  return m;
-}
+/** The look for a piece of yours with this suit (or none): for
+    model(kind, look). */
+export const suitLook = (suit) => (SUIT_LOOK[suit] ? suit : 'plain');
 
 function withPalette(over, build) {
   const saved = { ...P };
