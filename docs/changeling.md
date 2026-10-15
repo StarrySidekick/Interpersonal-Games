@@ -29,12 +29,8 @@ pieces or new board shapes. The name is a working name and his to change.
   piece to pick it up, and the pieces it can take turn red; tap one to move
   there and take it. Your piece stays picked up after a move, since it is
   the only one you have. Tap any other piece to see its moves on their own.
-- **Rings, as in the Grove's other modes:** every square a piece reaches,
-  up to and including the first piece in each line. Gold inside the square
-  for yours; purple near the edge for the pieces you can take now, so you
-  can see where each would lead. A button under the board switches to
-  every piece's rings (with eleven pieces they cover most of the board,
-  which is why it is not the default) or none.
+  Only this shading, no rings (Timothy, 2026-10-15: "I just need the move
+  shading that shows up when you tap a piece to move it").
 
 ## Why this shape
 
@@ -68,6 +64,32 @@ the stepping stones, the diamond), a stranger a day, the Grove's pixel
 pieces and colours, and a tune: each piece you take plays the next note of
 the day's melody, so a clear plays all of it, and a try that stops short
 leaves it unfinished.
+
+## Prior art (checked 2026-10-15)
+
+The core rule is not new. Timothy asked whether it had been done; it has.
+
+- **No More Kings**, Christian Montoya, 2015 (itch.io, iOS): every move
+  must capture, you become what you capture, take every piece on the way
+  to the king. Essentially Changeling's rule, on a plain 8 x 8 board with
+  the king taken last. https://montoya.itch.io/no-more-kings
+- **Echo Chess**, Sami Ramly (Echo Chunk), 2023: you become ("echo") what
+  you capture and clear the board, with daily puzzles; moves to empty
+  squares appear to be allowed, so captures are not forced. Raised $1.4M
+  in 2024 billed as "Wordle for chess". The closest daily game to this
+  one. https://news.ycombinator.com/item?id=37327895
+- Smaller games with the same rule: Checkmate Tactics (ahne, 2025), Monster
+  Chess (Graham Marlow, 2025), Mate'Morphosis (Wise Monke, 2026).
+- The capture-only half alone: ThinkFun's **Solitaire Chess** (Vesa
+  Timonen, 2010) and Chess.com's **Solo Chess** (2018), where pieces never
+  change.
+- The rule as a chess variant: **Mutation (Frankfurt) Chess**, John E.
+  Bosley, 1986, and **Cannibal Chess** (chessvariants.com); **Take & Make**
+  in chess problems borrows the captured piece's move for one move.
+
+Not found anywhere: this rule with fairy pieces (riders, hoppers, odd
+leapers), on boards with holes, or with a dealer that climbs through the
+week. Those are what make Changeling its own; the rule is shared.
 
 ## The dealer, and how hard each day is
 

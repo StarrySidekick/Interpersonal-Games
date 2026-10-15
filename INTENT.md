@@ -34,10 +34,12 @@ of them stay is his call.
 Later the same day, from him: every daily board playable for testing; the
 pieces' movement paths shown as in the other modes; and moving as in those
 modes, tapping your piece and then where it goes. Built: a test-mode
-calendar of all 400 dealt days, kept apart from real days; Grove-style
-rings (yours, and by default only the pieces you can take, since every
-piece's at once covers the board; a button shows all or none); and
-pick-up-then-move. Every move is still a capture: whether to allow plain
+calendar of all 400 dealt days, kept apart from real days, and
+pick-up-then-move with the Grove's move shading (your piece gold, what it
+can take red). Rings were tried and taken out the same day: he wants only
+the shading. He also asked whether the idea had been done: it has (No More
+Kings, 2015, the same rule; Echo Chess, a funded daily "Wordle for chess"
+on the same idea). Details in `docs/changeling.md`, "Prior art". Every move is still a capture: whether to allow plain
 moves is his call (`docs/changeling.md`).
 
 ## 2026-10-14, later still: a best-move button, a row of pawns, chess pawns

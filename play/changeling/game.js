@@ -21,7 +21,7 @@ import { hz } from '../grove-chess/sounds.js';
 const TRIES = 6;
 const C = 28, RIM = 5, TOP = 18;            // a square, the rim, room above the top row for tall pieces
 const LIGHT = '#b9dc9b', DARK = '#f6efd7';  // the Grove's grass and cream
-const GOLD = '#f5c13a', PURPLE = '#9a5ad6';
+const GOLD = '#f5c13a';
 const GLOW = '#f5c13a';                     // your piece's plinth: the changeling inside it
 // Squares coloured as on the Grove's boards: the piece you picked up, and
 // the pieces it can take.
@@ -128,30 +128,16 @@ function crisp() {
 }
 addEventListener('resize', () => { crisp(); });
 
-function ring(sq, col, w = 2, inset = 1) {
-  const x = cellX(sq) + inset, y = cellY(sq) + inset, n = C - inset * 2;
-  P(x, y, n, w, col); P(x, y + n - w, n, w, col); P(x, y, w, n, col); P(x + n - w, y, w, n, col);
-}
 /** A small star in a square's top corner: today's stranger. */
 function star(sq) {
   const x = cellX(sq) + C - 7, y = cellY(sq) + 2;
   P(x + 2, y, 1, 5, GOLD); P(x, y + 2, 5, 1, GOLD); P(x + 1, y + 1, 3, 3, GOLD); P(x + 2, y + 2, 1, 1, '#fff6d0');
-}
-/** A ring round a square with a thin dark edge, so it reads on the grass
-    and the cream alike (the Grove's rings). */
-function band(sq, col, inset) {
-  ring(sq, 'rgba(20,14,8,.4)', 1, inset);
-  ring(sq, col, 2, inset + 1);
 }
 /** Colour a moved k of the way to colour b. */
 function mix(a, b, k) {
   const A = parseInt(a.slice(1), 16), B = parseInt(b.slice(1), 16);
   const ch = (sh) => Math.round(((A >> sh) & 255) + ((((B >> sh) & 255) - ((A >> sh) & 255)) * k));
   return `rgb(${ch(16)},${ch(8)},${ch(0)})`;
-}
-function dot(sq, col, r = 2) {
-  const cx = cellX(sq) + C / 2, cy = cellY(sq) + C / 2 + 7;
-  P(cx - r, cy - r, r * 2, r * 2, col);
 }
 function drawSprite(img, px, py, lift = 0, shadow = 'rgba(40,30,10,.22)') {
   // (px, py) is the middle of the square the piece stands on.
@@ -200,21 +186,6 @@ function draw(now = performance.now()) {
   }
   tiles(tint);
 
-  // Pieces' moves, as rings round the squares, the way the Grove's other
-  // modes show them: gold inside the square for yours, purple near its edge
-  // for the others. A line stops at the first piece it meets. By default the
-  // purple is only for the pieces you can take now, so you can see where
-  // each would take you; every piece's at once covers most of the board.
-  // You are in no one's way: whoever you take, you leave your square.
-  const rings = ringMode();
-  if (rings !== 'off' && !entry.done) {
-    const whose = rings === 'all' ? [...Array(N).keys()].filter((j) => mask & (1 << j)) : options(show);
-    for (const j of whose) {
-      const p = level.pieces[j];
-      for (const s of moveSet(level, occ, p.sq, p.kind)) band(s, PURPLE, 1);
-    }
-    for (const s of moveSet(level, occ, host.sq, host.kind)) band(s, GOLD, 5);
-  }
   // Today's stranger wears a star.
   for (let j = 0; j < N; j++) if ((mask & (1 << j)) && level.pieces[j].kind === level.fairy) star(level.pieces[j].sq);
 
@@ -481,7 +452,7 @@ function paintInfo() {
   const newcomer = !Object.values(store.days).some((e) => e.done);
   if (!view.sel) {
     info.replaceChildren('You are the ', el('b', {}, name(host.kind)), `: ${lower(say(host.kind))} Tap it to pick it up.`,
-      newcomer && !route.length ? ' Gold rings show where yours can go; purple, where each piece you can take could go next.' : '');
+      newcomer && !route.length ? ' Tap any other piece to see how it moves.' : '');
     return;
   }
   info.replaceChildren('You are the ', el('b', {}, name(host.kind)), `: ${lower(say(host.kind))} `,
@@ -663,18 +634,6 @@ $('#friend').onclick = () => {
   const routes = link.tries.map((s) => legal([...s].map((ch) => parseInt(ch, 36)).filter((j) => j >= 0 && j < N))).filter(Boolean);
   if (routes.length) watch(routes, `${link.name || 'Their'}${link.name ? '\'s' : ''} tries`);
 };
-
-// --- The rings, on or off. -------------------------------------------------------
-
-// Three settings, in turn: the pieces you can take now (the default), every
-// piece, none. Yours always shows unless they are off.
-const RINGS = ['next', 'all', 'off'];
-const ringMode = () => (RINGS.includes(store.rings) ? store.rings : store.rings === false ? 'off' : 'next');
-function paintRingsButton() {
-  $('#rings').textContent = { next: 'Rings: yours and what you can take', all: 'Rings: every piece', off: 'Rings: off' }[ringMode()];
-}
-$('#rings').onclick = () => { store.rings = RINGS[(RINGS.indexOf(ringMode()) + 1) % 3]; saveStore(); paintRingsButton(); redraw(); };
-paintRingsButton();
 
 // --- Test mode (?test): any day, a clean slate, the numbers. ------------------------
 
