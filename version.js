@@ -2,7 +2,7 @@
 // main: one more for every push (2026-10-11). Shown at the foot of the home
 // page and of every Grove Chess page's menu. Do not edit by hand.
 export const RELEASE = {
-  "number": 61,
+  "number": 62,
   "date": "2026-10-15",
-  "note": "Changeling: tap your piece then where it goes, with the Grove's move shading; every dealt day playable in test mode"
+  "note": "Adventure: a roguelite on Changeling's boards, with statues, purple pieces, rabbits, suits, weapons and par-based upgrades"
 };
