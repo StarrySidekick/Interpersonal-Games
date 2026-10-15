@@ -43,31 +43,57 @@ You start with a rook, always (Timothy, 2026-10-15: "you always start with
 the rook, no choice"). Take every piece of theirs in as few moves as you
 can; then a hole opens and your piece jumps in.
 
-- **One piece on the board.** Your set (everything you have collected, up
-  to five) takes turns: after every move of yours the piece on the board becomes the
-  next of the set, on the same square, in the order you got them, and then
-  the first again. The row under the board shows the order: Now, Next, In
-  2... Each piece keeps its own suit and weapon while it waits.
-  Right under the board, a strip shows your **whole set in the order it
-  comes on**, icons only, each in its suit's look (Timothy, 2026-10-15:
-  "show all pieces in your cycle, and don't show text, just the piece
-  icons"): the next outlined, the rest after it, and the piece on the board
-  now last and faded, since it comes round again after them. It pops when
-  it changes; the names are there for screen readers only. When the
-  turn ends, the piece on the board spins down into its plinth and the next
-  spins up out of it, with a burst of leaves and a soft grind of stone
-  (Timothy, 2026-10-15: "a quick animation for when the pieces cycle on the
-  board ... a clear little icon thing underneath the board to show what
-  piece comes up next").
-- **Suits and weapons, redone for one piece taking turns** (Timothy,
+- **One piece on the board, chosen from your set** (Timothy, 2026-10-15:
+  "you don't automatically cycle between your pieces, you choose between
+  your set. sets are three instead of five now. however, you have to use all
+  three before you can use them again. there is some way to unlock four and
+  five set sizes later, not sure how yet"). Your set is three pieces (from
+  everything you have collected). One stands on the board, on one square.
+  Each move you choose which of the three it is, then move it. Once it has
+  moved it is **used** for the round; when all three have had their turn, a
+  new round starts and all are ready again. A piece of Gears has two turns
+  a round. Each piece keeps its own suit, weapon and spent heart while it
+  waits. Before Timothy's change the set (of five) took turns by itself,
+  in order.
+  - **How you choose:** right under the board is your set, icons only, each
+    in its suit's look ("show all pieces in your cycle, and don't show
+    text, just the piece icons"). The one on the board is outlined, the
+    ready ones can be tapped, the used ones are faded. Tap a ready one and
+    the piece on the board spins down into its plinth as that one spins up
+    (with a burst of leaves and a grind of stone); its moves light. At the
+    start of each turn, if the piece on the board has had its turn, the
+    first ready one comes on by itself as a start; tap another to change.
+    During their turn the piece standing there is the one that just moved.
+  - **No tap to select** ("since we have one piece you shouldn't need to
+    tap it to see where you can move ... it should just already have that
+    option up"): the piece on the board always has its moves lit; tap a lit
+    square to move. Tapping the piece says what it is.
+  - In rules: each move carries `as`, the index of the piece of the set it
+    is (`playerMove` brings that one on first, `chooseInSet`); `allMoves`
+    lists every move of every ready piece, so the solver and the best-move
+    button choose too; `isLegal` refuses a used one; `spendTurn` marks the
+    piece used at the end of your turn and starts a new round when none is
+    ready; `turnsOf` gives Gears two; `setView` is the set for the page;
+    `stateKey` keeps who has gone. The row lower down lists the set with
+    Now, Ready or Used.
+  - **Not decided: how a set of four and five is unlocked.** The run keeps
+    `maxPieces` (3 for Adventure now), so the unlock only needs to raise
+    it. See "Open, and Timothy's".
+- **Suits and weapons, redone for one piece at a time** (Timothy,
   2026-10-15):
-  - **Gears** ("should allow you to skip the piece in the cycle"): when
-    your piece of Gears comes up, a button lets it step aside: the next
-    piece of the set comes on straight away and moves this turn instead.
-    It costs no move, and works once a turn (the piece that comes on cannot
-    skip again, nor pass unless it has no move). In rules: a `skip` move in
-    `movesFor`, which `playerMove` turns into `nextInSet` and a turn left
-    open (`bonus.why = 'gears'`), like Stars and Vines.
+  - **Gears**: first "should allow you to skip the piece in the cycle" (a
+    skip button). Once you choose from your set a skip means nothing, so
+    now a piece of Gears is wound up: it has **two turns a round** where
+    the others have one (`turnsOf`). My call, not Timothy's; open to change.
+  - **Squash** ("weapons no longer disable the normal capturing ability,
+    which is now called squash (this is just the normal chess capturing,
+    i've renamed it for clarity and theming reasons)"). Landing on a piece
+    to take it, as in chess, is a **squash**. A sword or a lance used to
+    lose it (they could not move onto a piece); with `rules.squash` (a lab
+    setting, on in Adventure) they keep it and add their own way. The
+    mace and the net never lost it. The captions say "You squash their
+    knight" for a landing and "You take" for a weapon's strike; their
+    pieces squash yours too. Other modes keep the old weapons.
   - **Sword** ("should be based on the direction you move, not just the
     space above"): with `swordAims` (a lab setting, on in Adventure) it
     strikes the square past where it lands, in the direction it moved, to
@@ -132,9 +158,9 @@ can; then a hole opens and your piece jumps in.
   statues included. Three rabbits of a kind become that piece, which joins
   your set after the board. The row under the board counts them (Knight:
   2/3); the turn's caption says so when you take one.
-- **More than five.** Past five pieces, each board draws five of them at
-  random (in the order you got them) and the rest rest; the row shows how
-  many are resting.
+- **More than three.** Past three pieces (five until 2026-10-15), each
+  board draws three of them at random (in the order you got them) as your
+  set, and the rest rest; the row shows how many are resting.
 - **Taken** (Timothy, 2026-10-15: "you need to lose all your pieces to
   lose the game and you don't just go to the next level if you lose
   one"). If they take the piece on the board, that piece is gone for good,
@@ -437,3 +463,14 @@ as game over.
 - Endless, with no final depth.
 - Tactics: whether stones should be traps (as now) or strike anything in
   reach. Whether the leader comes back in some clearer form, or stays out.
+- **How a set of four, then five, is unlocked** (Timothy: "not sure how
+  yet"). Candidates, each a milestone to mark in more than words:
+  (1) by depth, a waystone lit the first time you reach depth 8, then 15,
+  that raises it for every run after (mastery and power, permanent);
+  (2) by collection, when your collection first holds six, then nine,
+  different kinds (collection, permanent); (3) a rare card under par,
+  "a fourth place", for this run only (power, within a run). My pick is
+  (1): it rewards going deep, never decays, and the waystones already
+  exist to hang it on.
+- Gears' two turns a round (my call when the skip stopped meaning
+  anything).

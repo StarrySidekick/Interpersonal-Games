@@ -35,8 +35,9 @@ export const SUITS = {
   hearts: { name: 'Hearts', mark: '♥', colour: '#e0445a', desc: 'A life more: when it is taken it goes back to your first row instead, on a free square you choose (the second row if the first is full, and so on), and the heart is spent.' },
   spirals: { name: 'Spirals', mark: '@', colour: '#a77bdc', desc: 'Round the sides: off the left edge it comes back on at the right, and the other way, like Pac-Man.' },
   gears: { name: 'Gears', mark: '⚙', colour: '#8fa6bd', desc: 'Swap: as its move, it can trade squares with any other piece of yours.',
-    // With one piece on the board taking turns (Adventure, 2026-10-15).
-    setDesc: 'Skip: when it comes up, it can step aside for the next piece of your set, which comes on and moves instead. That costs no move.' },
+    // Adventure (2026-10-15): first a skip in the cycle; since you choose
+    // from your set, two turns a round (rules.js turnsOf).
+    setDesc: 'Wound up: it has two turns each round of your set, where the others have one.' },
   stars: { name: 'Stars', mark: '★', colour: '#e8c547', desc: 'Moves twice: once a level, its first move is followed straight away by a second.' },
   vines: { name: 'Vines', mark: '❦', colour: '#2fb8a0', desc: 'Chain captures: after it takes a piece, it may take another the same turn, and another after that.' },
   // Adventure only (Timothy, 2026-10-15: "a new suit called stone that lets
@@ -51,9 +52,11 @@ export const SUIT_KINDS = Object.keys(SUITS).filter((k) => !SUITS[k].adventure);
     what it does at that level. A lance only on a piece that slides. */
 export const WEAPONS = {
   sword: { name: 'Sword', mark: '†', colour: '#d4dbe3', desc: (lv) => `Strikes instead of landing: it cannot move onto a piece, but takes what stands ${['', 'in front of', 'in front of or beside', 'in front of, beside or diagonally in front of'][lv]} where it lands.`,
-    // Aiming the way it moves (rules.swordAims, Adventure, 2026-10-15).
-    aimDesc: (lv) => `Strikes instead of landing: it cannot move onto a piece, but takes what stands on the next square past where it lands, in the direction it moved${['', '', ', and on the squares to either side of that', ', on the squares to either side, and on the two between'][lv]}.` },
-  lance: { name: 'Lance', mark: '↟', colour: '#c9a46a', desc: (lv) => `Takes what it slides through, up to ${['', 'one piece', 'two pieces', 'three pieces'][lv]}, and lands on an empty square beyond; it cannot move onto a piece. Only on a piece that slides.` },
+    // Adventure's way (2026-10-15): aiming the way it moves
+    // (rules.swordAims), and still able to squash (rules.squash).
+    advDesc: (lv) => `It can squash, as any piece can. Landing on an empty square, it also strikes the next square past it, in the direction it moved${['', '', ', and the squares to either side of that', ', the squares to either side, and the two between'][lv]}, taking what stands there.` },
+  lance: { name: 'Lance', mark: '↟', colour: '#c9a46a', desc: (lv) => `Takes what it slides through, up to ${['', 'one piece', 'two pieces', 'three pieces'][lv]}, and lands on an empty square beyond; it cannot move onto a piece. Only on a piece that slides.`,
+    advDesc: (lv) => `It can squash, as any piece can; or it can slide through up to ${['', 'one piece', 'two pieces', 'three pieces'][lv]} of theirs, taking each, and land on an empty square beyond. Only on a piece that slides.` },
   mace: { name: 'Mace', mark: '✸', colour: '#a07a5a', desc: (lv) => `Sliding, it pushes up to ${['', 'one piece', 'two pieces', 'three pieces'][lv]} ahead of it; theirs it pushes are stunned, and one already stunned is taken. Stepping or leaping, it stuns what stands ${['', 'in front of and behind', 'round the sides of', 'all round'][lv]} where it lands. A stunned piece misses its next turn.` },
   // Adventure only (Timothy, 2026-10-15: "new weapon/tool: net (like a bug
   // net) using it captures the piece you capture, and you just get it
@@ -67,7 +70,7 @@ export const WEAPON_ORDER = Object.keys(WEAPONS).filter((w) => !WEAPONS[w].adven
 /** A suit's or weapon's words, the Adventure way (`adv`: one piece on the
     board taking turns, a sword that aims) where they differ. */
 export const suitDesc = (suit, adv = false) => (adv && SUITS[suit].setDesc) || SUITS[suit].desc;
-export const weaponDesc = (w, lv, adv = false) => (adv && WEAPONS[w].aimDesc ? WEAPONS[w].aimDesc(lv) : WEAPONS[w].desc(lv));
+export const weaponDesc = (w, lv, adv = false) => (adv && WEAPONS[w].advDesc ? WEAPONS[w].advDesc(lv) : WEAPONS[w].desc(lv));
 /** A weapon's name with its level: "Sword 2". */
 export const weaponName = (w, lv = 1) => `${WEAPONS[w].name} ${lv}`;
 /** What a piece on the board carries, in words, for tapping it: its suit,
@@ -597,7 +600,7 @@ export function adventureCards(run, n, rand) {
 // rabbits combine into one piece that enters your set."
 //
 // run.hand is everything you have collected; the set is the part of it that
-// takes turns on the board this level (at most run.maxPieces, five).
+// you choose from on the board this level (at most run.maxPieces: three since 2026-10-15).
 
 /** How many rabbits of one kind make that piece. */
 export const RABBITS_FOR_PIECE = 3;

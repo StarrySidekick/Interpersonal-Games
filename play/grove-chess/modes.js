@@ -193,10 +193,10 @@ export const MODES = {
     // set; every possessed piece moving each turn on a short route; more
     // than five pieces, five drawn at random each board; and new pieces
     // only from capturing, three rabbits of a kind making that piece.
-    name: 'Adventure', blurb: 'Start with a rook. Take every piece of theirs in as few moves as you can, and jump into the hole that opens. Grey statues stand still; pieces with a rabbit inside walk short loops, and the rabbit\u2019s colour says which. Every piece you take leaves its rabbit with you, and three of a kind become that piece, which joins your set: one piece on the board, turning into the next of your set every turn. Lose one and the next comes on; lose them all and it is over. Beat par for a choice of suits and weapons.',
+    name: 'Adventure', blurb: 'Start with a rook. Take every piece of theirs in as few moves as you can, and jump into the hole that opens. Grey statues stand still; pieces with a rabbit inside walk short loops, and the rabbit\u2019s colour says which. Every piece you take leaves its rabbit with you, and three of a kind become that piece, which joins your set: one piece on the board at a time, chosen from a set of three, each taking its turn before any goes again. Lose one and the next comes on; lose them all and it is over. Beat par for a choice of suits and weapons.',
     settings: {
-      run: 'descent', roll: 'fixed', upgrades: 'par', startPieces: 1, maxPieces: 5, startPool: ['rook'], rewards: true, jokers: false, carry: false, keepsakes: false, outOfMoves: 'fall', fairyFrom: 4, ramp: 'steady',
-      goal: 'clear', captureN: 0, royal: false, showdown: false, promote: 'none', fullRow: false, lineup: false, inOrder: false, mineRows: 1, foeRows: 4, arrange: false, cloud: false, ghosts: false, cycle: true, swordAims: true, tactics: true,
+      run: 'descent', roll: 'fixed', upgrades: 'par', startPieces: 1, maxPieces: 3, startPool: ['rook'], rewards: true, jokers: false, carry: false, keepsakes: false, outOfMoves: 'fall', fairyFrom: 4, ramp: 'steady',
+      goal: 'clear', captureN: 0, royal: false, showdown: false, promote: 'none', fullRow: false, lineup: false, inOrder: false, mineRows: 1, foeRows: 4, arrange: false, cloud: false, ghosts: false, cycle: true, swordAims: true, squash: true, tactics: true,
       w: 5, h: 5, foes: 3, still: 2, foePool: ['knight', 'bishop', 'rook', 'king'], darkBrain: 'possessed', patterns: 'routes', routeKinds: ['Shuttle'], oneMove: false, kinds: 1, skill: '1', style: 'balanced', rabbitMind: 'pattern', rabbits: 0,
       foesCapture: true, statues: 0, clouds: 0, maxMoves: 40, parMin: 1, parMax: 12, difficulty: 'any', balance: 'off', minEngage: 0, minCeiling: 0
     }

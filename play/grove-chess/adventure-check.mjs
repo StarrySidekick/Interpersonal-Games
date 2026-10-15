@@ -112,42 +112,49 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
   ok(pawns === 0, `no pawns among theirs (${pawns})`);
 }
 
-// One piece on the board, taking turns through the set; each keeps its own.
+// One piece on the board, chosen from your set (2026-10-15): each move
+// names which piece it is; once moved, a piece waits until all the set have
+// had their turn; each keeps its own while it waits.
 {
-  const run = newRun(['rook', 'knight', 'bishop'], 5, null); run.depth = 2;
+  const run = newRun(['rook', 'knight', 'bishop'], 3, null); run.depth = 2;
   run.hand[1].suit = 'hearts'; run.hand[1].lives = 2;
   const lv = makeLevel(levelSettings(M, { depth: 2, hand: handSettings(run) }, rng('cycle')), 31);
   let c = R.initialState(lv);
   ok(lv.pieces.length === 1 && lv.cycle?.length === 3, 'one piece on the board, three in the set');
-  const order = [];
-  for (let t = 0; t < 4 && !R.isOver(c); t++) {
-    order.push(c.pieces[0].type);
-    // A move that loses no piece (a loss hands over to the next, below).
-    const mv = R.allMoves(c).find((m) => !R.apply(c, m).arrived) || R.allMoves(c)[0];
-    c = R.apply(c, mv);
-  }
-  ok(order.join() === 'rook,knight,bishop,rook'.split(',').slice(0, order.length).join(), `it takes turns in order (${order.join(', ')})`);
-  ok(R.setOrder(R.initialState(lv)).map((p) => p.type).join() === 'rook,knight,bishop', 'the set in order, from the piece on the board');
   ok(R.initialState(lv).set[1].suit === 'hearts', 'each piece of the set keeps its suit while it waits');
+  const as = (s) => [...new Set(R.allMoves(s).filter((m) => m.p >= 0).map((m) => m.as))].sort().join();
+  ok(as(c) === '0,1,2', 'at first any of the three can move');
+  // Bishop first, then the rook: no move may use either again until the knight has gone.
+  const safe = (s, j) => R.allMoves(s).find((m) => m.as === j && !R.apply(s, m).arrived && !R.isOver(R.apply(s, m)));
+  const m1 = safe(c, 2);
+  ok(m1 && R.isLegal(c, m1), 'choosing the bishop and moving it is legal');
+  c = R.apply(c, m1);
+  ok(c.pieces[0].type === 'bishop' && as(c) === '0,1', 'the bishop stays on the board, used; the other two are ready');
+  ok(!R.isLegal(c, { ...R.movesFor(c, 0)[0], p: 0, as: 2 }), 'the bishop cannot go again yet');
+  const m2 = safe(c, 0);
+  c = R.apply(c, m2);
+  ok(c.pieces[0].type === 'rook' && as(c) === '1', 'then only the knight is ready');
+  const m3 = safe(c, 1);
+  c = R.apply(c, m3);
+  ok(c.pieces[0].type === 'knight' && as(c) === '0,1,2', 'all three have gone: a new round, all ready again');
+  ok(R.setView(c).map((v) => v.p.type).join() === 'rook,knight,bishop' && R.setView(c).filter((v) => v.on).length === 1, 'setView: the set in its own order, one on the board');
+  const lineOf = [m1, m2, m3], { ok: legal, states } = R.replay(lv, lineOf);
+  ok(legal && R.stateKey(states[3]) === R.stateKey(c), 'a replay of the moves, each naming its piece, ends the same');
 }
 
-// Gears in a set: the piece of Gears may skip to the next, which moves
-// this turn; no move is spent, and no second skip in the same turn.
+// Gears in your set (2026-10-15): two turns a round where the others have one.
 {
-  const run = newRun(['rook', 'knight', 'bishop'], 5, null); run.depth = 2;
+  const run = newRun(['rook', 'knight'], 3, null); run.depth = 2;
   run.hand[0].suit = 'gears';
   const lv = makeLevel(levelSettings(M, { depth: 2, hand: handSettings(run) }, rng('gears')), 41);
-  const st = R.initialState(lv), skip = R.movesFor(st, 0).find((m) => m.skip);
-  ok(skip, 'a piece of Gears can skip');
-  ok(R.isLegal(st, { p: 0, ...skip }), 'the skip is legal');
-  const mid = R.apply(st, { p: 0, ...skip });
-  ok(mid.pieces[0].type === 'knight' && mid.t === 0 && mid.bonus?.why === 'gears', 'skipping brings on the knight, with no move spent');
-  ok(!R.movesFor(mid, 0).some((m) => m.skip) && !R.allMoves(mid).some((m) => m.p === -1), 'no second skip, and no passing, in the same turn');
-  const mv = R.allMoves(mid).find((m) => !R.apply(mid, m).arrived) || R.allMoves(mid)[0], after = R.apply(mid, mv);
-  ok(after.t === 1 && after.pieces[0].type === 'bishop', 'the knight moves, and the bishop is next');
-  const plain = newRun(['rook', 'knight'], 5, null);
-  const lv2 = makeLevel(levelSettings(M, { depth: 2, hand: handSettings(plain) }, rng('gears2')), 42);
-  ok(!R.movesFor(R.initialState(lv2), 0).some((m) => m.skip), 'without Gears, no skip');
+  let c = R.initialState(lv);
+  const safe = (s, j) => R.allMoves(s).find((m) => m.as === j && !R.apply(s, m).arrived && !R.isOver(R.apply(s, m)));
+  const ready = (s) => R.setView(s).filter((v) => v.ready).map((v) => v.j).join();
+  c = R.apply(c, safe(c, 0));
+  ok(ready(c) === '0,1', 'the piece of Gears has gone once and is still ready');
+  c = R.apply(c, safe(c, 0));
+  ok(ready(c) === '1', 'after its second turn, only the knight is ready');
+  ok(R.turnsOf({ suit: 'gears' }) === 2 && R.turnsOf({}) === 1, 'turnsOf');
 }
 
 // A sword that aims: it strikes past where it lands, the way it moved.
@@ -171,6 +178,15 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
     }
   }
   ok(found, 'a board where the sword strikes');
+  // Squash (2026-10-15): a sword or a lance still takes by landing on a
+  // piece in Adventure; without the rule (the descent) it cannot.
+  const base = makeLevel(levelSettings(M, { depth: 1, hand: handSettings(newRun(['rook'], 3, null)) }, rng('sq')), 900);
+  for (const weapon of ['sword', 'lance']) {
+    const st = (squash) => R.initialState({ ...base, pieces: [{ type: 'rook', x: 0, y: 0, weapon, wl: 1 }], cycle: undefined, hole: null, stumps: new Set(),
+      foes: [{ type: 'knight', x: 0, y: 3, brain: 'still', target: true }, { type: 'pawn', x: 4, y: 4, brain: 'still', target: true }], rules: { ...base.rules, squash } });
+    ok(base.rules.squash && R.movesFor(st(true), 0).some((m) => m.cap && m.x === 0 && m.y === 3), `a ${weapon} can squash in Adventure`);
+    ok(!R.movesFor(st(false), 0).some((m) => m.cap && m.x === 0 && m.y === 3), `without squash, a ${weapon} cannot land on a piece`);
+  }
 }
 
 // Five of a bigger collection, drawn each board.
@@ -290,7 +306,7 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
   const p = n.pieces[0], W = n.day.W;
   ok(n.arrived && n.set[0].lost && p.type === 'knight' && !p.taken && !R.isOver(n), 'a piece taken: the next of the set comes on, and the board goes on');
   ok(!n.foes.some((f) => !f.taken && f.x === p.x && f.y === p.y) && !R.reachMaps(n).theirs.has(p.y * W + p.x), 'it comes on a free square out of their reach');
-  ok(R.setLeft(n) === 1 && R.setOrder(n).length === 1, 'the one taken is out of the set');
+  ok(R.setLeft(n) === 1 && R.setView(n).filter((v) => !v.lost).length === 1, 'the one taken is out of the set');
   const run = newRun(['rook', 'knight'], 5, null);
   afterAdventure(run, n, [0, 1]);
   ok(run.hand.length === 1 && run.hand[0].base === 'knight' && run.lost[0].base === 'rook', 'after the board, the one taken is gone for good');
@@ -333,5 +349,5 @@ for (const [how, want] of [['under', 3], ['par', 2], ['over', 1]]) {
 }
 ok(parVerdict(5, 6, true) === 'under' && parVerdict(6, 6, true) === 'par' && parVerdict(7, 6, true) === 'over' && parVerdict(3, 6, false) === 'over', 'the verdicts');
 
-console.log(fails ? `${fails} checks failed.` : 'Adventure: statues, the Changeling, routes, the hole, the set, losing a piece, the net, tactics (pins, sentries, flight, the leader, stones), rabbits, dealing and cards check out.');
+console.log(fails ? `${fails} checks failed.` : 'Adventure: statues, the Changeling, routes, the hole, choosing from the set, losing a piece, the net, tactics (pins, sentries, flight, the leader, stones), rabbits, dealing and cards check out.');
 if (fails) process.exit(1);
