@@ -67,7 +67,8 @@ export function piecesSheet(dialog, list, day, notes = {}) {
           [f.brain === 'ai' ? RABBIT_AI_DESC : rabbitDesc(day.rules), f.brain === 'ai' ? null : notes.rabbit], f.brain === 'ai');
       } else {
         const P = PIECES[f.type];
-        row(f.type, 'foe', P.name, f.brain === 'possessed' ? 'Theirs, with a rabbit inside' : 'Theirs, and it thinks', [P.desc, P.origin, ...patentLines(f.type)], true);
+        if (f.brain === 'still') row(f.type, 'grey', P.name, 'Theirs, a statue', ['A statue of theirs: it never moves and never takes. Take it.', P.desc, ...patentLines(f.type)], false);
+        else row(f.type, 'foe', P.name, f.brain === 'possessed' ? 'Theirs, with a rabbit inside' : 'Theirs, and it thinks', [P.desc, P.origin, ...patentLines(f.type)], true);
       }
     }
     if (day.rules.crumble || day.rules.shrink || day.bramble.length || day.stumps.size || day.ghosts?.size || day.gates?.size || day.clouds?.length) head('On the board');

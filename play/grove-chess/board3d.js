@@ -53,6 +53,8 @@ const PALE = '#e9e4da';   // a possessed piece whose rabbit you do not know
 // have a piece base"), in a pale shade of its side's colour.
 const CARRIER_FUR = { you: '#cfe6b4', foe: '#c7b2ea' };
 const SUIT_COLOUR = { hearts: '#e0445a', spirals: '#f0903a', gears: '#8fa6bd', stars: '#e8c547', vines: '#2fb8a0' }; // run.js SUITS
+// The plinth of a Changeling wearing another piece's shape: fairy silver.
+const CHANGELING_GLOW = '#d9c8f5';
 const LIFT = 10 / 28;     // the flat board's pixels of height, in model units
 const HEAD = 9.5;         // how high a rider sits on a piece's head, in model units
 const SHIELD_FLIGHT = 460; // ms a shield takes to fly from a guard to the piece it guards
@@ -1005,7 +1007,9 @@ export class Board3D extends Board {
       }
       // In autochess a piece of yours with a rabbit inside wears its colour;
       // in a descent, a piece with a suit wears the suit's.
-      stand(p.brain === 'carrier' ? model('rabbit', 'you', CARRIER_FUR.you) : model(p.type, 'you', null, p.brain === 'possessed' ? this.fur(p) : SUIT_COLOUR[p.suit] || null), x, y, h, 100 + i, o);
+      // A Changeling in another piece's shape is drawn as that piece, on a
+      // plinth of its own colour (or its suit's).
+      stand(p.brain === 'carrier' ? model('rabbit', 'you', CARRIER_FUR.you) : model(p.shape || p.type, 'you', null, p.brain === 'possessed' ? this.fur(p) : SUIT_COLOUR[p.suit] || (p.shape ? CHANGELING_GLOW : null)), x, y, h, 100 + i, o);
       where[i] = { x, y, h, i };
       armsOf(p, x, y, h, 100 + i, o, 1);
       // Guarded (2026-10-11): a shield in front. Since 2026-10-13 it flies
@@ -1044,7 +1048,8 @@ export class Board3D extends Board {
       if (f.rides != null && !s.foes[f.rides]?.taken) h += HEAD * BIG; // a rabbit of theirs riding on a head
       // The rabbit that leads them (2026-10-13) is a rabbit, not a piece: no
       // plinth, in its trait's colour.
-      const mdl = f.brain === 'leader' ? model('rabbit', 'foe', this.fur(f)) : f.brain === 'carrier' ? model('rabbit', 'foe', CARRIER_FUR.foe) : f.suit ? model(f.type, 'foe', null, SUIT_COLOUR[f.suit]) : f.brain === 'possessed' ? model(f.type, 'foe', null, this.glowOf(f, k, at)) : model(f.type, 'foe', this.fur(f));
+      // A statue of theirs (Adventure) is the piece in grey stone.
+      const mdl = f.brain === 'still' ? model(f.shape || f.type, 'grey') : f.brain === 'leader' ? model('rabbit', 'foe', this.fur(f)) : f.brain === 'carrier' ? model('rabbit', 'foe', CARRIER_FUR.foe) : f.suit ? model(f.shape || f.type, 'foe', null, SUIT_COLOUR[f.suit]) : f.shape ? model(f.shape, 'foe', null, CHANGELING_GLOW) : f.brain === 'possessed' ? model(f.type, 'foe', null, this.glowOf(f, k, at)) : model(f.type, 'foe', this.fur(f));
       const fo = collapse ? { s: away(at - collapse.t0 - collapse.delay(f.x, f.y)) } : {};
       stand(mdl, x, y, h, 200 + k, fo);
       armsOf(f, x, y, h, 200 + k, fo, -1);
@@ -1086,7 +1091,7 @@ export class Board3D extends Board {
         rot = k * Math.PI * 2.5;
         sc = k > 0.45 ? 1 - (k - 0.45) / 0.55 : 1;
       }
-      const mdl = tb.possessed ? model('rabbit', 'foe', tb.fur) : model(tb.kind, 'foe', tb.fur);
+      const mdl = tb.possessed ? model('rabbit', 'foe', tb.fur) : (tb.grey ? model(tb.kind, 'grey') : model(tb.kind, 'foe', tb.fur));
       stand(mdl, tb.x, tb.y, h, 600, { rz: rot, ry: rot * 0.6, s: Math.max(0.02, sc) });
     }
     // The opening's possession: a rabbit of each piece's colour hops in out of

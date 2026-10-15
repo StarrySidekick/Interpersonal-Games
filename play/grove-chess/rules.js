@@ -235,6 +235,8 @@ export const holeOpen = (s) => s.day.rules.goal !== 'descent' || s.foes.every((f
     default they do not eat); the first daily boards, which predate it, fall
     back to the rule for everything. */
 export function canTake(rules, f) {
+  // A statue of theirs (Adventure, 2026-10-15) never takes anything.
+  if (f.brain === 'still') return false;
   return f.type === 'rabbit' ? (rules.rabbitsEat ?? rules.foesCapture) : rules.foesCapture;
 }
 
@@ -313,7 +315,7 @@ function armed(s, p, side, ms) {
       return strike.length ? { ...m, strike } : m;
     });
   }
-  const vecs = slideVecs(p.type, fwd);
+  const vecs = slideVecs(p.shape || p.type, fwd);
   if (p.weapon === 'lance') {
     if (!vecs.length) return ms;
     const out = ms.filter((m) => m.swap || !m.cap), seen = new Set(out.map((m) => m.y * W + m.x));
@@ -439,6 +441,7 @@ function capturePiece(s, p, k) {
   if ((p.lives || 1) > 1) { p.lives--; p.reviving = true; return false; }
   p.taken = true;
   s.pieces.forEach((q) => { if (!q.taken && q.x === x && q.y === y) q.taken = true; });
+  if (k >= 0) reshape(s.foes[k], p);
   return true;
 }
 /** Their piece f is taken by your piece i: the same, the other way. Taking
@@ -449,8 +452,23 @@ function captureFoe(n, f, i) {
   if ((f.lives || 1) > 1) { f.lives--; f.reviving = true; return false; }
   f.taken = true;
   n.foes.forEach((q) => { if (!q.taken && q.x === x && q.y === y) q.taken = true; });
+  if (i >= 0) reshape(n.pieces[i], f);
   if (goalMet(n)) n.won = true;
   return true;
+}
+
+/** A Changeling that takes a piece takes on its moves (2026-10-15): it is
+    in that piece's shape until it takes another. Rabbits, balls and other
+    things that are not pieces leave it as it was. A weapon that no longer
+    suits the shape goes, as when a pawn promotes. Mutates. */
+function reshape(taker, victim) {
+  if (!taker || taker.type !== 'changeling' || !victim) return;
+  const t = victim.shape || victim.type;
+  const P = PIECES[t];
+  if (!P?.moves || !P.betza || t === 'ball' || t === 'bunny' || t === 'rabbit' || P.kind === 'neutral' || P.kind === 'quarry') return;
+  taker.shape = t === 'changeling' ? undefined : t;
+  if (!taker.shape) delete taker.shape;
+  if (taker.weapon && taker.shape && !canArm(taker.shape, taker.weapon)) { delete taker.weapon; delete taker.wl; }
 }
 
 /**
@@ -925,6 +943,15 @@ export const PIECES = {
     desc: 'A long knight: leaps three one way and one to the side, over anything.',
     origin: 'From Tamerlane chess.',
     moves: (L, p) => leap(L, p, sym(3, 1)) },
+  // The Changeling (Timothy, 2026-10-15: "shelve changeling mode for now ...
+  // as a consolation, create a changeling fairy piece"). It steps like a
+  // king until it takes something, then moves like the last piece it took,
+  // and changes again with every capture (reshape, below). Its shape is
+  // p.shape; its Betza code is what it starts as. A shape lasts one board.
+  changeling: { name: 'Changeling', kind: 'fairy', tier: 1, value: 3, betza: 'K', strength: 3.5,
+    desc: 'Steps one square in any direction until it takes something. From then on it moves like the last piece it took, and changes again with every capture.',
+    origin: 'Invented in the Grove, 2026, in place of the Changeling daily.',
+    moves: (L, p, fwd, day) => (p.shape && p.shape !== 'changeling' && PIECES[p.shape]?.moves ? PIECES[p.shape].moves(L, p, fwd, day) : leap(L, p, ALL8)) },
   zebra: { name: 'Zebra', kind: 'fairy', tier: 0, value: 2, betza: 'Z', strength: 2.25,
     desc: 'Leaps three one way and two to the side, over anything.',
     moves: (L, p) => leap(L, p, sym(3, 2)) },
@@ -1773,7 +1800,7 @@ export function reachMaps(s, pattern = false) {
     // danger to show (Timothy, 2026-10-13: "the rabbit shouldn't have its
     // moveset present as a purple reach outline"); nor does a rabbit that
     // rides their pieces.
-    if (f.taken || f.flying || f.brain === 'pattern' || f.brain === 'leader' || f.brain === 'carrier') continue;
+    if (f.taken || f.flying || f.brain === 'pattern' || f.brain === 'leader' || f.brain === 'carrier' || f.brain === 'still') continue;
     const ms = pieceMoves(s, f, 'foe');
     for (const m of ms) { theirs.add(m.y * W + m.x); for (const q of capturesOf(m, W)) theirs.add(q); }
     // A sword strikes round every square it could land on: all of those are
@@ -1812,7 +1839,7 @@ function patternReach(s, p, side, takes) {
   const base = sight(s, p, side), fwd = side === 'you' ? 1 : -1, moves = PIECES[p.type].moves, W = s.day.W, wrap = s.day.rules.wrap;
   const at = (x, y) => (wrap ? fold(s.day, x, y) : [x, y]);
   for (const m of moves((x, y) => { const c = base(x, y); return c === OWN ? ENEMY : c; }, p, fwd, s.day)) if (m.cap) { const [x, y] = at(m.x, m.y); out.add(y * W + x); }
-  if (TAKES_ONLY.has(p.type))
+  if (TAKES_ONLY.has(p.shape || p.type))
     for (let y = 0; y < s.day.H; y++) for (let x = 0; x < W; x++) {
       // A pawn only takes next to itself: no need to try further off.
       if (p.type === 'pawn' && !wrap && (Math.abs(x - p.x) > 1 || Math.abs(y - p.y) > 1)) continue;
@@ -2616,12 +2643,12 @@ export function replay(day, moves) {
 
 export function stateKey(s) {
   let k = '';
-  for (const p of s.pieces) k += p.taken ? '--' : p.x + ',' + p.y + (p.lives > 1 ? 'L' + p.lives : '') + (p.starUsed ? '*' : '') + (p.stun ? 'z' : '') + (p.bubble ? 'o' : '') + (p.moved && p.type === 'pawn' && s.day.rules.pawnTwo ? 'm' : '') + (p.promoted ? p.type : '') + ';';
+  for (const p of s.pieces) k += p.taken ? '--' : p.x + ',' + p.y + (p.lives > 1 ? 'L' + p.lives : '') + (p.starUsed ? '*' : '') + (p.stun ? 'z' : '') + (p.bubble ? 'o' : '') + (p.moved && p.type === 'pawn' && s.day.rules.pawnTwo ? 'm' : '') + (p.promoted ? p.type : '') + (p.shape ? '~' + p.shape : '') + ';';
   if (s.bonus) k += `|b${s.bonus.p}${s.bonus.cap ? 'c' : ''}`;
   if (s.cloudy) k += '|c';
   if (s.day.rules.oneMove) k += `|f${s.ft || 0}`; // whose turn it is on their side
   k += '|';
-  for (const f of s.foes) k += f.taken ? '--' : f.x + ',' + f.y + ',' + f.i + (f.lives > 1 ? 'L' + f.lives : '') + (f.starUsed ? '*' : '') + (f.mx > 0 ? '+' : '-') + (f.my > 0 ? '+' : '-') + (f.idle ? 'i' + f.idle : '') + (f.stun ? 'z' : '') + (f.bubble ? 'o' : '') + (f.moved && f.type === 'pawn' && s.day.rules.pawnTwo ? 'm' : '') + (f.promoted ? f.type : '') + ';';
+  for (const f of s.foes) k += f.taken ? '--' : f.x + ',' + f.y + ',' + f.i + (f.lives > 1 ? 'L' + f.lives : '') + (f.starUsed ? '*' : '') + (f.mx > 0 ? '+' : '-') + (f.my > 0 ? '+' : '-') + (f.idle ? 'i' + f.idle : '') + (f.stun ? 'z' : '') + (f.bubble ? 'o' : '') + (f.moved && f.type === 'pawn' && s.day.rules.pawnTwo ? 'm' : '') + (f.promoted ? f.type : '') + (f.shape ? '~' + f.shape : '') + ';';
   if (s.flag) k += `|F${s.flag.by || ''}${s.flag.i},${s.flag.x},${s.flag.y}`;
   if (s.ep) k += `|e${s.ep.side}${s.ep.at}`;
   if (s.hole) k += `|h${s.hole.x},${s.hole.y},${s.hole.i}${s.hole.mx > 0 ? '+' : '-'}${s.hole.my > 0 ? '+' : '-'}`;

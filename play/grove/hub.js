@@ -6,8 +6,7 @@
 //
 // Each card has a preview: one still frame of the Grove's own 3D board scene
 // (board.js `scene`, as the daily's title screen draws it), built only when
-// the card scrolls into view. Changeling's and Adventure's boards are put
-// into the Grove's shape for drawing.
+// the card scrolls into view.
 
 import { el, $, themeToggle } from '../../engine/ui.js';
 import { releaseLine } from '../../engine/release.js';
@@ -23,8 +22,6 @@ import { loadDay } from '../grove-chess/daily4.js';
 import { todayStr } from '../grove-chess/day.js';
 import { FUR } from '../grove-chess/rabbits.js';
 import { VARIANTS, VARIANT_ORDER } from '../grove-chess/variants.js';
-import { deal } from '../changeling/rules.js';
-import { newRun as adventureRun, makeLevel as adventureLevel } from '../changeling/adventure/run.js';
 
 // --- Previews. ------------------------------------------------------------------------
 
@@ -78,39 +75,19 @@ function firstLevel(id, seed = 7) {
   return makeLevel(levelSettings(M, { hand }, rng(`${id}:${seed}:1`)), seed + 1000);
 }
 
-const pad = (n) => String(n).padStart(2, '0');
-const localDate = (t = new Date()) => `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`;
 
 const PREVIEW = {
-  changeling: () => {
-    const L = deal(localDate() < '2026-10-15' ? '2026-10-15' : localDate());
-    return [groveDay(L.W, L.H, L.on, [L.start], L.pieces.map((p) => ({ ...p, side: 'foe' })))];
-  },
   daily: async () => {
     const day = await loadDay(todayStr());
     return [day, (f) => ((f.brain === 'pattern' || f.brain === 'possessed' || f.mind) && FUR[f.patternName]) || null];
   },
-  adventure: () => {
-    // A board from a little way down, with a purple piece and a rabbit.
-    for (let seed = 1; seed < 40; seed++) {
-      const run = adventureRun('rook', seed);
-      run.depth = 6;
-      run.roster.push({ id: 2, kind: 'knight' }, { id: 3, kind: 'bishop' });
-      const lv = adventureLevel(run);
-      if (!lv || !lv.twists.movers || !lv.twists.rabbits) continue;
-      const ps = lv.state.ps;
-      return [groveDay(lv.L.W, lv.L.H, lv.L.on, ps.filter((p) => p.side === 'you'),
-        ps.filter((p) => p.side !== 'you').map((p) => ({ ...p, side: p.side === 'stone' ? 'grey' : 'foe' })))];
-    }
-    return null;
-  },
   pieces: () => {
-    const kinds = ['camel', 'zebra', 'cannon', 'nightrider', 'archbishop', 'squirrel', 'alfil', 'chancellor'];
+    const kinds = ['changeling', 'camel', 'cannon', 'nightrider', 'archbishop', 'squirrel', 'zebra', 'chancellor'];
     const day = groveDay(4, 2, new Uint8Array(8).fill(1), kinds.slice(0, 4).map((k, i) => ({ kind: k, sq: 4 + i })), kinds.slice(4).map((k, i) => ({ kind: k, sq: i, side: 'foe' })));
     return [day];
   }
 };
-for (const id of ['descent', 'kungfu', 'tiles', 'golf', 'flag', 'autochess', 'chaos']) PREVIEW[id] = () => [firstLevel(id)];
+for (const id of ['adventure', 'descent', 'kungfu', 'tiles', 'golf', 'flag', 'autochess', 'chaos']) PREVIEW[id] = () => [firstLevel(id)];
 for (const id of VARIANT_ORDER) PREVIEW[`v:${id}`] = () => [makeLevel({ ...modeDefaults('variants'), variant: id }, 1)];
 
 // Draw each preview when its card comes into view, one at a time.
@@ -146,7 +123,7 @@ const OURS = [
     { id: 'daily', href: '../grove-chess/', name: 'The rabbit', line: 'Catch the day\'s rabbit, which hops in a hidden pattern. Friends who play from your link join your vine.', tags: ['daily', 'shared'], hot: true }
   ] },
   { head: 'Runs', say: 'Down through the Grove, board after board, until you fall. Different every time.', items: [
-    { id: 'adventure', href: '../grove-chess/play/?mode=adventure', name: 'Adventure', line: 'Start with one piece. Take every piece in as few moves as you can, and pick up pieces, suits and weapons on the way down.', tags: ['roguelite', 'new'], hot: true },
+    { id: 'adventure', href: '../grove-chess/play/?mode=adventure', name: 'Adventure', line: 'Start with a rook, bishop or knight. Take every piece in as few moves as you can; beat par for more to choose from on the way down.', tags: ['roguelite', 'new'], hot: true },
     { id: 'descent', href: '../grove-chess/play/?mode=descent', name: MODES.descent.name, line: 'A full army each, as in chess. Take the piece the rabbit rides to fall to the next board, and choose a suit or a weapon.', tags: ['roguelite', 'armies'] },
     { id: 'tiles', href: '../grove-chess/play/?mode=tiles', name: MODES.tiles.name, line: 'Win a round, turn over a tile at the edge: the board grows, and the suit or weapon on it is yours.', tags: ['rounds', 'armies'] },
     { id: 'kungfu', href: '../grove-chess/play/?mode=kungfu', name: MODES.kungfu.name, line: 'The descent with no turns: move any piece whenever it is ready, and so do they.', tags: ['real time'] }
@@ -158,7 +135,7 @@ const OURS = [
   ] },
   { head: 'The workshop', say: 'For trying ideas out.', items: [
     { id: 'chaos', href: '../grove-chess/lab/', name: 'Custom', line: 'Any pieces, any board, any rules. Play it, let bots simulate it, or have them find the most playable layout.', tags: ['every setting'] },
-    { id: 'pieces', href: '../grove-chess/pieces/', name: 'The pieces', line: 'Every piece in the Grove, classic and fairy, with its history and how it moves.', tags: ['catalog'] }
+    { id: 'pieces', href: '../grove-chess/pieces/', name: 'The pieces', line: 'Every piece in the Grove, classic and fairy, with its history and how it moves. New: the Changeling, which takes on the moves of whatever it takes.', tags: ['catalog'] }
   ] }
 ];
 
