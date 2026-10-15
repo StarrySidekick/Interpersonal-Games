@@ -628,15 +628,15 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
       foePool: classicUntil(d < M.fairyFrom, ['knight', 'bishop', 'rook', 'king'], ['camel', 'zebra', 'cannon', 'ferz', 'wazir', ...(d >= 8 ? ['queen', 'archbishop', 'changeling'] : [])]),
       clouds: d >= 5 && rand() < 0.3 ? (d >= 9 && rand() < 0.4 ? 2 : 1) : 0,
       // Tactics, one at a time (2026-10-15): a sentry from depth 2, a
-      // scared piece from 4, their crowned leader from 6.
+      // scared piece from 4. No crowned leader: it came in the same day
+      // and went out again (Timothy: "get rid of the leader thing i think
+      // that's what confusing me"); it is still a lab setting.
       sentries: d < 2 ? 0 : d < 6 ? 1 : d < 10 ? int(1, 2) : int(2, 3),
       scared: d < 4 ? 0 : d < 8 ? 1 : int(1, 2),
-      crown: d >= 9 ? rand() < 0.8 : d >= 6 ? rand() < 0.5 : false,
+      crown: false,
       statues: 0, parMax: Math.min(26, 10 + d * 2), maxMoves: 40, aim: 0
     });
-    // Checkmate topples the whole board, so a board with their leader must
-    // not fall to one in a move or two: its par has to be longer.
-    S.parMin = S.crown ? 4 + Math.floor(d / 3) : 1;
+    S.parMin = 1;
   }
   if (M.run === 'descent' && M.realtime) {
     // Kung fu: their pieces rest less each level down; the ground stays

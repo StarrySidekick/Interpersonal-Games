@@ -12,7 +12,13 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
-## 2026-10-15, newest: their pieces by suit, one danger colour, Stone every move
+## 2026-10-15, newest: no leader in Adventure
+
+From Timothy: "get rid of the leader thing i think that's what confusing
+me." Built: Adventure deals no crowned leader, so no check or checkmate;
+it stays a lab setting, off by default.
+
+## 2026-10-15, before that: their pieces by suit, one danger colour, Stone every move
 
 From Timothy, and built: Spirals purple; their pieces in Adventure wear
 their suit's look (grey without one) instead of purple; every danger ring

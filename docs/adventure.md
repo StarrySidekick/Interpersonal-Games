@@ -334,7 +334,10 @@ Their turn, in order:
    theirs to another of theirs behind it pins the front one for the turn:
    it cannot step, strike, run or block (`tacticalPins`). Only sliding
    pieces have lines. Pinned pieces wear the Grove's pin needle.
-2. **Check.** Their **leader** is a crowned King (gold plinth, a gold
+2. **Check** (out of Adventure since 2026-10-15, Timothy: "get rid of the
+   leader thing i think that's what confusing me"; the engine keeps it as
+   the lab setting "A crowned leader", off by default, and this is how it
+   works there). Their **leader** is a crowned King (gold plinth, a gold
    crown). If you attack it they answer: a piece of theirs takes the
    attacker if one can (the King itself only where nothing else of yours
    guards that square); else one steps into the line to block, and stands
@@ -394,12 +397,12 @@ for yours. The board, the tumble when one is taken, the intro's cards, the
 pieces sheet and the Grove's preview all follow. Spirals turned purple the
 same day, everywhere, since purple no longer means theirs here.
 
-**Arrival, one at a time:** a sentry from depth 2, a scared rabbit from 4,
-their leader from 6 (half the boards; most from 9). Pins work from the
-first board.
+**Arrival, one at a time:** a sentry from depth 2, a scared rabbit from 4.
+Pins work from the first board. No leader (it was dealt from depth 6 for
+part of a day, then taken out).
 
-**Checkmate is a shortcut**, since it topples the board, so leader boards
-are dealt with care: the King starts with at least three open squares
+**Checkmate is a shortcut** (lab boards with a leader only), since it
+topples the board, so leader boards are dealt with care: the King starts with at least three open squares
 round it and two or more from you, the sentries are the statues nearest
 it (its bodyguards), par must be at least 4 plus a third of the depth, and
 an exact search (as far as a budget lets) throws out any board that falls
@@ -428,6 +431,5 @@ as game over.
 - The route kinds and their colours, and when each arrives.
 - Wandering clouds, which can hide a walker.
 - Endless, with no final depth.
-- Tactics: whether checkmate should topple the whole board or only take
-  the leader; whether stones should be traps (as now) or strike anything in
-  reach; how strong the leader's bodyguards should be.
+- Tactics: whether stones should be traps (as now) or strike anything in
+  reach. Whether the leader comes back in some clearer form, or stays out.
