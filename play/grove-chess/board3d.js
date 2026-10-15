@@ -1031,9 +1031,21 @@ export class Board3D extends Board {
       // in a descent, a piece with a suit wears the suit's.
       // A Changeling in another piece's shape is drawn as that piece, on a
       // plinth of its own colour (or its suit's).
-      stand(p.brain === 'carrier' ? model('rabbit', 'you', CARRIER_FUR.you) : model(p.shape || p.type, this.mine || 'you', null, p.brain === 'possessed' ? this.fur(p) : SUIT_COLOUR[p.suit] || (p.shape ? CHANGELING_GLOW : null)), x, y, h, 100 + i, o);
+      // Your set taking its turn (Adventure): the piece that was on the
+      // board spins down into its plinth, then the next spins up out of it,
+      // overshooting a little as it lands.
+      let q = p;
+      const mo = tw?.morph?.i === i && at < tw.morph.t0 + tw.morph.dur ? tw.morph : null;
+      if (mo && at < mo.t0) q = mo.from;
+      else if (mo) {
+        const k = (at - mo.t0) / mo.dur, cut = 0.45;
+        if (k < cut) { const e = k / cut; q = mo.from; o = { ...o, s: Math.max(0.04, 1 - e * e), ry: (o.ry || 0) + e * Math.PI * 1.5 }; }
+        else { const e = (k - cut) / (1 - cut), pop = e < 0.7 ? (e / 0.7) * 1.15 : 1.15 - ((e - 0.7) / 0.3) * 0.15; o = { ...o, s: Math.max(0.04, pop), ry: (o.ry || 0) - (1 - e) * Math.PI * 1.5 }; }
+        this.settleSoon?.();
+      }
+      stand(q.brain === 'carrier' ? model('rabbit', 'you', CARRIER_FUR.you) : model(q.shape || q.type, this.mine || 'you', null, q.brain === 'possessed' ? this.fur(q) : SUIT_COLOUR[q.suit] || (q.shape ? CHANGELING_GLOW : null)), x, y, h, 100 + i, o);
       where[i] = { x, y, h, i };
-      armsOf(p, x, y, h, 100 + i, o, 1);
+      armsOf(q, x, y, h, 100 + i, o, 1);
       // Guarded (2026-10-11): a shield in front. Since 2026-10-13 it flies
       // there from the guard (the flights, below), then bounces once as it
       // lands. While it flies, the piece keeps the shield it had (none, or

@@ -34,7 +34,9 @@ import { powerOf } from './power.js';
 export const SUITS = {
   hearts: { name: 'Hearts', mark: '♥', colour: '#e0445a', desc: 'A life more: when it is taken it goes back to your first row instead, on a free square you choose (the second row if the first is full, and so on), and the heart is spent.' },
   spirals: { name: 'Spirals', mark: '@', colour: '#f0903a', desc: 'Round the sides: off the left edge it comes back on at the right, and the other way, like Pac-Man.' },
-  gears: { name: 'Gears', mark: '⚙', colour: '#8fa6bd', desc: 'Swap: as its move, it can trade squares with any other piece of yours.' },
+  gears: { name: 'Gears', mark: '⚙', colour: '#8fa6bd', desc: 'Swap: as its move, it can trade squares with any other piece of yours.',
+    // With one piece on the board taking turns (Adventure, 2026-10-15).
+    setDesc: 'Skip: when it comes up, it can step aside for the next piece of your set, which comes on and moves instead. That costs no move.' },
   stars: { name: 'Stars', mark: '★', colour: '#e8c547', desc: 'Moves twice: once a level, its first move is followed straight away by a second.' },
   vines: { name: 'Vines', mark: '❦', colour: '#2fb8a0', desc: 'Chain captures: after it takes a piece, it may take another the same turn, and another after that.' }
 };
@@ -42,19 +44,25 @@ export const SUITS = {
 /** Weapons (Timothy, 2026-10-13), each at level 1 to 3. `desc(lv)` says
     what it does at that level. A lance only on a piece that slides. */
 export const WEAPONS = {
-  sword: { name: 'Sword', mark: '†', colour: '#d4dbe3', desc: (lv) => `Strikes instead of landing: it cannot move onto a piece, but takes what stands ${['', 'in front of', 'in front of or beside', 'in front of, beside or diagonally in front of'][lv]} where it lands.` },
+  sword: { name: 'Sword', mark: '†', colour: '#d4dbe3', desc: (lv) => `Strikes instead of landing: it cannot move onto a piece, but takes what stands ${['', 'in front of', 'in front of or beside', 'in front of, beside or diagonally in front of'][lv]} where it lands.`,
+    // Aiming the way it moves (rules.swordAims, Adventure, 2026-10-15).
+    aimDesc: (lv) => `Strikes instead of landing: it cannot move onto a piece, but takes what stands on the next square past where it lands, in the direction it moved${['', '', ', and on the squares to either side of that', ', on the squares to either side, and on the two between'][lv]}.` },
   lance: { name: 'Lance', mark: '↟', colour: '#c9a46a', desc: (lv) => `Takes what it slides through, up to ${['', 'one piece', 'two pieces', 'three pieces'][lv]}, and lands on an empty square beyond; it cannot move onto a piece. Only on a piece that slides.` },
   mace: { name: 'Mace', mark: '✸', colour: '#a07a5a', desc: (lv) => `Sliding, it pushes up to ${['', 'one piece', 'two pieces', 'three pieces'][lv]} ahead of it; theirs it pushes are stunned, and one already stunned is taken. Stepping or leaping, it stuns what stands ${['', 'in front of and behind', 'round the sides of', 'all round'][lv]} where it lands. A stunned piece misses its next turn.` }
 };
 export const WEAPON_ORDER = Object.keys(WEAPONS);
+/** A suit's or weapon's words, the Adventure way (`adv`: one piece on the
+    board taking turns, a sword that aims) where they differ. */
+export const suitDesc = (suit, adv = false) => (adv && SUITS[suit].setDesc) || SUITS[suit].desc;
+export const weaponDesc = (w, lv, adv = false) => (adv && WEAPONS[w].aimDesc ? WEAPONS[w].aimDesc(lv) : WEAPONS[w].desc(lv));
 /** A weapon's name with its level: "Sword 2". */
 export const weaponName = (w, lv = 1) => `${WEAPONS[w].name} ${lv}`;
 /** What a piece on the board carries, in words, for tapping it: its suit,
     its weapon, and whether it is stunned. Starts with a space, or is empty. */
-export function carriesText(p) {
+export function carriesText(p, adv = false) {
   const bits = [];
-  if (SUITS[p.suit]) bits.push(`${SUITS[p.suit].mark} ${SUITS[p.suit].name}: ${SUITS[p.suit].desc}${p.suit === 'hearts' && (p.lives || 1) < 2 ? ' (Spent.)' : ''}`);
-  if (WEAPONS[p.weapon]) bits.push(`${WEAPONS[p.weapon].mark} ${weaponName(p.weapon, p.wl || 1)}: ${WEAPONS[p.weapon].desc(p.wl || 1)}`);
+  if (SUITS[p.suit]) bits.push(`${SUITS[p.suit].mark} ${SUITS[p.suit].name}: ${suitDesc(p.suit, adv)}${p.suit === 'hearts' && (p.lives || 1) < 2 ? ' (Spent.)' : ''}`);
+  if (WEAPONS[p.weapon]) bits.push(`${WEAPONS[p.weapon].mark} ${weaponName(p.weapon, p.wl || 1)}: ${weaponDesc(p.weapon, p.wl || 1, adv)}`);
   if (p.shape && PIECES[p.shape]) bits.push(`In the shape of a ${PIECES[p.shape].name}: it moves like one until it takes something else.`);
   if (p.stun) bits.push('Stunned: it sits out its side’s next turn.');
   return bits.length ? ' ' + bits.join(' ') : '';
@@ -221,10 +229,10 @@ export function applyReward(run, card, targets = [], veto = []) {
 }
 
 /** Plain words for a reward card. */
-export function cardText(card) {
+export function cardText(card, adv = false) {
   if (card.kind === 'piece') return { title: PIECES[card.type].name, text: PIECES[card.type].desc, tag: PIECES[card.type].kind === 'fairy' ? 'A fairy piece' : 'A classic piece' };
-  if (card.kind === 'suit') return { title: `${SUITS[card.suit].mark} ${SUITS[card.suit].name}`, text: SUITS[card.suit].desc + ' Choose a piece to give it to.', tag: 'A suit' };
-  if (card.kind === 'weapon') return { title: `${WEAPONS[card.weapon].mark} ${WEAPONS[card.weapon].name}`, text: `${WEAPONS[card.weapon].desc(1)} Choose a piece to give it to; on one that has a ${WEAPONS[card.weapon].name.toLowerCase()} already, it goes up a level (to 3 at most).`, tag: 'A weapon' };
+  if (card.kind === 'suit') return { title: `${SUITS[card.suit].mark} ${SUITS[card.suit].name}`, text: suitDesc(card.suit, adv) + ' Choose a piece to give it to.', tag: 'A suit' };
+  if (card.kind === 'weapon') return { title: `${WEAPONS[card.weapon].mark} ${WEAPONS[card.weapon].name}`, text: `${weaponDesc(card.weapon, 1, adv)} Choose a piece to give it to; on one that has a ${WEAPONS[card.weapon].name.toLowerCase()} already, it goes up a level (to 3 at most).`, tag: 'A weapon' };
   if (card.kind === 'fuse') return { title: 'Fuse', text: 'Two of your pieces become one, with every move of both. It frees a slot for a new find.', tag: 'An item' };
   if (card.kind === 'promote') return { title: 'Promotion', text: 'One of your pieces becomes the next piece up in strength.', tag: 'An item' };
   return { title: JOKERS[card.joker].name, text: JOKERS[card.joker].desc, tag: 'A joker, for the rest of the run' };
@@ -538,9 +546,9 @@ export function foeTake(run, card, rand) {
 }
 
 /** Plain words for a board card. */
-export function boardCardText(card) {
+export function boardCardText(card, adv = false) {
   if (card.kind === 'merge') return { title: PIECES[card.type].name, text: `${PIECES[card.type].desc} Choose a piece of yours to combine it with: the same kind makes a veteran with a heart more; another kind fuses, with every move of both.`, tag: PIECES[card.type].kind === 'fairy' ? 'A fairy piece' : 'A classic piece' };
-  return cardText(card);
+  return cardText(card, adv);
 }
 
 // --- Adventure (Timothy, 2026-10-15). ----------------------------------------

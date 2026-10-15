@@ -174,6 +174,14 @@ export function collapse(at = 0) {
   for (const d of [0.15, 0.35, 0.5, 0.8, 1.0]) noise({ at: at + d, dur: 0.06, vol: 0.08, from: 2200, type: 'bandpass', q: 5 });
 }
 
+/** Your set taking its turn (Adventure): a soft grind of stone as one piece
+    sinks into its plinth, then two notes rising as the next comes up. */
+export function turn(at = 0) {
+  noise({ at, dur: 0.24, vol: 0.06, from: 700, to: 160, type: 'lowpass' });
+  tone({ f: hz(5), type: 'triangle', at: at + 0.24, dur: 0.12, vol: 0.1, attack: 0.01 });
+  tone({ f: hz(9), type: 'triangle', at: at + 0.34, dur: 0.32, vol: 0.1, attack: 0.01 });
+}
+
 /** Taking a new piece on the way down: a knock as it joins your hand, then
     three notes climbing. */
 export function gain(at = 0) {

@@ -132,6 +132,48 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
   ok(R.initialState(lv).set[1].suit === 'hearts', 'each piece of the set keeps its suit while it waits');
 }
 
+// Gears in a set: the piece of Gears may skip to the next, which moves
+// this turn; no move is spent, and no second skip in the same turn.
+{
+  const run = newRun(['rook', 'knight', 'bishop'], 5, null); run.depth = 2;
+  run.hand[0].suit = 'gears';
+  const lv = makeLevel(levelSettings(M, { depth: 2, hand: handSettings(run) }, rng('gears')), 41);
+  const st = R.initialState(lv), skip = R.movesFor(st, 0).find((m) => m.skip);
+  ok(skip, 'a piece of Gears can skip');
+  ok(R.isLegal(st, { p: 0, ...skip }), 'the skip is legal');
+  const mid = R.apply(st, { p: 0, ...skip });
+  ok(mid.pieces[0].type === 'knight' && mid.t === 0 && mid.bonus?.why === 'gears', 'skipping brings on the knight, with no move spent');
+  ok(!R.movesFor(mid, 0).some((m) => m.skip) && !R.allMoves(mid).some((m) => m.p === -1), 'no second skip, and no passing, in the same turn');
+  const mv = R.allMoves(mid)[0], after = R.apply(mid, mv);
+  ok(after.t === 1 && after.pieces[0].type === 'bishop', 'the knight moves, and the bishop is next');
+  const plain = newRun(['rook', 'knight'], 5, null);
+  const lv2 = makeLevel(levelSettings(M, { depth: 2, hand: handSettings(plain) }, rng('gears2')), 42);
+  ok(!R.movesFor(R.initialState(lv2), 0).some((m) => m.skip), 'without Gears, no skip');
+}
+
+// A sword that aims: it strikes past where it lands, the way it moved.
+{
+  ok(R.swordAim(0, 3, 1).join() === '0,1' && R.swordAim(-2, 0, 1).join() === '-1,0' && R.swordAim(2, 2, 1).join() === '1,1', 'straight on, for a slide');
+  ok(R.swordAim(1, 2, 1).join() === '1,1', 'a knight\u2019s L aims diagonally');
+  ok(R.swordAim(0, -1, 2).map(String).sort().join(' ') === ['0,-1', '-1,0', '1,0'].sort().join(' '), 'level 2: straight on and either side');
+  ok(R.swordAim(1, 0, 3).length === 5, 'level 3: five squares');
+  const run = newRun(['rook'], 5, null); run.hand[0].weapon = 'sword'; run.hand[0].wl = 1;
+  let found = false;
+  for (let sd = 1; sd < 80 && !found; sd++) {
+    const lv = makeLevel(levelSettings(M, { depth: 2, hand: handSettings(run) }, rng('sw' + sd)), 500 + sd);
+    ok(lv.rules.swordAims, 'Adventure\u2019s sword aims');
+    const st = R.initialState(lv), me = st.pieces[0];
+    for (const m of R.movesFor(st, 0)) {
+      if (!m.strike) continue;
+      const dx = Math.sign(m.x - me.x), dy = Math.sign(m.y - me.y), W = lv.W;
+      found = m.strike.length === 1 && m.strike[0] === (m.y + dy) * W + m.x + dx;
+      ok(found, 'a rook\u2019s sword strikes the square past where it lands');
+      break;
+    }
+  }
+  ok(found, 'a board where the sword strikes');
+}
+
 // Five of a bigger collection, drawn each board.
 {
   const run = newRun(['rook', 'knight', 'bishop', 'king', 'pawn', 'camel', 'ferz'], 5, null);
