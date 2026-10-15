@@ -25,9 +25,16 @@ pieces or new board shapes. The name is a working name and his to change.
   squirrel, dabbaba, chancellor), marked with a star. A clear takes every
   piece, so every clear uses it, and the dealer makes sure you get to move
   as it at least once.
-- Tap a gold-ringed piece to aim: gold corners show what you could take
-  next, as it. Tap it again to take it. Tap any other piece to see its moves
-  in purple.
+- **Moving, as in the Grove's other modes** (Timothy, 2026-10-15): tap your
+  piece to pick it up, and the pieces it can take turn red; tap one to move
+  there and take it. Your piece stays picked up after a move, since it is
+  the only one you have. Tap any other piece to see its moves on their own.
+- **Rings, as in the Grove's other modes:** every square a piece reaches,
+  up to and including the first piece in each line. Gold inside the square
+  for yours; purple near the edge for the pieces you can take now, so you
+  can see where each would lead. A button under the board switches to
+  every piece's rings (with eleven pieces they cover most of the board,
+  which is why it is not the default) or none.
 
 ## Why this shape
 
@@ -95,6 +102,16 @@ in the page, not stored, and [`check.mjs`](../play/changeling/check.mjs)
 proves the first 400 days still deal exactly as stored in `boards.txt`.
 **A shipped board never changes:** a change to dealing, pieces or rules is
 a new version in `VERSIONS` with a future start date.
+
+## Testing
+
+`?test` on the address, or the "Test mode: play any day" link at the foot
+of the page. It adds a calendar of all 400 dealt days (the ones
+`check.mjs` holds steady), coloured by how each went; tap one to play it.
+Test mode keeps its own days in this browser (`changeling.test.v1`), so
+playing ahead leaves your real days and your record untouched, and it shows
+each board's numbers: routes, clearing routes, the random player's chance,
+and which candidate the dealer kept.
 
 ## Paths
 

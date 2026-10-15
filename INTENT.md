@@ -31,6 +31,15 @@ numbers and the path audit: [`docs/changeling.md`](docs/changeling.md).
 Grove Chess and its modes are untouched and still on the home page; which
 of them stay is his call.
 
+Later the same day, from him: every daily board playable for testing; the
+pieces' movement paths shown as in the other modes; and moving as in those
+modes, tapping your piece and then where it goes. Built: a test-mode
+calendar of all 400 dealt days, kept apart from real days; Grove-style
+rings (yours, and by default only the pieces you can take, since every
+piece's at once covers the board; a button shows all or none); and
+pick-up-then-move. Every move is still a capture: whether to allow plain
+moves is his call (`docs/changeling.md`).
+
 ## 2026-10-14, later still: a best-move button, a row of pawns, chess pawns
 
 From Timothy: a Best move button in every mode, for testing; the descent
