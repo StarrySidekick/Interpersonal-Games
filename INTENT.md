@@ -12,6 +12,18 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
+## 2026-10-15, later: Adventure, a roguelite on Changeling's boards
+
+From Timothy: build on Changeling into a new mode, called Adventure for now.
+Pieces are not forced to capture and are not doppelgangers; you start with a
+rook, bishop or knight and discover more, up to four; their pieces do not
+move and are grey like statues, and later levels have purple ones that do;
+suits and weapons; moving neutral pieces; capture everything in as few
+moves as possible; over par one upgrade, on par a choice of two, under par
+three; levels harder in a random way, every run different; par reasonable
+for the depth. Built, `play/changeling/adventure/`; how each gap was filled
+and what is still his call is in [`docs/adventure.md`](docs/adventure.md).
+
 ## 2026-10-15: back to the point, a simple daily (Changeling)
 
 From Timothy: "we've definitely gotten lost in the sauce with this whole
