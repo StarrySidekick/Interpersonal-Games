@@ -122,29 +122,37 @@ can; then a hole opens and your piece jumps in.
 
 ## The look of your pieces
 
-In Adventure each piece of yours wears its suit (Timothy, 2026-10-15: "the
-vine look should be for the vine suit, we should have custom looks for the
-other that are colored like the suit, red for hearts, grey for gears ...
-yellow for stars"). A piece with no suit is the Grove's green. Each look
-is the piece's own shape in the suit's colours, with something of the suit
-built round it (`SUIT_LOOK` in `models.js`, `model(kind, suit)`):
+In Adventure each piece of yours wears its suit (Timothy, 2026-10-15, in
+three steps: "the vine look should be for the vine suit, we should have
+custom looks for the others that are colored like the suit"; then "your
+pieces should start at gray with no special visual, then the green we have
+should be the green for the vine one. gears should be more prominent ...
+hearts seems not to have a real motif. you can mess with the actual 3d
+model of the piece itself"). Each look is the piece's own shape in its
+colours, built round or reshaped with its motif (`SUIT_LOOK` in
+`models.js`, `model(kind, look)`):
 
-| Suit | Body | Round it |
+| Suit | Body | Motif |
 |---|---|---|
-| Vines | crumbled stone | two vines climbing it, with leaves |
-| Hearts | rose red | a pale heart on its chest, a small one on its back |
-| Gears | blue steel (kept bluer than their grey statues) | a toothed gear round its middle with rivets, a cog on its chest, a little gear at its foot |
-| Spirals | amber | a cream stripe wound up it two and a half turns, like a shell, curled at the top |
+| none | plain pale grey | none |
+| Vines | the Grove's green | two woody vines climbing it, with bright leaves |
+| Hearts | rose red | crowned with a big red heart, a pale heart on its chest, a ring of little hearts round its plinth |
+| Gears | blue steel | its plinth toothed into a gear, two gears round its body, a cog crowning it and one on its chest |
+| Spirals | amber | the piece itself twisted about its axis (`twist`), with a cream stripe wound up it, curled at the top |
 | Stars | gold | a star on its head and four small ones round it |
 
-How Vines is made, the first of them: the piece is built from a stone
-palette; `crumble` nudges every corner above the plinth in or out a little
-by a hash of where it is (so a corner shared by two faces moves the same
-way and nothing splits), and mottles the faces, a few chipped dark and a
-few mossy; `vines` climbs it in two spirals, each step placed just outside
-the surface (`surface`: the farthest corner near that height and angle),
-as thin boxes end to end (`strand`) with diamond leaves (`leaf`). The
-others place their ornaments the same way, against the piece's surface.
+Their statues were made a shade darker the same day, so a plain piece of
+yours (pale grey) is never taken for one of theirs.
+
+How the ornaments sit on the piece: `surface` finds how far out the piece
+is at a height and angle (the farthest corner near there), and each vine,
+stripe, heart or star is placed just outside that. Vines and stripes are
+thin boxes laid end to end (`strand`); leaves are flat diamonds seen from
+both sides (`leaf`); a heart in the round is two balls over a cone
+pointing down (`heart3d`); a gear is a short wide drum with boxes for
+teeth (`cog`). `twist` turns every corner about the axis by an angle that
+grows with its height, and recomputes each face's facing so the renderer
+still culls the right side.
 
 The board (`board.lookOf`), the set row, the next-up strip, the intro's
 cards and the fall between boards all use the look.
@@ -253,6 +261,55 @@ predictable".
 the set's order (customization); something that lasts between runs (the
 descent's roster could carry); a walker's colour learned across runs like
 the daily's rabbits.
+
+## Ideas: chess technique with one piece at a time (brainstorm, not built)
+
+Timothy, 2026-10-15: "i want to find a way to still have opportunities for
+pinning and other chess technique even though we are working with one
+piece at a time." What chess technique needs, and Adventure lacks: pieces
+that defend each other (so a square can be guarded); lines through pieces
+(pins, skewers, x-rays); an opponent who can answer only one thing at a
+time (so a fork works); and something precious to attack (so a check
+forces a reply). Ideas, each with the technique it brings:
+
+1. **Pins freeze.** If your piece's line runs through one of theirs to
+   another of theirs behind it, the front one is pinned: it cannot step
+   (a walker holds its square) or take, while the pin holds. The cycle
+   makes pins a timing tool: "pin with the rook, take with the knight
+   next turn." Cheap: the Grove already finds pins (`pinned`) and draws
+   them (the needle).
+2. **Sentries, which defend.** A statue of theirs with eyes: it never walks,
+   but if you land where it sees, it takes you, moving onto your square to
+   do it. Now a piece can be defended or hanging, and the order of
+   captures matters (take the defender first). With pins, a pinned sentry
+   cannot take: pin the guard, then take what it guards. With Hearts, a
+   sacrifice: take a guarded piece, the sentry takes you and leaves its
+   post, your heart sends you home, and what it was guarding is free
+   (deflection, overloading).
+3. **Skittish rabbits, one flees a turn.** A piece with a skittish rabbit
+   steps out of your reach when you attack it, but their side can save
+   only one a turn, like an opponent with one move. Attack two at once (a
+   fork) and one is yours. Threats become moves.
+4. **Their leader.** One piece carries the rabbit that leads them; while
+   you attack it (check), the walkers break route to block or flee.
+   Checks, interposition, discovered checks. The biggest change, and the
+   most likely to muddy "super predictable".
+5. **A waystone of your own.** Once a board, leave a stone on your square
+   that keeps the attack of the piece that left it for a few turns. Two
+   attackers: batteries, discovered attacks, pins held while your piece
+   cycles on.
+6. **Skewer chains.** Taking a piece with another of theirs right behind it
+   on the same line gives a free move to take that one too.
+7. **Trapped, said out loud.** Routes already make zugzwang: a walker must
+   step where it must. Mark a walker whose every next step you attack as
+   trapped (notation only, no new rule).
+
+Recommended first: 1 and 2 together. Two rules give pins, defended pieces,
+removing the defender, capture order, and (with Hearts) deflection and
+overloading. Then 3 for forks. Paths: mastery, vertical (deeper reading
+of the same board) and horizontal (new kinds of plan); notated visually
+(the pin needle, a sentry's sight shaded on the board) and in the turn's
+caption.
 
 ## Open, and Timothy's
 

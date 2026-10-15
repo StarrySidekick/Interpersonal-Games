@@ -2,7 +2,7 @@
 // main: one more for every push (2026-10-11). Shown at the foot of the home
 // page and of every Grove Chess page's menu. Do not edit by hand.
 export const RELEASE = {
-  "number": 69,
+  "number": 70,
   "date": "2026-10-15",
-  "note": "Adventure: the hop into the hole, no pawns, a harder start, always a rook, a look for each suit, right-angle route lines"
+  "note": "Adventure's looks: plain grey to start, green Vines, gears and hearts motifs, twisted Spirals"
 };
