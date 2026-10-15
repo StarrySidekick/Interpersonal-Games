@@ -2,7 +2,7 @@
 // main: one more for every push (2026-10-11). Shown at the foot of the home
 // page and of every Grove Chess page's menu. Do not edit by hand.
 export const RELEASE = {
-  "number": 60,
+  "number": 61,
   "date": "2026-10-15",
-  "note": "Changeling: one chess puzzle a day. Every move takes a piece, and you become the piece you take"
+  "note": "Changeling: tap your piece then where it goes, with the Grove's move shading; every dealt day playable in test mode"
 };
