@@ -2,7 +2,7 @@
 // main: one more for every push (2026-10-11). Shown at the foot of the home
 // page and of every Grove Chess page's menu. Do not edit by hand.
 export const RELEASE = {
-  "number": 74,
+  "number": 75,
   "date": "2026-10-15",
-  "note": "Adventure: pieces by suit, red for danger, Stone leaves a sentry every move"
+  "note": "Adventure: no crowned leader"
 };

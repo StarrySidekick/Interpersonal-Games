@@ -43,12 +43,12 @@ ok(n.foes.every((f, k) => f.taken || (f.x === s.foes[k].x && f.y === s.foes[k].y
 // a known kind, every turn, and is back home after each time round; no two
 // share a square; and a pawn is always a statue.
 let walkers = 0;
-for (const d of [1, 2, 3, 5, 8, 11]) for (let sd = 1; sd <= 12; sd++) {
+for (const d of [1, 2, 3, 5, 8, 11, 14]) for (let sd = 1; sd <= 12; sd++) {
   const lv = deal(d, ['rook'], 100 * d + sd);
   const st = R.initialState(lv), W = lv.W;
   const army = st.foes.filter((f) => f.type !== 'rabbit');
   ok(army.some((f) => f.brain === 'possessed'), `depth ${d} (${sd}): at least one of theirs walks a route`);
-  ok(army.every((f) => ['possessed', 'still', 'sentry', 'scared', 'crown'].includes(f.brain)), `depth ${d} (${sd}): theirs are statues, walkers, sentries, scared or their leader; nothing that thinks`);
+  ok(army.every((f) => ['possessed', 'still', 'sentry', 'scared'].includes(f.brain)), `depth ${d} (${sd}): theirs are statues, walkers, sentries or scared; no leader, nothing that thinks`);
   ok(army.every((f) => f.type !== 'pawn' || f.brain === 'still'), `depth ${d} (${sd}): pawns are statues`);
   const walk = army.filter((f) => f.brain === 'possessed');
   walkers += walk.length;
@@ -230,7 +230,8 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
   ok((n.foes[0].x !== 0 || n.foes[0].y !== 1) && n.foes[1].x === 4 && n.foes[1].y === 3 && n.foes[1].trapped, 'a fork: the rook runs, the bishop is left');
   ok(n.tlog.some((l) => l.what === 'flee' && l.k === 0) && n.tlog.some((l) => l.what === 'trapped' && l.k === 1 && l.fork), 'said as a fork');
 
-  // 4. Check: the leader flees; a walker blocks instead if it can; mate when nothing works.
+  // 4. Check (a lab setting only since 2026-10-15; Adventure deals no leader):
+  // the leader flees; a walker blocks instead if it can; mate when nothing works.
   s = board({ type: 'rook', x: 2, y: 0 }, [{ type: 'king', x: 2, y: 4, brain: 'crown' }, { type: 'pawn', x: 4, y: 4, brain: 'still' }]);
   n = R.respond(s);
   ok(!(n.foes[0].x === 2 && n.foes[0].y === 4) && n.tlog.some((l) => l.what === 'check' && l.how === 'flee'), 'checked, the leader flees');
