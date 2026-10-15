@@ -2,7 +2,7 @@
 // main: one more for every push (2026-10-11). Shown at the foot of the home
 // page and of every Grove Chess page's menu. Do not edit by hand.
 export const RELEASE = {
-  "number": 76,
+  "number": 77,
   "date": "2026-10-15",
-  "note": "Adventure: the next-up strip shows your whole set, icons only"
+  "note": "Adventure: choose from a set of three; moves always lit; squash"
 };
