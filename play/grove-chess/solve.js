@@ -93,6 +93,9 @@ export function solveLevel(level, opts = {}) {
         // yours taking the last of them): as short as a win on this move.
         if (ch.won) return { par: ch.t, exact, line: [...node.line, c.mv], work };
         if (isOver(ch)) continue; // they won, or you ran out of moves
+        // A piece of your set lost (Adventure): the board goes on with the
+        // next, but par is a clean clear, so the search does not go there.
+        if (ch.arrived) continue;
         const k = stateKey(ch);
         if (seen.has(k)) continue;
         seen.add(k);

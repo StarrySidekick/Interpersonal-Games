@@ -529,6 +529,27 @@ MODELS.wMace = () => {
     m.cone(x, 5.6 + y, z, 0.32, 0.8, '#b9bec5', { seg: 4, rot: { rz: -Math.atan2(x, y || 0.001), rx: Math.atan2(z, y || 1) } });
   return m;
 };
+// The net (Adventure, 2026-10-15): a bug net, a hoop strung with mesh on a
+// wooden handle, its bag hanging behind.
+MODELS.wNet = () => {
+  const m = new Model(), wood = '#9c6b3e', hoop = '#c9a24a', mesh = '#f1ead8', inside = '#c9bfa6', R = 1.5, cy = 6.4;
+  m.lathe([[0.26, 0], [0.28, cy]], wood, { seg: 5 });                                     // the handle
+  // The hoop, tipped toward you, its rim on the handle's tip; the bag hangs
+  // from it, with its inside showing through the mesh.
+  m.group({ t: [0, cy, 0], rx: -0.6 }, () => {
+    m.group({ t: [0, 0, R] }, () => {
+      m.lathe([[R - 0.14, -0.13], [R + 0.14, -0.13], [R + 0.14, 0.13], [R - 0.14, 0.13], [R - 0.14, -0.13]], hoop, { seg: 14, caps: false });
+      m.lathe([[R * 0.97, -0.05], [R * 0.8, -1.2], [R * 0.4, -2.2], [0.05, -2.6]], mesh, { seg: 10, caps: false });
+      m.lathe([[0.05, -2.5], [R * 0.38, -2.1], [R * 0.77, -1.15], [R * 0.93, -0.06]], inside, { seg: 10, caps: false });
+      for (const c of [-0.75, 0, 0.75]) {
+        const half = Math.sqrt(R * R - c * c);
+        m.box(c, 0, 0, 0.08, 0.08, half * 2, mesh);
+        m.box(0, 0, c, half * 2, 0.08, 0.08, mesh);
+      }
+    });
+  });
+  return m;
+};
 MODELS.wPip = () => { const m = new Model(); m.box(0, 0.5, 0, 0.75, 0.75, 0.75, '#ffd75a', { rz: Math.PI / 4 }); return m; };
 // Stunned (a mace, 2026-10-13): little stars in a ring over its head.
 MODELS.stunStars = () => {
@@ -655,8 +676,8 @@ const FOE = { wood: '#6c4795', woodLight: '#9170bd', woodDark: '#3b2558', moss: 
 // move (Timothy: "enemy pieces don't move, and they are gray like
 // statues"). They are pieces to take, so they keep their piece's shape;
 // the Grove's statues proper are standing stones of their own (below).
-// A shade darker than the statue colour since 2026-10-15, so it is never
-// taken for a plain piece of yours in Adventure, which is pale grey.
+// A shade darker than the statue colour since 2026-10-15; a plain piece of
+// yours in Adventure is this grey too, on your own plinth.
 const GREY = { ...body(blend(LOOK.statue, '#000000', 0.16)), moss: '#c9ccc4', leaf: '#e2e4de', band: '#979a93', base: '#5f625c' };
 
 // Statues (2026-10-07; they were stumps before) were any classic piece's
@@ -708,8 +729,10 @@ MODELS.statue = () => statue('rook');
 /** The body colours of each look (moss and leaf are the pale trim the
     builders use for collars and bands). */
 const SUIT_BODY = {
-  // Pale, warm grey: plain, and well lighter than their statues' grey.
-  plain: { wood: '#d9d3c6', woodLight: '#efeadf', woodDark: '#9b9486', moss: '#f4f1ea', leaf: '#fbf9f4' },
+  // Plain: the grey of their statues (Timothy, 2026-10-15: "default pieces
+  // should just be gray, not the white we have now. they can be the same
+  // color as the statues"). Your plinth and gold finial stay yours.
+  plain: { wood: GREY.wood, woodLight: GREY.woodLight, woodDark: GREY.woodDark, moss: GREY.moss, leaf: GREY.leaf },
   vines: { wood: P.wood, woodLight: P.woodLight, woodDark: P.woodDark, moss: P.moss, leaf: P.leaf },
   hearts: { wood: '#b52a43', woodLight: '#dc5a70', woodDark: '#6e1626', moss: '#f7c9d1', leaf: '#ffe3e8' },
   // Blue steel, so it is never taken for one of their grey statues.
@@ -828,7 +851,7 @@ function twist(m, k) {
 // geared collar, a twist through the whole piece, a star brooch, carved
 // bands. Its trim and its gold take the suit's accent.
 const LOOK_BUILD = {
-  plain: (m) => finish(m, '#f4f1ea', '#e3bd57'),
+  plain: (m) => finish(m, GREY.moss, '#e3bd57'),
   vines: (m) => {
     const c = collarOf(m);
     finish(m, '#a8d77a', '#bfeb85');

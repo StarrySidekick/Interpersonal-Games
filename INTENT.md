@@ -12,7 +12,16 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
-## 2026-10-15, newest: tasteful suit looks, three kinds of rabbit
+## 2026-10-15, newest: the net, losing a piece, robot loops
+
+From Timothy, and built: a **net** weapon (Adventure's own) that catches
+the first piece it takes each board whole, so it joins your set without
+three rabbits; losing a piece no longer ends the board (the next of your
+set comes on where you came in, and only losing every one ends it); each
+robot rabbit's whole loop drawn plainly on the board; plain pieces in the
+statues' grey. In [`docs/adventure.md`](docs/adventure.md).
+
+## 2026-10-15, earlier: tasteful suit looks, three kinds of rabbit
 
 From Timothy, and built: suit looks redone from scratch, each the piece's
 own shape in its colours with one motif at its collar; and sentries made a

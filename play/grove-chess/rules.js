@@ -282,7 +282,9 @@ export function swordAim(dx, dy, lv) {
   return SWORD_AIM[Math.max(1, Math.min(3, lv || 1))].map((k) => DIR8[(((d + k) % 8) + 8) % 8]);
 }
 const MACE = { 1: [[0, 1], [0, -1]], 2: [[0, 1], [0, -1], [-1, 0], [1, 0]], 3: [[0, 1], [0, -1], [-1, 0], [1, 0], [-1, 1], [1, 1], [-1, -1], [1, -1]] };
-export const WEAPON_KINDS = ['sword', 'lance', 'mace'];
+// The net is Adventure's own (2026-10-15): it changes no move, only what a
+// catch is worth (captureFoe).
+export const WEAPON_KINDS = ['sword', 'lance', 'mace', 'net'];
 
 const rideCache = new Map();
 /** The directions piece type t slides in, for a side moving `fwd`. */
@@ -326,6 +328,7 @@ function armed(s, p, side, ms) {
   const lv = Math.max(1, Math.min(3, p.wl || 1)), fwd = side === 'you' ? 1 : -1, W = s.day.W, L = sight(s, p, side), home = p.y * W + p.x;
   const sqOf = (x, y) => { const [a, b] = fold(s.day, x, y); return onBoard(s.day, a, b) ? b * W + a : -1; };
   const around = (m, pat) => pat.map(([dx, dy]) => sqOf(m.x + dx, m.y + dy * fwd)).filter((q) => q >= 0 && q !== home);
+  if (p.weapon === 'net') return ms;
   if (p.weapon === 'sword') {
     return ms.filter((m) => m.swap || !m.cap).map((m) => {
       if (m.swap) return m;
@@ -472,9 +475,22 @@ function captureFoe(n, f, i) {
   if ((f.lives || 1) > 1) { f.lives--; f.reviving = true; return false; }
   f.taken = true;
   n.foes.forEach((q) => { if (!q.taken && q.x === x && q.y === y) q.taken = true; });
-  if (i >= 0) reshape(n.pieces[i], f);
+  if (i >= 0) { reshape(n.pieces[i], f); netIt(n.pieces[i], f); }
   if (goalMet(n)) n.won = true;
   return true;
+}
+
+/** The net (Adventure, 2026-10-15, Timothy: "new weapon/tool: net (like a
+    bug net) using it captures the piece you capture, and you just get it
+    without having to collect 3 of them"): a piece with a net catches the
+    first piece of theirs it takes on a board whole (two at level 2, three
+    at 3), and that piece joins your collection when the board ends
+    (netCatches in run.js) instead of leaving a rabbit. Mutates. */
+function netIt(taker, victim) {
+  if (taker?.weapon !== 'net' || !victim || (taker.netted || 0) >= Math.max(1, Math.min(3, taker.wl || 1))) return;
+  if (!PIECES[victim.type]?.betza || ['ball', 'bunny', 'rabbit'].includes(victim.type)) return;
+  victim.netted = true;
+  taker.netted = (taker.netted || 0) + 1;
 }
 
 /** A Changeling that takes a piece takes on its moves (2026-10-15): it is
@@ -1272,19 +1288,69 @@ const PLACE = ['x', 'y', 'from', 'taken', 'rides', 'stun', 'bubble', 'ate', 'blo
     made by the piece that can follow it up). Mutates. */
 function nextInSet(n) {
   const p = n.pieces[0];
-  if (!n.set || n.set.length < 2 || !p || p.taken || n.won) return;
+  if (!n.set || !p || p.taken || n.won) return;
+  const j = nextLive(n);
+  if (j < 0) return;
   const own = {}, keep = {};
   for (const [k, v] of Object.entries(p)) (PLACE.includes(k) ? keep : own)[k] = v;
   n.set[n.ci] = own;
-  n.ci = (n.ci + 1) % n.set.length;
+  n.ci = j;
   n.pieces[0] = { ...n.set[n.ci], ...keep };
+}
+/** The next of your set after the one on the board that they have not
+    taken, or -1 if there is none. */
+function nextLive(n) {
+  const L = n.set.length;
+  for (let k = 1; k < L; k++) if (!n.set[(n.ci + k) % L].lost) return (n.ci + k) % L;
+  return -1;
+}
+/** How many of your set are still yours (the one on the board included). */
+export const setLeft = (s) => (s.set ? s.set.filter((e, j) => (j === s.ci ? !s.pieces[0]?.taken : !e.lost)).length : s.pieces.filter((p) => !p.taken).length);
+
+/** A piece of your set taken (Adventure, 2026-10-15, Timothy: "you need to
+    lose all your pieces to lose the game and you don't just go to the next
+    level if you lose one"): it is gone from the set for good, and the next
+    of the set comes on where you came onto the board (the nearest free
+    square to it that nothing of theirs reaches, if that one is not). The
+    board is lost only when none is left. `arrived` says what happened, for
+    the page; it is not kept. Mutates. */
+function nextAfterLoss(n) {
+  const p = n.pieces[0];
+  if (!n.set || !p?.taken || n.won) return;
+  const j = nextLive(n);
+  if (j < 0) return;
+  const at = entrySpot(n);
+  if (!at) return;
+  const own = {};
+  for (const [k, v] of Object.entries(p)) if (!PLACE.includes(k)) own[k] = v;
+  n.set[n.ci] = { ...own, lost: true };
+  n.arrived = { lost: { ...p }, from: n.ci };
+  n.ci = j;
+  n.pieces[0] = { ...n.set[j], x: at.x, y: at.y };
+}
+/** Where the next of your set comes on after a loss: the square you came
+    onto the board on, or the free square nearest it, out of their reach
+    where there is one. */
+function entrySpot(n) {
+  const W = n.day.W, H = n.day.H, e = n.day.pieces[0], reach = reachMaps(n).theirs, spots = [];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (!onBoard(n.day, x, y) || statueAt(n, y * W + x) || crumbled(n, x, y) || shrunk(n, x, y) || waterAt(n, y * W + x)) continue;
+    if (n.foes.some((f) => !f.taken && f.x === x && f.y === y) || n.stones?.some((t) => t.x === x && t.y === y)) continue;
+    if (n.hole && n.hole.x === x && n.hole.y === y) continue;
+    spots.push({ x, y, hot: reach.has(y * W + x) ? 1 : 0, d: Math.max(Math.abs(x - e.x), Math.abs(y - e.y)), m: Math.abs(x - e.x) + Math.abs(y - e.y) });
+  }
+  spots.sort((a, b) => a.hot - b.hot || a.d - b.d || a.m - b.m || a.y - b.y || a.x - b.x);
+  return spots[0] || null;
 }
 
 /** Your set's order from the piece on the board on: what it is now, what
-    it will be next turn, and so on. Each is { type, suit, weapon, ... }. */
+    it will be next turn, and so on, leaving out any they have taken. Each
+    is { type, suit, weapon, ... }. */
 export function setOrder(s) {
   if (!s.set) return [];
-  return s.set.map((_, k) => (k === 0 ? s.pieces[0] : s.set[(s.ci + k) % s.set.length]));
+  const L = s.set.length, out = [s.pieces[0]];
+  for (let k = 1; k < L; k++) { const e = s.set[(s.ci + k) % L]; if (!e.lost) out.push(e); }
+  return out;
 }
 
 export function clone(s) {
@@ -1429,7 +1495,7 @@ export function movesFor(s, i) {
   // gears should allow you to skip the piece in the cycle"): when it comes
   // up, it may step aside for the next piece of the set, which comes on and
   // moves instead. It costs no move; once a turn.
-  if (p.suit === 'gears' && s.set?.length > 1 && s.bonus?.why !== 'gears' && !s.bonus) ms.push({ x: p.x, y: p.y, cap: false, skip: true });
+  if (p.suit === 'gears' && s.set && setLeft(s) > 1 && s.bonus?.why !== 'gears' && !s.bonus) ms.push({ x: p.x, y: p.y, cap: false, skip: true });
   // Stone (Adventure, 2026-10-15): once a board, any move of it may leave a
   // stone of itself behind, on the square it leaves.
   if (p.suit === 'stone' && s.stones && !p.stoneUsed) ms = [...ms, ...ms.filter((m) => !m.skip && !m.swap).map((m) => ({ ...m, stone: true }))];
@@ -2924,6 +2990,7 @@ export function apply(s, mv) {
   const n = playerMove(s, mv);
   if (n.bonus) return n;
   theirTurn(n);
+  nextAfterLoss(n);
   if (n.cloudy) delete n.cloudy; // as in respond(): the cloud lifts
   n.t++;
   afterMove(n);
@@ -2937,6 +3004,7 @@ export function respond(n) {
   const c = clone(n);
   if (c.bonus) return c;
   theirTurn(c);
+  nextAfterLoss(c);
   // Both sides have had their first move: the cloud lifts.
   if (c.cloudy) delete c.cloudy;
   c.t++;
@@ -2952,6 +3020,7 @@ export function respondWith(n, m) {
   const c = clone(n);
   if (c.bonus) return c;
   theirTurn(c, m);
+  nextAfterLoss(c);
   if (c.cloudy) delete c.cloudy;
   c.t++;
   afterMove(c);
@@ -2980,13 +3049,13 @@ export function replay(day, moves) {
 
 export function stateKey(s) {
   let k = '';
-  for (const p of s.pieces) k += p.taken ? '--' : p.x + ',' + p.y + (p.lives > 1 ? 'L' + p.lives : '') + (p.starUsed ? '*' : '') + (p.stun ? 'z' : '') + (p.bubble ? 'o' : '') + (p.moved && p.type === 'pawn' && s.day.rules.pawnTwo ? 'm' : '') + (p.promoted ? p.type : '') + (p.shape ? '~' + p.shape : '') + (p.stoneUsed ? '^' : '') + ';';
+  for (const p of s.pieces) k += p.taken ? '--' : p.x + ',' + p.y + (p.lives > 1 ? 'L' + p.lives : '') + (p.starUsed ? '*' : '') + (p.stun ? 'z' : '') + (p.bubble ? 'o' : '') + (p.moved && p.type === 'pawn' && s.day.rules.pawnTwo ? 'm' : '') + (p.promoted ? p.type : '') + (p.shape ? '~' + p.shape : '') + (p.stoneUsed ? '^' : '') + (p.netted ? 'n' + p.netted : '') + ';';
   if (s.bonus) k += `|b${s.bonus.p}${s.bonus.cap ? 'c' : ''}${s.bonus.why === 'gears' ? 'g' : ''}`;
   if (s.cloudy) k += '|c';
   if (s.day.rules.oneMove) k += `|f${s.ft || 0}`; // whose turn it is on their side
   // Your set (Adventure): which of it is on the board, and what each keeps.
   if (s.stones?.length) k += '|S' + s.stones.map((t) => `${t.type}${t.x},${t.y}`).join(';');
-  if (s.set) k += `|k${s.ci}` + s.set.map((e, j) => j === s.ci ? '' : (e.lives > 1 ? 'L' + e.lives : '') + (e.starUsed ? '*' : '') + (e.shape ? '~' + e.shape : '') + (e.stoneUsed ? '^' : '') + (e.moved && e.type === 'pawn' ? 'm' : '')).join(',');
+  if (s.set) k += `|k${s.ci}` + s.set.map((e, j) => j === s.ci ? '' : (e.lives > 1 ? 'L' + e.lives : '') + (e.starUsed ? '*' : '') + (e.shape ? '~' + e.shape : '') + (e.stoneUsed ? '^' : '') + (e.netted ? 'n' + e.netted : '') + (e.lost ? 'x' : '') + (e.moved && e.type === 'pawn' ? 'm' : '')).join(',');
   k += '|';
   for (const f of s.foes) k += f.taken ? '--' : f.x + ',' + f.y + ',' + f.i + (f.lives > 1 ? 'L' + f.lives : '') + (f.starUsed ? '*' : '') + (f.mx > 0 ? '+' : '-') + (f.my > 0 ? '+' : '-') + (f.idle ? 'i' + f.idle : '') + (f.stun ? 'z' : '') + (f.bubble ? 'o' : '') + (f.moved && f.type === 'pawn' && s.day.rules.pawnTwo ? 'm' : '') + (f.promoted ? f.type : '') + (f.shape ? '~' + f.shape : '') + (f.brain === 'sentry' ? 's' : '') + ';';
   if (s.flag) k += `|F${s.flag.by || ''}${s.flag.i},${s.flag.x},${s.flag.y}`;

@@ -889,9 +889,10 @@ export class Board3D extends Board {
     }
   }
 
-  /** A route (Adventure, 2026-10-15): all of it, faint and dashed, from
-      where the piece stands round to where it ends up again; and its next
-      step, solid, to a frame on the square it moves to next turn. A rest
+  /** A route (Adventure, 2026-10-15): all of it, from where the piece
+      stands round to where it ends up again, with a dot on each stop and
+      an arrow on each leg; and its next step, bolder, to a frame on the
+      square it moves to next turn. A rest
       next: a dashed frame on its own square. The colour is its rabbit's. */
   route(g, f, col, line, inSq) {
     const L = f.pattern.length, pts = [[f.x, f.y]];
@@ -913,9 +914,25 @@ export class Board3D extends Board {
       out.push([bx, by]);
       return out.map(([x, y]) => this.mid(x, y));
     };
-    for (let j = 1; j < pts.length; j++) line(elbow(pts[j - 1], pts[j]), rgba(col, 0.4), 1.2, [2, 3]);
+    // The whole loop, plain to see (Timothy, 2026-10-15: "you see robot
+    // rabbits full move loop on the board"): a steady line in its rabbit's
+    // colour, an arrow on each leg the way it goes, a dot on every stop.
+    const arrow = (seg) => {
+      const lens = seg.slice(1).map((q, i) => Math.hypot(q[0] - seg[i][0], q[1] - seg[i][1]));
+      let half = lens.reduce((a, b) => a + b, 0) / 2, i = 0;
+      while (i < lens.length - 1 && half > lens[i]) { half -= lens[i]; i++; }
+      const [ax, ay] = seg[i], [bx, by] = seg[i + 1], d = lens[i] || 1, ux = (bx - ax) / d, uy = (by - ay) / d;
+      const mx = ax + ux * half, my = ay + uy * half, k = this.scale * 1.5;
+      line([[mx - ux * k + uy * k * 0.8, my - uy * k - ux * k * 0.8], [mx + ux * k * 0.4, my + uy * k * 0.4], [mx - ux * k - uy * k * 0.8, my - uy * k + ux * k * 0.8]], rgba(col, 0.95), 1.8);
+    };
+    for (let j = 1; j < pts.length; j++) { const seg = elbow(pts[j - 1], pts[j]); line(seg, rgba(col, 0.62), 1.7); arrow(seg); }
+    for (const [sx, sy] of pts.slice(1, -1)) {
+      const [px, py] = this.mid(sx, sy);
+      g.beginPath(); g.arc(px, py, this.scale * 1.1, 0, Math.PI * 2);
+      g.fillStyle = col; g.fill(); g.lineWidth = 1; g.strokeStyle = 'rgba(247,240,218,.9)'; g.stroke();
+    }
     const [dx, dy] = f.pattern[f.i % L], tx = f.x + dx, ty = f.y + dy;
-    if (dx || dy) line(elbow([f.x, f.y], [tx, ty]), rgba(col, 0.9), 2);
+    if (dx || dy) line(elbow([f.x, f.y], [tx, ty]), rgba(col, 0.95), 2.6);
     const box = [[4, 4], [24, 4], [24, 24], [4, 24], [4, 4]].map(([a, b]) => inSq(tx, ty, a, b));
     line(box, rgba(col, 0.95), 2, dx || dy ? null : [2, 2]);
   }
@@ -952,7 +969,7 @@ export class Board3D extends Board {
       if (p.taken) return;
       if (p.weapon && !o.s) {
         const dx = 0.3 * side, lean = -0.18 * side, lv = Math.max(1, Math.min(3, p.wl || 1));
-        stand(model({ sword: 'wSword', lance: 'wLance', mace: 'wMace' }[p.weapon] || 'wSword', 'you'), x + dx, y - 0.12 * side, h + 0.8, id, { rz: lean, s: 1 });
+        stand(model({ sword: 'wSword', lance: 'wLance', mace: 'wMace', net: 'wNet' }[p.weapon] || 'wSword', 'you'), x + dx, y - 0.12 * side, h + 0.8, id, { rz: lean, s: 1 });
         for (let n = 0; n < lv; n++) stand(model('wPip', 'you'), x + dx + (n - (lv - 1) / 2) * 0.13, y - 0.3 * side, h + 0.2, id, { s: 0.7 });
       }
       if (p.stun) stand(model('stunStars', 'you'), x, y, h + HEAD * BIG + 2, id);
@@ -1033,6 +1050,13 @@ export class Board3D extends Board {
           h += Math.sin(Math.PI * hop) * 4;
           if (k > 0.6) { const d = (k - 0.6) / 0.4; h -= d * d * 9; o = { ...o, s: Math.max(0.02, 1 - d * 0.9), ry: d * 3 }; }
         }
+      }
+      // The next of your set dropping in after a loss (Adventure).
+      if (tw?.arrive?.i === i && at < tw.arrive.t0 + tw.arrive.dur) {
+        if (at < tw.arrive.t0) return;
+        const k = (at - tw.arrive.t0) / tw.arrive.dur;
+        h += (1 - k * k) * 14;
+        this.settleSoon?.();
       }
       if (this.landing) { const l = this.landing(i, at); if (l === null) return; h += l * LIFT; }
       if (collapse && !(s.sunk && (p.type === 'ball' || s.day.rules.goal === 'clear'))) {
