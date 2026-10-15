@@ -26,13 +26,14 @@ const SCALE = 2.6;
  * piece in from above (the one you picked on the way down); land brings the
  * next table up and resolves once everything has landed.
  */
-export function startFall(canvas, kinds, side = 'you') {
+export function startFall(canvas, kinds) {
   const ctx = canvas.getContext('2d');
   const w = canvas.width, h = canvas.height, target = makeTarget(w, h);
   const cx = w / 2, cy = h * 0.45;
   const t0 = performance.now();
   const motes = Array.from({ length: 46 }, (_, i) => ({ x: (i * 97.3) % w, y: (i * 53.1) % h, v: 60 + ((i * 37) % 90), l: 4 + (i % 5) * 3 }));
-  const fallers = kinds.map((kind, i) => ({ kind, t0, i }));
+  // Each is a kind, or { kind, side } for a piece with a look of its own.
+  const fallers = kinds.map((k, i) => ({ kind: k.kind || k, side: k.side || 'you', t0, i }));
   let landing = null, stopped = false, frame = 0;
 
   // Where faller i hangs while falling: a row across the middle.
@@ -88,7 +89,7 @@ export function startFall(canvas, kinds, side = 'you') {
         y = tableTop + above;
         if (!L) s = Math.max(0.01, 1 - k); // nothing to land on (should not happen)
       }
-      mesh.addXf(model(f.kind, side), { t: [x, y, z], ry, rz, s }, 100 + i);
+      mesh.addXf(model(f.kind, f.side || 'you'), { t: [x, y, z], ry, rz, s }, 100 + i);
     });
     render(target, mesh, { yaw: 0, pitch: PITCH, scale: SCALE, cx, cy, outline: '#05080a' });
     // The picture goes over the backdrop, keeping the backdrop where it is empty.

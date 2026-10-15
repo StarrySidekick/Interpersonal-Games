@@ -584,8 +584,9 @@ export class Board {
       sfx.capture(at(t));
       t += b.won ? 480 : 200;
     }
-    // The last rabbit caught: the hole's cover opens.
-    if (a.hole && !holeOpen(a) && holeOpen(b)) {
+    // The last rabbit caught: the hole's cover opens. (On a cleared board,
+    // Adventure, the hole appears beside your piece, opening.)
+    if ((a.hole && !holeOpen(a) && holeOpen(b)) || (!a.hole && b.hole)) {
       tw.open = { t0: t, dur: 520 * slow };
       sfx.opens(at(t));
       t += 360 * slow;

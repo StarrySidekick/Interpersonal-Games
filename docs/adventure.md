@@ -39,8 +39,9 @@ every run is different, and par should be reasonable for how deep you are.
 
 ## The game now
 
-Take every piece of theirs, then jump into the hole, in as few moves as you
-can.
+You start with a rook, always (Timothy, 2026-10-15: "you always start with
+the rook, no choice"). Take every piece of theirs in as few moves as you
+can; then a hole opens and your piece jumps in.
 
 - **One piece on the board.** Your set (everything you have collected, up
   to five) takes turns: after every turn the piece on the board becomes the
@@ -82,21 +83,29 @@ can.
   | Route | Colour | Steps | From depth |
   |---|---|---|---|
   | Shuttle | tangerine | there, back | 1 |
-  | Doze | sky blue | rest, there, rest, back | 3 |
-  | Box step | moss green | round a square: there, across, back, across | 5 |
-  | Pace | crimson | there, there, rest, back, back, rest | 8 |
+  | Doze | sky blue | rest, there, rest, back | 2 |
+  | Box step | moss green | round a square: there, across, back, across | 4 |
+  | Pace | crimson | there, there, rest, back, back, rest | 6 |
 
   On the board each walker's whole route is dashed in its colour, and its
-  next step is drawn solid to a frame on the square it moves to next turn;
+  next step is drawn solid to a frame on the square it moves to next turn.
+  The lines go square by square with right-angle turns, not as the crow
+  flies (Timothy, 2026-10-15): a diagonal as a staircase, a leap along its
+  long side and then its short one, the way a knight's L is drawn;
   a rest is a dashed frame on its own square. **Stand on that square and it
   takes you.** It threatens nothing else, so the purple reach shows only
   that square for it.
-- **The hole** is on the board from the start, shut under a twig cover. No
-  flag: that is golf's (Timothy, 2026-10-15: "the hole shouldn't have the
-  flag in this mode"). When the last of theirs is taken it opens. A move onto
-  it jumps in. A slide cannot pass over the open hole (it would fall in); a
-  leap can. Take the last of theirs while standing on the shut hole and you
-  drop straight in. Par counts the jump.
+- **The hole.** Taking the last of theirs wins the board: a hole opens on
+  the free square nearest your piece, and your piece hops into it by itself
+  (Timothy, 2026-10-15: "the hole should just be like an animation where the
+  piece jumping in, it's boring to have to move it yourself"). There is no
+  hole on the board before then, and no flag (that is golf's). Par is the
+  moves to clear the board. In rules: goal `'clear'` is won when every one
+  of theirs is taken, and `exitSpot` places the hole; the board's
+  `intoHole` plays the hop.
+- **No pawns** (Timothy, 2026-10-15: "pawns kind of can't be a thing in
+  this mode due to them moving in one direction"): none among theirs, so
+  no pawn rabbits and never a pawn in your set.
 - **Rabbits.** Every piece of theirs you take leaves its rabbit with you,
   statues included. Three rabbits of a kind become that piece, which joins
   your set after the board. The row under the board counts them (Knight:
@@ -113,27 +122,32 @@ can.
 
 ## The look of your pieces
 
-Timothy, 2026-10-15: "can you make your pieces look like they are wrapped
-in 3d vines ... more like crumbled stone, with green vines. just want to
-see if it looks cool." In Adventure only, for now, your pieces are their
-own shapes in weathered stone, wrapped in two climbing vines with leaves:
-`model(kind, 'vine')` in `models.js`. How it is made:
+In Adventure each piece of yours wears its suit (Timothy, 2026-10-15: "the
+vine look should be for the vine suit, we should have custom looks for the
+other that are colored like the suit, red for hearts, grey for gears ...
+yellow for stars"). A piece with no suit is the Grove's green. Each look
+is the piece's own shape in the suit's colours, with something of the suit
+built round it (`SUIT_LOOK` in `models.js`, `model(kind, suit)`):
 
-- The piece is built as usual from a stone palette (`VINE_STONE`).
-- `crumble` wears it: every corner above the plinth is nudged in or out a
-  little, now and then bitten deeper, by a hash of where it is, so the same
-  corner always moves the same way and the surface never splits; faces are
-  mottled lighter and darker, a few chipped dark, a few gone to moss.
-- `vines` climbs it: two spirals, a turn and a bit each, from the plinth to
-  four fifths of its height. At each step `surface` finds how far out the
-  piece is at that height and angle (the farthest corner nearby) and the
-  vine sits just outside it, as thin boxes laid end to end (`strand`), with
-  diamond leaves (`leaf`, two triangles, drawn from both sides) along it,
-  at its end, and at its foot.
+| Suit | Body | Round it |
+|---|---|---|
+| Vines | crumbled stone | two vines climbing it, with leaves |
+| Hearts | rose red | a pale heart on its chest, a small one on its back |
+| Gears | blue steel (kept bluer than their grey statues) | a toothed gear round its middle with rivets, a cog on its chest, a little gear at its foot |
+| Spirals | amber | a cream stripe wound up it two and a half turns, like a shell, curled at the top |
+| Stars | gold | a star on its head and four small ones round it |
 
-The board (`board.mine`), the set row, the intro's cards and the fall
-between boards all use it. Your pieces were green to tell them from
-theirs; in stone, the vines carry that.
+How Vines is made, the first of them: the piece is built from a stone
+palette; `crumble` nudges every corner above the plinth in or out a little
+by a hash of where it is (so a corner shared by two faces moves the same
+way and nothing splits), and mottles the faces, a few chipped dark and a
+few mossy; `vines` climbs it in two spirals, each step placed just outside
+the surface (`surface`: the farthest corner near that height and angle),
+as thin boxes end to end (`strand`) with diamond leaves (`leaf`). The
+others place their ornaments the same way, against the piece's surface.
+
+The board (`board.lookOf`), the set row, the next-up strip, the intro's
+cards and the fall between boards all use the look.
 
 ## How it is built, in Grove terms
 
@@ -145,12 +159,13 @@ use them too.
   a set of five (`maxPieces`), goal `'clear'`, `darkBrain: 'possessed'`
   with `patterns: 'routes'`, `oneMove: false` (all of theirs move every
   turn), and `cycle: true`.
-- **Goal `'clear'`** (`rules.js`): every piece of theirs is marked; the
-  hole (placed in `makeLevel`, no ball) stays shut until they are all
-  taken (`holeOpen`); then `exitMoves` marks a move onto it as `sink` and
-  drops slides that would cross it, and landing there wins (`n.won =
-  n.sunk = true`). The solver's score counts distance to the hole once
-  they are all taken. `EXIT_DESC` says it in words.
+- **Goal `'clear'`** (`rules.js`): every piece of theirs is marked, and
+  `goalMet` is true once they are all taken. At the end of that move
+  `playerMove` puts the hole on the free square nearest your piece
+  (`exitSpot`); the board animates it opening (`animate`, a hole where
+  there was none) and the runner plays the hop in (`intoHole`).
+  `EXIT_DESC` says it in words. (Until release 69 you had to move onto the
+  hole yourself, and par counted that move.)
 - **Routes** (`lab.js`, `ROUTES` and `dealRoutes`): dealt last, on the
   finished level. For each piece of theirs, in random order, a route kind
   the depth allows (`routeKinds`) and a move `v` (and `w` for Box step)
@@ -192,17 +207,21 @@ use them too.
 
 | Depth | Board | Theirs | Walking | Routes | Clouds |
 |---|---|---|---|---|---|
-| 1-2 | 5 x 5 | 2-4 | 1 (2 sometimes) | Shuttle | none |
-| 3-4 | 5 x 5 or 6 x 6, odd shapes | 3-5 | 2-3 | + Doze | none |
-| 5-7 | 5 x 5 or 6 x 6, crumbling from 6 | 5-7 | 2-4 | + Box step | some |
-| 8+ | 6 x 6 or 7 x 7 | up to 9 | 3-5 | + Pace | some, sometimes 2 |
+| 1 | 5 x 5 | 3-4 | 1-2 | Shuttle | none |
+| 2-3 | 5 x 5, odd shapes from 3 | 4-5 | 2-3 | + Doze | none |
+| 4-5 | 5 x 5 or 6 x 6 | 5-7 | 2-3 | + Box step | some, from 5 |
+| 6+ | 6 x 6 or 7 x 7 from 8, crumbling from 6 | up to 9 | 3-5 | + Pace | some, sometimes 2 |
+
+Harder from the start since 2026-10-15 (Timothy: "early levels should be a
+bit harder"): one more of theirs and one more walking at every depth, the
+longer routes a depth or two sooner, and par no longer pays for the jump.
 
 [`adventure-check.mjs`](../play/grove-chess/adventure-check.mjs) proves the
 statues, the Changeling, the routes (72 dealt boards, 24 turns each: never
 stuck, home after every round, no shared squares, pawns still), a walker
 taking you, the hole (shut, open, sink, no sliding over), the set taking
 turns and keeping suits, five of seven, rabbits, losing a piece, dealing
-with a par that ends in the hole at five depths, and the cards.
+with a par that clears the board and opens the hole at five depths, no pawns among theirs, and the cards.
 
 ## The Changeling piece
 
@@ -242,7 +261,6 @@ the daily's rabbits.
   and the board goes on.
 - Whether statues give rabbits (now: yes, every piece taken does).
 - Whether a new piece should join mid-board rather than after it.
-- Pawns joining your set (a pawn turn is a step up or a pass).
 - The route kinds and their colours, and when each arrives.
 - Wandering clouds, which can hide a walker.
 - Endless, with no final depth.

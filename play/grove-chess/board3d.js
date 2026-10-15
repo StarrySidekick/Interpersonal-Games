@@ -900,9 +900,22 @@ export class Board3D extends Board {
       const [dx, dy] = f.pattern[(f.i + j) % L];
       if (dx || dy) { x += dx; y += dy; pts.push([x, y]); }
     }
-    for (let j = 1; j < pts.length; j++) line([this.mid(...pts[j - 1]), this.mid(...pts[j])], rgba(col, 0.4), 1.2, [2, 3]);
+    // Square by square, with right-angle turns, not as the crow flies
+    // (Timothy, 2026-10-15): a step along a row or file goes straight; a
+    // diagonal goes as a staircase; a leap goes along its long side, then
+    // turns for its short side, the way a knight's L is drawn.
+    const elbow = ([ax, ay], [bx, by]) => {
+      const dx = bx - ax, dy = by - ay, sx = Math.sign(dx), sy = Math.sign(dy), out = [[ax, ay]];
+      let x = ax, y = ay;
+      if (Math.abs(dx) === Math.abs(dy)) while (x !== bx) { x += sx; out.push([x, y]); y += sy; out.push([x, y]); }
+      else if (Math.abs(dx) > Math.abs(dy)) { out.push([bx, ay]); }
+      else { out.push([ax, by]); }
+      out.push([bx, by]);
+      return out.map(([x, y]) => this.mid(x, y));
+    };
+    for (let j = 1; j < pts.length; j++) line(elbow(pts[j - 1], pts[j]), rgba(col, 0.4), 1.2, [2, 3]);
     const [dx, dy] = f.pattern[f.i % L], tx = f.x + dx, ty = f.y + dy;
-    if (dx || dy) line([this.mid(f.x, f.y), this.mid(tx, ty)], rgba(col, 0.9), 2);
+    if (dx || dy) line(elbow([f.x, f.y], [tx, ty]), rgba(col, 0.9), 2);
     const box = [[4, 4], [24, 4], [24, 24], [4, 24], [4, 4]].map(([a, b]) => inSq(tx, ty, a, b));
     line(box, rgba(col, 0.95), 2, dx || dy ? null : [2, 2]);
   }
@@ -1043,7 +1056,7 @@ export class Board3D extends Board {
         else { const e = (k - cut) / (1 - cut), pop = e < 0.7 ? (e / 0.7) * 1.15 : 1.15 - ((e - 0.7) / 0.3) * 0.15; o = { ...o, s: Math.max(0.04, pop), ry: (o.ry || 0) - (1 - e) * Math.PI * 1.5 }; }
         this.settleSoon?.();
       }
-      stand(q.brain === 'carrier' ? model('rabbit', 'you', CARRIER_FUR.you) : model(q.shape || q.type, this.mine || 'you', null, q.brain === 'possessed' ? this.fur(q) : SUIT_COLOUR[q.suit] || (q.shape ? CHANGELING_GLOW : null)), x, y, h, 100 + i, o);
+      stand(q.brain === 'carrier' ? model('rabbit', 'you', CARRIER_FUR.you) : model(q.shape || q.type, this.lookOf ? this.lookOf(q) : 'you', null, q.brain === 'possessed' ? this.fur(q) : SUIT_COLOUR[q.suit] || (q.shape ? CHANGELING_GLOW : null)), x, y, h, 100 + i, o);
       where[i] = { x, y, h, i };
       armsOf(q, x, y, h, 100 + i, o, 1);
       // Guarded (2026-10-11): a shield in front. Since 2026-10-13 it flies
@@ -1231,8 +1244,13 @@ export class Board3D extends Board {
       if (p.taken || p.type === 'ball') return;
       into.push({ i, from: [p.x, p.y], t0: t0 + 250 + into.length * 330, dur: 760 });
     });
-    this.tw = { poofs: [], foes: {}, tumbles: [], leaves: [], into, intoHole: [hole.x, hole.y] };
-    into.forEach((d) => sfx.hop(hole.x - d.from[0], hole.y - d.from[1], (d.t0 - t0) / 1000, (d.t0 - t0 + d.dur * 0.6) / 1000));
+    // Each drops in with a puff of earth and the hole's own sound.
+    const poofs = into.map((d) => ({ x: hole.x, y: hole.y, t0: d.t0 + d.dur * 0.72, dur: 520, c1: '#2a1f13', c2: '#f4ecd6' }));
+    this.tw = { poofs, foes: {}, tumbles: [], leaves: [], into, intoHole: [hole.x, hole.y] };
+    into.forEach((d) => {
+      sfx.hop(hole.x - d.from[0], hole.y - d.from[1], (d.t0 - t0) / 1000, (d.t0 - t0 + d.dur * 0.6) / 1000);
+      sfx.sink((d.t0 - t0 + d.dur * 0.72) / 1000);
+    });
     const end = into.length ? into[into.length - 1].t0 + into[into.length - 1].dur : t0 + 400;
     await this.runUntil(end + 250);
   }

@@ -42,14 +42,6 @@ export function score(s) {
     if (r.ballMove === 'bounce') return Math.max(dx, dy) * 10 - (dx === dy ? 15 : 0) + ((dx + dy) % 2 ? 30 : 0) + lostPieces * 40;
     return (dx + dy) * 10 - (dx === 0 || dy === 0 ? 15 : 0) + lostPieces * 40;
   }
-  // Take them all, then the hole (goal 'clear'): once they are all taken,
-  // how far your piece is from the hole, always better than any position
-  // with one of theirs still to take.
-  if (r.goal === 'clear' && !s.foes.some((f) => f.target && !f.taken)) {
-    const p = alive[0];
-    if (!s.hole) return Infinity;
-    return Math.max(Math.abs(p.x - s.hole.x), Math.abs(p.y - s.hole.y)) * 10 + lostPieces * 40;
-  }
   let need = r.goal === 'descent' ? loose : s.foes.filter((f) => !f.taken && (r.goal !== 'target' || f.target));
   if (!need.length) need = s.foes.filter((f) => !f.taken);
 
@@ -58,7 +50,7 @@ export function score(s) {
   const gap = (f) => (hit.has(f.y * W + f.x) ? 0 : 1 + Math.min(...alive.map((p) => Math.max(Math.abs(p.x - f.x), Math.abs(p.y - f.y)))));
 
   if (r.goal === 'any') return Math.min(...need.map(gap)) * 10 + lostPieces * 40;
-  return need.reduce((h, f) => h + 100 + gap(f) * 10, 0) + lostPieces * 40 + (r.goal === 'descent' || r.goal === 'clear' ? 200 : 0);
+  return need.reduce((h, f) => h + 100 + gap(f) * 10, 0) + lostPieces * 40 + (r.goal === 'descent' ? 200 : 0);
 }
 
 /**

@@ -17,6 +17,7 @@ import { bestMove } from '../best.js';
 import { newTiles, fillOffers, flip, frontier, tier, bounds, layout, foePick, tileKey, tileXY, SIZES } from '../tiles.js';
 import { solveLevel } from '../solve.js';
 import { scene, sceneFrame, sprite, crispWidth } from '../board.js';
+import { suitLook } from '../models.js';
 import { piecesSheet } from '../sheet.js';
 import { playIntro } from '../intro.js';
 import { makeLevel, searchLayouts, decodeLevel, rabbitPool, GOAL_PILL, summary } from '../lab.js';
@@ -111,6 +112,9 @@ function newSession() {
   const from = royalKing && pool.some((k) => k !== 'king') ? pool.filter((k) => k !== 'king') : pool.length ? pool : M.startPool;
   const start = Array.from({ length: count }, () => from[Math.floor(rand() * from.length)]);
   if (royalKing) start[0] = 'king';
+  // Adventure always starts with a rook (Timothy, 2026-10-15: "you always
+  // start with the rook, no choice").
+  if (M.upgrades === 'par') start.splice(0, start.length, 'rook');
   session = { seed, n: 1, found: new Map(), seen: new Set(), strokes: [], lives: M.lives, wins: 0, caught: [], claimed: [], acorns: 0, deepestBefore: deepest() };
   // One upgrade a board (2026-10-12): they carry a lineup too, their King
   // and the rest dealt from their pool, as wide as the board.
@@ -209,9 +213,11 @@ function myRabbits() {
 const kingLocked = (h) => M.royal && M.run === 'descent' && h.base === 'king' && !h.fused;
 
 const furOf = (f) => ((f.brain === 'pattern' || f.brain === 'possessed' || f.mind) && FUR[f.patternName]) || null;
-/** How your pieces look: in Adventure, stone wrapped in vines (Timothy,
-    2026-10-15, "just want to see if it looks cool"); elsewhere, green. */
-const myLook = () => (M.upgrades === 'par' ? 'vine' : 'you');
+/** How a piece of yours looks: in Adventure, its suit's look (Timothy,
+    2026-10-15: "the vine look should be for the vine suit, we should have
+    custom looks for the others that are colored like the suit"), or green
+    with no suit; elsewhere, green. */
+const lookOf = (p) => (M.upgrades === 'par' ? suitLook(p?.suit) : 'you');
 const levelWord = () => ({ descent: M.upgrades === 'tiles' ? 'Round' : 'Depth', course: 'Hole', rounds: 'Round', single: 'Level' })[M.run];
 /** A descent whose sides are given and upgraded a board at a time: one
     upgrade each (the descent), or tiles turned over (Tile Chess). */
@@ -265,7 +271,7 @@ let lastNext = null;
 function nextUp() {
   const s = now(), box = $('#nextup'), order = s.set ? setOrder(s) : [];
   if (order.length < 2 || s.pieces[0]?.taken || s.won) { box.hidden = true; lastNext = null; return; }
-  const icon = (p) => { const cv = el('canvas', { class: 'pix', width: 30, height: 36 }); cv.getContext('2d').drawImage(sprite(p.type, myLook()), 0, 0); return cv; };
+  const icon = (p) => { const cv = el('canvas', { class: 'pix', width: 30, height: 36 }); cv.getContext('2d').drawImage(sprite(p.type, lookOf(p)), 0, 0); return cv; };
   const marks = (p) => [p.suit && SUITS[p.suit] ? el('span', { class: 'suit', style: `color:${SUITS[p.suit].colour}` }, SUITS[p.suit].mark) : null,
     p.weapon && WEAPONS[p.weapon] ? el('span', { class: 'suit' }, WEAPONS[p.weapon].mark) : null];
   const next = order[1], key = `${s.ci}:${next.type}:${s.t}`;
@@ -285,7 +291,7 @@ function setRow() {
   const order = s.set ? setOrder(s) : s.pieces.slice(0, 1);
   box.replaceChildren(...order.map((p, k) => {
     const cv = el('canvas', { class: 'pix', width: 30, height: 36 });
-    cv.getContext('2d').drawImage(sprite(p.type, myLook()), 0, 0);
+    cv.getContext('2d').drawImage(sprite(p.type, lookOf(p)), 0, 0);
     const mark = [p.suit && SUITS[p.suit] ? el('span', { class: 'suit', style: `color:${SUITS[p.suit].colour}` }, SUITS[p.suit].mark + ' ') : null,
       p.weapon && WEAPONS[p.weapon] ? el('span', { class: 'suit' }, WEAPONS[p.weapon].mark + (p.wl > 1 ? p.wl : '') + ' ') : null];
     return el('div', { class: `handcell${k === 0 ? ' picked' : ''}` },
@@ -321,7 +327,7 @@ function goalCard() {
   if (session.seen.has('goal')) return null;
   session.seen.add('goal');
   let text = {
-    descent: M.upgrades === 'par' ? 'Take every piece of theirs, then jump into the hole: it opens once they are all gone. Grey statues never move. A piece with a rabbit inside walks a short route every turn, the rabbit\u2019s colour says which, and its next step is drawn on the board: stand there and it takes you. You have one piece on the board, and after every turn it becomes the next piece of your set. Every piece you take leaves you its rabbit, and three rabbits of a kind become that piece, which joins your set. If they take the piece on the board, it is gone, and the floor gives way; lose them all and the adventure is over.'
+    descent: M.upgrades === 'par' ? 'Take every piece of theirs. When the last one goes, a hole opens beside you and you jump down it to the next board. Grey statues never move. A piece with a rabbit inside walks a short route every turn, the rabbit\u2019s colour says which, and its next step is drawn on the board: stand there and it takes you. You have one piece on the board, and after every turn it becomes the next piece of your set. Every piece you take leaves you its rabbit, and three rabbits of a kind become that piece, which joins your set. If they take the piece on the board, it is gone, and the floor gives way; lose them all and the adventure is over.'
       : M.upgrades === 'tiles' ? 'Take their King to win the round. After each round you each turn over a tile at the edge of the board, the winner first: the board grows by that square, and the suit or weapon on the tile is yours. When the board has as many squares as the next size up, both sides get the same new piece. Every piece starts each round in a bubble: nothing can take it until it moves. Four statues stand in the middle; either side can break one by taking it. Keep your King: if they take it, the run is over.'
       : M.upgrades === 'each' && M.goal === 'carrier' ? `A rabbit rides one of their pieces. ${M.rabbitMove === 'random' ? `Every ${M.rabbitHop === 1 ? 'turn' : `${M.rabbitHop} turns`} it hops to another, at random.` : 'They can move it to another of their pieces, but that is their move for the turn.'} Take the piece it is on to fall to the next board, where you choose a suit or a weapon and they get one too. Keep your King: if they take it, the descent is over. Anything else of yours they take comes back on the next board.${M.promote === 'copy' ? ' A pawn that reaches the far row becomes a copy of another of your pieces.' : ''}`
       : M.upgrades === 'each' ? 'Take their King to fall to the next board, where each side gets an upgrade. Keep yours: if they take your King, the descent is over. Anything else of yours they take comes back on the next board. One rabbit leads their side, riding on their King: tap it to see what kind it is.'
@@ -358,7 +364,7 @@ async function startLevel() {
   if (M.upgrades === 'par' && par) par += adventureSlack(session.n);
   game = { states: [initialState(level)], moves: [] };
   board = makeBoard($('#board'), level);
-  board.mine = myLook();
+  board.lookOf = M.upgrades === 'par' ? lookOf : null;
   board.reach = level.settings.showReach;
   board.reachMine = level.settings.showMyReach;
   board.guards = level.settings.showGuards;
@@ -554,7 +560,7 @@ function select(i) {
   const skip = movesFor(now(), 0).find((m) => m.skip), next = skip && setOrder(now())[1];
   $('#skip').hidden = !skip;
   if (next) $('#skip').textContent = `⚙ Skip to the ${nameOf(next).toLowerCase()}`;
-  if (i == null) info(level.hole ? (holeOpen(now()) ? `Tap a piece to see where it can go. The hole is open${level.rules.goal === 'clear' ? ': jump in' : ''}.` : `Tap a piece to see where it can go. The hole opens once ${level.rules.goal === 'clear' ? 'every piece of theirs is taken' : 'every rabbit is caught'}.`) : 'Tap a piece to light up where it can go.');
+  if (i == null) info(level.hole ? (holeOpen(now()) ? 'Tap a piece to see where it can go. The hole is open.' : 'Tap a piece to see where it can go. The hole opens once every rabbit is caught.') : 'Tap a piece to light up where it can go.');
   else {
     const p = now().pieces[i], type = p.type;
     if (p.brain === 'carrier') info(`Your rabbit, riding your ${nameOf(now().pieces[p.rides] || p)}: if they take the piece it rides, you lose. ${legal.length ? 'Tap another of your pieces to move it there; that is your move for the turn.' : hopIn(now()) ? 'It hops by itself, at random.' : 'It has nowhere to go right now.'}`);
@@ -587,7 +593,6 @@ function whatHappened(a, b) {
     }
     bits.push(f.brain === 'leader' ? `You took the rabbit that leads them.` : f.mind || f.brain === 'possessed' ? `You took their ${nameOf(f)}, and the rabbit inside is yours.` : `You took their ${nameOf(f)}.`);
   });
-  if (b.day.rules.goal === 'clear' && b.hole && holeOpen(b) && !holeOpen(a) && !b.won) bits.push('That was the last of them: the hole is open. Jump in.');
   // Your set takes turns: say what you are now.
   if (b.set && !b.won && !b.pieces[0].taken && b.pieces[0].type !== a.pieces[0].type) { const n = nameOf(b.pieces[0]).toLowerCase(); bits.push(`Now you are ${/^[aeiou]/.test(n) ? 'an' : 'a'} ${n}.`); }
   if (b.foeBonus === 'vines') bits.push('Their piece of Vines takes again.');
@@ -869,10 +874,12 @@ async function adventureOver(end) {
   const how = parVerdict(end.t, par, won);
   session.n++; run.depth = session.n;
   if (!test) { const r = mine(); r.best = Math.max(r.best || 0, session.n); saveRecords(); }
-  status(won ? `${{ under: 'Under par', par: 'On par', over: 'Over par' }[how]}. Down the hole.`
+  status(won ? `${{ under: 'Under par', par: 'On par', over: 'Over par' }[how]}. A hole opens: down you go.`
     : took ? `They took your ${took}: it is gone. The floor gives way.` : 'Out of moves: the floor gives way anyway.');
-  // Into the hole, you are already falling; otherwise the floor goes.
-  if (!calm()) { await sleep(won ? 700 : 400); if (!won && board.collapse) await board.collapse(); }
+  // Cleared: your piece hops into the hole that opened beside it (Timothy,
+  // 2026-10-15: "the hole should just be like an animation where the piece
+  // jumping in"). Otherwise the floor gives way.
+  if (!calm()) { await sleep(won ? 250 : 400); if (won && board.intoHole) await board.intoHole(); else if (board.collapse) await board.collapse(); }
   if (made.length) { sfx.fanfare(3); haptic([30, 40, 30, 40, 60]); }
   const cards = adventureCards(run, PAR_CARDS[how], rng(`reward:${session.seed}:${session.n}`));
   const note = !won ? 'Not cleared, but you take one thing with you.' : how === 'under' ? `Under par: ${end.t} moves, par ${par}. Choose one of three.`
@@ -892,8 +899,8 @@ async function between({ note, sub = '', rewards = false, combine = false, shop:
   $('#betweennote').textContent = note;
   $('#betweensub').textContent = sub;
   $('#offer').hidden = true; $('#pickbox').hidden = true; $('#betweennext').hidden = true; $('#tilebox').hidden = true;
-  const kinds = session.run ? session.run.hand.map((h) => pieceOf(h, session.run.made).type) : [];
-  fall = falling && !calm() && kinds.length ? startFall($('#fallcv'), kinds, myLook()) : null;
+  const kinds = session.run ? session.run.hand.map((h) => ({ kind: pieceOf(h, session.run.made).type, side: lookOf(h) })) : [];
+  fall = falling && !calm() && kinds.length ? startFall($('#fallcv'), kinds) : null;
   $('#fallcv').hidden = !fall;
   if (rewards && session.run) await reward({ k: 0, note: rewardNote, cards: rewardCards });
   if (shopping && session.run) await shop();
@@ -1281,7 +1288,6 @@ async function prepareTitle() {
   waystoneList();
   courseList();
   variantList();
-  starterList();
   await previewFirst();
 }
 
@@ -1347,21 +1353,6 @@ function waystoneList() {
 
 /** Adventure: the piece you start with (Timothy, 2026-10-15: "you start
     with either a rook, bishop, or knight"). */
-function starterList() {
-  const box = $('#starters');
-  box.replaceChildren();
-  box.hidden = M.upgrades !== 'par';
-  if (box.hidden) return;
-  box.append(el('p', { class: 'small dim', style: 'margin:0' }, 'Start with'));
-  for (const k of ['rook', 'bishop', 'knight']) {
-    const on = M.startPool.length === 1 && M.startPool[0] === k, cv = el('canvas', { class: 'pix', width: 30, height: 36, style: 'width:30px;height:36px' });
-    cv.getContext('2d').drawImage(sprite(k, 'you'), 0, 0);
-    box.append(el('button', { class: `coursecard${on ? ' on' : ''}`, 'aria-pressed': String(on), style: 'grid-template-columns:34px 1fr;align-items:center;column-gap:10px',
-      onclick: () => { M = cleanMode({ ...M, startPool: [k] }); if (!test) saveModeSettings(modeId, M); haptic(10); prepareTitle(); } },
-    cv, el('span', {}, el('b', {}, PIECES[k].name), el('br'), el('span', { class: 'small dim' }, PIECES[k].desc))));
-  }
-}
-
 /** Golf: the courses, open ones pressable. */
 function courseList() {
   const box = $('#courses');

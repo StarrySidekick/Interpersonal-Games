@@ -12,6 +12,16 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
+## 2026-10-15, later still: Adventure tuned
+
+From Timothy, and built: the jump into the hole is an animation, not a
+move; no pawns; a harder start; always a rook; a look for each suit (stone
+and vines for Vines, red Hearts, steel Gears, amber Spirals, gold Stars);
+route lines with right-angle turns; and before that, an animation as the
+set turns, the next piece shown under the board, Gears skipping a piece
+and a sword that strikes the way it moves. All in
+[`docs/adventure.md`](docs/adventure.md).
+
 ## 2026-10-15, latest: Adventure with rabbits, a hole, and a set that takes turns
 
 From Timothy: rabbits possessing their pieces again; a hole that opens when
