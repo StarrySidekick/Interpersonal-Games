@@ -12,6 +12,15 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
+## 2026-10-15, latest: chess technique in Adventure
+
+From Timothy: pins, sentries, skittish pieces, their crowned leader with
+check and checkmate, a Stone suit that leaves a stone of your piece, and
+trapped pieces said out loud; not skewer chains. Built, in
+[`docs/adventure.md`](docs/adventure.md) ("Tactics"). Your piece now turns
+into the next of your set at the end of your move, so threats are made by
+the piece that follows them up.
+
 ## 2026-10-15, later still: Adventure tuned
 
 From Timothy, and built: the jump into the hole is an animation, not a

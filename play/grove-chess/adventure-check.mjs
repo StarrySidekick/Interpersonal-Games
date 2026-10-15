@@ -26,7 +26,7 @@ const deal = (d, hand, sd, more = {}) => {
 // Statues and the Changeling (every one of theirs a statue, for this).
 let L = null;
 for (let sd = 1; sd < 200 && !L; sd++) {
-  const lv = deal(3, ['changeling'], sd, { still: 12 });
+  const lv = deal(3, ['changeling'], sd, { still: 12, sentries: 0, skittish: 0, crown: false });
   if (R.movesFor(R.initialState(lv), 0).some((mv) => mv.cap)) L = lv;
 }
 ok(L, 'a board where the Changeling can take at once');
@@ -48,7 +48,7 @@ for (const d of [1, 2, 3, 5, 8, 11]) for (let sd = 1; sd <= 12; sd++) {
   const st = R.initialState(lv), W = lv.W;
   const army = st.foes.filter((f) => f.type !== 'rabbit');
   ok(army.some((f) => f.brain === 'possessed'), `depth ${d} (${sd}): at least one of theirs walks a route`);
-  ok(army.every((f) => f.brain === 'possessed' || f.brain === 'still'), `depth ${d} (${sd}): theirs are statues or walkers, nothing that thinks`);
+  ok(army.every((f) => ['possessed', 'still', 'sentry', 'skittish', 'crown'].includes(f.brain)), `depth ${d} (${sd}): theirs are statues, walkers, sentries, skittish or their leader; nothing that thinks`);
   ok(army.every((f) => f.type !== 'pawn' || f.brain === 'still'), `depth ${d} (${sd}): pawns are statues`);
   const walk = army.filter((f) => f.brain === 'possessed');
   walkers += walk.length;
@@ -196,6 +196,76 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
   ok(run.hand.length === 2 && run.lost.length === 1 && run.hand[0].base === 'rook', 'the piece taken on the board is gone; the rest stay');
 }
 
+// Tactics (2026-10-15): pins, sentries, skittish flight, the leader, stones.
+// Each on a board set out by hand: a 5 x 5 board, your piece, their pieces.
+{
+  const base = deal(1, ['rook'], 7777);
+  const board = (mine, foes, extra = {}) => {
+    const lv = { ...base, pieces: [mine], foes: foes.map((f) => ({ target: true, mx: 1, my: 1, ...f })), cycle: undefined, hole: null, stumps: new Set(), rules: { ...base.rules, tactics: true, ...extra } };
+    return R.initialState(lv);
+  };
+  const walker = (type, x, y, steps) => ({ type, x, y, brain: 'possessed', route: true, pattern: steps, patternName: 'Shuttle' });
+
+  // 1. A pin holds a walker; without the piece behind, it walks.
+  let s = board({ type: 'rook', x: 0, y: 0 }, [walker('knight', 0, 2, [[1, 2], [-1, -2]]), { type: 'bishop', x: 0, y: 4, brain: 'still' }]);
+  let n = R.respond(s);
+  ok(n.foes[0].x === 0 && n.foes[0].y === 2 && n.tlog.some((l) => l.what === 'pin' && l.k === 0), 'a pinned walker holds');
+  s = board({ type: 'rook', x: 0, y: 0 }, [walker('knight', 0, 2, [[1, 2], [-1, -2]]), { type: 'bishop', x: 3, y: 4, brain: 'still' }]);
+  n = R.respond(s);
+  ok(n.foes[0].x === 1 && n.foes[0].y === 4, 'unpinned, it walks');
+  ok(R.tacticalPins(board({ type: 'rook', x: 0, y: 0 }, [walker('knight', 0, 2, [[1, 2], [-1, -2]]), { type: 'bishop', x: 0, y: 4, brain: 'still' }])).has(0), 'tacticalPins finds it');
+
+  // 2. A sentry takes what stands where it attacks; pinned, it cannot.
+  s = board({ type: 'rook', x: 4, y: 3 }, [{ type: 'rook', x: 4, y: 0, brain: 'sentry' }, { type: 'pawn', x: 0, y: 4, brain: 'still' }]);
+  n = R.respond(s);
+  ok(n.pieces[0].taken && n.foes[0].y === 3, 'a sentry takes your piece, moving there');
+  s = board({ type: 'bishop', x: 1, y: 4 }, [{ type: 'rook', x: 2, y: 3, brain: 'sentry' }, { type: 'knight', x: 4, y: 1, brain: 'still' }]);
+  n = R.respond(s);
+  ok(!n.pieces[0].taken, 'a pinned sentry cannot strike');
+
+  // 3. Skittish: attacked twice at once (a fork), only one gets away.
+  s = board({ type: 'knight', x: 2, y: 2 }, [{ type: 'rook', x: 0, y: 1, brain: 'skittish' }, { type: 'bishop', x: 4, y: 3, brain: 'skittish' }]);
+  n = R.respond(s);
+  ok((n.foes[0].x !== 0 || n.foes[0].y !== 1) && n.foes[1].x === 4 && n.foes[1].y === 3 && n.foes[1].trapped, 'a fork: the rook runs, the bishop is left');
+  ok(n.tlog.some((l) => l.what === 'flee' && l.k === 0) && n.tlog.some((l) => l.what === 'trapped' && l.k === 1 && l.fork), 'said as a fork');
+
+  // 4. Check: the leader flees; a walker blocks instead if it can; mate when nothing works.
+  s = board({ type: 'rook', x: 2, y: 0 }, [{ type: 'king', x: 2, y: 4, brain: 'crown' }, { type: 'pawn', x: 4, y: 4, brain: 'still' }]);
+  n = R.respond(s);
+  ok(!(n.foes[0].x === 2 && n.foes[0].y === 4) && n.tlog.some((l) => l.what === 'check' && l.how === 'flee'), 'checked, the leader flees');
+  s = board({ type: 'rook', x: 2, y: 0 }, [{ type: 'king', x: 2, y: 4, brain: 'crown' }, walker('rook', 1, 2, [[1, 0], [-1, 0]])]);
+  n = R.respond(s);
+  ok(n.foes[1].x === 2 && n.foes[1].y === 2 && n.foes[1].brain === 'sentry' && n.tlog.some((l) => l.how === 'block'), 'a walker blocks the check, and stands guard there');
+  s = board({ type: 'rook', x: 0, y: 0 }, [{ type: 'king', x: 0, y: 4, brain: 'crown' }, { type: 'knight', x: 4, y: 0, brain: 'still' }]);
+  s.stones = [{ type: 'rook', x: 1, y: 2 }];
+  n = R.respond(s);
+  ok(n.won && n.mate && n.foes.every((f) => f.taken) && n.hole, 'checkmate: they all fall, and the hole opens');
+  s = board({ type: 'king', x: 3, y: 3 }, [{ type: 'king', x: 3, y: 4, brain: 'crown' }, { type: 'knight', x: 0, y: 0, brain: 'still' }]);
+  n = R.respond(s);
+  ok(n.pieces[0].taken, 'the leader takes an unguarded attacker beside it');
+  s = board({ type: 'king', x: 3, y: 3 }, [{ type: 'king', x: 3, y: 4, brain: 'crown' }, { type: 'knight', x: 0, y: 0, brain: 'still' }]);
+  s.stones = [{ type: 'rook', x: 3, y: 0 }];
+  n = R.respond(s);
+  ok(!n.pieces[0].taken, 'but not one your stone guards');
+
+  // 5. Stone: a piece of Stone leaves a stone; the stone strikes what comes into its reach.
+  s = board({ type: 'rook', x: 0, y: 0, suit: 'stone' }, [walker('knight', 3, 1, [[-1, 2], [1, -2]]), { type: 'pawn', x: 4, y: 4, brain: 'still' }]);
+  const leave = R.movesFor(s, 0).find((m) => m.stone && m.x === 0 && m.y === 1);
+  ok(leave, 'a piece of Stone can leave a stone');
+  n = R.apply(s, { p: 0, ...leave });
+  ok(n.stones.length === 1 && n.pieces[0].stoneUsed, 'it leaves one, once');
+  ok(!R.movesFor(n, 0).some((m) => m.stone), 'and only once a board');
+  const st = R.initialState({ ...s.day });
+  st.stones = [{ type: 'rook', x: 2, y: 0 }];
+  st.foes[0].x = 3; st.foes[0].y = 1; st.foes[0].pattern = [[-1, 2], [1, -2]];
+  const after = R.respond(st);
+  ok(after.tlog.some((l) => l.what === 'stone') || after.foes[0].x !== 2, 'a stone strikes what steps into its reach');
+  const still = R.initialState({ ...s.day });
+  still.stones = [{ type: 'rook', x: 4, y: 0 }]; // the pawn statue stands on its file, at (4, 4)
+  still.foes[0].taken = true;
+  ok(!R.respond(still).tlog.some((l) => l.what === 'stone'), 'a stone does not take a statue that only stands in its line');
+}
+
 // Every depth deals a board that can be cleared, with a par, ending in the hole.
 for (const [d, hand] of [[1, ['rook']], [2, ['bishop']], [4, ['knight', 'rook']], [6, ['rook', 'knight', 'bishop']], [9, ['rook', 'knight', 'bishop', 'camel', 'king']]]) {
   const r = newRun(hand, 5, null); r.depth = d;
@@ -220,5 +290,5 @@ for (const [how, want] of [['under', 3], ['par', 2], ['over', 1]]) {
 }
 ok(parVerdict(5, 6, true) === 'under' && parVerdict(6, 6, true) === 'par' && parVerdict(7, 6, true) === 'over' && parVerdict(3, 6, false) === 'over', 'the verdicts');
 
-console.log(fails ? `${fails} checks failed.` : 'Adventure: statues, the Changeling, routes, the hole, the set, rabbits, dealing and cards check out.');
+console.log(fails ? `${fails} checks failed.` : 'Adventure: statues, the Changeling, routes, the hole, the set, tactics (pins, sentries, flight, the leader, stones), rabbits, dealing and cards check out.');
 if (fails) process.exit(1);

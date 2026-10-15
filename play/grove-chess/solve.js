@@ -89,6 +89,9 @@ export function solveLevel(level, opts = {}) {
       for (const c of cands) {
         if (++work > budget || (work % 8 === 0 && Date.now() > deadline)) return { par: null, work, gaveUp: true };
         const ch = respond(c.mid);
+        // Won on their turn (Adventure's tactics: checkmate, or a stone of
+        // yours taking the last of them): as short as a win on this move.
+        if (ch.won) return { par: ch.t, exact, line: [...node.line, c.mv], work };
         if (isOver(ch)) continue; // they won, or you ran out of moves
         const k = stateKey(ch);
         if (seen.has(k)) continue;

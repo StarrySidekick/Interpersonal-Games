@@ -12,7 +12,7 @@
 // x or y. Each round's level is the box round every open square, the rest
 // of the box gaps (layout, below; lab.js makeLevel reads it as `tiles`).
 
-import { SUITS, WEAPON_ORDER } from './run.js';
+import { SUIT_KINDS, WEAPON_ORDER } from './run.js';
 
 const key = (x, y) => `${x},${y}`;
 const unkey = (k) => k.split(',').map(Number);
@@ -42,7 +42,7 @@ export function frontier(t) {
 
 /** A tile's upgrade: a suit or a weapon, half and half. */
 function draw(rand) {
-  const suits = Object.keys(SUITS);
+  const suits = SUIT_KINDS.slice();
   return rand() < 0.5 ? { kind: 'suit', suit: suits[Math.floor(rand() * suits.length)] } : { kind: 'weapon', weapon: WEAPON_ORDER[Math.floor(rand() * WEAPON_ORDER.length)] };
 }
 

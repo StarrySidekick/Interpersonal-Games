@@ -38,8 +38,14 @@ export const SUITS = {
     // With one piece on the board taking turns (Adventure, 2026-10-15).
     setDesc: 'Skip: when it comes up, it can step aside for the next piece of your set, which comes on and moves instead. That costs no move.' },
   stars: { name: 'Stars', mark: '★', colour: '#e8c547', desc: 'Moves twice: once a level, its first move is followed straight away by a second.' },
-  vines: { name: 'Vines', mark: '❦', colour: '#2fb8a0', desc: 'Chain captures: after it takes a piece, it may take another the same turn, and another after that.' }
+  vines: { name: 'Vines', mark: '❦', colour: '#2fb8a0', desc: 'Chain captures: after it takes a piece, it may take another the same turn, and another after that.' },
+  // Adventure only (Timothy, 2026-10-15: "a new suit called stone that lets
+  // you leave a sentry behind of your piece"): needs one piece taking turns.
+  stone: { name: 'Stone', mark: '◆', colour: '#b08a5a', adventure: true,
+    desc: 'Leave a stone: once a board, as it moves, it can leave a stone copy of itself on the square it leaves. The stone stays, takes any piece of theirs that stands where it attacks, and its lines pin and give check like your piece\u2019s.' }
 };
+/** The suits every mode deals (Stone is Adventure's own). */
+export const SUIT_KINDS = Object.keys(SUITS).filter((k) => !SUITS[k].adventure);
 
 /** Weapons (Timothy, 2026-10-13), each at level 1 to 3. `desc(lv)` says
     what it does at that level. A lance only on a piece that slides. */
@@ -190,7 +196,7 @@ export function rewardsFor(run, rand, veto = [], fairy = true) {
   }
   const cards = [];
   const suitless = run.hand.filter((h) => !h.suit);
-  if (suitless.length) cards.push({ kind: 'suit', suit: pick(Object.keys(SUITS)) });
+  if (suitless.length) cards.push({ kind: 'suit', suit: pick(SUIT_KINDS) });
   const w = weaponCard(run, rand);
   if (w) cards.push(w);
   if (run.hand.length >= 2) cards.push({ kind: 'fuse' });
@@ -339,13 +345,13 @@ export function startChoices(startPool, roster = [], veto = []) {
     would undo the deal). */
 export function keepsakeCards(run, rand, veto = [], jokers = true) {
   const pick = (a) => a[Math.floor(rand() * a.length)];
-  const cards = [{ kind: 'suit', suit: pick(Object.keys(SUITS)) }];
+  const cards = [{ kind: 'suit', suit: pick(SUIT_KINDS) }];
   const w = weaponCard(run, rand);
   if (w) cards.push(w);
   const free = Object.keys(JOKERS).filter((j) => !run.jokers.includes(j));
   if (jokers && free.length && cards.length < 3) cards.push({ kind: 'joker', joker: pick(free) });
   // A second suit, different from the first, if there is room for one.
-  if (cards.length < 3) cards.push({ kind: 'suit', suit: pick(Object.keys(SUITS).filter((k) => k !== cards[0].suit)) });
+  if (cards.length < 3) cards.push({ kind: 'suit', suit: pick(SUIT_KINDS.filter((k) => k !== cards[0].suit)) });
   return cards.slice(0, 3);
 }
 
@@ -376,7 +382,7 @@ export function shopStock(run, rand, { veto = [], findPool = null, jokers = fals
     out.push({ kind: 'piece', type: a });
     if (b !== a) out.push({ kind: 'piece', type: b });
   }
-  if (run.hand.some((h) => !h.suit)) out.push({ kind: 'suit', suit: pick(Object.keys(SUITS)) });
+  if (run.hand.some((h) => !h.suit)) out.push({ kind: 'suit', suit: pick(SUIT_KINDS) });
   const w = weaponCard(run, rand);
   if (w) out.push(w);
   if (run.hand.length >= 2) out.push({ kind: 'fuse' });
@@ -439,7 +445,7 @@ export function combineText(h, type, made = [], whose = 'their') {
     "enemy pieces should be able to receive all the different suits"). Their
     Vines and Stars take their extra move greedily (rules.js foeMove), and a
     Gears piece's swap is one of the moves their side thinks about. */
-export const FOE_SUITS = Object.keys(SUITS);
+export const FOE_SUITS = SUIT_KINDS;
 
 /** Pieces a board's piece card can be: findable, classic only while
     `fairy` is false, in `pool` if given, and never a King (a second King
@@ -467,7 +473,7 @@ function adds(h, type, made) {
     the same twice, and only what some piece of yours can take. */
 export function boardCards(run, rand) {
   const pick = (a) => a[Math.floor(rand() * a.length)];
-  const suits = run.hand.some((h) => !h.suit) ? Object.keys(SUITS) : [];
+  const suits = run.hand.some((h) => !h.suit) ? SUIT_KINDS : [];
   const weapons = WEAPON_ORDER.filter((w) => run.hand.some((h) => canTakeWeapon(h, w, run.made)));
   const out = [];
   for (let n = 0; n < 12 && out.length < 2; n++) {

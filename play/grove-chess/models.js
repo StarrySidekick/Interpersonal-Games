@@ -722,7 +722,11 @@ const SUIT_BODY = {
   // Blue steel, so it is never taken for one of their grey statues.
   gears: { wood: '#6f7d92', woodLight: '#9fadc1', woodDark: '#3a4352', moss: '#cfd8e4', leaf: '#eef2f7' },
   spirals: { wood: '#e0782a', woodLight: '#f5a560', woodDark: '#8a4412', moss: '#fde0bf', leaf: '#fff0de' },
-  stars: { wood: '#c9971e', woodLight: '#ecc552', woodDark: '#7a5a0c', moss: '#fff1b0', leaf: '#fff8d8' }
+  stars: { wood: '#c9971e', woodLight: '#ecc552', woodDark: '#7a5a0c', moss: '#fff1b0', leaf: '#fff8d8' },
+  // Stone (2026-10-15): sandstone, warm, never one of the greys.
+  stone: { wood: '#c9a36b', woodLight: '#e3c18d', woodDark: '#86683c', moss: '#ead6b0', leaf: '#f4e7cc' },
+  // A stone it left behind: the same, weathered darker.
+  cairn: { wood: '#a3804f', woodLight: '#bf9c69', woodDark: '#664c2a', moss: '#cbb38a', leaf: '#ddc9a4' }
 };
 // Woody vines and bright leaves, to stand out against a green body.
 const VINE = { stem: '#5b3f22', stemDark: '#432e18', leaf: '#8fd25a', leafLight: '#bfeb85' };
@@ -899,8 +903,23 @@ function stars(m) {
   return m;
 }
 
+/** Stone: carved bands round it, and a few pebbles at its foot. */
+function carved(m, pebbles = 5) {
+  const { top, ring } = shapeOf(m), cut = '#6e5532';
+  for (const f of [0.3, 0.6]) { const y = 1.5 + (top - 1.5) * f; m.lathe([[ring(y) + 0.06, y - 0.1], [ring(y) + 0.06, y + 0.1]], cut, { seg: 10, caps: false }); }
+  for (let k = 0; k < pebbles; k++) {
+    const a = k * 1.7 + 0.4, r = 3.1 + (k % 2) * 0.35;
+    m.ellipsoid(Math.cos(a) * r, 1.7, Math.sin(a) * r, 0.42, 0.28, 0.36, k % 2 ? '#b8956a' : '#9c7b52', { seg: 6, rings: 3 });
+  }
+  return m;
+}
+
 /** The looks, and how each is made: built in its colours, then its motif. */
 const SUIT_LOOK = {
+  // (Not 'stone': that is the Grove's own standing stones, statue().)
+  sandstone: (build, plinthOf) => carved(withPalette({ ...YOU, ...SUIT_BODY.stone, ...plinthOf }, build)),
+  // A stone left on the board: no suit band, a ring of pebbles round it.
+  cairn: (build) => carved(withPalette({ ...YOU, ...SUIT_BODY.cairn, band: '#bfa77e', base: '#7d6644' }, build), 8),
   plain: (build, plinthOf) => withPalette({ ...YOU, ...SUIT_BODY.plain, ...plinthOf }, build),
   vines: (build, plinthOf) => vines(withPalette({ ...YOU, ...SUIT_BODY.vines, ...plinthOf }, build)),
   hearts: (build, plinthOf) => hearts(withPalette({ ...YOU, ...SUIT_BODY.hearts, ...plinthOf }, build)),
@@ -908,9 +927,28 @@ const SUIT_LOOK = {
   spirals: (build, plinthOf) => spirals(withPalette({ ...YOU, ...SUIT_BODY.spirals, ...plinthOf }, build)),
   stars: (build, plinthOf) => stars(withPalette({ ...YOU, ...SUIT_BODY.stars, ...plinthOf }, build))
 };
+// Theirs, with tactics (2026-10-15). A sentry is one of their statues with
+// a red eye that watches; their leader is purple, crowned in gold.
+const THEIR_LOOK = {
+  sentry: (build) => {
+    const m = withPalette({ ...YOU, ...GREY, band: '#b8423a', base: '#5f2a25' }, build), { pts, top } = shapeOf(m), y = 1.5 + (top - 1.5) * 0.62;
+    const z = (surface(pts, Math.PI / 2, y) ?? 1.4) + 0.1;
+    m.ellipsoid(0, y, z, 0.95, 0.62, 0.3, '#2a0f0c', { seg: 8, rings: 4 });
+    m.ball(0, y, z + 0.2, 0.4, '#ff5a3c', { seg: 6, rings: 4 });
+    m.ball(-0.12, y + 0.12, z + 0.5, 0.1, '#ffd2c4', { seg: 4, rings: 3 });
+    return m;
+  },
+  crowned: (build) => {
+    const m = withPalette({ ...YOU, ...FOE, band: '#f5c13a', base: '#8c6a12' }, build), { top } = shapeOf(m), gold = '#f5c13a';
+    m.lathe([[1.1, top + 0.1], [1.1, top + 0.55]], gold, { seg: 10 });
+    for (let k = 0; k < 6; k++) { const a = (k / 6) * Math.PI * 2; m.cone(Math.cos(a) * 1.0, top + 0.55, Math.sin(a) * 1.0, 0.28, 0.75, gold, { seg: 4 }); m.ball(Math.cos(a) * 1.0, top + 1.35, Math.sin(a) * 1.0, 0.14, '#fff2b0', { seg: 4, rings: 3 }); }
+    return m;
+  }
+};
+
 /** The look for a piece of yours with this suit (or none): for
     model(kind, look). */
-export const suitLook = (suit) => (SUIT_LOOK[suit] ? suit : 'plain');
+export const suitLook = (suit) => (suit === 'stone' ? 'sandstone' : SUIT_LOOK[suit] ? suit : 'plain');
 
 function withPalette(over, build) {
   const saved = { ...P };
@@ -941,6 +979,11 @@ export function model(kind, side = 'you', fur = null, glow = null) {
   }
   const key = `${kind}:${side}:${glow || ''}`;
   if (side === 'stone') { if (!cache.has(key)) cache.set(key, statue(kind)); return cache.get(key); }
+  // Their sentries and leader (Adventure's tactics).
+  if (THEIR_LOOK[side]) {
+    if (!cache.has(key)) cache.set(key, THEIR_LOOK[side](MODELS[kind] || MODELS[LOOKS.get(kind)] || MODELS.pawn));
+    return cache.get(key);
+  }
   // A suit's look (Adventure): a piece of yours, in its suit's colours.
   if (SUIT_LOOK[side]) {
     if (!cache.has(key)) {
