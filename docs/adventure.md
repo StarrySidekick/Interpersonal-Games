@@ -71,6 +71,20 @@ can; then a hole opens and your piece jumps in.
     level 2 adds the squares to either side of that, level 3 the two
     between (`swordAim` in `rules.js`). Elsewhere it still strikes toward
     the other side.
+  - **Net** ◍ (Timothy, 2026-10-15: "new weapon/tool: net (like a bug
+    net) using it captures the piece you capture, and you just get it
+    without having to collect 3 of them"). Adventure's own weapon, so the
+    other modes never deal it, and any piece can carry one. It changes no
+    move. The first piece of theirs it takes on a board is netted whole:
+    it leaves no rabbit, and joins your set when the board ends. Level 2
+    nets the first two a board, level 3 the first three. **Why once a
+    board:** a net that kept every catch would add a whole board of pieces
+    each time, and your collection would outrun what the boards can
+    challenge (the design method's "do not let power outrun challenge").
+    In rules: `netIt` in `captureFoe` marks the piece (`netted`) and counts
+    it on your piece; `netCatches` in `run.js` adds them to your hand; the
+    caption says "You netted their wazir"; the row under the board lists
+    them under "Netted". Drawn as a bug net beside the piece (`wNet`).
   - Their words follow (`suitDesc`, `weaponDesc` in `run.js`), on cards and
     when you tap the piece. Hearts, Spirals, Stars, Vines, the lance and
     the mace are as they were.
@@ -87,8 +101,12 @@ can; then a hole opens and your piece jumps in.
   | Box step | moss green | round a square: there, across, back, across | 4 |
   | Pace | crimson | there, there, rest, back, back, rest | 6 |
 
-  On the board each walker's whole route is dashed in its colour, and its
-  next step is drawn solid to a frame on the square it moves to next turn.
+  On the board each walker's **whole loop** is drawn in its colour
+  (Timothy, 2026-10-15: "you see robot rabbits full move loop on the
+  board"): a steady line, an arrow on each leg the way it goes, and a dot
+  on every stop; its next step is drawn bolder, to a frame on the square
+  it moves to next turn. (Before, the loop was faint and dashed and got
+  lost among the pieces.)
   The lines go square by square with right-angle turns, not as the crow
   flies (Timothy, 2026-10-15): a diagonal as a staircase, a leap along its
   long side and then its short one, the way a knight's L is drawn;
@@ -113,9 +131,21 @@ can; then a hole opens and your piece jumps in.
 - **More than five.** Past five pieces, each board draws five of them at
   random (in the order you got them) and the rest rest; the row shows how
   many are resting.
-- **Taken.** If they take the piece on the board, that piece is gone for
-  good and the board ends (the floor gives way: one card, as for not
-  clearing it). With no pieces left, the adventure is over.
+- **Taken** (Timothy, 2026-10-15: "you need to lose all your pieces to
+  lose the game and you don't just go to the next level if you lose
+  one"). If they take the piece on the board, that piece is gone for good,
+  and the next of your set drops in where you came onto the board (or the
+  nearest free square to it that nothing of theirs reaches), and the board
+  goes on. The caption says who took what and how many are left; the row
+  under the board lists the lost, struck through. Only when the last of
+  the set is taken does the board end (the floor gives way: one card). With
+  no pieces left in your whole collection, the adventure is over; if some
+  were resting this board, you go on with them. In rules: `nextAfterLoss`
+  runs after their turn (in `respond` and `apply`), marks the set entry
+  `lost`, and picks the square with `entrySpot`; `nextInSet`, `setOrder`
+  and `setLeft` skip the lost. **Par stays a clean clear:** the solver does
+  not search past a loss (`ch.arrived` in `solve.js`), so par never asks
+  you to sacrifice a piece.
 - **Between boards:** over par (or not cleared), one card; on par, a
   choice of two; under par, three. Cards are suits and weapons only now:
   new pieces come from rabbits.
@@ -135,7 +165,7 @@ of the suit made part of it, at its collar, where the trim already sits
 
 | Suit | Body | Its one motif |
 |---|---|---|
-| none | plain pale grey | none: cream trim, a gold finial |
+| none | the grey of their statues (Timothy, 2026-10-15: "default pieces should just be gray, not the white we have now"), on your own plinth | none: a gold finial |
 | Vines | the Grove's green | a wreath of eight leaves round the collar |
 | Hearts | rose red | a pale heart locket on its chest, pink trim |
 | Gears | blue steel | a brass collar toothed like a gear |
@@ -154,8 +184,9 @@ mane. `twist` turns every corner about the axis by an angle that grows with
 its height, and recomputes each face's facing so the renderer still culls
 the right side.
 
-Their statues are a shade darker than plain, so a plain piece of yours is
-never taken for one of theirs. The board (`board.lookOf`), the set row, the
+A plain piece of yours is the same grey as their statue pieces; your
+plinth (pale stone, theirs is darker) and the gold finial are what mark
+it as yours. The board (`board.lookOf`), the set row, the
 next-up strip, the intro's cards and the fall between boards all use the
 look.
 

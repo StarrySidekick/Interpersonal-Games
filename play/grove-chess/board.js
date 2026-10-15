@@ -691,7 +691,14 @@ export class Board {
     // the board turns into the next, spinning down into its plinth as the
     // next spins up, with a burst of leaves between (board3d.js draws it).
     const p0 = a.pieces[0], p1 = b.pieces[0];
-    if (a.set && b.set && a.ci !== b.ci && p0 && p1 && !p1.taken && !b.won) {
+    // A piece of your set taken: the next drops in where you came onto the
+    // board, landing with a puff.
+    if (a.set && b.set && p0?.taken && p1 && !p1.taken && !b.won) {
+      tw.arrive = { i: 0, t0: t + 120 * slow, dur: 460 * slow };
+      tw.poofs.push({ x: p1.x, y: p1.y, t0: tw.arrive.t0 + tw.arrive.dur, dur: 420, c1: '#ffffff', c2: '#c9d6a3', low: true });
+      sfx.turn(at(tw.arrive.t0 + tw.arrive.dur));
+      t = tw.arrive.t0 + tw.arrive.dur + 200 * slow;
+    } else if (a.set && b.set && a.ci !== b.ci && p0 && p1 && !p1.taken && !b.won) {
       tw.morph = { i: 0, from: p0, t0: t + 60 * slow, dur: 560 * slow };
       tw.leaves.push(leafBurst(p1.x, p1.y, tw.morph.t0 + tw.morph.dur * 0.42));
       sfx.turn(at(tw.morph.t0));

@@ -12,7 +12,7 @@
 import * as R from './rules.js';
 import { makeLevel, searchLayouts, ROUTES } from './lab.js';
 import { modeDefaults, levelSettings } from './modes.js';
-import { newRun, handSettings, adventureCards, parVerdict, PAR_CARDS, adventureSet, afterAdventure, takeRabbits, RABBITS_FOR_PIECE } from './run.js';
+import { newRun, handSettings, adventureCards, parVerdict, PAR_CARDS, adventureSet, afterAdventure, takeRabbits, netCatches, RABBITS_FOR_PIECE, WEAPON_ORDER } from './run.js';
 import { rng } from '../../engine/seed.js';
 
 let fails = 0;
@@ -122,7 +122,8 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
   const order = [];
   for (let t = 0; t < 4 && !R.isOver(c); t++) {
     order.push(c.pieces[0].type);
-    const mv = R.allMoves(c)[0];
+    // A move that loses no piece (a loss hands over to the next, below).
+    const mv = R.allMoves(c).find((m) => !R.apply(c, m).arrived) || R.allMoves(c)[0];
     c = R.apply(c, mv);
   }
   ok(order.join() === 'rook,knight,bishop,rook'.split(',').slice(0, order.length).join(), `it takes turns in order (${order.join(', ')})`);
@@ -142,7 +143,7 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
   const mid = R.apply(st, { p: 0, ...skip });
   ok(mid.pieces[0].type === 'knight' && mid.t === 0 && mid.bonus?.why === 'gears', 'skipping brings on the knight, with no move spent');
   ok(!R.movesFor(mid, 0).some((m) => m.skip) && !R.allMoves(mid).some((m) => m.p === -1), 'no second skip, and no passing, in the same turn');
-  const mv = R.allMoves(mid)[0], after = R.apply(mid, mv);
+  const mv = R.allMoves(mid).find((m) => !R.apply(mid, m).arrived) || R.allMoves(mid)[0], after = R.apply(mid, mv);
   ok(after.t === 1 && after.pieces[0].type === 'bishop', 'the knight moves, and the bishop is next');
   const plain = newRun(['rook', 'knight'], 5, null);
   const lv2 = makeLevel(levelSettings(M, { depth: 2, hand: handSettings(plain) }, rng('gears2')), 42);
@@ -267,6 +268,38 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
 }
 
 // Every depth deals a board that can be cleared, with a par, ending in the hole.
+// A piece of your set taken (2026-10-15): it is gone, the next comes on
+// where you came in (out of their reach), and the board goes on; only the
+// last one taken loses it. And the net: what it takes joins you whole.
+{
+  const base = deal(1, ['rook'], 7777);
+  const board = (cycle, foes) => R.initialState({ ...base, pieces: [{ ...cycle[0] }], cycle: cycle.length > 1 ? cycle.map(({ x, y, ...o }) => o) : undefined,
+    foes: foes.map((f) => ({ target: true, mx: 1, my: 1, ...f })), hole: null, stumps: new Set(), rules: { ...base.rules, tactics: true } });
+  let s = board([{ type: 'rook', x: 4, y: 3 }, { type: 'knight' }], [{ type: 'rook', x: 4, y: 0, brain: 'sentry' }, { type: 'pawn', x: 0, y: 4, brain: 'still' }]);
+  let n = R.respond(s);
+  const p = n.pieces[0], W = n.day.W;
+  ok(n.arrived && n.set[0].lost && p.type === 'knight' && !p.taken && !R.isOver(n), 'a piece taken: the next of the set comes on, and the board goes on');
+  ok(!n.foes.some((f) => !f.taken && f.x === p.x && f.y === p.y) && !R.reachMaps(n).theirs.has(p.y * W + p.x), 'it comes on a free square out of their reach');
+  ok(R.setLeft(n) === 1 && R.setOrder(n).length === 1, 'the one taken is out of the set');
+  const run = newRun(['rook', 'knight'], 5, null);
+  afterAdventure(run, n, [0, 1]);
+  ok(run.hand.length === 1 && run.hand[0].base === 'knight' && run.lost[0].base === 'rook', 'after the board, the one taken is gone for good');
+  const last = R.clone(n); last.pieces[0].x = 0; last.pieces[0].y = 3;
+  ok(R.isOver(R.respond(last)), 'the last of the set taken: the board is lost');
+
+  // The net, at level 1: the first piece it takes joins you whole, the next leaves a rabbit.
+  s = board([{ type: 'rook', x: 0, y: 0, weapon: 'net', wl: 1 }], [{ type: 'knight', x: 0, y: 2, brain: 'still' }, { type: 'bishop', x: 3, y: 2, brain: 'still' }, { type: 'pawn', x: 4, y: 4, brain: 'still' }]);
+  n = R.apply(s, { p: 0, x: 0, y: 2 });
+  ok(n.foes[0].taken && n.foes[0].netted && n.pieces[0].netted === 1, 'the net catches the first piece it takes');
+  n = R.apply(n, { p: 0, x: 3, y: 2 });
+  ok(n.foes[1].taken && !n.foes[1].netted, 'a net of level 1 holds one a board');
+  const r = newRun(['rook'], 5, null);
+  ok(netCatches(r, n).join() === 'knight' && r.hand.length === 2 && r.hand[1].base === 'knight', 'what the net caught joins your collection');
+  takeRabbits(r, n);
+  ok(!r.rabbits.knight && r.rabbits.bishop === 1, 'and leaves no rabbit; the rest do');
+  ok(!WEAPON_ORDER.includes('net') && R.canArm('knight', 'net'), 'the net is Adventure\u2019s own, and any piece can carry one');
+}
+
 for (const [d, hand] of [[1, ['rook']], [2, ['bishop']], [4, ['knight', 'rook']], [6, ['rook', 'knight', 'bishop']], [9, ['rook', 'knight', 'bishop', 'camel', 'king']]]) {
   const r = newRun(hand, 5, null); r.depth = d;
   const S = levelSettings(M, { depth: d, hand: handSettings(r) }, rng('check:' + d));
@@ -290,5 +323,5 @@ for (const [how, want] of [['under', 3], ['par', 2], ['over', 1]]) {
 }
 ok(parVerdict(5, 6, true) === 'under' && parVerdict(6, 6, true) === 'par' && parVerdict(7, 6, true) === 'over' && parVerdict(3, 6, false) === 'over', 'the verdicts');
 
-console.log(fails ? `${fails} checks failed.` : 'Adventure: statues, the Changeling, routes, the hole, the set, tactics (pins, sentries, flight, the leader, stones), rabbits, dealing and cards check out.');
+console.log(fails ? `${fails} checks failed.` : 'Adventure: statues, the Changeling, routes, the hole, the set, losing a piece, the net, tactics (pins, sentries, flight, the leader, stones), rabbits, dealing and cards check out.');
 if (fails) process.exit(1);

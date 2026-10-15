@@ -54,9 +54,16 @@ export const WEAPONS = {
     // Aiming the way it moves (rules.swordAims, Adventure, 2026-10-15).
     aimDesc: (lv) => `Strikes instead of landing: it cannot move onto a piece, but takes what stands on the next square past where it lands, in the direction it moved${['', '', ', and on the squares to either side of that', ', on the squares to either side, and on the two between'][lv]}.` },
   lance: { name: 'Lance', mark: '↟', colour: '#c9a46a', desc: (lv) => `Takes what it slides through, up to ${['', 'one piece', 'two pieces', 'three pieces'][lv]}, and lands on an empty square beyond; it cannot move onto a piece. Only on a piece that slides.` },
-  mace: { name: 'Mace', mark: '✸', colour: '#a07a5a', desc: (lv) => `Sliding, it pushes up to ${['', 'one piece', 'two pieces', 'three pieces'][lv]} ahead of it; theirs it pushes are stunned, and one already stunned is taken. Stepping or leaping, it stuns what stands ${['', 'in front of and behind', 'round the sides of', 'all round'][lv]} where it lands. A stunned piece misses its next turn.` }
+  mace: { name: 'Mace', mark: '✸', colour: '#a07a5a', desc: (lv) => `Sliding, it pushes up to ${['', 'one piece', 'two pieces', 'three pieces'][lv]} ahead of it; theirs it pushes are stunned, and one already stunned is taken. Stepping or leaping, it stuns what stands ${['', 'in front of and behind', 'round the sides of', 'all round'][lv]} where it lands. A stunned piece misses its next turn.` },
+  // Adventure only (Timothy, 2026-10-15: "new weapon/tool: net (like a bug
+  // net) using it captures the piece you capture, and you just get it
+  // without having to collect 3 of them"). Once a board per level, so a
+  // net fills your collection a piece a board, not a whole board's worth.
+  net: { name: 'Net', mark: '◍', colour: '#8c6f45', adventure: true,
+    desc: (lv) => `Moves as it always does, but the first ${['', 'piece', 'two pieces', 'three pieces'][lv]} of theirs it takes on each board ${lv > 1 ? 'are' : 'is'} netted whole: ${lv > 1 ? 'each' : 'it'} joins your set when the board ends, with no rabbits to collect.` }
 };
-export const WEAPON_ORDER = Object.keys(WEAPONS);
+/** The weapons every mode deals; Adventure deals the net as well. */
+export const WEAPON_ORDER = Object.keys(WEAPONS).filter((w) => !WEAPONS[w].adventure);
 /** A suit's or weapon's words, the Adventure way (`adv`: one piece on the
     board taking turns, a sword that aims) where they differ. */
 export const suitDesc = (suit, adv = false) => (adv && SUITS[suit].setDesc) || SUITS[suit].desc;
@@ -575,7 +582,7 @@ export const PAR_CARDS = { under: 3, par: 2, over: 1 };
 export function adventureCards(run, n, rand) {
   const rest = [], out = [];
   if (run.hand.some((h) => !h.suit)) for (const suit of Object.keys(SUITS)) rest.push({ kind: 'suit', suit });
-  for (const w of WEAPON_ORDER) if (run.hand.some((h) => canTakeWeapon(h, w, run.made))) rest.push({ kind: 'weapon', weapon: w });
+  for (const w of Object.keys(WEAPONS)) if (run.hand.some((h) => canTakeWeapon(h, w, run.made))) rest.push({ kind: 'weapon', weapon: w });
   while (out.length < n && rest.length) out.push(rest.splice(Math.floor(rand() * rest.length), 1)[0]);
   return out;
 }
@@ -613,21 +620,30 @@ export function afterAdventure(run, end, pick) {
   pick.forEach((h, j) => {
     const onBoard = !end.set || j === end.ci, live = onBoard ? end.pieces[0] : end.set[j];
     if (!live) return;
-    if (onBoard && live.taken) { gone.add(h); return; }
+    if ((onBoard && live.taken) || live.lost) { gone.add(h); return; }
     if (run.hand[h].lives > 1) run.hand[h] = { ...run.hand[h], lives: live.lives ?? run.hand[h].lives };
   });
   for (const h of gone) run.lost.push(run.hand[h]);
   run.hand = run.hand.filter((_, i) => !gone.has(i));
 }
 
+/** What a net caught on a board: each joins your collection whole. Returns
+    their kinds. Mutates. */
+export function netCatches(run, end) {
+  const got = end.foes.filter((f) => f.taken && f.netted && PIECES[f.type]).map((f) => f.type);
+  for (const t of got) { run.hand.push({ base: t }); run.found.push(t); }
+  return got;
+}
+
 /** The rabbits of what you took on a board, one for each piece of theirs
-    taken, kept by kind; every three of a kind become that piece, which joins
-    your collection. Returns the kinds of piece made. Mutates. */
+    taken (and not netted), kept by kind; every three of a kind become that
+    piece, which joins your collection. Returns the kinds of piece made.
+    Mutates. */
 export function takeRabbits(run, end) {
   run.rabbits = run.rabbits || {};
   const made = [];
   for (const f of end.foes) {
-    if (!f.taken || !PIECES[f.type] || ['rabbit', 'bunny', 'ball'].includes(f.type)) continue;
+    if (!f.taken || f.netted || !PIECES[f.type] || ['rabbit', 'bunny', 'ball'].includes(f.type)) continue;
     run.rabbits[f.type] = (run.rabbits[f.type] || 0) + 1;
     if (run.rabbits[f.type] >= RABBITS_FOR_PIECE) {
       run.rabbits[f.type] -= RABBITS_FOR_PIECE;

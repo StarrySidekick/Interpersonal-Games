@@ -10,7 +10,7 @@ import { rng } from '../../../engine/seed.js';
 import * as sfx from '../sounds.js';
 import {
   PIECES, descOf, CRUMBLE_DESC, SHRINK_DESC, STUMP_DESC, STATUE_ROW_DESC, statueAt, statueDesc, GHOST_DESC, GATE_DESC, WANDER_DESC, ghostAt, gateUp, cloudOver, hiddenFrom, HOLE_DESC, cloudDesc, sandAt, waterAt, SAND_DESC, WATER_DESC, movesFor, playerMove, respond, isOver, outcome, initialState,
-  allMoves, holeOpen, crumbled, shrunk, apply, showdown, firstCaptures, onBoard, leaderDesc, placeRevived, hopIn, flagAt, carrierOf, rabbitChosen, EXIT_DESC, setOrder
+  allMoves, holeOpen, crumbled, shrunk, apply, showdown, firstCaptures, onBoard, leaderDesc, placeRevived, hopIn, flagAt, carrierOf, rabbitChosen, EXIT_DESC, setOrder, setLeft
 } from '../rules.js';
 import { pickMove } from '../choose.js';
 import { bestMove } from '../best.js';
@@ -32,7 +32,7 @@ import {
   newRun, rewardsFor, applyReward, cardText, handSettings, afterLevel, pieceOf, SUITS, JOKERS,
   WAYSTONES, litWaystones, newlyLit, startChoices, keepsakeCards, acornsFor, priceOf, shopStock,
   canCombine, applyCombine, combineText, boardCards, boardCardText, applyMerge, mergeTargets, foeUpgrade, WEAPONS, canTakeWeapon, carriesText, foeCanUse, foeTake,
-  adventureCards, adventureSlack, parVerdict, PAR_CARDS, adventureSet, afterAdventure, takeRabbits, RABBITS_FOR_PIECE
+  adventureCards, adventureSlack, parVerdict, PAR_CARDS, adventureSet, afterAdventure, takeRabbits, netCatches, RABBITS_FOR_PIECE
 } from '../run.js';
 import { setupPanel, setupState, playOut } from '../autosetup.js';
 import { VARIANTS, VARIANT_ORDER, differs } from '../variants.js';
@@ -256,7 +256,7 @@ function hud() {
 function rabbitCounts(s = now()) {
   const kept = session.run.rabbits || {}, out = new Map();
   for (const [type, n] of Object.entries(kept)) out.set(type, { type, base: n, now: 0 });
-  for (const f of s.foes) if (f.taken && PIECES[f.type] && !['rabbit', 'bunny', 'ball'].includes(f.type)) {
+  for (const f of s.foes) if (f.taken && !f.netted && PIECES[f.type] && !['rabbit', 'bunny', 'ball'].includes(f.type)) {
     if (!out.has(f.type)) out.set(f.type, { type: f.type, base: 0, now: 0 });
     out.get(f.type).now++;
   }
@@ -297,6 +297,11 @@ function setRow() {
     return el('div', { class: `handcell${k === 0 ? ' picked' : ''}` },
       el('span', { class: 'dim' }, k === 0 ? (p.taken ? 'Taken' : 'Now') : k === 1 ? 'Next' : `In ${k}`), cv, el('span', {}, mark, nameOf(p)));
   }));
+  // Taken from your set on this board, and caught in your net.
+  const fell = (s.set || []).filter((e) => e.lost);
+  if (fell.length) box.append(el('div', { class: 'handcell' }, el('span', { class: 'dim' }, 'Lost'), ...fell.map((e) => el('span', { class: 'small dim' }, el('s', {}, nameOf(e))))));
+  const netted = s.foes.filter((f) => f.taken && f.netted);
+  if (netted.length) box.append(el('div', { class: 'handcell' }, el('span', { class: 'dim' }, `${WEAPONS.net.mark} Netted`), ...netted.map((f) => el('span', { class: 'small' }, nameOf(f)))));
   const bench = session.run.hand.length - (session.pick?.length || session.run.hand.length);
   if (bench > 0) box.append(el('div', { class: 'handcell' }, el('span', { class: 'dim' }, 'Resting'), el('span', {}, `${bench} more`), el('span', { class: 'small dim' }, 'next board, maybe')));
   const r = rabbitCounts(s);
@@ -327,7 +332,7 @@ function goalCard() {
   if (session.seen.has('goal')) return null;
   session.seen.add('goal');
   let text = {
-    descent: M.upgrades === 'par' ? 'Take every piece of theirs. When the last one goes, a hole opens beside you and you jump down it to the next board. Grey statues never move. A piece with a rabbit inside walks a short route every turn, the rabbit\u2019s colour says which, and its next step is drawn on the board: stand there and it takes you. You have one piece on the board, and after every turn it becomes the next piece of your set. Every piece you take leaves you its rabbit, and three rabbits of a kind become that piece, which joins your set. If they take the piece on the board, it is gone, and the floor gives way; lose them all and the adventure is over. There are three kinds of rabbit inside their pieces: robot rabbits walk a set loop; sentry rabbits (red) leap at anything of yours that stands in their reach; scared rabbits (white) run when attacked, one a turn, so fork them. A line of yours through one of theirs to another pins it, so it holds still. Deeper down, their crowned leader must answer a check: checkmate it and the whole board falls.'
+    descent: M.upgrades === 'par' ? 'Take every piece of theirs. When the last one goes, a hole opens beside you and you jump down it to the next board. Grey statues never move. A piece with a rabbit inside walks a short loop every turn, the rabbit\u2019s colour says which; the whole loop is drawn on the board, its next step boldest: stand there and it takes you. You have one piece on the board, and after every turn it becomes the next piece of your set. Every piece you take leaves you its rabbit, and three rabbits of a kind become that piece, which joins your set. If they take the piece on the board, it is gone for good, and the next of your set comes on where you came in; lose every one and the adventure is over. A net catches the first piece it takes on a board whole, with no rabbits needed. There are three kinds of rabbit inside their pieces: robot rabbits walk a set loop; sentry rabbits (red) leap at anything of yours that stands in their reach; scared rabbits (white) run when attacked, one a turn, so fork them. A line of yours through one of theirs to another pins it, so it holds still. Deeper down, their crowned leader must answer a check: checkmate it and the whole board falls.'
       : M.upgrades === 'tiles' ? 'Take their King to win the round. After each round you each turn over a tile at the edge of the board, the winner first: the board grows by that square, and the suit or weapon on the tile is yours. When the board has as many squares as the next size up, both sides get the same new piece. Every piece starts each round in a bubble: nothing can take it until it moves. Four statues stand in the middle; either side can break one by taking it. Keep your King: if they take it, the run is over.'
       : M.upgrades === 'each' && M.goal === 'carrier' ? `A rabbit rides one of their pieces. ${M.rabbitMove === 'random' ? `Every ${M.rabbitHop === 1 ? 'turn' : `${M.rabbitHop} turns`} it hops to another, at random.` : 'They can move it to another of their pieces, but that is their move for the turn.'} Take the piece it is on to fall to the next board, where you choose a suit or a weapon and they get one too. Keep your King: if they take it, the descent is over. Anything else of yours they take comes back on the next board.${M.promote === 'copy' ? ' A pawn that reaches the far row becomes a copy of another of your pieces.' : ''}`
       : M.upgrades === 'each' ? 'Take their King to fall to the next board, where each side gets an upgrade. Keep yours: if they take your King, the descent is over. Anything else of yours they take comes back on the next board. One rabbit leads their side, riding on their King: tap it to see what kind it is.'
@@ -594,13 +599,14 @@ function whatHappened(a, b) {
       // Adventure: every piece taken leaves its rabbit with you.
       const c = rabbitCounts(b).find((q) => q.type === f.type), was = rabbitCounts(a).find((q) => q.type === f.type);
       const name = nameOf(f).toLowerCase();
+      if (f.netted) { bits.push(`You netted their ${name}: it joins your set after this board.`); return; }
       bits.push(`You took their ${name}. ${c && c.made > (was?.made || 0) ? `That is three ${name} rabbits: ${/^[aeiou]/.test(name) ? 'an' : 'a'} ${name} joins your set after this board.` : `Its rabbit comes with you (${name} rabbits: ${c?.have || 0} of ${RABBITS_FOR_PIECE}).`}`);
       return;
     }
     bits.push(f.brain === 'leader' ? `You took the rabbit that leads them.` : f.mind || f.brain === 'possessed' ? `You took their ${nameOf(f)}, and the rabbit inside is yours.` : `You took their ${nameOf(f)}.`);
   });
   // Your set takes turns: say what you are now.
-  if (b.set && !b.won && !b.pieces[0].taken && b.pieces[0].type !== a.pieces[0].type) { const n = nameOf(b.pieces[0]).toLowerCase(); bits.push(`Now you are ${/^[aeiou]/.test(n) ? 'an' : 'a'} ${n}.`); }
+  if (b.set && !b.won && !b.arrived && !b.pieces[0].taken && b.pieces[0].type !== a.pieces[0].type) { const n = nameOf(b.pieces[0]).toLowerCase(); bits.push(`Now you are ${/^[aeiou]/.test(n) ? 'an' : 'a'} ${n}.`); }
   // Adventure's tactics: what their turn was, in words.
   const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
   const me = b.pieces[0], myName = me ? nameOf(me).toLowerCase() : 'piece';
@@ -615,6 +621,11 @@ function whatHappened(a, b) {
     if (l.what === 'trapped') bits.push(l.fork ? `Fork! ${cap(theirs(l.k))} could not run as well.` : l.pinned ? `${cap(theirs(l.k))} would run, but it is pinned.` : `${cap(theirs(l.k))} has nowhere to run.`);
     if (l.what === 'sentry') bits.push(l.on === 'stone' ? `The sentry rabbit in ${theirs(l.k)} leaps and breaks your stone.` : `The sentry rabbit in ${theirs(l.k)} leaps.`);
     if (l.what === 'stone') bits.push(`Your stone takes ${theirs(l.k)}.`);
+  }
+  // A piece of your set taken (Adventure): gone, and the next comes on.
+  if (b.arrived) {
+    const t = b.foes.find((f) => !f.taken && f.ate === 0), left = setLeft(b);
+    bits.push(`${t ? cap(theirs(b.foes.indexOf(t))) : 'They'} took your ${nameOf(b.arrived.lost).toLowerCase()}: it is gone for good. Your ${myName} comes on where you came in${left > 1 ? ` (${left} pieces left)` : ', your last piece'}.`);
   }
   if (b.foeBonus === 'vines') bits.push('Their piece of Vines takes again.');
   if (b.foeBonus === 'stars') bits.push('Their piece of Stars moves twice.');
@@ -675,9 +686,15 @@ async function play(mv) {
   game.moves.push(mv); game.states.push(b);
   shown = null;
   noteCatches(a, b);
-  haptic(b.won ? [20, 40, 30] : b.pieces.some((p, i) => p.taken && !a.pieces[i].taken) ? [40, 30, 40] : 10);
+  haptic(b.won ? [20, 40, 30] : b.arrived || b.pieces.some((p, i) => p.taken && !a.pieces[i].taken) ? [40, 30, 40] : 10);
   hud();
-  if (!b.won && !b.bonus) await board.animate(mid, b, { p: -1 });
+  // A piece of your set taken (Adventure): first they take it, then the
+  // next of your set drops in where you came onto the board.
+  if (b.arrived) {
+    const gone = { ...b, pieces: [{ ...b.arrived.lost }], ci: b.arrived.from };
+    await board.animate(mid, gone, { p: -1 });
+    await board.animate(gone, b, { p: -1 });
+  } else if (!b.won && !b.bonus) await board.animate(mid, b, { p: -1 });
   busy = false;
   if (isOver(b)) return levelOver(b);
   // A suit left the turn open (Vines, Stars): the same piece goes again.
@@ -890,16 +907,19 @@ async function levelOver(end) {
 
 /**
  * The end of an Adventure board (2026-10-15). Cleared: you jumped into the
- * hole. Not cleared: out of moves, or they took the piece on the board, and
- * the floor gives way anyway. Either way the piece they took is gone for
- * good, every piece you took leaves its rabbit, three of a kind become that
- * piece in your set, and you choose a card: one over par (or not cleared),
- * a choice of two on par, three under. Lose your last piece and the
- * adventure is over.
+ * hole. Not cleared: out of moves, or they took the last of your set, and
+ * the floor gives way anyway. Either way the pieces they took are gone for
+ * good, what your net caught joins you, every other piece you took leaves
+ * its rabbit, three of a kind become that piece in your set, and you choose
+ * a card: one over par (or not cleared), a choice of two on par, three
+ * under. Lose your last piece and the adventure is over.
  */
 async function adventureOver(end) {
   const run = session.run, won = end.won, took = !won && end.pieces[0]?.taken ? nameOf(end.pieces[0]).toLowerCase() : null;
+  // Pieces of your set they took on the way (each gone for good).
+  const fell = (end.set || []).filter((e) => e.lost).map((e) => nameOf(e).toLowerCase());
   afterAdventure(run, end, session.pick || [0]);
+  const netted = netCatches(run, end);
   const made = takeRabbits(run, end);
   if (!run.hand.length) { status(`They took your ${took || 'last piece'}.`); await sleep(1600); return runOver('Every piece you had is gone.'); }
   const how = parVerdict(end.t, par, won);
@@ -911,12 +931,14 @@ async function adventureOver(end) {
   // 2026-10-15: "the hole should just be like an animation where the piece
   // jumping in"). Otherwise the floor gives way.
   if (!calm()) { await sleep(won ? 250 : 400); if (won && board.intoHole) await board.intoHole(); else if (board.collapse) await board.collapse(); }
-  if (made.length) { sfx.fanfare(3); haptic([30, 40, 30, 40, 60]); }
+  if (made.length || netted.length) { sfx.fanfare(3); haptic([30, 40, 30, 40, 60]); }
   const cards = adventureCards(run, PAR_CARDS[how], rng(`reward:${session.seed}:${session.n}`));
   const note = !won ? 'Not cleared, but you take one thing with you.' : how === 'under' ? `Under par: ${end.t} moves, par ${par}. Choose one of three.`
     : how === 'par' ? `On par: ${end.t} moves. Choose one of two.` : `Over par: ${end.t} moves, par ${par}. Take it; beat par for a choice.`;
   const a = (t) => (/^[aeiou]/i.test(PIECES[t].name) ? 'An' : 'A');
-  const sub = [...made.map((t) => `Three ${PIECES[t].name.toLowerCase()} rabbits: ${a(t).toLowerCase()} ${PIECES[t].name.toLowerCase()} joins your set.`),
+  const sub = [fell.length && run.hand.length ? `Lost on this board: your ${fell.join(', ')}.` : '',
+    ...netted.map((t) => `In your net: ${a(t).toLowerCase()} ${PIECES[t].name.toLowerCase()} joins your set.`),
+    ...made.map((t) => `Three ${PIECES[t].name.toLowerCase()} rabbits: ${a(t).toLowerCase()} ${PIECES[t].name.toLowerCase()} joins your set.`),
     run.hand.length > run.maxPieces ? `You have ${run.hand.length} pieces: each board, ${run.maxPieces} of them take turns, drawn at random.` : ''].filter(Boolean).join(' ');
   return between({ note: `Depth ${session.n}`, sub, rewards: true, cards, rewardNote: note, fall: true });
 }
