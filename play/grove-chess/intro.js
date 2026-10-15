@@ -110,7 +110,7 @@ export async function playIntro(board, level, { goal = null, section = null, see
     // only the first time its piece or ground turns up.
     const fresh = (key) => { if (!seen) return true; if (seen.has(key)) return false; seen.add(key); return true; };
     const kinds = [...new Set(level.pieces.map((p) => p.type))].filter(fresh);
-    const cards = kinds.map((k, i) => ({ kind: k, side: 'you', eyebrow: `Your pieces · ${i + 1} of ${kinds.length}`,
+    const cards = kinds.map((k, i) => ({ kind: k, side: board.mine || 'you', eyebrow: `Your pieces · ${i + 1} of ${kinds.length}`,
       title: PIECES[k].name, text: descOf(k, level.rules), demo: true, rules: level.rules }));
     // Their pieces, the first time each kind turns up (Timothy, 2026-10-10:
     // "if there's a new piece on the enemy side, it should also be

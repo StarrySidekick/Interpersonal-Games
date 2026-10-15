@@ -209,6 +209,9 @@ function myRabbits() {
 const kingLocked = (h) => M.royal && M.run === 'descent' && h.base === 'king' && !h.fused;
 
 const furOf = (f) => ((f.brain === 'pattern' || f.brain === 'possessed' || f.mind) && FUR[f.patternName]) || null;
+/** How your pieces look: in Adventure, stone wrapped in vines (Timothy,
+    2026-10-15, "just want to see if it looks cool"); elsewhere, green. */
+const myLook = () => (M.upgrades === 'par' ? 'vine' : 'you');
 const levelWord = () => ({ descent: M.upgrades === 'tiles' ? 'Round' : 'Depth', course: 'Hole', rounds: 'Round', single: 'Level' })[M.run];
 /** A descent whose sides are given and upgraded a board at a time: one
     upgrade each (the descent), or tiles turned over (Tile Chess). */
@@ -261,7 +264,7 @@ function setRow() {
   const order = s.set ? setOrder(s) : s.pieces.slice(0, 1);
   box.replaceChildren(...order.map((p, k) => {
     const cv = el('canvas', { class: 'pix', width: 30, height: 36 });
-    cv.getContext('2d').drawImage(sprite(p.type, 'you'), 0, 0);
+    cv.getContext('2d').drawImage(sprite(p.type, myLook()), 0, 0);
     const mark = [p.suit && SUITS[p.suit] ? el('span', { class: 'suit', style: `color:${SUITS[p.suit].colour}` }, SUITS[p.suit].mark + ' ') : null,
       p.weapon && WEAPONS[p.weapon] ? el('span', { class: 'suit' }, WEAPONS[p.weapon].mark + (p.wl > 1 ? p.wl : '') + ' ') : null];
     return el('div', { class: `handcell${k === 0 ? ' picked' : ''}` },
@@ -334,6 +337,7 @@ async function startLevel() {
   if (M.upgrades === 'par' && par) par += adventureSlack(session.n);
   game = { states: [initialState(level)], moves: [] };
   board = makeBoard($('#board'), level);
+  board.mine = myLook();
   board.reach = level.settings.showReach;
   board.reachMine = level.settings.showMyReach;
   board.guards = level.settings.showGuards;
@@ -862,7 +866,7 @@ async function between({ note, sub = '', rewards = false, combine = false, shop:
   $('#betweensub').textContent = sub;
   $('#offer').hidden = true; $('#pickbox').hidden = true; $('#betweennext').hidden = true; $('#tilebox').hidden = true;
   const kinds = session.run ? session.run.hand.map((h) => pieceOf(h, session.run.made).type) : [];
-  fall = falling && !calm() && kinds.length ? startFall($('#fallcv'), kinds) : null;
+  fall = falling && !calm() && kinds.length ? startFall($('#fallcv'), kinds, myLook()) : null;
   $('#fallcv').hidden = !fall;
   if (rewards && session.run) await reward({ k: 0, note: rewardNote, cards: rewardCards });
   if (shopping && session.run) await shop();

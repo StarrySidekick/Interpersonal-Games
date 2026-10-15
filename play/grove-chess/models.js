@@ -696,6 +696,117 @@ function statue(kind) {
 // For the catalog: a statue, as it stands on the board.
 MODELS.statue = () => statue('rook');
 
+// Stone and vines (2026-10-15, Timothy: "can you make your pieces look like
+// they are wrapped in 3d vines ... more like crumbled stone, with green
+// vines. just want to see if it looks cool"). Your piece's own shape, built
+// in weathered stone, then worn: every corner nudged a little (the same
+// corner the same way, so nothing splits open), some faces darker as if
+// chipped; then two vines climb it in a spiral, hugging its surface, with
+// leaves along them.
+const VINE_STONE = { wood: '#a39c8f', woodLight: '#c2bbae', woodDark: '#6b655b', moss: '#cdc6b7', leaf: '#ddd7ca' };
+const VINE = { vine: '#3d6e2a', vineDark: '#2c5320', leaf: '#6aa84a', leafLight: '#8cc464' };
+
+/** A number in [0, 1) from three, the same every time. */
+function hash3(x, y, z) {
+  let h = Math.imul(Math.round(x * 50) | 0, 73856093) ^ Math.imul(Math.round(y * 50) | 0, 19349663) ^ Math.imul(Math.round(z * 50) | 0, 83492791);
+  h = Math.imul(h ^ (h >>> 13), 0x5bd1e995);
+  return ((h ^ (h >>> 15)) >>> 0) / 4294967296;
+}
+
+/** Wear a model built in stone: corners above the plinth pushed in or out
+    a little, and faces mottled, some chipped dark. Mutates. */
+function crumble(m) {
+  const seen = new Map();
+  const nudge = (p) => {
+    if (p[1] <= 1.6) return p; // the plinth stays true
+    const k = `${p[0].toFixed(2)},${p[1].toFixed(2)},${p[2].toFixed(2)}`;
+    if (!seen.has(k)) {
+      const r = Math.hypot(p[0], p[2]), h = hash3(p[0], p[1], p[2]);
+      const dr = (h - 0.55) * 0.5 - (h < 0.08 ? 0.35 : 0); // now and then a bite out of it
+      const f = r > 0.05 ? Math.max(0.6, (r + dr) / r) : 1;
+      seen.set(k, [p[0] * f, p[1] + (hash3(p[2], p[0], p[1]) - 0.5) * 0.18, p[2] * f]);
+    }
+    return seen.get(k);
+  };
+  m.tris.forEach((t, i) => {
+    t.p = t.p.map(nudge);
+    const c = t.p.reduce((a, p) => a + p[1], 0) / 3;
+    if (c <= 1.6) return;
+    const h = hash3(i * 0.37, c, t.p[0][0]), k = h < 0.12 ? 0.68 : 0.9 + h * 0.18;
+    // Moss in the low places: a few faces gone green.
+    if (h > 0.93) { t.c = [92, 126, 70].map((v) => Math.round(v * (0.85 + (h - 0.93) * 3))); return; }
+    t.c = t.c.map((v) => Math.max(0, Math.min(255, Math.round(v * k))));
+  });
+  return m;
+}
+
+/** How far out the model's surface is at height y, toward angle a (from the
+    corners near there), or null if nothing is near. */
+function surface(pts, a, y) {
+  let best = null;
+  for (const p of pts) {
+    if (Math.abs(p[1] - y) > 0.7) continue;
+    const r = Math.hypot(p[0], p[2]);
+    if (r < 0.2) continue;
+    let d = Math.atan2(p[2], p[0]) - a;
+    d = Math.abs(Math.atan2(Math.sin(d), Math.cos(d)));
+    if (d > 0.7) continue;
+    const reach = r * Math.cos(d);
+    if (best === null || reach > best) best = reach;
+  }
+  return best;
+}
+
+/** A leaf: a flat diamond from `at`, pointing out along angle a and up by
+    `lift`, seen from both sides. */
+function leaf(m, at, a, lift, size, col) {
+  const out = [Math.cos(a), 0, Math.sin(a)], side = [-Math.sin(a), 0, Math.cos(a)];
+  const tip = [at[0] + out[0] * size, at[1] + lift * size, at[2] + out[2] * size];
+  const mid = [at[0] + out[0] * size * 0.5, at[1] + lift * size * 0.5, at[2] + out[2] * size * 0.5];
+  const l = [mid[0] + side[0] * size * 0.32, mid[1] + 0.12, mid[2] + side[2] * size * 0.32];
+  const r = [mid[0] - side[0] * size * 0.32, mid[1] + 0.12, mid[2] - side[2] * size * 0.32];
+  m.tri(at, l, tip, col); m.tri(at, tip, l, col);
+  m.tri(at, tip, r, col); m.tri(at, r, tip, col);
+}
+
+/** One length of vine, from a to b: a thin box laid along the way. */
+function strand(m, a, b, w, col) {
+  const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], len = Math.hypot(...d);
+  if (len < 1e-3) return;
+  m.box((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2, w, w, len + w * 0.6, col,
+    { rx: -Math.asin(d[1] / len), ry: Math.atan2(d[0], d[2]) });
+}
+
+/** Two vines climbing model m in a spiral, with leaves. Mutates. */
+function vines(m) {
+  const pts = m.tris.flatMap((t) => t.p);
+  const top = Math.max(...pts.map((p) => p[1]));
+  const y0 = 1.5, y1 = y0 + (top - y0) * 0.8, n = 22;
+  for (const start of [0.4, 0.4 + Math.PI]) {
+    let last = null, lastR = 2;
+    for (let i = 0; i <= n; i++) {
+      const t = i / n, y = y0 + (y1 - y0) * t, a = start + t * Math.PI * 2.4;
+      const r = (surface(pts, a, y) ?? lastR) + 0.28;
+      lastR = r - 0.28;
+      const p = [Math.cos(a) * r, y, Math.sin(a) * r];
+      if (last) strand(m, last, p, 0.5, i % 2 ? VINE.vine : VINE.vineDark);
+      // A leaf every few turns of the vine, standing out from it.
+      if (i % 3 === 1 && i < n) leaf(m, p, a + (i % 2 ? 0.5 : -0.5), 0.6, 1.5, ((i - 1) / 3) % 2 ? VINE.leaf : VINE.leafLight);
+      last = p;
+    }
+    // Two leaves where it ends.
+    const a1 = start + Math.PI * 2.4;
+    leaf(m, last, a1 + 0.6, 1.0, 1.4, VINE.leafLight);
+    leaf(m, last, a1 - 0.6, 0.8, 1.2, VINE.leaf);
+  }
+  // A few leaves at its foot, on the plinth.
+  for (let k = 0; k < 5; k++) {
+    const a = k * 1.3 + 0.2;
+    leaf(m, [Math.cos(a) * 2.2, 1.55, Math.sin(a) * 2.2], a + (k % 2 ? 0.3 : -0.3), 0.15, 1.6, k % 2 ? VINE.leaf : VINE.leafLight);
+  }
+  return m;
+}
+
 function withPalette(over, build) {
   const saved = { ...P };
   Object.assign(P, over);
@@ -725,6 +836,14 @@ export function model(kind, side = 'you', fur = null, glow = null) {
   }
   const key = `${kind}:${side}:${glow || ''}`;
   if (side === 'stone') { if (!cache.has(key)) cache.set(key, statue(kind)); return cache.get(key); }
+  // Stone and vines: a piece of yours, worn and overgrown.
+  if (side === 'vine') {
+    if (!cache.has(key)) {
+      const build = MODELS[kind] || MODELS[LOOKS.get(kind)] || MODELS.pawn;
+      cache.set(key, vines(crumble(withPalette({ ...YOU, ...VINE_STONE, ...(glow ? { band: glow, base: shade(glow, 0.62) } : {}) }, build))));
+    }
+    return cache.get(key);
+  }
   if (!cache.has(key)) {
     // The rabbit inside colours the whole plinth: its fur on the band, a
     // darker shade of it underneath.

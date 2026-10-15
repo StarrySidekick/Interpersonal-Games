@@ -2,7 +2,7 @@
 // main: one more for every push (2026-10-11). Shown at the foot of the home
 // page and of every Grove Chess page's menu. Do not edit by hand.
 export const RELEASE = {
-  "number": 66,
+  "number": 67,
   "date": "2026-10-15",
-  "note": "Adventure's hole has no flag"
+  "note": "Adventure: your pieces in crumbled stone, wrapped in vines"
 };
