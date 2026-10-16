@@ -2,7 +2,7 @@
 // main: one more for every push (2026-10-11). Shown at the foot of the home
 // page and of every Grove Chess page's menu. Do not edit by hand.
 export const RELEASE = {
-  "number": 78,
+  "number": 79,
   "date": "2026-10-16",
-  "note": "Adventure: par by depth and golf scoring; every board vetted; a bishop and a knight given"
+  "note": "Adventure: rabbits are suits, a power in yours and another in theirs"
 };
