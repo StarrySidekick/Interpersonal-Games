@@ -105,7 +105,7 @@ export function startFall(canvas, kinds) {
       if (f.weapon) {
         const eq = f.arming && now - f.arming.t0 < f.arming.dur ? (now - f.arming.t0) / f.arming.dur : 1;
         const fallIn = (1 - eq) ** 2 * 70, spin = (1 - eq) * Math.PI * 6;
-        mesh.addXf(model({ sword: 'wSword', lance: 'wLance', mace: 'wMace', net: 'wNet' }[f.weapon] || 'wSword', 'you'),
+        mesh.addXf(model({ sword: 'wSword', lance: 'wLance', mace: 'wMace', net: 'wNet', shield: 'wShield' }[f.weapon] || 'wSword', 'you'),
           { t: [x + Math.cos(ry) * 3, y + 1 + fallIn, z - Math.sin(ry) * 3], ry: ry + spin, rz: rz - 0.18, s }, 200 + i);
       }
     });

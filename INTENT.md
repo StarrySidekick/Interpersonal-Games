@@ -12,7 +12,26 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
-## 2026-10-16, newest: the cat, losses back next board, animations
+## 2026-10-16, newest: the troupe, rabbits with a kind and a suit, the shield
+
+From Timothy, and built: switching pieces quicker (170 ms, moves lit at
+once); at most sixteen pieces; the cat upright, regal, in armour; hearts
+stay put when hit and the taker goes back; no fairy pieces in Adventure
+but the troupe (thespian, scribe, painter, bard, dancer), which look like
+chess pieces; a robot's next square framed in its loop's colour, not red.
+Rabbits have a kind (robot, sentry, scared, and sentient, which thinks,
+from depth 10) and maybe a suit; suits work the same on either side
+(hearts two lives, vines a trap, stars two moves taking once, spirals
+chain captures, gears swaps; stone gone); the mace stuns round its landing
+and the stun now holds; a new shield pushes, off the board is taken; the
+net gives its catch's rabbit. Now and then you win a rabbit: put in a
+piece, it stays where it moves and acts by itself. Drawn card-suit icons,
+offers as playing cards, and an item card for any piece you hold. In
+[`docs/adventure.md`](docs/adventure.md), "Pieces, rabbits and suits".
+Open: my calls listed there (the scribe's side step, the painter as
+nightrider, a sentry of yours as a turret, how rare a rabbit is).
+
+## 2026-10-16: the cat, losses back next board, animations
 
 From Timothy, and built: your starting piece is a cat that moves as a
 king, takes suits and weapons, is always in your set, and has a look you

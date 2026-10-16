@@ -187,7 +187,10 @@ export function seenBy(s, side) {
   Object.defineProperty(s, key, { value: { sig, v }, enumerable: false, configurable: true, writable: true });
   return v;
 }
-const posSig = (s) => s.pieces.map((p) => (p.taken ? '-' : `${p.x},${p.y}`)).join(';') + '|' + s.foes.map((f) => (f.taken ? '-' : `${f.x},${f.y}`)).join(';') + '|' + s.clouds.map((c) => `${c.x},${c.y}`).join(';') + '|' + (s.bonus ? s.bonus.p : '') + s.t;
+// (Which piece stands where counts too: your set changes the piece on one
+// square, 2026-10-16; before, a view made for one piece of the set was given
+// to the next, with the first one's moves.)
+const posSig = (s) => s.pieces.map((p) => (p.taken ? '-' : `${p.x},${p.y}${p.type}${p.shape || ''}${p.role || ''}${p.suit || ''}${p.weapon || ''}${p.wl || ''}`)).join(';') + '|' + s.foes.map((f) => (f.taken ? '-' : `${f.x},${f.y}`)).join(';') + '|' + s.clouds.map((c) => `${c.x},${c.y}`).join(';') + '|' + (s.bonus ? s.bonus.p : '') + s.t;
 
 /** The squares strictly between two on a straight line or diagonal (a
     knight's L has none: it leaps). */
@@ -284,7 +287,10 @@ export function swordAim(dx, dy, lv) {
 const MACE = { 1: [[0, 1], [0, -1]], 2: [[0, 1], [0, -1], [-1, 0], [1, 0]], 3: [[0, 1], [0, -1], [-1, 0], [1, 0], [-1, 1], [1, 1], [-1, -1], [1, -1]] };
 // The net is Adventure's own (2026-10-15): it changes no move, only what a
 // catch is worth (captureFoe).
-export const WEAPON_KINDS = ['sword', 'lance', 'mace', 'net'];
+// The shield is Adventure's too (2026-10-16, Timothy: "shield (new) - pushes
+// pieces, can still squash. just the push. if the piece is pushed off the
+// board it is captured"): the mace's push, given its own weapon.
+export const WEAPON_KINDS = ['sword', 'lance', 'mace', 'net', 'shield'];
 
 const rideCache = new Map();
 /** The directions piece type t slides in, for a side moving `fwd`. */
@@ -343,7 +349,7 @@ function armed(s, p, side, ms) {
       return strike.length ? { ...m, strike } : m;
     });
   }
-  const vecs = slideVecs(p.shape || p.type, fwd);
+  const vecs = slideVecs(formOf(p), fwd);
   if (p.weapon === 'lance') {
     if (!vecs.length) return ms;
     const out = ms.filter((m) => m.swap || !m.cap || squash), seen = new Set(out.map((m) => m.y * W + m.x));
@@ -362,6 +368,15 @@ function armed(s, p, side, ms) {
     }
     return out;
   }
+  // Adventure's mace (2026-10-16, Timothy: "still stuns and no longer pushes
+  // anything, just adds the AOE stun to the landing"): every move, slide or
+  // not, stuns what stands round where it lands; nothing is pushed.
+  if (p.weapon === 'mace' && s.day.rules.suitRabbits) return ms.map((m) => {
+    if (m.swap) return m;
+    const stun = around(m, MACE[lv]).filter((q) => enemyOn(s, side, q));
+    return stun.length ? { ...m, stun } : m;
+  });
+  if (p.weapon === 'shield') return ms.concat(shoves(s, p, side, ms, lv));
   if (p.weapon === 'mace') {
     const along = (m) => vecs.some(([dx, dy]) => {
       const ex = m.x - p.x, ey = m.y - p.y, k = dx ? ex / dx : ey / dy;
@@ -419,6 +434,33 @@ function pushes(s, p, side, dx, dy, lv, out, seen) {
   }
 }
 
+/** A shield's pushes (Adventure, 2026-10-16): each move of piece p that
+    lands on a piece of the other side can instead push it one square on,
+    the way the move went (to the nearest of the eight directions, as a
+    sword aims), and the shield takes its square. A row of them goes
+    together, up to lv pieces (1 to 3). Pushed off the board, the last is
+    taken; into anything else (a statue, a piece of its own side, more than
+    lv in a row) there is no push. Theirs are not stunned. */
+function shoves(s, p, side, ms, lv) {
+  const W = s.day.W, out = [];
+  for (const m of ms) {
+    if (!m.cap || m.swap || m.wrapped || !enemyOn(s, side, m.y * W + m.x)) continue;
+    const [ux, uy] = DIR8[(((Math.round(Math.atan2(m.y - p.y, m.x - p.x) / (Math.PI / 4))) % 8) + 8) % 8];
+    const row = [m.y * W + m.x];
+    let x = m.x, y = m.y, push = null;
+    for (let n = 0; n < 8; n++) {
+      x += ux; y += uy;
+      const [a, b] = fold(s.day, x, y), q = b * W + a;
+      if (!onBoard(s.day, a, b) || crumbled(s, a, b) || shrunk(s, a, b) || waterAt(s, q)) { push = row.map((f, i) => ({ from: f, to: i + 1 < row.length ? row[i + 1] : -1 })); break; }
+      if (enemyOn(s, side, q)) { if (row.length >= lv) break; row.push(q); continue; }
+      if (look(s, a, b, side) === EMPTY && !ghostAt(s, q) && !flagFree(s, q) && !(s.hole && s.hole.x === a && s.hole.y === b)) push = row.map((f, i) => ({ from: f, to: i + 1 < row.length ? row[i + 1] : q }));
+      break;
+    }
+    if (push) out.push({ x: m.x, y: m.y, cap: false, push, shove: true });
+  }
+  return out;
+}
+
 /** What a weapon does before its piece lands: a lance takes what it passed
     through, a mace pushes. Mutates; returns how many it took. */
 function armsBefore(n, side, i, m) {
@@ -434,7 +476,7 @@ function armsBefore(n, side, i, m) {
       const list = who === 'you' ? n.pieces : n.foes, j = list.indexOf(q), tx = e.to % W, ty = (e.to / W) | 0;
       q.from = [q.x, q.y]; q.x = tx; q.y = ty; q.pushed = true;
       list.forEach((r) => { if (!r.taken && r.rides === j) { r.x = tx; r.y = ty; } });
-      if (who !== side) q.stun = true;
+      if (who !== side && !m.shove) q.stun = true;
     }
   }
   return took;
@@ -466,7 +508,12 @@ function takeAt(n, side, i, sq) {
 function capturePiece(s, p, k) {
   const i = s.pieces.indexOf(p), x = p.x, y = p.y;
   if (s.flag?.by === 'you' && s.flag.i === i) { if (k >= 0) { s.flag.by = 'foe'; s.flag.i = k; } else { s.flag.by = null; s.flag.x = x; s.flag.y = y; } }
-  if ((p.lives || 1) > 1) { p.lives--; p.reviving = true; return false; }
+  // Hearts in Adventure (2026-10-16, Timothy: "heart pieces stay where they
+  // are after being hit, and the piece that move to capture it then moves
+  // back to its original spot"): the heart is spent and it stays put (the
+  // taker's bounce back is landMine's and landFoe's). Elsewhere it goes
+  // home to its first row.
+  if ((p.lives || 1) > 1) { p.lives--; if (!s.day.rules.suitRabbits) p.reviving = true; return false; }
   p.taken = true;
   s.pieces.forEach((q) => { if (!q.taken && q.x === x && q.y === y) q.taken = true; });
   if (k >= 0) reshape(s.foes[k], p);
@@ -477,7 +524,7 @@ function capturePiece(s, p, k) {
 function captureFoe(n, f, i) {
   const k = n.foes.indexOf(f), x = f.x, y = f.y;
   if (n.flag?.by === 'foe' && n.flag.i === k) { if (i >= 0) { n.flag.by = 'you'; n.flag.i = i; } else { n.flag.by = null; n.flag.x = x; n.flag.y = y; } }
-  if ((f.lives || 1) > 1) { f.lives--; f.reviving = true; return false; }
+  if ((f.lives || 1) > 1) { f.lives--; if (!n.day.rules.suitRabbits) f.reviving = true; return false; }
   f.taken = true;
   n.foes.forEach((q) => { if (!q.taken && q.x === x && q.y === y) q.taken = true; });
   if (i >= 0) { reshape(n.pieces[i], f); netIt(n.pieces[i], f); }
@@ -1019,6 +1066,41 @@ export const PIECES = {
   cat: { name: 'Cat', kind: 'companion', tier: 1, value: 3, betza: 'K', strength: 3,
     desc: 'Steps one square in any direction, as a king does. Yours from the start, and always one of your set.',
     moves: (L, p) => leap(L, p, ALL8) },
+  // Adventure's troupe (Timothy, 2026-10-16: "fairy pieces available
+  // currently in adventure, all of them basically new ... they should look
+  // like chess pieces, not people"). Their own kind, so only Adventure
+  // deals them (the daily's and Chaos's fairy pools are kind 'fairy').
+  // The thespian plays a part: p.role is the piece whose moves it has now,
+  // a new one at random every time it moves (recast, below). Its Betza code
+  // is what it moves as before its first part, as the Changeling's is.
+  thespian: { name: 'Thespian', kind: 'troupe', tier: 1, value: 3.5, betza: 'K', strength: 3.75,
+    desc: 'Plays a part: it moves as another piece does, and every time it moves it takes a new part, chosen at random.',
+    origin: 'Adventure’s troupe, 2026.',
+    moves: (L, p, fwd, day) => (p.role && p.role !== 'thespian' && PIECES[p.role]?.moves ? PIECES[p.role].moves(L, p, fwd, day) : leap(L, p, ALL8)) },
+  // "one space any straight, then one space any diagonal": straight on and
+  // out makes a knight's L that a piece on its first square blocks (the
+  // xiangqi horse); turning back on the diagonal lands it one square
+  // straight from where it started, so it also steps like a wazir.
+  scribe: { name: 'Scribe', kind: 'troupe', tier: 1, value: 3.5, betza: 'nNW', strength: 3.75,
+    desc: 'One square straight, then one square diagonally, any way: a knight’s L that a piece on its first square blocks, or, turning back, one square straight.',
+    origin: 'Adventure’s troupe, 2026.',
+    moves: betzaMoves('nNW') },
+  // "knight, but slides instead of hops": the knight's L as a rider.
+  painter: { name: 'Painter', kind: 'troupe', tier: 2, value: 6, betza: 'NN', strength: 5,
+    desc: 'A knight that slides: the same L again and again in a straight line, until something stops it.',
+    origin: 'Adventure’s troupe, 2026; the nightrider of fairy chess.',
+    moves: (L, p) => ride(L, p, KNIGHT) },
+  // "rook and bishop, but only every other space. hops every other space to
+  // get there": two squares at a hop, straight or diagonal, again and again.
+  bard: { name: 'Bard', kind: 'troupe', tier: 2, value: 5, betza: 'DDAA', strength: 4.5,
+    desc: 'A rook and a bishop on every other square: it hops two squares straight or diagonally, over anything, and on again two at a time while it lands on empty squares.',
+    origin: 'Adventure’s troupe, 2026.',
+    moves: betzaMoves('DDAA') },
+  // "hops to any space two away".
+  dancer: { name: 'Dancer', kind: 'troupe', tier: 1, value: 4, betza: 'NAD', strength: 5,
+    desc: 'Hops to any square exactly two away, over anything.',
+    origin: 'Adventure’s troupe, 2026; the squirrel of fairy chess.',
+    moves: (L, p) => leap(L, p, [...sym(2, 0), ...sym(2, 1), ...sym(2, 2)]) },
   cannon: { name: 'Cannon', kind: 'fairy', tier: 1, value: 4, betza: 'mRcpR', strength: 4,
     desc: 'Slides like a rook, but can only catch by jumping exactly one thing on the way.',
     origin: 'From xiangqi, Chinese chess.',
@@ -1183,6 +1265,29 @@ for (const [k, o] of Object.entries(CONFIG.pieces || {})) {
   if (typeof o.desc === 'string' && o.desc.trim()) PIECES[k].desc = o.desc.trim();
 }
 
+/** The kinds of rabbit (Adventure, 2026-10-16, Timothy: "rabbit defines
+    move behavior. rabbits have a type and a suit now"): what a piece with
+    one inside does by itself. A piece's `rabbit` (yours) or its brain
+    (theirs: 'possessed' is the robot) says which. */
+export const RABBIT_TYPES = ['robot', 'sentry', 'scared', 'sentient'];
+/** The kind of rabbit inside piece p, or null: from its brain (theirs) or
+    its `rabbit` (yours). */
+export const rabbitIn = (p) => (p?.rabbit && RABBIT_TYPES.includes(p.rabbit) ? p.rabbit : ({ possessed: 'robot', sentry: 'sentry', scared: 'scared', sentient: 'sentient' })[p?.brain] || null);
+
+/** The parts a thespian can play (Adventure's pieces, no pawn: it only goes
+    one way, and no cat, which steps as a king does). */
+export const THESPIAN_ROLES = ['king', 'queen', 'rook', 'bishop', 'knight', 'scribe', 'painter', 'bard', 'dancer'];
+/** The piece whose moves piece p makes now: a Changeling's borrowed shape,
+    a thespian's part, or its own kind. */
+export const formOf = (p) => p.shape || p.role || p.type;
+/** A thespian takes a new part, at random but the same on every phone: from
+    the level, the turn, where it stands and the part it had. Mutates. */
+function recast(s, p, salt = '') {
+  if (p?.type !== 'thespian' || p.taken) return;
+  const roles = THESPIAN_ROLES.filter((r) => r !== p.role);
+  p.role = roles[Math.floor(hash01(`role:${s.day.seed ?? 0}:${s.t}:${salt}:${p.x},${p.y}:${p.role || ''}`) * roles.length)];
+}
+
 export const RABBIT_DESC = 'Hops in a fixed pattern that repeats. If it lands on one of your pieces, it eats it. It bounces off the edges, and if it cannot land where it is hopping, it waits a turn. Watch its tracks.';
 export const RABBIT_GENTLE_DESC = 'Hops in a fixed pattern that repeats. It bounces off the edges, and if it cannot land where it is hopping (one of your pieces is in the way, say), it waits a turn. It does not eat. Watch its tracks.';
 /** The rabbit's description for a level's rules: does it eat or not? */
@@ -1279,6 +1384,12 @@ export function initialState(day) {
   // on the board is the first of them.
   if (day.cycle?.length > 1) { s.set = day.cycle.map((e) => ({ ...e })); s.ci = 0; }
   if (day.rules.tactics) s.stones = [];
+  // A thespian's first part (Adventure's troupe, 2026-10-16), drawn from the
+  // level, so the same board deals it the same part.
+  const cast = (p, salt) => { if (p.type === 'thespian' && !p.role) p.role = THESPIAN_ROLES[Math.floor(hash01(`cast:${day.seed ?? 0}:${salt}`) * THESPIAN_ROLES.length)]; };
+  s.pieces.forEach((p, i) => cast(p, `you${i}`));
+  s.foes.forEach((f, k) => cast(f, `foe${k}`));
+  (s.set || []).forEach((e, j) => { if (j === s.ci) e.role = s.pieces[0].role; else cast(e, `set${j}`); });
   if (day.rules.first === 'them') { foesAct(s); s.opened = true; }
   return s;
 }
@@ -1307,7 +1418,7 @@ const inSet = (s, j) => (j === s.ci ? s.pieces[0] : s.set[j]);
 export const turnsOf = () => 1;
 /** Can piece j of your set move this turn: still yours, and with a turn
     left this round? */
-export const setReady = (s, j) => { const e = inSet(s, j); return !!e && !e.lost && !e.taken && (e.used || 0) < turnsOf(e); };
+export const setReady = (s, j) => { const e = inSet(s, j); return !!e && !e.lost && !e.taken && e.out == null && (e.used || 0) < turnsOf(e); };
 
 /** Bring piece j of your set onto the board, on the same square. Mutates. */
 function bringOn(n, j) {
@@ -1333,7 +1444,7 @@ function spendTurn(n) {
   if (!n.set || !p || p.taken) return;
   p.used = (p.used || 0) + 1;
   if (n.set.some((_, j) => setReady(n, j))) return;
-  for (let j = 0; j < n.set.length; j++) { const e = inSet(n, j); if (!e.lost) delete e.used; }
+  for (let j = 0; j < n.set.length; j++) { const e = inSet(n, j); if (!e.lost && e.out == null) delete e.used; }
   // A new round (the page starts it again from the first of the set).
   n.round = (n.round || 0) + 1;
 }
@@ -1345,7 +1456,7 @@ export function firstReady(s) {
   return -1;
 }
 /** How many of your set are still yours (the one on the board included). */
-export const setLeft = (s) => (s.set ? s.set.filter((e, j) => (j === s.ci ? !s.pieces[0]?.taken : !e.lost)).length : s.pieces.filter((p) => !p.taken).length);
+export const setLeft = (s) => (s.set ? s.set.filter((e, j) => (j === s.ci ? !s.pieces[0]?.taken : e.out != null ? !s.pieces[e.out]?.taken : !e.lost)).length : s.pieces.filter((p) => !p.taken).length);
 
 /** A piece of your set taken (Adventure, 2026-10-15, Timothy: "you need to
     lose all your pieces to lose the game and you don't just go to the next
@@ -1359,8 +1470,8 @@ export const setLeft = (s) => (s.set ? s.set.filter((e, j) => (j === s.ci ? !s.p
 function nextAfterLoss(n) {
   const p = n.pieces[0];
   if (!n.set || !p?.taken || n.won) return;
-  const live = n.set.map((_, j) => j).filter((j) => j !== n.ci && !n.set[j].lost);
-  if (!live.length) return;
+  const live = n.set.map((_, j) => j).filter((j) => j !== n.ci && !n.set[j].lost && n.set[j].out == null);
+  if (!live.length) return recall(n, p);
   const at = entrySpot(n, p);
   if (!at) return;
   const own = {};
@@ -1373,6 +1484,25 @@ function nextAfterLoss(n) {
   n.arrived = { lost: { ...p }, from: n.ci };
   n.ci = j;
   n.pieces[0] = { ...n.set[j], x: at.x, y: at.y };
+}
+
+/** The last of your set taken while pieces of yours with a rabbit still
+    stand (2026-10-16): the first of them is your piece again, where it
+    stands. Mutates. */
+function recall(n, p) {
+  const k = n.pieces.findIndex((q, i) => i > 0 && q.ally && !q.taken);
+  const j = k < 0 ? -1 : n.set.findIndex((e) => e.out === k);
+  if (j < 0) return;
+  const own = {};
+  for (const [key, v] of Object.entries(p)) if (!PLACE.includes(key)) own[key] = v;
+  n.set[n.ci] = { ...own, lost: true };
+  const a = n.pieces[k], back = {};
+  for (const [key, v] of Object.entries(a)) if (!['ally', 'fresh', 'pattern', 'route', 'i', 'mx', 'my', 'patternName', 'mind', 'struck', 'fled', 'trapped', 'blocked'].includes(key)) back[key] = v;
+  n.arrived = { lost: { ...p }, from: n.ci, recalled: k };
+  delete n.set[j].out;
+  n.ci = j;
+  n.pieces[0] = back;
+  n.pieces[k] = { ...a, taken: true, recalled: true };
 }
 
 /** Stone (Adventure, 2026-10-15, Timothy: "stone suit now leaves behind a
@@ -1443,11 +1573,13 @@ function entrySpot(n, e = n.day.pieces[0]) {
   // lineup simply appears in that spot"): the square it was taken on, or,
   // if one of theirs stands there now, the nearest free square to it (out
   // of their reach if one is as near).
-  const W = n.day.W, H = n.day.H, reach = reachMaps(n).theirs, spots = [];
+  const W = n.day.W, H = n.day.H, R = reachMaps(n), reach = new Set([...R.theirs, ...R.steps]), spots = [];
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     if (!onBoard(n.day, x, y) || statueAt(n, y * W + x) || crumbled(n, x, y) || shrunk(n, x, y) || waterAt(n, y * W + x)) continue;
     if (n.foes.some((f) => !f.taken && f.x === x && f.y === y) || n.stones?.some((t) => t.x === x && t.y === y)) continue;
     if (n.hole && n.hole.x === x && n.hole.y === y) continue;
+    // Nor where a piece of yours stands (one with a rabbit, 2026-10-16).
+    if (n.pieces.some((p) => !p.taken && p.x === x && p.y === y)) continue;
     spots.push({ x, y, hot: reach.has(y * W + x) ? 1 : 0, d: Math.max(Math.abs(x - e.x), Math.abs(y - e.y)), m: Math.abs(x - e.x) + Math.abs(y - e.y) });
   }
   spots.sort((a, b) => a.d - b.d || a.hot - b.hot || a.m - b.m || a.y - b.y || a.x - b.x);
@@ -1458,7 +1590,9 @@ function entrySpot(n, e = n.day.pieces[0]) {
     whether it is on the board, ready, used this round, or lost. */
 export function setView(s) {
   if (!s.set) return [];
-  return s.set.map((_, j) => { const p = inSet(s, j); return { p, j, on: j === s.ci, ready: setReady(s, j), used: p.used || 0, lost: !!p.lost || (j === s.ci && !!p.taken) }; });
+  // A piece standing by itself with its rabbit (`out`) is shown as it
+  // stands on the board.
+  return s.set.map((e, j) => { const out = j !== s.ci && e.out != null, p = out ? s.pieces[e.out] : inSet(s, j); return { p, j, on: j === s.ci, out, ready: setReady(s, j), used: p.used || 0, lost: !!p.lost || ((j === s.ci || out) && !!p.taken) }; });
 }
 
 export function clone(s) {
@@ -1467,7 +1601,7 @@ export function clone(s) {
     bonus: s.bonus || null, treasure: s.treasure || 0, foeTreasure: s.foeTreasure || 0, ft: s.ft || 0, ...(s.cloudy ? { cloudy: true } : {}),
     ...(s.ghostGone ? { ghostGone: s.ghostGone.slice(), ghostsLost: s.ghostsLost || 0 } : {}), ...(s.clouds ? { clouds: s.clouds.map((c) => ({ ...c })) } : {}),
     ...(s.flag ? { flag: { ...s.flag } } : {}), ...(s.flagLost ? { flagLost: true } : {}), ...(s.ep ? { ep: { ...s.ep } } : {}),
-    ...(s.set ? { set: s.set.map((e) => ({ ...e })), ci: s.ci, round: s.round || 0 } : {}), ...(s.stones ? { stones: s.stones.map((t) => ({ ...t })) } : {}), ...(s.vines ? { vines: s.vines.map((v) => ({ ...v })) } : {}) };
+    ...(s.set ? { set: s.set.map((e) => ({ ...e })), ci: s.ci, round: s.round || 0 } : {}), ...(s.stones ? { stones: s.stones.map((t) => ({ ...t })) } : {}), ...(s.vines ? { vines: s.vines.map((v) => ({ ...v })) } : {}), ...(s.turnFrom ? { turnFrom: s.turnFrom } : {}) };
 }
 
 const youLook = (s) => (x, y) => look(s, x, y, 'you');
@@ -1592,6 +1726,7 @@ export function movesFor(s, i) {
   let ms = pieceMoves(s, p, 'you');
   if (s.day.rules.ballMove === 'hit') ms = ms.filter((m) => hitOk(s, p, m));
   if (s.bonus?.cap) return ms.filter(takesAny);
+  if (s.bonus?.noCap) ms = ms.filter((m) => !takesAny(m));
   if (s.day.rules.noCheck) ms = ms.filter((m) => !givesCheck(s, 'you', i, m));
   if (s.day.rules.promote === 'copy' && p.type === 'pawn') ms = promoteChoices(s, 'you', i, ms);
   // Gears (Spirals until 2026-10-13): it may trade squares with any other
@@ -1599,19 +1734,15 @@ export function movesFor(s, i) {
   if (p.suit === 'gears' && !s.day.rules.suitRabbits) {
     s.pieces.forEach((q, k) => { if (k !== i && !q.taken && q.type !== 'ball' && q.rides == null && q.brain !== 'carrier') ms.push({ x: q.x, y: q.y, cap: false, swap: true }); });
   }
-  // A gears rabbit in your piece (Adventure's suits as rabbits, 2026-10-16):
-  // it changes gear, moving as any other piece of your set can as well as
-  // its own way. Each such move says which (`gear`).
-  if (p.suit === 'gears' && s.day.rules.suitRabbits && s.set && i === 0) {
-    const W = s.day.W, seen = new Set(ms.map((m) => m.y * W + m.x)), own = p.shape || p.type;
-    s.set.forEach((e, j) => {
-      const t = e.shape || e.type;
-      if (j === s.ci || e.lost || t === own || !PIECES[t]?.moves) return;
-      for (const m of pieceMoves(s, { ...p, type: t, shape: undefined, weapon: undefined, wl: undefined }, 'you')) {
-        if (m.swap || seen.has(m.y * W + m.x)) continue;
-        seen.add(m.y * W + m.x); ms.push({ ...m, gear: t });
-      }
-    });
+  // Gears in Adventure (2026-10-16, Timothy: "gears - copper - swap places
+  // with another piece"): as its move, it can trade squares with any other
+  // piece on the board, yours or theirs. (It changed gear, moving as any
+  // piece of your set, from earlier that day.)
+  if (p.suit === 'gears' && s.day.rules.suitRabbits) {
+    for (const q of [...s.pieces, ...s.foes]) {
+      if (q === p || q.taken || q.flying || q.rides != null || q.x < 0 || ['ball', 'bunny', 'rabbit'].includes(q.type)) continue;
+      ms.push({ x: q.x, y: q.y, cap: false, swap: true });
+    }
   }
   return ms;
 }
@@ -1639,7 +1770,9 @@ function openBonus(n, i, took, wasBonus) {
   // (Vines leave a trail instead), and Stars move twice every turn they go.
   const sr = n.day.rules.suitRabbits, chain = sr ? 'spirals' : 'vines';
   if (p.suit === chain && took && pieceMoves(n, p, 'you').some(takesAny)) { n.bonus = { p: i, cap: true, why: chain }; return; }
-  if (p.suit === 'stars' && (sr || !p.starUsed) && !wasBonus) { p.starUsed = true; n.bonus = { p: i, cap: false, why: 'stars' }; }
+  // Stars in Adventure (2026-10-16, Timothy: "two moves, can still only
+  // capture once"): if the first move took something, the second cannot.
+  if (p.suit === 'stars' && (sr || !p.starUsed) && !wasBonus) { p.starUsed = true; n.bonus = { p: i, cap: false, why: 'stars', ...(sr && took ? { noCap: true } : {}) }; }
 }
 
 /** Where a thinking foe can go. */
@@ -1754,6 +1887,8 @@ const canMove = (s) => (s.set && !s.bonus ? allMoves(s).some((m) => m.p >= 0) : 
 export function isLegal(s, mv) {
   if (mv.p === -1) return !s.won && (!!s.bonus || s.day.rules.wait || !canMove(s));
   if (mv.p < 0 || mv.p >= s.pieces.length || s.pieces[mv.p].taken) return false;
+  // A piece of yours with a rabbit moves by itself, not by you.
+  if (s.pieces[mv.p].ally) return false;
   // Your set (Adventure): the piece chosen must be ready (a turn a suit
   // left open is the same piece's).
   if (s.set && !s.bonus) { const j = mv.as ?? s.ci; if (!setReady(s, j)) return false; s = chooseInSet(s, j); }
@@ -1841,6 +1976,9 @@ function landFoe(s, f, x, y, m = null) {
   f.wounded = -1;
   // Taking it, or (Hearts, 2026-10-13) sending it home with a life less.
   if (f.ate >= 0 && !capturePiece(s, s.pieces[f.ate], k)) { f.wounded = f.ate; f.ate = -1; }
+  // A heart of yours spent (Adventure): your piece stays, and theirs goes
+  // back where it came from, lunging and back (`struck`, for the page).
+  if (f.wounded >= 0 && s.day.rules.suitRabbits) { f.from = [f.x, f.y]; f.struck = [x, y]; f.bounced = true; f.blocked = false; recast(s, f, 'b' + k); return; }
   f.from = [f.x, f.y]; f.x = x; f.y = y; f.blocked = false; delete f.rides;
   s.foes.forEach((q) => { if (q.rides === k && !q.taken) { q.from = [q.x, q.y]; q.x = x; q.y = y; } });
   // The rabbit to capture, picked up where it sits.
@@ -1851,6 +1989,7 @@ function landFoe(s, f, x, y, m = null) {
   else if (s.day.rules.promote === true && f.type === 'pawn' && y === 0) f.type = 'queen';
   // A vine of yours where it lands catches it (Adventure's Vines).
   if (s.vines && takeVine(s, 'you', x, y)) { captureFoe(s, f, -1); s.tlog?.push({ what: 'vine', side: 'you', k }); }
+  recast(s, f, 'f' + k);
 }
 
 /** Their piece k makes move m: what its weapon does, landing, and what
@@ -1953,20 +2092,23 @@ function before(a, b) {
  * way it waits. Like a rabbit, a step that would leave the board flips the
  * pattern on that axis from then on. Mutates.
  */
-function possessedStep(s, f, force = false) {
+function possessedStep(s, f, force = false, noTake = false) {
   const raw = f.pattern[f.i];
   f.i = (f.i + 1) % f.pattern.length;
-  f.from = [f.x, f.y]; f.ate = -1; f.blocked = false; f.rested = false;
+  f.from = [f.x, f.y]; f.ate = -1; f.blocked = false; f.rested = false; delete f.bounced;
   if (!raw[0] && !raw[1] && !force) { f.rested = true; return; }
   // Made to move (foesMust): a pause or a blocked way still moves, by the
   // move that heads most nearly where the step points (a pause: the
   // shortest move there is).
   const [dx, dy] = raw[0] || raw[1] ? patternStep(s, f, raw) : [0, 0];
-  const [tx, ty] = fold(s.day, f.x + dx, f.y + dy), take = canTake(s.day.rules, f);
+  const [tx, ty] = fold(s.day, f.x + dx, f.y + dy), take = canTake(s.day.rules, f) && !noTake;
   let best = null, bk = null;
   for (const m of pieceMoves(s, f, 'foe')) {
     const ball = m.cap && hitBall(s, m.x, m.y);
     if (ball ? !hitOk(s, f, m) : m.cap && !take) continue;
+    // A route (Adventure) goes to its next square or nowhere: anything in
+    // the way that it may not take, it waits for.
+    if (f.route && (m.x !== tx || m.y !== ty)) continue;
     // (On a magic board, distances go the short way round.)
     const mx = delta(s.day, m.x - f.x, 'x'), my = delta(s.day, m.y - f.y, 'y');
     const off = mx * dx + my * dy <= 0;
@@ -1978,6 +2120,8 @@ function possessedStep(s, f, force = false) {
   // same step next turn, so it never falls out of step with its route.
   if (!best) { f.blocked = true; if (f.route) f.i = (f.i + f.pattern.length - 1) % f.pattern.length; return; }
   foeLand(s, s.foes.indexOf(f), best);
+  // Bounced off a heart (Adventure): back home, it tries the step again.
+  if (f.bounced && f.route) f.i = (f.i + f.pattern.length - 1) % f.pattern.length;
 }
 
 /**
@@ -2095,8 +2239,8 @@ function hash01(str) {
 export function reachMaps(s, pattern = false) {
   s = seenBy(s, 'you'); // a piece hidden in a cloud shows no reach (2026-10-13)
   const W = s.day.W, yours = new Set(), theirs = new Set(), sentry = new Set();
-  const stones = new Set();
-  if (s.won) return { yours, theirs, threat: theirs, sentry, stones };
+  const stones = new Set(), steps = new Set();
+  if (s.won) return { yours, theirs, threat: theirs, sentry, stones, steps };
   s.pieces.forEach((p, i) => {
     if (p.taken || p.flying) return;
     for (const m of movesFor(s, i)) if (!m.swap) { yours.add(m.y * W + m.x); for (const q of capturesOf(m, W)) yours.add(q); }
@@ -2112,10 +2256,14 @@ export function reachMaps(s, pattern = false) {
     if (f.taken || f.flying || f.brain === 'pattern' || f.brain === 'leader' || f.brain === 'carrier' || f.brain === 'still' || f.brain === 'scared' || f.brain === 'crown') continue;
     // A piece walking a route (Adventure) only ever goes to its next square.
     if (f.route) {
-      const L = f.pattern.length, [dx, dy] = f.pattern[f.i % L];
-      if ((dx || dy) && canTake(s.day.rules, f)) theirs.add((f.y + dy) * W + f.x + dx);
+      // Its next square is framed in its loop's colour, not ringed red
+      // (Timothy, 2026-10-16: "the highlighted square where a gear rabbit
+      // piece will go next should be the color of the line that shows its
+      // path, not red"), so with tactics it goes in `steps`, not `theirs`.
+      const L = f.pattern.length, [dx, dy] = f.pattern[f.i % L], to = s.day.rules.tactics ? steps : theirs;
+      if ((dx || dy) && canTake(s.day.rules, f)) to.add((f.y + dy) * W + f.x + dx);
       // A stars rabbit walks two steps a turn: both are danger.
-      if (s.day.rules.suitRabbits && f.suit === 'stars' && canTake(s.day.rules, f)) { const [ex, ey] = f.pattern[(f.i + 1) % L]; if (ex || ey) theirs.add((f.y + dy + ey) * W + f.x + dx + ex); }
+      if (s.day.rules.suitRabbits && f.suit === 'stars' && canTake(s.day.rules, f)) { const [ex, ey] = f.pattern[(f.i + 1) % L]; if (ex || ey) to.add((f.y + dy + ey) * W + f.x + dx + ex); }
       continue;
     }
     const ms = pieceMoves(s, f, 'foe');
@@ -2143,7 +2291,7 @@ export function reachMaps(s, pattern = false) {
   // your sentries reach while they are present to be able to plan
   // tactics"): where one of theirs that moves in is taken.
   for (const t of s.stones || []) for (const m of pieceMoves(s, { ...t, taken: false }, 'you')) if (!m.swap) { stones.add(m.y * W + m.x); for (const q of capturesOf(m, W)) stones.add(q); }
-  return { yours, theirs, threat: theirs, sentry, stones };
+  return { yours, theirs, threat: theirs, sentry, stones, steps };
 }
 
 
@@ -2164,7 +2312,7 @@ function patternReach(s, p, side, takes) {
   const base = sight(s, p, side), fwd = side === 'you' ? 1 : -1, moves = PIECES[p.type].moves, W = s.day.W, wrap = s.day.rules.wrap;
   const at = (x, y) => (wrap ? fold(s.day, x, y) : [x, y]);
   for (const m of moves((x, y) => { const c = base(x, y); return c === OWN ? ENEMY : c; }, p, fwd, s.day)) if (m.cap) { const [x, y] = at(m.x, m.y); out.add(y * W + x); }
-  if (TAKES_ONLY.has(p.shape || p.type))
+  if (TAKES_ONLY.has(formOf(p)))
     for (let y = 0; y < s.day.H; y++) for (let x = 0; x < W; x++) {
       // A pawn only takes next to itself: no need to try further off.
       if (p.type === 'pawn' && !wrap && (Math.abs(x - p.x) > 1 || Math.abs(y - p.y) > 1)) continue;
@@ -2373,7 +2521,7 @@ function reachOf(s, who) {
  * One rabbit-minded piece's turn: `f` is s.foes[k] (side 'foe') or
  * s.pieces[k] (side 'you', autochess). Mutates.
  */
-function mindStep(s, f, k, side, force = false) {
+function mindStep(s, f, k, side, force = false, noTake = false) {
   const day = s.day, W = day.W, H = day.H, T = TRAITS[f.mind.trait] || TRAITS.aggressive;
   const iq = Math.max(1, Math.min(10, f.mind.iq || 5));
   const other = side === 'foe' ? 'you' : 'foe';
@@ -2427,14 +2575,27 @@ function mindStep(s, f, k, side, force = false) {
   let best = force ? { x: f.x, y: f.y, cap: false, v: -Infinity } : { x: f.x, y: f.y, cap: false, v: score(f.x, f.y, false) - 0.8 - 1.2 * (f.idle || 0) };
   for (const m of pieceMoves(s, f, side)) {
     const ball = m.cap && hitBall(s, m.x, m.y);
-    if (ball ? !hitOk(s, f, m) : m.cap && !take) continue;
+    if (ball ? !hitOk(s, f, m) : m.cap && (!take || noTake)) continue;
+    if (noTake && takesAny(m)) continue;
     if (side === 'you' && !hitOk(s, f, m)) continue;
     const v = score(m.x, m.y, m.cap && !ball);
     if (v > best.v) best = { ...m, v };
   }
+  // A sentient rabbit of gears (Adventure, 2026-10-16) can trade squares
+  // with another piece of its own side, as its move.
+  if (f.suit === 'gears' && day.rules.suitRabbits) for (const q of (side === 'foe' ? s.foes : s.pieces)) {
+    if (q === f || q.taken || q.rides != null || q.x < 0) continue;
+    const v = score(q.x, q.y, false) - 0.5;
+    if (v > best.v) best = { x: q.x, y: q.y, cap: false, swap: true, v };
+  }
   f.from = [f.x, f.y];
   if (best.x === f.x && best.y === f.y) { f.rested = true; f.blocked = false; f.idle = (f.idle || 0) + 1; return; }
   f.rested = false; f.idle = 0;
+  if (best.swap && side === 'foe') {
+    const q = s.foes.find((o) => o !== f && !o.taken && o.x === best.x && o.y === best.y);
+    if (q) { q.from = [q.x, q.y]; [q.x, q.y, f.x, f.y] = [f.x, f.y, q.x, q.y]; recast(s, f, 'g' + k); }
+    return;
+  }
   if (side === 'foe') foeLand(s, k, best);
   else { armsBefore(s, 'you', k, best); landMine(s, k, best.x, best.y, best); armsAfter(s, 'you', k, best); settleRevivals(s); }
 }
@@ -2593,9 +2754,15 @@ function knock(s, b, fx, fy) {
     of theirs there is caught, and the game may be won. `m`, the move it
     made, if it made one: it may promote. Mutates. */
 function landMine(n, i, x, y, m = null) {
-  const p = n.pieces[i], riding = p.rides != null;
+  const p = n.pieces[i], riding = p.rides != null, ox = p.x, oy = p.y;
   delete p.bubble; // its first move this round: the bubble is gone
   enPassant(n, 'you', p, i, x, y, m);
+  // Gears in Adventure (2026-10-16, Timothy: "swap places with another
+  // piece"): with one of theirs, too.
+  if (m?.swap && n.day.rules.suitRabbits) {
+    const f = n.foes.find((q) => !q.taken && q.rides == null && q.x === x && q.y === y);
+    if (f) { f.from = [x, y]; f.x = ox; f.y = oy; p.x = x; p.y = y; recast(n, p, 'swap'); return null; }
+  }
   const mate = n.pieces.find((q, k) => k !== i && !q.taken && q.type !== 'ball' && q.x === x && q.y === y);
   // A rabbit hopping onto a head rides there (2026-10-11).
   if (mate && p.type === 'bunny') {
@@ -2629,6 +2796,13 @@ function landMine(n, i, x, y, m = null) {
   // home instead (captureFoe). Or picking up the rabbit to capture.
   const f = n.foes.find((f) => !f.taken && f.x === x && f.y === y && f.rides == null);
   if (f) captureFoe(n, f, i);
+  // A heart spent (Adventure): it stays, and the taker goes back where it
+  // came from (`bounced` says where it went, for the page to show).
+  if (f && !f.taken && n.day.rules.suitRabbits) {
+    if (n.day.rules.crumble && !riding && n.gone[n.gone.length - 1] === oy * n.day.W + ox) n.gone.pop();
+    p.x = ox; p.y = oy; p.bounced = [x, y];
+  }
+  recast(n, p, 'm' + i);
   if (flagFree(n, y * n.day.W + x)) { n.flag.by = 'you'; n.flag.i = i; }
   if (p.type === 'ball' && n.hole && p.x === n.hole.x && p.y === n.hole.y && holeOpen(n)) n.won = n.sunk = true;
   // Catching the last rabbit opens the hole; a ball already resting on
@@ -2660,6 +2834,10 @@ export function playerMove(s, mv) {
   const n = clone(s), was = n.bonus;
   n.bonus = null;
   delete n.broke; delete n.bumped; delete n.revived;
+  for (const q of n.pieces) delete q.bounced;
+  // Where the piece on the board started this turn (Adventure's set): a
+  // piece with a rabbit stays where it went, and the next comes on here.
+  if (n.set && !was) { const p0 = n.pieces[0]; if (mv.p >= 0 && p0 && !p0.taken) n.turnFrom = [p0.x, p0.y]; else delete n.turnFrom; }
   // En passant on theirs is now or never.
   if (n.ep?.side === 'foe') delete n.ep;
   if (mv.p >= 0) {
@@ -2718,7 +2896,7 @@ function exitSpot(n, dir = null) {
   const p = n.pieces.find((q) => !q.taken) || n.pieces[0], W = n.day.W, H = n.day.H, spots = [];
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     if ((x === p.x && y === p.y) || !onBoard(n.day, x, y) || statueAt(n, y * W + x) || crumbled(n, x, y) || shrunk(n, x, y)) continue;
-    if (n.foes.some((f) => !f.taken && f.x === x && f.y === y)) continue;
+    if (n.foes.some((f) => !f.taken && f.x === x && f.y === y) || n.pieces.some((q) => !q.taken && q.x === x && q.y === y)) continue;
     spots.push({ x, y, d: Math.max(Math.abs(x - p.x), Math.abs(y - p.y)), m: Math.abs(x - p.x) + Math.abs(y - p.y), on: dir ? (x - p.x) * dir[0] + (y - p.y) * dir[1] : 0 });
   }
   spots.sort((a, b) => a.d - b.d || b.on - a.on || a.m - b.m || b.y - a.y || a.x - b.x);
@@ -2760,6 +2938,8 @@ function exitSpot(n, dir = null) {
 function yourAttackers(s) {
   const out = [], p = s.pieces[0];
   if (p && !p.taken) out.push({ p, kind: 'piece' });
+  // Your pieces with a rabbit (2026-10-16) pin and threaten too.
+  s.pieces.forEach((q, i) => { if (i && q.ally && !q.taken) out.push({ p: q, kind: 'ally', i }); });
   (s.stones || []).forEach((t, j) => out.push({ p: { ...t, taken: false }, kind: 'stone', j }));
   return out;
 }
@@ -2787,7 +2967,7 @@ function yourAttackersOf(s, sq) {
 export function tacticalPins(s) {
   const out = new Map();
   if (!s.day.rules.tactics) return out;
-  for (const a of yourAttackers(s)) for (const [dx, dy] of slideVecs(a.p.shape || a.p.type, 1)) {
+  for (const a of yourAttackers(s)) for (const [dx, dy] of slideVecs(formOf(a.p), 1)) {
     let x = a.p.x, y = a.p.y, first = -1;
     for (let n = 0; n < MAX_SLIDE; n++) {
       x += dx; y += dy;
@@ -2815,12 +2995,20 @@ export function inCheck(s) {
 
 /** Their side's turn with tactics (above). Mutates. */
 function tacticsTurn(s) {
-  const W = s.day.W, log = (s.tlog = []), acted = new Set();
-  for (const f of s.foes) { delete f.pinned; delete f.trapped; delete f.fled; delete f.broke; delete f.struck; f.from = [f.x, f.y]; }
+  const W = s.day.W, log = (s.tlog = []), acted = new Set(), sr = s.day.rules.suitRabbits;
+  for (const f of s.foes) { delete f.pinned; delete f.trapped; delete f.fled; delete f.broke; delete f.struck; delete f.bounced; delete f.sat; f.from = [f.x, f.y]; }
   for (const t of s.stones || []) delete t.from;
+  // Your side finishes its turn first (Adventure, 2026-10-16): a piece of
+  // yours with a rabbit inside stays where it moved, and the next of your
+  // set comes on where it started; then every one of yours with a rabbit
+  // acts by itself.
+  if (sr) { deploy(s, log); alliesAct(s, log); if (s.won) return; }
+  // Stunned by a mace (2026-10-16, Timothy: "make sure stun functionality
+  // actually works"): it sits out this whole turn, said, and marked (`sat`).
+  s.foes.forEach((f, k) => { if (!f.taken && f.stun) { f.sat = true; log.push({ what: 'stunned', k }); } });
   const pins = tacticalPins(s);
   for (const k of pins.keys()) { s.foes[k].pinned = true; log.push({ what: 'pin', k, by: pins.get(k).kind }); }
-  const free = (k) => !s.foes[k].taken && !pins.has(k) && !acted.has(k);
+  const free = (k) => !s.foes[k].taken && !s.foes[k].stun && !pins.has(k) && !acted.has(k);
   const quiet = (f) => pieceMoves(s, f, 'foe').filter((m) => !m.cap && !m.swap);
   const toSentry = (f) => { f.brain = 'sentry'; f.patternName = 'Sentry'; delete f.pattern; delete f.route; };
   const value = (f) => PIECES[f.type]?.value || 1;
@@ -2829,6 +3017,12 @@ function tacticsTurn(s) {
     s.won = true; s.mate = true;
     if (s.day.rules.goal === 'clear' && !s.hole) s.hole = exitSpot(s);
   };
+  // How many of yours are down (a heart spent counts): to tell whether a
+  // move of theirs took something.
+  const down = () => s.pieces.reduce((t, p) => t + (p.taken ? 9 : 0) - (p.lives || 1), 0) + (s.stones || []).length * -1;
+  // A vines rabbit leaves its trail wherever it went (2026-10-16: the suits
+  // are the same on theirs as on yours).
+  const trail = (f, start) => { if (sr && f.suit === 'vines' && !f.taken && (f.x !== start[0] || f.y !== start[1])) addTrail(s, 'foe', start[0], start[1], f.x, f.y); };
 
   // 2. Check.
   const lead = leaderOf(s);
@@ -2839,7 +3033,7 @@ function tacticsTurn(s) {
       if (checkers.length === 1) {
         const c = checkers[0], csq = c.p.y * W + c.p.x;
         // (a) Take the attacker. The leader only where nothing else of yours guards it.
-        const guarded = () => { const t = c.kind === 'piece' ? s.pieces[0] : s.stones[c.j]; const was = { x: t.x, y: t.y }; t.x = -99; t.y = -99; const g = yourControl(s).has(csq); t.x = was.x; t.y = was.y; return g; };
+        const guarded = () => { const t = c.kind === 'stone' ? s.stones[c.j] : s.pieces[c.i ?? 0]; const was = { x: t.x, y: t.y }; t.x = -99; t.y = -99; const g = yourControl(s).has(csq); t.x = was.x; t.y = was.y; return g; };
         for (let k = 0; k < s.foes.length && !done; k++) {
           const f = s.foes[k];
           if (!free(k) || !canTake(s.day.rules, f) || f.brain === 'scared') continue;
@@ -2876,7 +3070,7 @@ function tacticsTurn(s) {
 
   // 3. Flight: the most valuable scared piece you attack that can get away.
   const shy = s.foes.some((f, k) => f.brain === 'scared' && !f.taken && !acted.has(k)), ctl = shy ? yourControl(s) : null;
-  const scared = !shy ? [] : s.foes.map((f, k) => k).filter((k) => s.foes[k].brain === 'scared' && !s.foes[k].taken && !acted.has(k) && ctl.has(s.foes[k].y * W + s.foes[k].x))
+  const scared = !shy ? [] : s.foes.map((f, k) => k).filter((k) => s.foes[k].brain === 'scared' && !s.foes[k].taken && !s.foes[k].stun && !acted.has(k) && ctl.has(s.foes[k].y * W + s.foes[k].x))
     .sort((a, b) => value(s.foes[b]) - value(s.foes[a]) || a - b);
   let fled = false;
   for (const k of scared) {
@@ -2886,45 +3080,87 @@ function tacticsTurn(s) {
     if (fled) { f.trapped = true; log.push({ what: 'trapped', k, fork: true }); continue; }
     f.taken = true; const safe = yourControl(s); f.taken = false;
     const near = s.pieces[0] && !s.pieces[0].taken ? s.pieces[0] : f;
-    const ways = quiet(f).filter((m) => !safe.has(m.y * W + m.x))
-      .sort((a, b) => Math.max(Math.abs(b.x - near.x), Math.abs(b.y - near.y)) - Math.max(Math.abs(a.x - near.x), Math.abs(a.y - near.y)) || b.y - a.y || a.x - b.x);
-    if (!ways.length) { f.trapped = true; log.push({ what: 'trapped', k }); continue; }
-    landFoe(s, f, ways[0].x, ways[0].y); f.fled = true; acted.add(k); fled = true;
+    const far = (a, b) => Math.max(Math.abs(b.x - near.x), Math.abs(b.y - near.y)) - Math.max(Math.abs(a.x - near.x), Math.abs(a.y - near.y)) || b.y - a.y || a.x - b.x;
+    const ways = quiet(f).filter((m) => !safe.has(m.y * W + m.x)).sort(far);
+    const start = [f.x, f.y];
+    if (ways.length) landFoe(s, f, ways[0].x, ways[0].y);
+    else {
+      // A scared rabbit of gears (2026-10-16) can run by trading squares
+      // with another of theirs that stands out of your reach.
+      const mates = sr && f.suit === 'gears' ? s.foes.filter((q) => q !== f && !q.taken && q.rides == null && !safe.has(q.y * W + q.x)).sort(far) : [];
+      if (!mates.length) { f.trapped = true; log.push({ what: 'trapped', k }); continue; }
+      const q = mates[0];
+      q.from = [q.x, q.y]; [q.x, q.y, f.x, f.y] = [f.x, f.y, q.x, q.y];
+      log.push({ what: 'swap', k, with: s.foes.indexOf(q) });
+    }
+    f.fled = true; acted.add(k); fled = true;
+    trail(f, start);
     log.push({ what: 'flee', k });
   }
 
-  // 4. The walkers step, but not the pinned.
+  // 4. The walkers step, but not the pinned. Their suits (2026-10-16):
+  // stars walks two steps, taking at most once; spirals steps on again
+  // after a step that takes, as long as it takes; vines leaves a trail.
   s.foes.forEach((f, k) => {
-    if (f.taken || f.brain !== 'possessed' || acted.has(k) || lost(s)) return;
+    if (f.taken || f.brain !== 'possessed' || acted.has(k) || f.stun || lost(s)) return;
     if (pins.has(k)) { f.from = [f.x, f.y]; f.blocked = false; f.rested = false; f.ate = -1; return; }
-    const sr = s.day.rules.suitRabbits, start = [f.x, f.y];
+    const start = [f.x, f.y], was = down();
     possessedStep(s, f);
-    // Their rabbits (suits as rabbits, 2026-10-16): a stars rabbit walks two
-    // steps a turn; a spirals rabbit that takes something steps on again
-    // (twice more at most); a vines rabbit leaves a trail where it went.
-    if (sr && f.suit === 'stars' && !f.taken && !lost(s)) possessedStep(s, f);
-    for (let c = 0; sr && f.suit === 'spirals' && c < 2 && !f.taken && !lost(s) && (f.ate >= 0 || f.broke); c++) { delete f.broke; log.push({ what: 'chain', k }); possessedStep(s, f); }
-    if (sr && f.suit === 'vines' && !f.taken && (f.x !== start[0] || f.y !== start[1])) addTrail(s, 'foe', start[0], start[1], f.x, f.y);
+    const took = down() > was;
+    if (sr && f.suit === 'stars' && !f.taken && !lost(s)) possessedStep(s, f, false, took);
+    for (let c = 0; sr && f.suit === 'spirals' && c < 16 && !f.taken && !lost(s) && (f.ate >= 0 || f.broke || f.wounded >= 0); c++) { delete f.broke; log.push({ what: 'chain', k }); possessedStep(s, f); }
+    trail(f, start);
   });
   if (lost(s)) return;
 
-  // 5. Their sentries strike.
+  // 4b. Sentient rabbits (2026-10-16, Timothy: "actual piece behavior like a
+  // game of chess against a simple ai"): each thinks one move ahead (the
+  // rabbit minds' way, mindStep) and makes its move, unless pinned.
+  s.foes.forEach((f, k) => {
+    if (f.taken || f.brain !== 'sentient' || !free(k) || lost(s)) return;
+    const start = [f.x, f.y], was = down();
+    f.mind = f.mind || { iq: 6, trait: 'hunter' };
+    mindStep(s, f, k, 'foe');
+    let took = down() > was;
+    if (sr && f.suit === 'stars' && !f.taken && !lost(s)) mindStep(s, f, k, 'foe', false, took);
+    for (let c = 0; sr && f.suit === 'spirals' && took && c < 16 && !f.taken && !lost(s); c++) {
+      const m = bestTake(s, f, 'foe');
+      if (!m) break;
+      const w = down();
+      foeLand(s, k, m);
+      log.push({ what: 'chain', k });
+      took = down() > w;
+    }
+    acted.add(k);
+    if (f.x !== start[0] || f.y !== start[1] || took) log.push({ what: 'think', k });
+    trail(f, start);
+  });
+  if (lost(s)) return;
+
+  // 5. Their sentries strike: your piece first, then your pieces with
+  // rabbits, then your stones; from where they stand. A sentry of spirals
+  // strikes everything of yours in its reach.
   s.foes.forEach((f, k) => {
     if (f.brain !== 'sentry' || !free(k) || lost(s)) return;
-    const ms = pieceMoves(s, f, 'foe').filter((m) => m.cap && canTake(s.day.rules, f));
-    const me = s.pieces[0], m = ms.find((q) => me && !me.taken && q.x === me.x && q.y === me.y) || ms.find((q) => (s.stones || []).some((t) => t.x === q.x && t.y === q.y));
-    if (!m) return;
-    const hitsMe = me && m.x === me.x && m.y === me.y;
-    // With rabbits as suits a sentry never moves (Timothy, 2026-10-16:
-    // "sentry rabbit shouldn't move"): it strikes from where it stands, and
-    // the page shows it lunging and back (`struck`).
-    if (s.day.rules.suitRabbits) {
-      f.struck = [m.x, m.y];
-      if (hitsMe) { f.ate = 0; if (!capturePiece(s, me, k)) { f.wounded = 0; f.ate = -1; } settleRevivals(s); }
-      else { const st = s.stones.findIndex((t) => t.x === m.x && t.y === m.y); if (st >= 0) s.stones.splice(st, 1); f.broke = true; }
-    } else foeLand(s, k, m);
-    acted.add(k);
-    log.push({ what: 'sentry', k, on: hitsMe ? 'piece' : 'stone' });
+    for (let c = 0; c < (sr && f.suit === 'spirals' ? 16 : 1) && !lost(s); c++) {
+      const ms = pieceMoves(s, f, 'foe').filter((m) => m.cap && canTake(s.day.rules, f));
+      const at = (q) => s.pieces.findIndex((p) => !p.taken && p.x === q.x && p.y === q.y);
+      const order = (m) => { const i = at(m); return i === 0 ? 0 : i > 0 ? 1 + 10 - (PIECES[s.pieces[i].type]?.value || 1) : 50; };
+      const m = ms.filter((q) => at(q) >= 0 || (s.stones || []).some((t) => t.x === q.x && t.y === q.y)).sort((a, b) => order(a) - order(b))[0];
+      if (!m) break;
+      const i = at(m);
+      // With rabbits as suits a sentry never moves (Timothy, 2026-10-16:
+      // "sentry rabbit shouldn't move"): it strikes from where it stands, and
+      // the page shows it lunging and back (`struck`).
+      if (sr) {
+        f.struck = [m.x, m.y];
+        if (i >= 0) { f.ate = i; if (!capturePiece(s, s.pieces[i], k)) { f.wounded = i; f.ate = -1; } settleRevivals(s); }
+        else { const st = s.stones.findIndex((t) => t.x === m.x && t.y === m.y); if (st >= 0) s.stones.splice(st, 1); f.broke = true; }
+        recast(s, f, 's' + k);
+      } else foeLand(s, k, m);
+      acted.add(k);
+      log.push({ what: 'sentry', k, on: i === 0 ? 'piece' : i > 0 ? 'ally' : 'stone', i });
+    }
   });
   if (lost(s)) return;
 
@@ -2942,6 +3178,187 @@ function tacticsTurn(s) {
     log.push({ what: 'stone', k: hit, j });
     if (s.won) { if (s.day.rules.goal === 'clear' && !s.hole) s.hole = exitSpot(s); return; }
   }
+}
+
+/** The most valuable piece of the other side piece f can take now, as a
+    move, or null: for a spirals rabbit's chain. */
+function bestTake(s, f, side) {
+  const W = s.day.W, other = side === 'foe' ? s.pieces : s.foes;
+  let best = null, bv = -1;
+  for (const m of pieceMoves(s, f, side)) {
+    if (!m.cap) continue;
+    const v = other.find((q) => !q.taken && q.x === m.x && q.y === m.y);
+    const val = v ? PIECES[v.type]?.value || 1 : 0;
+    if (v && val > bv) { bv = val; best = m; }
+  }
+  return best;
+}
+
+// --- Your pieces with a rabbit inside (Adventure, 2026-10-16). -----------------
+// Timothy: "at the end of a level, you now have a chance of capturing a
+// rabbit to be able to infuse one of your peices with it ... rabbits, when
+// added to a piece, allow it to be sort of be automated. peices with rabbits
+// stay behind after you move with the following peice (sort of like old
+// stone functionality, expect the peice is placed in the new spot rather
+// than in the spot it started) and then stay there."
+//
+// So: move a piece of your set with a rabbit inside, and when your turn
+// ends it stays on the square it moved to, out of your set for the rest of
+// the board (`ally`, with its set entry's `out` its index in s.pieces), and
+// the next of your set comes on where it started. From then on it acts by
+// itself at the end of every turn of yours, by its rabbit:
+// - sentry: stands, and takes the most valuable piece of theirs in its
+//   reach, from where it stands;
+// - robot: walks there and back along its shortest move toward the nearest
+//   of theirs, taking what it steps onto;
+// - scared: stands, and runs to a square they do not reach when they do;
+// - sentient: thinks one move ahead, as their sentient rabbits do.
+// Its suit works as it does on any piece. It stays only while another of
+// your set is there to come on; the last one keeps playing as your piece.
+
+/** Your pieces with a rabbit standing on the board by themselves. */
+export const alliesOf = (s) => s.pieces.filter((p, i) => i > 0 && p.ally && !p.taken);
+
+/** The piece on the board, if it has a rabbit and moved this turn, stays
+    there and the next of your set comes on where it started. Mutates. */
+function deploy(n, log) {
+  const p = n.pieces[0], from = n.turnFrom;
+  delete n.turnFrom;
+  if (!n.set || !p || p.taken || !p.rabbit || n.won || !from || (from[0] === p.x && from[1] === p.y)) return;
+  const live = n.set.map((_, j) => j).filter((j) => j !== n.ci && !n.set[j].lost && n.set[j].out == null);
+  if (!live.length) return;
+  const at = entrySpot(n, { x: from[0], y: from[1] });
+  if (!at) return;
+  const k = n.pieces.length, own = {};
+  for (const [key, v] of Object.entries(p)) if (!PLACE.includes(key)) own[key] = v;
+  const ally = { ...p, ally: true, fresh: true };
+  delete ally.used;
+  if (ally.rabbit === 'robot') planRoute(n, ally);
+  if (ally.rabbit === 'sentient') ally.mind = { iq: 8, trait: 'aggressive' };
+  n.pieces.push(ally);
+  n.set[n.ci] = { ...own, out: k };
+  if (!live.some((j) => setReady(n, j))) { for (const j of live) delete n.set[j].used; n.round = (n.round || 0) + 1; }
+  const L = n.set.length;
+  let j = live[0];
+  for (let d = 1; d <= L; d++) if (live.includes((n.ci + d) % L) && setReady(n, (n.ci + d) % L)) { j = (n.ci + d) % L; break; }
+  n.deployed = { k, from: n.ci, at: [at.x, at.y] };
+  log.push({ what: 'deploy', i: k });
+  n.ci = j;
+  n.pieces[0] = { ...n.set[j], x: at.x, y: at.y };
+}
+
+/** A robot rabbit's loop for your piece a: there and back along its
+    shortest move, the one most toward the nearest piece of theirs. */
+function planRoute(n, a) {
+  const live = n.foes.filter((f) => !f.taken && f.x >= 0);
+  const near = live.sort((f, g) => Math.max(Math.abs(f.x - a.x), Math.abs(f.y - a.y)) - Math.max(Math.abs(g.x - a.x), Math.abs(g.y - a.y)))[0];
+  const ms = pieceMoves(n, a, 'you').filter((m) => !m.swap && !m.push).map((m) => [m.x - a.x, m.y - a.y]);
+  if (!ms.length) { delete a.pattern; delete a.route; return; }
+  const len = (v) => Math.max(Math.abs(v[0]), Math.abs(v[1])), short = Math.min(...ms.map(len));
+  const toward = near ? [near.x - a.x, near.y - a.y] : [0, 1], d = Math.hypot(...toward) || 1;
+  const v = ms.filter((q) => len(q) === short).sort((p, q) => (q[0] * toward[0] + q[1] * toward[1]) / (Math.hypot(...q) * d) - (p[0] * toward[0] + p[1] * toward[1]) / (Math.hypot(...p) * d) || p[1] - q[1] || p[0] - q[0])[0];
+  Object.assign(a, { pattern: [v, [-v[0], -v[1]]], i: 0, route: true, mx: 1, my: 1, patternName: 'Shuttle' });
+}
+
+/** Where one of theirs could move or take next turn: where a piece of yours
+    is not safe to stand. */
+function foeDanger(s) {
+  const W = s.day.W, out = new Set();
+  for (const f of s.foes) {
+    if (f.taken || f.flying || f.stun || !canTake(s.day.rules, f) || ['scared', 'still', 'crown'].includes(f.brain)) continue;
+    if (f.route) {
+      const L = f.pattern.length, [dx, dy] = f.pattern[f.i % L];
+      out.add((f.y + dy) * W + f.x + dx);
+      if (s.day.rules.suitRabbits && f.suit === 'stars') { const [ex, ey] = f.pattern[(f.i + 1) % L]; out.add((f.y + dy + ey) * W + f.x + dx + ex); }
+      continue;
+    }
+    for (const m of pieceMoves(s, f, 'foe')) { out.add(m.y * W + m.x); for (const q of capturesOf(m, W)) out.add(q); }
+  }
+  for (const v of s.vines || []) if (v.side === 'foe') out.add(v.y * W + v.x);
+  return out;
+}
+
+/** Every piece of yours with a rabbit takes its turn. Mutates. */
+function alliesAct(s, log) {
+  const W = s.day.W, gone = () => s.foes.reduce((t, f) => t + (f.taken ? 9 : 0) - (f.lives || 1), 0);
+  for (let k = 1; k < s.pieces.length; k++) {
+    const a = s.pieces[k];
+    if (!a.ally || a.taken || s.won || lost(s)) continue;
+    delete a.struck; delete a.bounced; delete a.fled; delete a.trapped; a.from = [a.x, a.y]; a.blocked = false;
+    // It moved this turn already, so it waits; but a scared one runs.
+    if (a.fresh) { delete a.fresh; if (a.rabbit !== 'scared') continue; }
+    if (a.stun) continue;
+    const start = [a.x, a.y], was = gone();
+    if (a.rabbit === 'sentry') {
+      for (let c = 0; c < (a.suit === 'spirals' ? 16 : 1) && !s.won; c++) {
+        const m = bestTake(s, a, 'you');
+        if (!m) break;
+        const f = s.foes.find((q) => !q.taken && q.x === m.x && q.y === m.y);
+        a.struck = [m.x, m.y];
+        captureFoe(s, f, k);
+        recast(s, a, 'a' + k);
+        log.push({ what: 'ally', how: 'strike', i: k, k: s.foes.indexOf(f) });
+      }
+    } else if (a.rabbit === 'robot' && a.pattern) {
+      const steps = a.suit === 'stars' ? 2 : 1;
+      let took = false;
+      for (let c = 0; c < steps && !s.won && !a.taken; c++) {
+        const before = gone();
+        if (!allyStep(s, a, k, c > 0 && took)) break;
+        if (gone() > before) took = true;
+        for (let r = 0; a.suit === 'spirals' && gone() > before && r < 16 && !s.won && !a.taken; r++) {
+          const b2 = gone();
+          if (!allyStep(s, a, k, false) || gone() <= b2) break;
+        }
+      }
+      if (a.x !== start[0] || a.y !== start[1] || gone() > was) log.push({ what: 'ally', how: 'walk', i: k });
+    } else if (a.rabbit === 'scared') {
+      const danger = foeDanger(s);
+      if (danger.has(a.y * W + a.x)) {
+        const near = s.foes.filter((f) => !f.taken);
+        const gap = (m) => Math.min(99, ...near.map((f) => Math.max(Math.abs(f.x - m.x), Math.abs(f.y - m.y))));
+        const ways = pieceMoves(s, a, 'you').filter((m) => !m.swap && !takesAny(m) && !danger.has(m.y * W + m.x)).sort((p, q) => gap(q) - gap(p) || q.y - p.y || p.x - q.x);
+        if (ways.length) { landMine(s, k, ways[0].x, ways[0].y, ways[0]); a.fled = true; log.push({ what: 'ally', how: 'run', i: k }); }
+        else { a.trapped = true; log.push({ what: 'ally', how: 'stuck', i: k }); }
+      }
+    } else if (a.rabbit === 'sentient') {
+      a.mind = a.mind || { iq: 8, trait: 'aggressive' };
+      mindStep(s, a, k, 'you');
+      let took = gone() > was;
+      if (a.suit === 'stars' && !a.taken && !s.won) mindStep(s, a, k, 'you', false, took);
+      for (let c = 0; a.suit === 'spirals' && took && c < 16 && !a.taken && !s.won; c++) {
+        const m = bestTake(s, a, 'you');
+        if (!m) break;
+        const w = gone();
+        armsBefore(s, 'you', k, m); landMine(s, k, m.x, m.y, m); armsAfter(s, 'you', k, m);
+        took = gone() > w;
+      }
+      if (a.x !== start[0] || a.y !== start[1] || gone() > was) log.push({ what: 'ally', how: 'think', i: k });
+    }
+    if (a.suit === 'vines' && !a.taken && (a.x !== start[0] || a.y !== start[1])) addTrail(s, 'you', start[0], start[1], a.x, a.y);
+  }
+}
+
+/** One step of your robot a (index k) along its loop: onto its next square,
+    taking what is there (unless `noTake`), or waiting if it cannot. A
+    thespian, whose moves change, plans its loop again when its step is not
+    one of them. Returns whether it stepped. Mutates. */
+function allyStep(s, a, k, noTake) {
+  for (let tries = 0; tries < 2; tries++) {
+    delete a.bounced;
+    const [dx, dy] = a.pattern[a.i % a.pattern.length], tx = a.x + dx, ty = a.y + dy;
+    const m = pieceMoves(s, a, 'you').find((q) => q.x === tx && q.y === ty && !q.swap && !q.push && (!noTake || !takesAny(q)));
+    if (m) {
+      armsBefore(s, 'you', k, m); landMine(s, k, m.x, m.y, m); armsAfter(s, 'you', k, m); settleRevivals(s);
+      if (!a.bounced) a.i = (a.i + 1) % a.pattern.length;
+      return true;
+    }
+    if (a.type !== 'thespian' || tries) break;
+    planRoute(s, a);
+    if (!a.pattern) break;
+  }
+  a.blocked = true;
+  return false;
 }
 
 // --- Autochess. ------------------------------------------------------------
@@ -3236,16 +3653,16 @@ export function replay(day, moves) {
 
 export function stateKey(s) {
   let k = '';
-  for (const p of s.pieces) k += p.taken ? '--' : p.x + ',' + p.y + (p.lives > 1 ? 'L' + p.lives : '') + (p.starUsed ? '*' : '') + (p.stun ? 'z' : '') + (p.bubble ? 'o' : '') + (p.moved && p.type === 'pawn' && s.day.rules.pawnTwo ? 'm' : '') + (p.promoted ? p.type : '') + (p.shape ? '~' + p.shape : '') + (p.netted ? 'n' + p.netted : '') + (p.used ? 'u' + p.used : '') + ';';
-  if (s.bonus) k += `|b${s.bonus.p}${s.bonus.cap ? 'c' : ''}${s.bonus.why === 'gears' ? 'g' : ''}`;
+  for (const p of s.pieces) k += p.taken ? '--' : p.x + ',' + p.y + (p.lives > 1 ? 'L' + p.lives : '') + (p.starUsed ? '*' : '') + (p.stun ? 'z' : '') + (p.bubble ? 'o' : '') + (p.moved && p.type === 'pawn' && s.day.rules.pawnTwo ? 'm' : '') + (p.promoted ? p.type : '') + (p.shape ? '~' + p.shape : '') + (p.role ? '%' + p.role : '') + (p.netted ? 'n' + p.netted : '') + (p.used ? 'u' + p.used : '') + (p.ally ? 'a' + (p.i ?? '') + (p.idle ? 'i' + p.idle : '') : '') + ';';
+  if (s.bonus) k += `|b${s.bonus.p}${s.bonus.cap ? 'c' : ''}${s.bonus.noCap ? 'n' : ''}${s.bonus.why === 'gears' ? 'g' : ''}`;
   if (s.cloudy) k += '|c';
   if (s.day.rules.oneMove) k += `|f${s.ft || 0}`; // whose turn it is on their side
   // Your set (Adventure): which of it is on the board, and what each keeps.
   if (s.stones?.length) k += '|S' + s.stones.map((t) => `${t.type}${t.x},${t.y}:${t.left}`).join(';');
   if (s.vines?.length) k += '|V' + s.vines.map((v) => `${v.side[0]}${v.x},${v.y}`).sort().join(';');
-  if (s.set) k += `|k${s.ci}` + s.set.map((e, j) => j === s.ci ? '' : (e.lives > 1 ? 'L' + e.lives : '') + (e.starUsed ? '*' : '') + (e.shape ? '~' + e.shape : '') + (e.netted ? 'n' + e.netted : '') + (e.used ? 'u' + e.used : '') + (e.lost ? 'x' : '') + (e.moved && e.type === 'pawn' ? 'm' : '')).join(',');
+  if (s.set) k += `|k${s.ci}` + s.set.map((e, j) => j === s.ci ? '' : (e.lives > 1 ? 'L' + e.lives : '') + (e.starUsed ? '*' : '') + (e.shape ? '~' + e.shape : '') + (e.role ? '%' + e.role : '') + (e.netted ? 'n' + e.netted : '') + (e.used ? 'u' + e.used : '') + (e.lost ? 'x' : '') + (e.out != null ? 'o' + e.out : '') + (e.moved && e.type === 'pawn' ? 'm' : '')).join(',');
   k += '|';
-  for (const f of s.foes) k += f.taken ? '--' : f.x + ',' + f.y + ',' + f.i + (f.lives > 1 ? 'L' + f.lives : '') + (f.starUsed ? '*' : '') + (f.mx > 0 ? '+' : '-') + (f.my > 0 ? '+' : '-') + (f.idle ? 'i' + f.idle : '') + (f.stun ? 'z' : '') + (f.bubble ? 'o' : '') + (f.moved && f.type === 'pawn' && s.day.rules.pawnTwo ? 'm' : '') + (f.promoted ? f.type : '') + (f.shape ? '~' + f.shape : '') + (f.brain === 'sentry' ? 's' : '') + ';';
+  for (const f of s.foes) k += f.taken ? '--' : f.x + ',' + f.y + ',' + f.i + (f.lives > 1 ? 'L' + f.lives : '') + (f.starUsed ? '*' : '') + (f.mx > 0 ? '+' : '-') + (f.my > 0 ? '+' : '-') + (f.idle ? 'i' + f.idle : '') + (f.stun ? 'z' : '') + (f.bubble ? 'o' : '') + (f.moved && f.type === 'pawn' && s.day.rules.pawnTwo ? 'm' : '') + (f.promoted ? f.type : '') + (f.shape ? '~' + f.shape : '') + (f.role ? '%' + f.role : '') + (f.brain === 'sentry' ? 's' : '') + ';';
   if (s.flag) k += `|F${s.flag.by || ''}${s.flag.i},${s.flag.x},${s.flag.y}`;
   if (s.ep) k += `|e${s.ep.side}${s.ep.at}`;
   if (s.hole) k += `|h${s.hole.x},${s.hole.y},${s.hole.i}${s.hole.mx > 0 ? '+' : '-'}${s.hole.my > 0 ? '+' : '-'}`;

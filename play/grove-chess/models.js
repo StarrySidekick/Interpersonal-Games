@@ -416,6 +416,86 @@ const MODELS = {
   }
 };
 
+// --- Adventure's troupe (2026-10-16, Timothy: "they should look like chess
+// peices, not people"). Each is a turned piece, like the classic six, with
+// the tool of its art at its head: the thespian's masks, the scribe's quill,
+// the painter's palette and brush, the bard's lyre, the dancer's ribbon.
+// Each has its trim (a collar) and some gold, for a suit's look.
+
+/** The turned body the troupe share: a foot, a waist, a collar of trim. */
+function troupeBody(m, top = 7.2, waist = 1.15) {
+  m.lathe([[2.5, 1.5], [1.7, 2.8], [waist, 4.2], [waist * 0.95, top - 0.6], [1.75, top - 0.2], [1.75, top + 0.2], [1.0, top + 0.5]], [P.wood, P.wood, P.wood, P.moss, P.moss, P.wood]);
+  return m;
+}
+
+MODELS.thespian = () => { // two masks, the comedy and the tragedy, at its head
+  const m = troupeBody(plinth(new Model()), 7.0);
+  m.ellipsoid(0, 8.0, 0, 0.9, 0.9, 0.9, P.woodLight, { seg: 8, rings: 5 });
+  for (const [sx, sad] of [[1, false], [-1, true]]) {
+    m.group({ t: [sx * 0.75, 9.7, 0.55], ry: sx * 0.45, rz: sx * -0.22 }, () => {
+      m.ellipsoid(0, 0, 0, 1.2, 1.5, 0.45, sad ? P.woodLight : P.cream, { seg: 8, rings: 5 });
+      for (const ex of [0.42, -0.42]) m.box(ex, 0.35, 0.42, 0.42, sad ? 0.18 : 0.26, 0.1, P.eye, { rz: (sad ? -1 : 1) * ex * 0.6 });
+      // The mouth: a smile turns up at its corners, a frown down.
+      m.box(0, -0.62, 0.42, 0.7, 0.18, 0.1, P.eye);
+      for (const mx of [0.45, -0.45]) m.box(mx, sad ? -0.78 : -0.46, 0.42, 0.28, 0.18, 0.1, P.eye, { rz: (sad ? 1 : -1) * Math.sign(mx) * 0.6 });
+    });
+  }
+  m.ball(0, 11.3, -0.2, 0.42, P.gold, { seg: 6, rings: 4 });
+  return m;
+};
+
+MODELS.scribe = () => { // an inkwell for a head, and a long quill in it
+  const m = troupeBody(plinth(new Model()), 6.8, 1.05);
+  m.lathe([[1.5, 7.3], [1.65, 8.0], [1.3, 8.9], [0.75, 9.15], [0.8, 9.45]], [P.woodDark, P.woodDark, P.woodDark, P.gold]);
+  m.group({ t: [0.2, 9.3, 0], rz: -0.32 }, () => {
+    m.box(0, 1.6, 0, 0.12, 3.6, 0.12, P.cream);                           // the shaft
+    m.ellipsoid(0.32, 2.4, 0, 0.62, 1.9, 0.1, P.cream, { rot: { rz: -0.12 } }); // its vane
+    m.cone(0, -0.3, 0, 0.14, 0.5, P.gold, { seg: 4, rot: { rz: Math.PI } }); // the nib, in the ink
+  });
+  return m;
+};
+
+MODELS.painter = () => { // a palette held up like a shield of colour, and a brush
+  const m = troupeBody(plinth(new Model()), 7.0);
+  m.ball(0, 8.0, 0, 0.85, P.woodLight, { seg: 8, rings: 5 });
+  m.group({ t: [0, 9.0, 0.3], rx: 0.55 }, () => {                         // tipped toward you
+    m.lathe([[2.1, -0.14], [2.1, 0.14]], P.cream, { seg: 12 });
+    for (const [x, z, col] of [[1.2, 0.8, '#d9473a'], [0.1, 1.4, '#3f7fd0'], [-1.1, 0.9, '#e8c547'], [-1.35, -0.3, '#4caf50'], [1.1, -0.7, P.gold]]) m.ball(x, 0.2, z, 0.46, col, { seg: 6, rings: 3 });
+    m.ball(0.3, 0.1, -1.2, 0.38, P.woodDark, { seg: 5, rings: 3 });      // the thumb hole
+  });
+  m.group({ t: [-0.9, 9.6, -0.2], rz: 0.5 }, () => {
+    m.box(0, 1.4, 0, 0.16, 3.0, 0.16, P.woodDark);                         // the brush
+    m.box(0, 3.0, 0, 0.22, 0.32, 0.22, P.gold);
+    m.cone(0, 3.15, 0, 0.2, 0.8, '#d9473a', { seg: 5 });
+  });
+  return m;
+};
+
+MODELS.bard = () => { // a lyre: two horns, a bar and strings
+  const m = troupeBody(plinth(new Model()), 6.8);
+  m.ball(0, 7.7, 0, 0.75, P.woodLight, { seg: 8, rings: 5 });
+  for (const sx of [1, -1]) {
+    m.group({ t: [sx * 0.6, 8.2, 0.2], rz: -sx * 0.36 }, () => m.ellipsoid(0, 1.65, 0, 0.42, 1.9, 0.42, P.gold));
+    m.ball(sx * 1.55, 11.55, 0.2, 0.42, P.gold, { seg: 5, rings: 3 });
+  }
+  m.box(0, 11.3, 0.2, 3.0, 0.34, 0.34, P.woodDark);                       // the bar
+  for (const x of [-0.55, -0.18, 0.18, 0.55]) m.box(x, 9.8, 0.32, 0.08, 2.9, 0.08, P.cream); // strings
+  return m;
+};
+
+MODELS.dancer = () => { // slender, in a flared skirt, with a ribbon twirling over its head
+  const m = plinth(new Model());
+  m.lathe([[2.3, 1.5], [1.2, 2.6], [0.7, 4.2], [0.7, 5.0]], [P.wood, P.wood, P.wood]);
+  m.lathe([[0.7, 5.0], [2.3, 5.3], [2.1, 5.9], [0.75, 6.2]], [P.moss, P.moss, P.wood], { seg: 12 }); // the skirt, the trim
+  m.lathe([[0.75, 6.2], [0.55, 8.2], [1.0, 8.6], [0.4, 9.2]], [P.wood, P.wood, P.wood]);
+  m.ball(0, 9.6, 0, 0.7, P.woodLight, { seg: 8, rings: 5 });
+  for (let i = 0; i < 22; i++) {                                             // the ribbon, a spiral
+    const a = i * 0.42, r = 1.55 - i * 0.035;
+    m.box(Math.cos(a) * r, 8.9 + i * 0.13, Math.sin(a) * r, 0.62, 0.3, 0.12, P.gold, { ry: -a - Math.PI / 2 });
+  }
+  return m;
+};
+
 /** A shogi piece: a five-sided wooden wedge that leans back, its point
     toward the enemy. `mark` paints its face. */
 function shogi(mark) {
@@ -550,6 +630,22 @@ MODELS.wNet = () => {
   });
   return m;
 };
+// The shield (Adventure, 2026-10-16): a kite shield on its point, steel
+// with a gold boss, for pushing.
+MODELS.wShield = () => {
+  const m = new Model(), steel = '#c9d2dc', rim = '#7d8896';
+  m.group({ t: [0, 4.6, 0], rx: -0.1 }, () => {
+    m.box(0, 0.6, 0, 3.0, 3.4, 0.4, rim);                                     // the rim
+    m.box(0, 0.65, 0.08, 2.6, 3.0, 0.4, steel);                               // the face
+    m.box(0, -1.25, 0, 2.12, 2.12, 0.38, rim, { rz: Math.PI / 4 });           // its point
+    m.box(0, -1.2, 0.08, 1.82, 1.82, 0.4, steel, { rz: Math.PI / 4 });
+    m.ball(0, 0.5, 0.35, 0.5, '#e3b84a', { seg: 6, rings: 4 });               // the boss
+  });
+  m.box(0, 1.2, -0.3, 0.3, 2.4, 0.3, '#6b4628');                              // the strap's post
+  return m;
+};
+// A heart not yet spent (Adventure's Hearts, 2026-10-16), over a piece.
+MODELS.heartPip = () => { const m = new Model(); heart3d(m, [0, 0.6, 0], 0.7, '#ff5a74'); return m; };
 MODELS.wPip = () => { const m = new Model(); m.box(0, 0.5, 0, 0.75, 0.75, 0.75, '#ffd75a', { rz: Math.PI / 4 }); return m; };
 // Stunned (a mace, 2026-10-13): little stars in a ring over its head.
 MODELS.stunStars = () => {
@@ -735,8 +831,8 @@ const SUIT_BODY = {
   plain: { wood: GREY.wood, woodLight: GREY.woodLight, woodDark: GREY.woodDark, moss: GREY.moss, leaf: GREY.leaf },
   vines: { wood: P.wood, woodLight: P.woodLight, woodDark: P.woodDark, moss: P.moss, leaf: P.leaf },
   hearts: { wood: '#b52a43', woodLight: '#dc5a70', woodDark: '#6e1626', moss: '#f7c9d1', leaf: '#ffe3e8' },
-  // Blue steel, so it is never taken for one of their grey statues.
-  gears: { wood: '#6f7d92', woodLight: '#9fadc1', woodDark: '#3a4352', moss: '#cfd8e4', leaf: '#eef2f7' },
+  // Copper since 2026-10-16 (Timothy: "gears - copper"); blue steel before.
+  gears: { wood: '#b0643a', woodLight: '#d48b5c', woodDark: '#6a3519', moss: '#f0c9a8', leaf: '#f8e3d2' },
   // Purple since 2026-10-15 (Timothy: "spiral should be purple, since
   // there's just one piece at any given time we don't need the purple
   // pieces are the bad ones distinction"). Theirs are by suit now too.
@@ -871,7 +967,7 @@ const LOOK_BUILD = {
     return m;
   },
   gears: (m) => {
-    const c = collarOf(m), brass = '#c9a24a';
+    const c = collarOf(m), brass = '#e0b24e';
     finish(m, brass, brass);
     for (let k = 0; k < 12; k++) {
       const a = (k / 12) * Math.PI * 2;
@@ -921,7 +1017,7 @@ const THEIR_LOOK = {
 
 /** The look for a piece of yours with this suit (or none): for
     model(kind, look). */
-export const suitLook = (suit) => (suit === 'stone' ? 'sandstone' : SUIT_LOOK[suit] ? suit : 'plain');
+export const suitLook = (suit) => (SUIT_LOOK[suit] && !['sandstone', 'cairn'].includes(suit) ? suit : 'plain');
 
 function withPalette(over, build) {
   const saved = { ...P };
@@ -968,41 +1064,57 @@ export function setCatLook(o = {}) {
   for (const k of [...cache.keys()]) if (k.startsWith('cat:')) cache.delete(k);
 }
 
+// Since later that day (Timothy: "the cat should look more regal, stand
+// upright, and have armor on"): it stands on its hind legs in a steel
+// breastplate, shoulder plates and greaves, a cape down its back and a
+// coronet between its ears. The gorget at its throat is the trim, where a
+// suit's motif sits; the coronet and the cape's hem are the gold.
 function catShape() {
-  const m = plinth(new Model()), c = CAT, eyes = '#e8c547';
-  const sock = c.coat === 'socks' ? P.leaf : P.woodLight;
-  m.ellipsoid(0, 3.4, -0.7, 2.2, 1.9, 2.1, P.wood);                       // haunches
-  m.ellipsoid(0, 5.0, 0.4, 1.6, 2.2, 1.45, P.wood);                       // body
-  m.ellipsoid(0, 5.1, 1.3, 0.95, 1.5, 0.55, P.woodLight);                 // bib
+  const m = plinth(new Model()), c = CAT, eyes = '#e8c547', steel = '#a3acb6', dark = '#626a74';
+  const paw = c.coat === 'socks' ? P.leaf : P.woodLight;
   for (const sx of [1, -1]) {
-    m.ellipsoid(sx * 0.75, 3.0, 1.3, 0.45, 1.45, 0.5, P.wood);            // front legs
-    m.ellipsoid(sx * 0.75, 1.8, 1.65, 0.55, 0.35, 0.7, sock);             // paws
+    m.ellipsoid(sx * 0.78, 3.15, -0.1, 0.62, 1.45, 0.72, P.wood);              // legs
+    m.ellipsoid(sx * 0.8, 2.75, 0.32, 0.6, 0.62, 0.5, steel);                   // greaves
+    m.ellipsoid(sx * 0.82, 1.78, 0.5, 0.6, 0.3, 0.95, paw);                     // feet
   }
-  m.lathe([[1.32, 6.55], [1.32, 6.95]], P.moss, { seg: 10 });            // the collar
-  m.ball(0, 6.35, 1.35, 0.36, P.gold, { seg: 6, rings: 4 });              // its bell
-  m.ellipsoid(0, 8.05, 0.7, 1.7, 1.45, 1.5, P.wood);                      // head
-  m.ellipsoid(0, 7.55, 1.95, 0.8, 0.55, 0.5, P.woodLight);                // muzzle
-  m.ball(0, 7.85, 2.42, 0.18, P.pink, { seg: 6, rings: 4 });              // nose
+  m.lathe([[1.55, 3.9], [1.7, 4.55]], steel, { seg: 10 });                     // the tassets, a skirt of steel
+  m.lathe([[1.42, 4.55], [1.42, 4.85]], dark, { seg: 10 });                    // the belt
+  m.ball(0, 4.7, 1.45, 0.24, P.gold, { seg: 5, rings: 3 });                     // its buckle
+  m.ellipsoid(0, 6.0, -0.1, 1.45, 1.75, 1.15, P.wood);                          // body, upright
+  m.ellipsoid(0, 6.15, 0.18, 1.55, 1.6, 1.12, steel);                           // the breastplate
+  m.box(0, 6.2, 1.28, 0.12, 2.0, 0.12, dark);                                   // its ridge
   for (const sx of [1, -1]) {
-    m.ball(sx * 0.62, 8.35, 1.92, 0.28, eyes, { seg: 6, rings: 4 });      // eyes
-    m.ball(sx * 0.62, 8.35, 2.16, 0.13, P.eye, { seg: 5, rings: 3 });
-    if (c.ears === 'folded') m.ellipsoid(sx * 0.85, 9.25, 0.95, 0.62, 0.32, 0.52, P.wood, { rot: { rx: 0.55, rz: -sx * 0.3 } });
+    m.ellipsoid(sx * 1.62, 7.25, -0.05, 0.78, 0.5, 0.82, steel);               // shoulder plates
+    m.ellipsoid(sx * 1.66, 5.9, 0.1, 0.4, 1.25, 0.44, P.wood);                 // arms at its sides
+    m.ball(sx * 1.7, 4.65, 0.25, 0.38, paw, { seg: 6, rings: 4 });             // and paws
+  }
+  m.box(0, 5.0, -1.25, 2.9, 4.9, 0.22, P.woodDark, { rx: 0.1 });              // the cape
+  m.box(0, 2.62, -1.48, 2.95, 0.3, 0.26, P.gold, { rx: 0.1 });                 // its hem
+  m.lathe([[1.08, 7.55], [1.0, 8.0]], P.moss, { seg: 10 });                    // the gorget
+  m.ellipsoid(0, 9.15, 0.4, 1.6, 1.4, 1.45, P.wood);                            // head
+  m.ellipsoid(0, 8.68, 1.62, 0.78, 0.52, 0.5, P.woodLight);                     // muzzle
+  m.ball(0, 8.98, 2.08, 0.17, P.pink, { seg: 6, rings: 4 });                    // nose
+  for (const sx of [1, -1]) {
+    m.ball(sx * 0.6, 9.45, 1.6, 0.27, eyes, { seg: 6, rings: 4 });             // eyes
+    m.ball(sx * 0.6, 9.45, 1.84, 0.12, P.eye, { seg: 5, rings: 3 });
+    if (c.ears === 'folded') m.ellipsoid(sx * 0.85, 10.35, 0.65, 0.6, 0.3, 0.5, P.wood, { rot: { rx: 0.55, rz: -sx * 0.3 } });
     else {
-      const tall = c.ears === 'tufted' ? 1.9 : 1.35;
-      m.cone(sx * 0.95, 9.05, 0.55, 0.6, tall, P.wood, { seg: 4, rot: { rz: -sx * 0.22 } });
-      m.cone(sx * 0.93, 9.1, 0.78, 0.36, tall * 0.7, P.pink, { seg: 4, rot: { rz: -sx * 0.22 } });
-      if (c.ears === 'tufted') m.cone(sx * (0.95 + 0.42), 9.05 + tall - 0.1, 0.55, 0.14, 0.75, P.woodDark, { seg: 3, rot: { rz: -sx * 0.22 } });
+      const tall = c.ears === 'tufted' ? 1.8 : 1.3;
+      m.cone(sx * 0.98, 10.1, 0.25, 0.58, tall, P.wood, { seg: 4, rot: { rz: -sx * 0.24 } });
+      m.cone(sx * 0.96, 10.15, 0.46, 0.34, tall * 0.7, P.pink, { seg: 4, rot: { rz: -sx * 0.24 } });
+      if (c.ears === 'tufted') m.cone(sx * (0.98 + 0.42), 10.1 + tall - 0.1, 0.25, 0.13, 0.7, P.woodDark, { seg: 3, rot: { rz: -sx * 0.24 } });
     }
-    if (c.whiskers === 'yes') for (const k of [-0.13, 0.13]) m.box(sx * 1.3, 7.6 + k, 2.15, 1.35, 0.06, 0.06, P.leaf, { ry: sx * 0.18, rz: -sx * k * 0.8 });
+    if (c.whiskers === 'yes') for (const k of [-0.13, 0.13]) m.box(sx * 1.25, 8.72 + k, 1.85, 1.3, 0.06, 0.06, P.leaf, { ry: sx * 0.18, rz: -sx * k * 0.8 });
   }
-  if (c.coat === 'tabby') {
-    for (const k of [-0.35, 0, 0.35]) m.box(k, 9.0, 1.15, 0.13, 0.55, 0.13, P.woodDark, { rx: -0.45 });   // forehead stripes
-  }
-  // The tail, a chain of beads (ringed dark on a tabby).
+  // The coronet: a gold band with three points, between its ears.
+  m.lathe([[0.72, 10.42], [0.72, 10.72]], P.gold, { seg: 8 });
+  for (const a of [Math.PI / 2, Math.PI / 2 + 2.1, Math.PI / 2 - 2.1]) m.cone(Math.cos(a) * 0.62, 10.72, Math.sin(a) * 0.62, 0.2, 0.55, P.gold, { seg: 4 });
+  if (c.coat === 'tabby') for (const k of [-0.32, 0, 0.32]) m.box(k, 9.95, 1.55, 0.12, 0.5, 0.12, P.woodDark, { rx: -0.5 }); // forehead stripes
+  // The tail, a chain of beads from under the cape (ringed dark on a tabby).
   const bead = (pts, r) => { let n = 0; for (let i = 0; i < pts.length - 1; i++) for (let k = 0; k < 3; k++) { const t = k / 3, a = pts[i], b = pts[i + 1]; m.ball(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t, r, c.coat === 'tabby' && n++ % 3 === 2 ? P.woodDark : P.wood, { seg: 6, rings: 4 }); } };
-  if (c.tail === 'long') bead([[0, 2.4, -2.5], [0.7, 3.4, -3.1], [1.1, 4.8, -3.0], [1.2, 6.1, -2.5], [0.9, 6.9, -2.0]], 0.4);
-  else if (c.tail === 'curled') bead(Array.from({ length: 7 }, (_, i) => { const a = -Math.PI / 2 - i * 0.42; return [Math.cos(a) * 2.6, 1.9, -Math.sin(a) * 2.6 - 0.2]; }), 0.38);
-  else m.ellipsoid(1.15, 4.4, -2.6, 0.95, 2.3, 0.95, P.wood, { rot: { rz: -0.3 } });
+  if (c.tail === 'long') bead([[0.4, 2.3, -1.6], [1.1, 2.6, -2.4], [1.7, 3.6, -2.7], [1.9, 4.9, -2.5], [1.7, 5.9, -2.1]], 0.36);
+  else if (c.tail === 'curled') bead(Array.from({ length: 7 }, (_, i) => { const a = -Math.PI / 2 - i * 0.42; return [Math.cos(a) * 2.5, 1.9, -Math.sin(a) * 2.5 - 0.3]; }), 0.36);
+  else m.ellipsoid(1.4, 3.6, -2.4, 0.9, 2.1, 0.9, P.wood, { rot: { rz: -0.35 } });
   return m;
 }
 MODELS.cat = () => catShape();
@@ -1021,6 +1133,9 @@ export function model(kind, side = 'you', fur = null, glow = null) {
     return cache.get(key);
   }
   const key = `${kind}:${side}:${glow || ''}`;
+  // A glow of two colours, 'band/base' (a piece of yours with a rabbit,
+  // 2026-10-16): the rabbit's on the band, your white underneath.
+  const plinthFor = (g) => (!g ? {} : g.includes('/') ? { band: g.split('/')[0], base: g.split('/')[1] } : { band: g, base: shade(g, 0.62) });
   if (side === 'stone') { if (!cache.has(key)) cache.set(key, statue(kind)); return cache.get(key); }
   // Their sentries and leader (Adventure's tactics).
   if (THEIR_LOOK[side]) {
@@ -1031,14 +1146,14 @@ export function model(kind, side = 'you', fur = null, glow = null) {
   if (SUIT_LOOK[side]) {
     if (!cache.has(key)) {
       const build = MODELS[kind] || MODELS[LOOKS.get(kind)] || MODELS.pawn;
-      cache.set(key, SUIT_LOOK[side](build, glow ? { band: glow, base: shade(glow, 0.62) } : {}));
+      cache.set(key, SUIT_LOOK[side](build, plinthFor(glow)));
     }
     return cache.get(key);
   }
   if (!cache.has(key)) {
     // The rabbit inside colours the whole plinth: its fur on the band, a
     // darker shade of it underneath.
-    const plinthOf = glow ? { band: glow, base: shade(glow, 0.62) } : {};
+    const plinthOf = plinthFor(glow);
     const build = MODELS[kind] || MODELS[LOOKS.get(kind)] || MODELS.pawn;
     cache.set(key, withPalette({ ...(side === 'foe' ? FOE : side === 'grey' ? GREY : YOU), ...plinthOf }, build));
   }

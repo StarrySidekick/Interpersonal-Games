@@ -16,7 +16,7 @@
 // of its own version, so it still builds exactly the level it was.
 
 import { rng, shuffled } from '../../engine/seed.js';
-import { PIECES, onBoard, initialState, autoApply, isOver, TRAITS, leaderMind, WEAPON_KINDS, canArm, foeMovesAny, routeSquares, movesFor } from './rules.js';
+import { PIECES, onBoard, initialState, autoApply, isOver, TRAITS, leaderMind, WEAPON_KINDS, canArm, foeMovesAny, routeSquares, movesFor, RABBIT_TYPES } from './rules.js';
 import { PATTERNS } from './day.js';
 import { EXTRA_PATTERNS } from './rabbits.js';
 
@@ -138,7 +138,9 @@ export const SCHEMA = [
     { key: 'sentries', sub: 'theirs', label: 'Of the statues, sentry rabbits', type: 'int', min: 0, max: 6, def: 0,
       help: 'With tactics: pieces with a sentry rabbit inside (red). A sentry never walks, but if anything of yours stands in its reach (shaded red) it leaps to take it.' },
     { key: 'scared', sub: 'theirs', label: 'Of the statues, scared rabbits', type: 'int', min: 0, max: 6, def: 0,
-      help: 'With tactics: pieces with a scared rabbit inside (white), which run when you attack them, only one a turn.' },
+      help: 'With tactics: pieces with a scared rabbit inside, which run when you attack them, only one a turn.' },
+    { key: 'sentient', sub: 'theirs', label: 'Of the statues, sentient rabbits', type: 'int', min: 0, max: 4, def: 0,
+      help: 'With tactics (Adventure, 2026-10-16, Timothy: "actual piece behavior like a game of chess against a simple ai"): pieces with a sentient rabbit inside, which think one move ahead and move every turn: they take what they can and keep out of your reach.' },
     { key: 'crown', sub: 'theirs', label: 'A crowned leader', type: 'bool', def: false,
       help: 'With tactics: one of the statues is their leader, a crowned King. Attack it and they must answer; checkmate it and the board is yours.' },
     { key: 'rabbits', sub: 'theirs', label: 'Free rabbits', type: 'int', min: 0, max: 4, def: 0,
@@ -186,11 +188,13 @@ export const SCHEMA = [
     { key: 'routeKinds', sub: 'rabbits', label: 'Routes', type: 'multi', def: ['Shuttle', 'Doze', 'Box step', 'Pace'],
       options: [{ v: 'Shuttle', label: 'Shuttle: there and back' }, { v: 'Doze', label: 'Doze: rest, there, rest, back' }, { v: 'Box step', label: 'Box step: round a square' }, { v: 'Pace', label: 'Pace: two there, rest, two back, rest' }],
       help: 'For short routes: which kinds can turn up.' },
-    { key: 'suitRabbits', sub: 'rabbits', label: 'Rabbits are suits', type: 'bool', def: false,
-      help: 'Adventure (Timothy, 2026-10-16: "rabbit are suits, suits are rabbits ... rabbits do different things depending on whether it is on an enemy piece or a friendly one"). Yours: Gears moves as any piece of your set, Hearts a life more, Stone leaves a sentry for two turns, Vines a trail that catches, Spirals takes again, Stars moves twice. Theirs: Gears walks a loop, Hearts is scared (runs when attacked), Stone is a sentry, Vines walks and leaves a trail, Spirals walks and takes again, Stars walks two steps a turn.' },
-    { key: 'rabbitKinds', sub: 'rabbits', label: 'Their rabbits', type: 'multi', def: ['gears'],
-      options: [{ v: 'gears', label: 'Gears: walks a loop' }, { v: 'vines', label: 'Vines: walks, leaves a trail' }, { v: 'stars', label: 'Stars: walks two steps' }, { v: 'spirals', label: 'Spirals: walks, takes again' }],
-      help: 'With rabbits as suits: which rabbits the walking pieces of theirs can have (their sentries are stone rabbits, their scared ones hearts rabbits).' },
+    { key: 'suitRabbits', sub: 'rabbits', label: 'Adventure\u2019s rabbits and suits', type: 'bool', def: false,
+      help: 'Adventure (Timothy, 2026-10-16: "rabbit defines move behavior. rabbits have a type and a suit now ... suit defines other perks ... they also apply about the same for player and enemy pieces now"). A rabbit is robot, sentry, scared or sentient; a suit works the same on either side: Hearts two lives (hit, it stays and the taker goes back), Vines a trail that catches, Stars two moves taking at most once, Spirals takes again as long as it can, Gears trades squares with another piece. A piece of yours with a rabbit stays where it moves and acts by itself. The mace stuns round where it lands and pushes nothing; the shield pushes.' },
+    { key: 'rabbitKinds', sub: 'rabbits', label: 'Suits on their rabbits', type: 'multi', def: ['vines'],
+      options: [{ v: 'hearts', label: 'Hearts: two lives' }, { v: 'vines', label: 'Vines: leaves a trail' }, { v: 'stars', label: 'Stars: two moves' }, { v: 'spirals', label: 'Spirals: takes again' }, { v: 'gears', label: 'Gears: trades squares' }],
+      help: 'With Adventure\u2019s rabbits: which suits the rabbits in their pieces can have, as often as the next setting says.' },
+    { key: 'suitChance', sub: 'rabbits', label: 'Of their rabbits, with a suit', type: 'int', min: 0, max: 100, def: 0, unit: 'percent',
+      help: 'With Adventure\u2019s rabbits: how likely each rabbit of theirs is to carry a suit. Without one its piece is grey.' },
     { key: 'hops', sub: 'rabbits', label: 'Rabbit hops per turn', type: 'int', min: 1, max: 3, def: 1 },
     { key: 'realtime', sub: 'live', label: 'Kung fu: no turns', type: 'bool', def: false,
       help: 'Real time, after Kung-Fu Chess (2002): move any piece of yours whenever it is ready, and so do they. A move takes time to travel, so a piece can dodge, and a piece that has moved rests before it moves again. Take their King.' },
@@ -346,7 +350,8 @@ const OLD_SUITS = { swords: 'vines', spirals: 'gears', diamonds: null, spirits: 
 export function pieceMod(m, v = SETTINGS_VERSION) {
   const suit = v < 19 && m?.suit in OLD_SUITS ? OLD_SUITS[m.suit] : m?.suit;
   return { ...(m?.lives > 1 ? { lives: Math.min(9, m.lives | 0) } : {}), ...(SUITS[suit] ? { suit } : {}),
-    ...(WEAPON_KINDS.includes(m?.weapon) ? { weapon: m.weapon, wl: Math.max(1, Math.min(3, m.wl | 0 || 1)) } : {}), ...(m?.row === 1 ? { row: 1 } : {}) };
+    ...(WEAPON_KINDS.includes(m?.weapon) ? { weapon: m.weapon, wl: Math.max(1, Math.min(3, m.wl | 0 || 1)) } : {}), ...(m?.row === 1 ? { row: 1 } : {}),
+    ...(RABBIT_TYPES.includes(m?.rabbit) ? { rabbit: m.rabbit } : {}) };
 }
 
 export function clean(raw) {
@@ -958,7 +963,8 @@ function dealRoutes(day, S, rand) {
   let want = Math.max(0, army.length - S.still);
   for (const k of shuffled(army, rand)) {
     const f = day.foes[k];
-    const route = want > 0 ? findRoute(s, k, used, routeKinds(S), rand, reach) : null;
+    // A thespian's moves change every time it moves, so it walks no loop.
+    const route = want > 0 && f.type !== 'thespian' ? findRoute(s, k, used, routeKinds(S), rand, reach) : null;
     if (route) {
       Object.assign(f, { brain: 'possessed', pattern: route.steps, patternName: route.name, route: true, mx: 1, my: 1 });
       for (const q of route.squares) used.add(q);
@@ -1003,23 +1009,28 @@ function dealRoutes(day, S, rand) {
     }
     for (let n = 0; n < S.sentries && still.length; n++) Object.assign(day.foes[still.shift()], { brain: 'sentry', patternName: 'Sentry' });
     for (let n = 0; n < S.scared && still.length; n++) Object.assign(day.foes[still.shift()], { brain: 'scared', patternName: 'Scared' });
+    for (let n = 0; n < (S.sentient || 0) && still.length; n++) Object.assign(day.foes[still.shift()], { brain: 'sentient', patternName: 'Sentient', mind: { iq: 6, trait: 'hunter' } });
   }
-  // Rabbits are suits (Adventure, 2026-10-16): each walker's rabbit is one
-  // of the kinds the depth allows (a gears rabbit is the old robot), and a
-  // sentry is a stone rabbit, and a scared one a hearts rabbit (2026-10-16).
+  // Rabbits were suits for part of 2026-10-16 (a walker's suit was its
+  // rabbit, a sentry was stone and a scared one hearts).
+  // Since later that day (Timothy: "rabbits have a type and a suit now. the
+  // lore is that rabbits are eating playing cards and that's why they have a
+  // suit"): a rabbit's kind is its brain, and some rabbits carry a suit as
+  // well, one the depth allows; a statue has neither.
   if (S.suitRabbits) {
-    const kinds = (S.rabbitKinds?.length ? S.rabbitKinds : ['gears']).filter((k) => k !== 'stone' && k !== 'hearts');
+    const kinds = (S.rabbitKinds || []).filter((k) => SUITS[k] && !SUITS[k].gone);
     for (const f of day.foes) {
-      if (f.brain === 'sentry') f.suit = 'stone';
-      else if (f.brain === 'scared') f.suit = 'hearts';
-      else if (f.brain === 'possessed') f.suit = kinds[Math.floor(rand() * kinds.length)];
+      delete f.suit; delete f.lives;
+      if (!['possessed', 'sentry', 'scared', 'sentient'].includes(f.brain) || !kinds.length || rand() * 100 >= (S.suitChance || 0)) continue;
+      f.suit = kinds[Math.floor(rand() * kinds.length)];
+      if (f.suit === 'hearts') f.lives = 2;
     }
   }
   // Somewhere your set can get to (a lone bishop keeps to its colour): every
   // statue, and the hole, moved there if it is not. (Routes already touch it.)
   const free = shuffled([...reach].filter((q) => !used.has(q)), rand);
   const move = (o) => { const q = free.pop(); if (q === undefined) return; used.delete(o.y * W + o.x); o.x = q % W; o.y = Math.floor(q / W); used.add(q); };
-  for (const f of day.foes) if (['still', 'sentry', 'scared', 'crown'].includes(f.brain) && !reach.has(f.y * W + f.x)) move(f);
+  for (const f of day.foes) if (['still', 'sentry', 'scared', 'sentient', 'crown'].includes(f.brain) && !reach.has(f.y * W + f.x)) move(f);
   if (day.hole && !reach.has(day.hole.y * W + day.hole.x)) move(day.hole);
 }
 

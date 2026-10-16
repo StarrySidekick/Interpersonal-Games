@@ -43,6 +43,12 @@ You start with your cat, always (Timothy, 2026-10-16; a rook before
 that). Take every piece of theirs in as few moves as you can; then a hole
 opens and your piece jumps in.
 
+(Since later on 2026-10-16 the troupe, rabbits with a kind and a suit,
+suits that work the same on either side, the shield, your pieces with
+rabbits and the item card are in "Pieces, rabbits and suits", below; where
+a bullet here says otherwise about a suit, a rabbit or a weapon, that
+section is newer and wins.)
+
 - **The cat** (Timothy, 2026-10-16: "the player has a special new piece
   call the cat, and it has the move set of the king. it can be given suits
   and weapons like other pieces, and it is always rolled as one of your
@@ -192,10 +198,11 @@ opens and your piece jumps in.
 - **No pawns** (Timothy, 2026-10-15: "pawns kind of can't be a thing in
   this mode due to them moving in one direction"): none among theirs, so
   no pawn rabbits and never a pawn in your set.
-- **Rabbits.** Every piece of theirs you take leaves its rabbit with you,
-  statues included. Three rabbits of a kind become that piece, which joins
-  your set after the board. The row under the board counts them (Knight:
-  2/3); the turn's caption says so when you take one.
+- **Three of a kind.** Every piece of theirs you take counts toward its
+  kind, statues included. Three of a kind become that piece, which joins
+  your set after the board, up to sixteen pieces in all. The row under the
+  board counts them (Knight: 2/3); the turn's caption says so when you take
+  one. (These were called rabbits until 2026-10-16.)
 - **More than three.** Past three pieces (five until 2026-10-15), each
   board draws three of them at random (in the order you got them) as your
   set, and the rest rest; the row shows how many are resting.
@@ -283,74 +290,159 @@ opens and your piece jumps in.
   two taps (the first says what the second will do), so nobody has to play
   out forty moves to find out.
 
-## Rabbits are suits
+## Pieces, rabbits and suits, 2026-10-16 (later)
 
-Timothy, 2026-10-16: "rabbit are suits, suits are rabbits. the trick is:
-rabbits do different things depending on whether or not it's on an enemy
-piece or a friendly one ... we'll have to see if vine and gear are too
-similar." Each of the six suits is a rabbit. In a piece of yours it is the
-suit you chose from a card; in a piece of theirs it is the rabbit inside,
-and it says which by its colour, on the piece (its suit's look) and on the
-plinth. Yours stands on a white plinth, so a suit's colour never makes
-yours look like theirs.
+Timothy's list, in his words where they set a rule, and what was built.
+This replaces "Rabbits are suits", which lasted most of the day: a rabbit
+was a suit, a different power in your piece and in theirs. Now a piece
+can have four things, each doing one job: **"a piece can have type, a
+rabbit, a suit, and a weapon/tool"**. The type is its move shape; the
+rabbit how it moves by itself; the suit a perk; the weapon how it takes.
 
-| Rabbit | In yours | In theirs |
-|---|---|---|
-| Gears ⚙ | **changes gear**: moves as any other piece of your set as well as its own way (my call: Timothy asked for "something new and good") | walks its loop (the old robot rabbit) |
-| Hearts ♥ | a life more | **scared** (since 2026-10-16, Timothy: "we need scared rabbit behavior back, maybe as heart rabbits"): it stands, and when you attack it, it runs to a square you do not attack, one a turn, so fork it or pin it |
-| Stone ◆ | leaves a stone sentry where it moved from, for two turns | a sentry: stands, and strikes anything of yours in its red reach without moving (it lunges and comes back; since 2026-10-16, Timothy: "sentry rabbit shouldn't move") |
-| Vines ❦ | leaves a vine on the square it left and every square it passed; one of theirs that lands on a vine on their next turn is caught; yours wither after their turn | walks its loop and leaves vines the same way; land on one on your next move and you are caught; theirs wither after your move |
-| Spirals @ | chain captures: after it takes, it may take again | walks its loop; when its step takes something (a stone of yours) it steps on again, twice more at most |
-| Stars ★ | moves twice every turn it goes | walks its loop two steps a turn |
+**Fixes first.**
+- *Switching pieces* ("kind of slow, not sure if that's intended or it's
+  lag"): both. The spin was 260 ms and the board waited for it before
+  lighting the new piece's moves; with a phone's speed (measured at four
+  times slower) frames came 30 to 80 ms apart. Now the spin is 170 ms, the
+  new piece's moves light at once, and you can play one while it spins
+  (`choose` and `readyUp` in `play/main.js` no longer wait).
+- *Sixteen at most* ("a max deck of pieces is 16, as an homage to regular
+  chess"): `ADVENTURE_MAX` and `roomFor` in `run.js`. Three of a kind, the
+  net and the gifts add nothing past sixteen, and the page says so.
+- *The cat* ("more regal, stand upright, and have armor on"): it stands on
+  its hind legs in a steel breastplate, shoulder plates, greaves and a belt
+  of tassets, with a cape and a gold coronet between its ears. The gorget
+  at its throat is the trim where a suit's motif sits. Ears, tail, face and
+  coat are chosen as before (`catShape` in `models.js`).
+- *Hearts* ("heart pieces stay where they are after being hit, and the
+  piece that move to capture it then moves back to its original spot"):
+  see the suits, below.
+- *No other fairy pieces* ("for now, no fairy peices outside of our
+  companion and other owns i define from here, for testing purposes"):
+  theirs are the classic pieces and the troupe (below) only, the troupe
+  from depth 4 and the queen from 8 (`foePool` in `modes.js`).
+- *A robot's next square* ("should be the color of the line that shows its
+  path, not red"): framed in its loop's colour, with a dark edge, not
+  ringed red (`reachMaps` puts it in `steps`, not `theirs`;
+  `Board3D.route` frames it).
 
-**What I decided where the ask was open:**
-- Their vines, spirals and stars rabbits **walk a loop** like gears; the
-  suit adds its power on top. (Hearts walked with a life more until the
-  same day, when it became the scared rabbit; I dropped the life more
-  rather than add it on top, since a piece that runs is already hard to
-  catch.) That is the only way vines and
-  stars can work for them, and it is what makes "vine and gear too
-  similar" a fair worry: a vines walker is a gears walker that leaves a
-  trail. Stone is the one that stands.
-- **Gears in yours** changes gear (a pun on gears and on your set). It
-  fills a gap the other five leave: none of them change where a piece can
-  go. It also answers the dead ends: a rook of Gears can take a sentry rook
-  the bishop's way.
-- **Stars in yours** moves twice every turn it goes, not once a board,
-  so it mirrors theirs; the set's rounds keep it to one turn in three.
-- **Spirals** no longer wraps round the sides in Adventure (that is its
-  power in the other modes); its chain capture was Vines' before.
-- **Scared rabbits** came back as hearts rabbits the same day.
-- Vines go on open ground only, never under a piece, a statue or the
-  hole; a leap's trail goes along its long side, then its short side, as
-  the loops are drawn. A vine catches what lands on it, not what passes
-  over it.
+**The troupe** ("fairy peices available currently in adventure, all of them
+basically new ... they should look like chess peices, not people"). Kind
+`troupe`, so no other mode deals them. Each is a turned piece with the tool
+of its art at its head.
 
-**When each arrives** (`modes.js`): gears from depth 1, stone (sentries)
-from 2, hearts (scared, one, two from depth 8) from 3, vines from 4, stars
-from 6, spirals from 8: one at a time, so each can be met alone before
-they mix.
+| Piece | His words | As built | Betza | Head |
+|---|---|---|---|---|
+| Thespian | "gets a random moveset from another peice every time" | moves as another piece (`role`), and takes a new part at random every time it moves | K (before a part) | the comedy and tragedy masks |
+| Scribe | "one space any straight, then one space any diagonal" | a knight's L that a piece on its first square blocks; turning back on the diagonal is one square straight | nNW | an inkwell and a quill |
+| Painter | "knight, but slides instead of hops" | the knight's L again and again in a line (the nightrider) | NN | a palette and a brush |
+| Bard | "rook and bishop, but only every other space. hops every other space" | two squares straight or diagonal at a hop, over anything, and on while it lands on empty squares | DDAA | a lyre |
+| Dancer | "hops to any space two away" | any square exactly two away (the squirrel) | NAD | a ribbon twirling |
 
-**On the board:** vines are a green stem across the square with leaves,
-yours bright, theirs dark and ringed red as danger; a stars walker's two
-steps are both drawn bold, and both its squares are danger. Tapping one of
-theirs says its rabbit and what it does (`SUITS[...].foeDesc` in
-`run.js`); the pieces sheet has a row for each kind; cards in Adventure
-read "♥ Hearts rabbit ... Choose a piece to put it in."
+- The thespian's parts are king, queen, rook, bishop, knight and the other
+  four of the troupe (`THESPIAN_ROLES`). The part is drawn from the level,
+  the turn and its square, so the solver and a replay see the same
+  (`recast`). Its card says the part; on the board it holds up a little grey
+  model of it. It walks no loop, since its moves change.
+- *Calls of mine*: "any diagonal" read literally gives the scribe the four
+  squares beside it as well as the knight's eight; its Betza is `nNW`, so
+  the side step is not blocked the way the literal two steps would be (a
+  difference only when both squares beside it are taken). "Slides" read as
+  fairy chess's rider: the painter is the nightrider.
 
-**In rules** (`rules.suitRabbits`, a lab setting, on in Adventure):
-`trailOf`, `addTrail` and `takeVine` for vines (`s.vines`, in `clone` and
-`stateKey`); a foe landing on your vine is caught in `landFoe`, your piece
-landing on theirs in `playerMove`; theirs wither when your turn ends, yours
-in `turnOver`. Their stars, spirals and vines in `tacticsTurn`'s walking
-step. Gears' moves in `movesFor` (each says `gear`). Spirals' chain and
-Stars' every-turn second move in `openBonus`. Dealing in `dealRoutes`
-(`lab.js`): walkers get a suit from `rabbitKinds`, sentries are stone,
-hearts get a life more. Stones stand two turns now (`STONE_TURNS`).
+**Rabbits have a kind and a suit** ("rabbits have a type and a suit now.
+the lore is that rabbits are eating playing cards and that's why they have
+a suit. so there can be a 'scared rabbit of hearts' or a 'robot rabbit of
+spirals'"). The kind is how its piece moves by itself, the colour of its
+plinth (`RABBITS` in `run.js`); the suit, if it has one, the colour of its
+piece. A statue has neither.
 
-**Not decided:** whether a rabbit you free by taking one of theirs should
-become a suit card for your pieces (rabbits are suits, after all). For now
-the rabbits you collect still count by piece, three to a piece.
+| Kind | Plinth | In theirs | In yours |
+|---|---|---|---|
+| Robot | tangerine | walks its loop, a step every turn; its next square framed | stays where it moved and walks there and back along its shortest move toward the nearest of theirs |
+| Sentry | red | strikes anything of yours in its red reach, from where it stands | stays, and every turn strikes the most valuable of theirs in its reach |
+| Scared | sky blue | runs when you attack it, one a turn (fork it, or pin it) | stays, and runs when they could take it |
+| Sentient (new) | ink | thinks one move ahead and moves every turn ("actual piece behavior like a game of chess against an simple ai"), from depth 10 | stays, and plays by itself, one move ahead |
+
+The sentient rabbit is the rabbit minds' one-move look (`mindStep`), a
+hunter in theirs and aggressive in yours. Their sentries strike your piece
+first, then your pieces with rabbits, then stones.
+
+**Your rabbits** ("at the end of a level, you now have a chance of
+capturing a rabbit ... normally you just get suit cards, but rarely you get
+a rabbit. rabbits, when added to a piece, allow it to be sort of be
+automated. peices with rabbits stay behind after you move with the
+following peice ... the peice is placed in the new spot rather than in the
+spot it started ... and then stay there").
+- After a board on which you took a piece with a rabbit, one card in five
+  of the offer is that rabbit (`RABBIT_CHANCE`, `rabbitsTaken`), for a piece
+  of yours with none. It brings its suit to a piece with no suit.
+- Move a piece with a rabbit and it stays on the square it moved to, out of
+  your set for the rest of the board (`deploy` in `rules.js`: an `ally` in
+  `s.pieces`, its set entry `out`); the next of your set comes on where it
+  started. From the next turn it acts by itself at the start of every turn
+  of theirs (`alliesAct`), a scared one at once. Its loop, if a robot, is
+  drawn like theirs; its plinth is your white with its rabbit's colour on
+  the band. It pins and threatens like your piece. It stays only while
+  another of your set is there to come on; if the last of your set is
+  taken, the first of them is your piece again (`recall`). After the board
+  it is back in your set.
+- *Calls of mine*: it does not act on the turn it stays (it moved already),
+  except a scared one, which must be able to run from where it landed; a
+  pass does not leave it behind.
+
+**Suits, the same on either side** ("they also apply about the same for
+player and enemy pieces now"). Colours: hearts red, vines green, stars
+yellow, spirals purple, gears copper. Stone is gone ("stones - removed").
+
+| Suit | Both sides |
+|---|---|
+| Hearts | Two lives. Hit once, it stays where it is, its heart spent, and the piece that hit it goes back where it came from (a robot that bounced tries the same step again). A little heart floats over it while the heart is whole |
+| Vines | The vine trap as before: a trail where it moved; the other side's next move landing on it is caught |
+| Stars | Two moves a turn, but it takes at most once ("can still only capture once"): if the first took, the second cannot. Their robots walk two steps |
+| Spirals | Chain captures for as long as it can take ("perpetual"); a sentry of spirals strikes all in its reach |
+| Gears | Trades squares with another piece, as its move. Yours: with any piece on the board, theirs too. Theirs: a scared one can run by trading with another of theirs out of your reach, and a sentient one may trade as its move |
+
+Their rabbits carry suits from depth 4, one suit at a time (hearts 4,
+vines 5, stars 6, spirals 8, gears 10), more of them deeper (30% at depth
+4 rising to 70%: `suitChance`). "Pieces without suits are gray."
+
+**Weapons** ("weapon/tool defines capture style").
+- Sword and lance: as they were.
+- Mace ("still stuns and no longer pushes anything, just adds the AOE stun
+  to the landing (also make sure stun functionality actually works)"):
+  every move, slide or not, stuns theirs round where it lands, by level.
+  The stun did not work in Adventure's turn before (their pieces walked and
+  struck stunned, and the caption came too late to show); now a stunned
+  piece sits out their whole turn, said in the caption, with stars over it.
+- Shield (new, Adventure's own: "pushes pieces, can still squash. just the
+  push. if the piece is pushed off the board it is captured"): a move onto a
+  piece of theirs can push it one square on, the way it moved, and take its
+  square; up to its level in a row go together; off the board, it is taken.
+  Any piece can carry one (`shoves` in `rules.js`).
+- Net ("nothing new but you are guaranteed to get the corresponding rabbit
+  of the peice you capture"): it still nets the piece whole, and the rabbit
+  inside, if any, is yours: after the card you put it in a piece.
+
+**Three of a kind.** Pieces you take still count toward their kind, three
+to a piece (`takeTally`, `run.tally`). They were called rabbits; now that
+rabbits are what is inside a piece, the row under the board says "Three of a
+kind".
+
+**Seeing it all.**
+- *Card-suit icons* ("good drawn icons for each suit, that look like card
+  suits"): `icons.js` draws each suit as one solid shape in SVG, a heart, an
+  ivy leaf on a curling stem, a star, a spiral, a cog; a rabbit's head for
+  rabbits, and the five weapons the same way.
+- *Cards* ("suits upgrades should be presented as cards with the suit on
+  them"): between boards each offer is a playing card, the pip in two
+  corners and large in the middle, dealt in with a flick.
+- *An item card* ("we need like an item tooltip thing games have for
+  inspecting pieces on the board"): hold any piece (on the board or under
+  it), or rest the mouse on it, and a card says its name, its moves (and a
+  thespian's part), its rabbit, its suit, its weapon and how it stands now
+  (a heart spent, stunned, pinned). Tapping a piece that is not a move shows
+  it too.
 
 ## The look of your pieces
 
@@ -370,10 +462,9 @@ of the suit made part of it, at its collar, where the trim already sits
 | none | the grey of their statues (Timothy, 2026-10-15: "default pieces should just be gray, not the white we have now"), on your own plinth | none: a gold finial |
 | Vines | the Grove's green | a wreath of eight leaves round the collar |
 | Hearts | rose red | a pale heart locket on its chest, pink trim |
-| Gears | blue steel | a brass collar toothed like a gear |
+| Gears | copper (blue steel until 2026-10-16) | a brass collar toothed like a gear |
 | Spirals | purple (amber until 2026-10-15) | the whole piece twisted about its axis |
 | Stars | gold | a star brooch on its chest |
-| Stone | sandstone | two carved bands |
 
 A stone it leaves behind is the same, darker, on pebbles.
 
@@ -496,7 +587,7 @@ rabbits make you one.
 | Path | In? | Within one board | Within a run | Across runs | Notated by |
 |---|---|---|---|---|---|
 | Mastery | in, the core | the route through moving walkers and a changing piece; beating par | planning around the set's order | knowing each route and each set | written (par, the verdict), visual (routes, next steps, the set row), audial (the fanfare climbs with how far under par) |
-| Collection | in, new | rabbits by kind, three to a piece | a growing set, then a bench of more than five | none yet | visual (the set row, rabbit counts), written (captions) |
+| Collection | in | three of a kind make a piece; a rabbit now and then | a growing set, up to sixteen, and rabbits put in pieces | none yet | visual (the set row, the counts, the cards), written (captions) |
 | Power | in, a run's curve | suits and weapons change your moves | one piece to five, then more to draw from | resets each run | visual (suit colours, weapons), written |
 | Customization | light | none | which upgrade, on which piece | your first piece | written |
 | Narrative | thin | adventure: down through the Grove, into the hole | what you picked up, what you lost | none | visual (the hole, the fall) |
@@ -574,7 +665,7 @@ Their turn, in order:
    they attack, moving onto it: a trap, not a turret, so a stone never takes
    a statue that only stands on its line.
 
-**The Stone suit** (◆, sandstone, Adventure's own, so it never turns up in
+**The Stone suit** (gone since 2026-10-16, Timothy: "stones - removed"; the rules still know stones, for the lab's leader boards) (◆, sandstone, Adventure's own, so it never turns up in
 the other modes). Since 2026-10-15 (Timothy: "stone suit now leaves behind
 a sentry of their piece each time it moves? and it lasts for three moves
 than disappears"): every move of a piece of Stone leaves a stone copy of
@@ -643,6 +734,18 @@ taking the last of them) as a win (`solve.js`); before, it was thrown away
 as game over.
 
 ## Open, and Timothy's
+
+- From 2026-10-16 (later): whether a sentry of yours should strike
+  anything in its reach (as now, so a sentry by a row of statues clears
+  them one a turn) or only what moves into it, as stones did. Whether your
+  pieces with rabbits should act on the turn they stay (now only a scared
+  one does). The scribe's side step (from "any diagonal"), and the painter
+  as the nightrider. Whether a rabbit's suit should come to a piece that
+  has one already (now it does not). How rare a rabbit card is (one board
+  in five, of boards where you took one).
+- Deals are slower with suits and sentient rabbits deep down: about 3
+  seconds a board at depths 8 to 12 (2.2 without them), some seeds 15;
+  the page deals again with fewer pieces when one runs long.
 
 - Losing every piece of your set on one board ends the adventure (my
   call, 2026-10-16). Alternatives: the board ends not cleared, with one

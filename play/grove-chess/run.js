@@ -26,44 +26,54 @@
 // (invented.js), so everything else (drawing, diagrams, the solver) works
 // on it unchanged.
 
-import { PIECES, canArm } from './rules.js';
+import { PIECES, canArm, rabbitIn } from './rules.js';
 import { parseBetza, betzaMoves } from './betza.js';
 import { registerInvented, newId, estimateStrength } from './invented.js';
 import { powerOf } from './power.js';
 
-// In Adventure the suits are rabbits (Timothy, 2026-10-16: "rabbit are
-// suits, suits are rabbits. the trick is: rabbits do different things
-// depending on whether or not it's on an enemy piece or a friendly one").
-// `setDesc` is a rabbit's power in a piece of yours there, `foeDesc` in one
-// of theirs; `desc` is the suit as every other mode has it.
+// Suits (Adventure since 2026-10-16, Timothy: "suit defines other perks
+// (health, ability to leave pieces, etc). they also apply about the same
+// for player and enemy pieces now"): `advDesc` is the suit in Adventure, on
+// either side; `desc` is the suit as every other mode has it. Colours from
+// the same day: hearts red, vines green, stars yellow, spirals purple, gears
+// copper. Stone is gone.
 export const SUITS = {
   hearts: { name: 'Hearts', mark: '♥', colour: '#e0445a', desc: 'A life more: when it is taken it goes back to your first row instead, on a free square you choose (the second row if the first is full, and so on), and the heart is spent.',
-    setDesc: 'A life more: when it is taken it goes back to your first row instead, and the heart is spent.',
-    // Theirs: the scared rabbit (2026-10-16, Timothy: "we need scared rabbit
-    // behavior back, maybe as heart rabbits").
-    foeDesc: 'Scared: it stands still, but when you attack it, it runs to a square you do not attack. Their side can save only one a turn, so attack two at once (a fork), or pin it. A gold ring means it could not run.' },
+    advDesc: 'Two lives. Hit once, it stays where it is and its heart is spent, and the piece that hit it goes back where it came from.' },
   spirals: { name: 'Spirals', mark: '@', colour: '#a77bdc', desc: 'Round the sides: off the left edge it comes back on at the right, and the other way, like Pac-Man.',
-    setDesc: 'Chain captures: after it takes a piece, it may take another the same turn, and another after that.',
-    foeDesc: 'It walks its loop, and when its step takes something it steps on again, taking again if it can.' },
-  gears: { name: 'Gears', mark: '⚙', colour: '#8fa6bd', desc: 'Swap: as its move, it can trade squares with any other piece of yours.',
-    // Adventure: a skip in the cycle, then two turns a round, then (as a
-    // rabbit, 2026-10-16: "something new and good") a change of gear.
-    setDesc: 'Changes gear: it can move as any other piece of your set, as well as its own way.',
-    foeDesc: 'It walks its loop, tracing the same shape over and over: the robot of the rabbits.' },
+    advDesc: 'Chain captures: after it takes a piece it may take another, and another, as long as it can.' },
+  gears: { name: 'Gears', mark: '⚙', colour: '#c47a45', desc: 'Swap: as its move, it can trade squares with any other piece of yours.',
+    advDesc: 'As its move, it can trade squares with any other piece on the board.' },
   stars: { name: 'Stars', mark: '★', colour: '#e8c547', desc: 'Moves twice: once a level, its first move is followed straight away by a second.',
-    setDesc: 'Moves twice: every turn it goes, its first move is followed straight away by a second.',
-    foeDesc: 'It walks its loop two steps a turn.' },
-  vines: { name: 'Vines', mark: '❦', colour: '#2fb8a0', desc: 'Chain captures: after it takes a piece, it may take another the same turn, and another after that.',
-    setDesc: 'Leaves a vine on the square it moves off and every square it passes. A piece of theirs that lands on a vine on their next turn is caught. The vines wither after their turn.',
-    foeDesc: 'It walks its loop and leaves a vine where it went. Land on one on your next move and it catches you. Its vines wither after your move.' },
-  // Adventure only (Timothy, 2026-10-15: "a new suit called stone that lets
-  // you leave a sentry behind of your piece"): needs one piece taking turns.
-  stone: { name: 'Stone', mark: '◆', colour: '#b08a5a', adventure: true,
-    desc: 'Every move, it leaves a stone copy of itself on the square it leaves: a sentry of yours for two turns, then it crumbles. A stone takes any piece of theirs that moves into where it attacks, and its lines pin and give check like your piece\u2019s.',
-    foeDesc: 'A sentry: it never walks, but anything of yours that stands in its reach (ringed red) when their turn ends, it leaps to take. Pinned, it cannot.' }
+    advDesc: 'Two moves every turn it goes, but it takes at most once: if the first move takes something, the second cannot.' },
+  vines: { name: 'Vines', mark: '❦', colour: '#3f9e45', desc: 'Chain captures: after it takes a piece, it may take another the same turn, and another after that.',
+    advDesc: 'Leaves a vine on the square it moves off and every square it passes. The other side\u2019s next move that lands on a vine is caught by it; then the vines wither.' }
 };
-/** The suits every mode deals (Stone is Adventure's own). */
-export const SUIT_KINDS = Object.keys(SUITS).filter((k) => !SUITS[k].adventure);
+/** The suits every mode deals. */
+export const SUIT_KINDS = Object.keys(SUITS);
+
+/** The kinds of rabbit (Adventure, 2026-10-16, Timothy: "rabbit defines
+    move behavior. rabbits have a type and a suit now. the lore is that
+    rabbits are eating playing cards and that's why they have a suit"):
+    each with its colour (the plinth of a piece it is in, and its loop),
+    what it does in a piece of theirs (`desc`) and in one of yours
+    (`mine`). */
+export const RABBITS = {
+  robot: { name: 'Robot', colour: '#ef8d32', word: 'tangerine',
+    desc: 'Walks a short loop of its piece\u2019s own moves, a step every turn. Its whole loop is drawn on the board, its next square framed: stand there and it takes you.',
+    mine: 'Stays where it moved, and walks there and back by itself along its shortest move toward the nearest of theirs, taking what it steps onto.' },
+  sentry: { name: 'Sentry', colour: '#d94a3d', word: 'red',
+    desc: 'Never walks, but takes anything of yours standing in its reach (ringed red) when their turn ends, striking from where it stands.',
+    mine: 'Stays where it moved, and every turn takes the most valuable piece of theirs in its reach, striking from where it stands.' },
+  scared: { name: 'Scared', colour: '#7fd3e6', word: 'sky blue',
+    desc: 'Stands still; when you attack it, it runs to a square you do not attack. Their side can save only one a turn, so attack two at once (a fork), or pin it. A gold ring means it could not run.',
+    mine: 'Stays where it moved; when they could take it, it runs to a square they do not reach.' },
+  sentient: { name: 'Sentient', colour: '#3a3550', word: 'ink',
+    desc: 'Thinks one move ahead, like a simple chess player: it moves every turn, takes what it can, and keeps out of your reach.',
+    mine: 'Stays where it moved, and plays by itself every turn, one move ahead: it takes what it can and keeps out of their reach.' }
+};
+/** "Robot rabbit of Spirals". */
+export const rabbitName = (r, suit = null) => `${RABBITS[r]?.name || 'A'} rabbit${SUITS[suit] ? ` of ${SUITS[suit].name}` : ''}`;
 
 /** Weapons (Timothy, 2026-10-13), each at level 1 to 3. `desc(lv)` says
     what it does at that level. A lance only on a piece that slides. */
@@ -74,19 +84,27 @@ export const WEAPONS = {
     advDesc: (lv) => `It can squash, as any piece can. Landing on an empty square, it also strikes the next square past it, in the direction it moved${['', '', ', and the squares to either side of that', ', the squares to either side, and the two between'][lv]}, taking what stands there.` },
   lance: { name: 'Lance', mark: '↟', colour: '#c9a46a', desc: (lv) => `Takes what it slides through, up to ${['', 'one piece', 'two pieces', 'three pieces'][lv]}, and lands on an empty square beyond; it cannot move onto a piece. Only on a piece that slides.`,
     advDesc: (lv) => `It can squash, as any piece can; or it can slide through up to ${['', 'one piece', 'two pieces', 'three pieces'][lv]} of theirs, taking each, and land on an empty square beyond. Only on a piece that slides.` },
-  mace: { name: 'Mace', mark: '✸', colour: '#a07a5a', desc: (lv) => `Sliding, it pushes up to ${['', 'one piece', 'two pieces', 'three pieces'][lv]} ahead of it; theirs it pushes are stunned, and one already stunned is taken. Stepping or leaping, it stuns what stands ${['', 'in front of and behind', 'round the sides of', 'all round'][lv]} where it lands. A stunned piece misses its next turn.` },
+  mace: { name: 'Mace', mark: '✸', colour: '#a07a5a', desc: (lv) => `Sliding, it pushes up to ${['', 'one piece', 'two pieces', 'three pieces'][lv]} ahead of it; theirs it pushes are stunned, and one already stunned is taken. Stepping or leaping, it stuns what stands ${['', 'in front of and behind', 'round the sides of', 'all round'][lv]} where it lands. A stunned piece misses its next turn.`,
+    // Adventure's (2026-10-16, Timothy: "mace - still stuns and no longer
+    // pushes anything, just adds the AOE stun to the landing").
+    advDesc: (lv) => `It can squash, as any piece can. Wherever it lands it stuns the pieces of theirs ${['', 'in front of it and behind it', 'in front of it, behind it and to each side', 'all round it'][lv]}: a stunned piece sits out their next turn.` },
+  // Adventure's own (2026-10-16, Timothy: "shield (new) - pushes pieces, can
+  // still squash. just the push. if the piece is pushed off the board it is
+  // captured").
+  shield: { name: 'Shield', mark: '⛨', colour: '#8fa6bd', adventure: true,
+    desc: (lv) => `It can squash, as any piece can; or, moving onto a piece of theirs, it can push it one square on, the way it moved, and take its square.${lv > 1 ? ` Up to ${['', '', 'two', 'three'][lv]} pieces in a row go together.` : ''} A piece pushed off the board is taken.` },
   // Adventure only (Timothy, 2026-10-15: "new weapon/tool: net (like a bug
   // net) using it captures the piece you capture, and you just get it
   // without having to collect 3 of them"). Once a board per level, so a
   // net fills your collection a piece a board, not a whole board's worth.
   net: { name: 'Net', mark: '◍', colour: '#8c6f45', adventure: true,
-    desc: (lv) => `Moves as it always does, but the first ${['', 'piece', 'two pieces', 'three pieces'][lv]} of theirs it takes on each board ${lv > 1 ? 'are' : 'is'} netted whole: ${lv > 1 ? 'each' : 'it'} joins your set when the board ends, with no rabbits to collect.` }
+    desc: (lv) => `Moves as it always does, but the first ${['', 'piece', 'two pieces', 'three pieces'][lv]} of theirs it takes on each board ${lv > 1 ? 'are' : 'is'} netted whole: ${lv > 1 ? 'each' : 'it'} joins your set when the board ends, and the rabbit inside, if there is one, is yours to put in a piece of your choosing.` }
 };
 /** The weapons every mode deals; Adventure deals the net as well. */
 export const WEAPON_ORDER = Object.keys(WEAPONS).filter((w) => !WEAPONS[w].adventure);
 /** A suit's or weapon's words, the Adventure way (`adv`: one piece on the
     board taking turns, a sword that aims) where they differ. */
-export const suitDesc = (suit, adv = false) => (adv && SUITS[suit].setDesc) || SUITS[suit].desc;
+export const suitDesc = (suit, adv = false) => (adv && SUITS[suit].advDesc) || SUITS[suit].desc;
 export const weaponDesc = (w, lv, adv = false) => (adv && WEAPONS[w].advDesc ? WEAPONS[w].advDesc(lv) : WEAPONS[w].desc(lv));
 /** A weapon's name with its level: "Sword 2". */
 export const weaponName = (w, lv = 1) => `${WEAPONS[w].name} ${lv}`;
@@ -97,6 +115,8 @@ export function carriesText(p, adv = false) {
   if (SUITS[p.suit]) bits.push(`${SUITS[p.suit].mark} ${SUITS[p.suit].name}: ${suitDesc(p.suit, adv)}${p.suit === 'hearts' && (p.lives || 1) < 2 ? ' (Spent.)' : ''}`);
   if (WEAPONS[p.weapon]) bits.push(`${WEAPONS[p.weapon].mark} ${weaponName(p.weapon, p.wl || 1)}: ${weaponDesc(p.weapon, p.wl || 1, adv)}`);
   if (p.shape && PIECES[p.shape]) bits.push(`In the shape of a ${PIECES[p.shape].name}: it moves like one until it takes something else.`);
+  if (p.role && PIECES[p.role]) bits.push(`Playing the part of a ${PIECES[p.role].name.toLowerCase()} now: it moves like one until it moves again.`);
+  if (RABBITS[p.rabbit]) bits.push(`${rabbitName(p.rabbit)}: ${RABBITS[p.rabbit].mine}`);
   if (p.stun) bits.push('Stunned: it sits out its side’s next turn.');
   return bits.length ? ' ' + bits.join(' ') : '';
 }
@@ -247,6 +267,13 @@ export function applyReward(run, card, targets = [], veto = []) {
     if (card.suit === 'hearts') h.lives = Math.max(2, h.lives || 1);
   }
   if (card.kind === 'weapon') armHand(run.hand[targets[0]], card.weapon);
+  // A rabbit (Adventure, 2026-10-16): into the piece, and its suit too if
+  // the piece has none.
+  if (card.kind === 'rabbit') {
+    const h = run.hand[targets[0]];
+    h.rabbit = card.rabbit;
+    if (card.suit && SUITS[card.suit] && !h.suit) { h.suit = card.suit; if (card.suit === 'hearts') h.lives = Math.max(2, h.lives || 1); }
+  }
   if (card.kind === 'promote') {
     const h = run.hand[targets[0]], up = promotion(h.base, veto);
     if (up) h.base = up;
@@ -267,6 +294,7 @@ export function cardText(card, adv = false) {
   if (card.kind === 'suit') return adv
     ? { title: `${SUITS[card.suit].mark} ${SUITS[card.suit].name} rabbit`, text: suitDesc(card.suit, adv) + ' Choose a piece to put it in.', tag: 'A rabbit' }
     : { title: `${SUITS[card.suit].mark} ${SUITS[card.suit].name}`, text: suitDesc(card.suit, adv) + ' Choose a piece to give it to.', tag: 'A suit' };
+  if (card.kind === 'rabbit') return { title: rabbitName(card.rabbit, card.suit), text: `${RABBITS[card.rabbit].mine}${card.suit ? ` It brings ${SUITS[card.suit].name} with it, to a piece with no suit.` : ''} Choose a piece to put it in.`, tag: 'A rabbit' };
   if (card.kind === 'weapon') return { title: `${WEAPONS[card.weapon].mark} ${WEAPONS[card.weapon].name}`, text: `${weaponDesc(card.weapon, 1, adv)} Choose a piece to give it to; on one that has a ${WEAPONS[card.weapon].name.toLowerCase()} already, it goes up a level (to 3 at most).`, tag: 'A weapon' };
   if (card.kind === 'fuse') return { title: 'Fuse', text: 'Two of your pieces become one, with every move of both. It frees a slot for a new find.', tag: 'An item' };
   if (card.kind === 'promote') return { title: 'Promotion', text: 'One of your pieces becomes the next piece up in strength.', tag: 'An item' };
@@ -278,7 +306,7 @@ export function cardText(card, adv = false) {
 /** The hand as `hand`, `handMods` and `invented` for a level's settings,
     with the jokers that are rules. */
 /** What a hand piece carries, for a level: hearts, suit, weapon. */
-const modOf = (h) => ({ ...(h.lives > 1 ? { lives: h.lives } : {}), ...(h.suit ? { suit: h.suit } : {}), ...(h.weapon ? { weapon: h.weapon, wl: h.wl || 1 } : {}), ...(h.row === 1 ? { row: 1 } : {}) });
+const modOf = (h) => ({ ...(h.lives > 1 ? { lives: h.lives } : {}), ...(h.suit ? { suit: h.suit } : {}), ...(h.weapon ? { weapon: h.weapon, wl: h.wl || 1 } : {}), ...(h.row === 1 ? { row: 1 } : {}), ...(h.rabbit ? { rabbit: h.rabbit } : {}) });
 
 export function handSettings(run, pick = null) {
   const types = [], mods = [];
@@ -616,13 +644,29 @@ export function scoreName(moves, par, won) {
 
 /** Adventure's cards after a board: `n` of them, never the same twice:
     suits and weapons some piece of yours can take (a weapon it has already
-    goes up a level). New pieces come from rabbits, not cards (below). */
-export function adventureCards(run, n, rand) {
+    goes up a level). New pieces come from three of a kind, not cards.
+    Now and then (2026-10-16, Timothy: "normally you just get suit cards,
+    but rarely you get a rabbit") one of them is a rabbit you took on the
+    board (`taken`, from rabbitsTaken), for a piece with none yet. */
+export const RABBIT_CHANCE = 0.2;
+export function adventureCards(run, n, rand, taken = []) {
   const rest = [], out = [];
   if (run.hand.some((h) => !h.suit)) for (const suit of Object.keys(SUITS)) rest.push({ kind: 'suit', suit });
   for (const w of Object.keys(WEAPONS)) if (run.hand.some((h) => canTakeWeapon(h, w, run.made))) rest.push({ kind: 'weapon', weapon: w });
   while (out.length < n && rest.length) out.push(rest.splice(Math.floor(rand() * rest.length), 1)[0]);
+  if (taken.length && run.hand.some((h) => !h.rabbit) && rand() < RABBIT_CHANCE) {
+    const r = taken[Math.floor(rand() * taken.length)], card = { kind: 'rabbit', rabbit: r.rabbit, ...(r.suit ? { suit: r.suit } : {}) };
+    if (out.length) out[Math.floor(rand() * out.length)] = card; else out.push(card);
+  }
   return out;
+}
+
+/** The rabbits inside the pieces of theirs you took on a board: [{ rabbit,
+    suit }]. `netted`: only those your net caught (each yours for certain,
+    2026-10-16, Timothy: "net - nothing new but you are guaranteed to get the
+    corresponding rabbit of the peice you capture"). */
+export function rabbitsTaken(end, netted = false) {
+  return end.foes.filter((f) => f.taken && !!f.netted === netted && rabbitIn(f)).map((f) => ({ rabbit: rabbitIn(f), ...(f.suit ? { suit: f.suit } : {}) }));
 }
 
 // --- Adventure's set and its rabbits (2026-10-15). ------------------------------
@@ -642,8 +686,8 @@ export function adventureCards(run, n, rand) {
     have a set to work with on future levels"). */
 export const ADVENTURE_GIFTS = { 1: 'bishop', 3: 'knight' };
 
-/** How many rabbits of one kind make that piece. */
-export const RABBITS_FOR_PIECE = 3;
+/** How many of one kind taken make that piece. */
+export const TAKE_FOR_PIECE = 3;
 
 /** This board's set: indexes into run.hand, in the order you got them. All
     of them while they fit; past that, as many as fit, drawn at random. */
@@ -667,38 +711,56 @@ export function adventureSet(run, rand) {
 export function afterAdventure(run, end, pick) {
   const lost = [];
   pick.forEach((h, j) => {
-    const onBoard = !end.set || j === end.ci, live = onBoard ? end.pieces[0] : end.set[j];
+    // A piece with a rabbit standing by itself (2026-10-16) is in end.pieces.
+    const e = end.set?.[j], onBoard = !end.set || j === end.ci, live = onBoard ? end.pieces[0] : e?.out != null ? end.pieces[e.out] : e;
     if (!live || !run.hand[h]) return;
-    if ((onBoard && live.taken) || live.lost) lost.push(h);
+    if (((onBoard || e?.out != null) && live.taken && !live.recalled) || e?.lost || live.lost) lost.push(h);
     if (run.hand[h].lives > 1) run.hand[h] = { ...run.hand[h], lives: live.lives ?? run.hand[h].lives };
   });
   return { lost, all: pick.length > 0 && lost.length === pick.length };
 }
 
-/** What a net caught on a board: each joins your collection whole. Returns
-    their kinds. Mutates. */
+/** The most pieces you can have (Timothy, 2026-10-16: "a max deck of
+    pieces is 16, as an homage to regular chess"). */
+export const ADVENTURE_MAX = 16;
+/** Can another piece join your collection? */
+export const roomFor = (run) => run.hand.length < ADVENTURE_MAX;
+
+/** What a net caught on a board: each joins your collection whole, while
+    there is room. Returns their kinds (and `full`, those with no room).
+    Mutates. */
 export function netCatches(run, end) {
-  const got = end.foes.filter((f) => f.taken && f.netted && PIECES[f.type]).map((f) => f.type);
-  for (const t of got) { run.hand.push({ base: t }); run.found.push(t); }
+  const got = [], full = [];
+  for (const f of end.foes) {
+    if (!f.taken || !f.netted || !PIECES[f.type]) continue;
+    if (!roomFor(run)) { full.push(f.type); continue; }
+    run.hand.push({ base: f.type }); run.found.push(f.type); got.push(f.type);
+  }
+  got.full = full;
   return got;
 }
 
-/** The rabbits of what you took on a board, one for each piece of theirs
-    taken (and not netted), kept by kind; every three of a kind become that
-    piece, which joins your collection. Returns the kinds of piece made.
+/** Three of a kind (2026-10-15, Timothy: "you have to capture three of a
+    piece to get a copy of it"): every piece of theirs you take, not netted,
+    counts toward its kind (run.tally); every three of a kind become that
+    piece, which joins your collection, while there is room (16). These
+    were called rabbits until 2026-10-16, when rabbits became the things
+    inside pieces. Returns the kinds made (and `full`, those with no room).
     Mutates. */
-export function takeRabbits(run, end) {
-  run.rabbits = run.rabbits || {};
-  const made = [];
+export function takeTally(run, end) {
+  run.tally = run.tally || {};
+  const made = [], full = [];
   for (const f of end.foes) {
     if (!f.taken || f.netted || !PIECES[f.type] || ['rabbit', 'bunny', 'ball'].includes(f.type)) continue;
-    run.rabbits[f.type] = (run.rabbits[f.type] || 0) + 1;
-    if (run.rabbits[f.type] >= RABBITS_FOR_PIECE) {
-      run.rabbits[f.type] -= RABBITS_FOR_PIECE;
+    run.tally[f.type] = (run.tally[f.type] || 0) + 1;
+    if (run.tally[f.type] >= TAKE_FOR_PIECE) {
+      run.tally[f.type] -= TAKE_FOR_PIECE;
+      if (!roomFor(run)) { full.push(f.type); continue; }
       run.hand.push({ base: f.type });
       run.found.push(f.type);
       made.push(f.type);
     }
   }
+  made.full = full;
   return made;
 }
