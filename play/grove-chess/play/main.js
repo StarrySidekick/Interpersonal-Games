@@ -10,8 +10,10 @@ import { rng } from '../../../engine/seed.js';
 import * as sfx from '../sounds.js';
 import {
   PIECES, descOf, CRUMBLE_DESC, SHRINK_DESC, STUMP_DESC, STATUE_ROW_DESC, statueAt, statueDesc, GHOST_DESC, GATE_DESC, WANDER_DESC, ghostAt, gateUp, cloudOver, hiddenFrom, HOLE_DESC, cloudDesc, sandAt, waterAt, SAND_DESC, WATER_DESC, movesFor, playerMove, respond, isOver, outcome, initialState,
-  allMoves, holeOpen, crumbled, shrunk, apply, showdown, firstCaptures, onBoard, leaderDesc, placeRevived, hopIn, flagAt, carrierOf, rabbitChosen, EXIT_DESC, setView, setLeft, setReady, chooseInSet, firstReady
+  allMoves, holeOpen, crumbled, shrunk, apply, showdown, firstCaptures, onBoard, leaderDesc, placeRevived, hopIn, flagAt, carrierOf, rabbitChosen, EXIT_DESC, setView, setLeft, setReady, chooseInSet, firstReady,
+  rabbitIn, formOf, tacticalPins
 } from '../rules.js';
+import { suitIcon, rabbitIcon, weaponIcon, WEAPON_INK } from '../icons.js';
 import { pickMove } from '../choose.js';
 import { bestMove } from '../best.js';
 import { newTiles, fillOffers, flip, frontier, tier, bounds, layout, foePick, tileKey, tileXY, SIZES } from '../tiles.js';
@@ -32,7 +34,8 @@ import {
   newRun, rewardsFor, applyReward, cardText, handSettings, afterLevel, pieceOf, SUITS, JOKERS,
   WAYSTONES, litWaystones, newlyLit, startChoices, keepsakeCards, acornsFor, priceOf, shopStock,
   canCombine, applyCombine, combineText, boardCards, boardCardText, applyMerge, mergeTargets, foeUpgrade, WEAPONS, canTakeWeapon, carriesText, foeCanUse, foeTake,
-  adventureCards, parVerdict, PAR_CARDS, PAR_AUTO, scoreName, ADVENTURE_GIFTS, adventureSet, afterAdventure, takeRabbits, netCatches, RABBITS_FOR_PIECE
+  adventureCards, parVerdict, PAR_CARDS, PAR_AUTO, scoreName, ADVENTURE_GIFTS, adventureSet, afterAdventure, takeTally, netCatches, TAKE_FOR_PIECE,
+  RABBITS, rabbitName, rabbitsTaken, roomFor, ADVENTURE_MAX, suitDesc, weaponDesc, weaponName
 } from '../run.js';
 import { setupPanel, setupState, playOut } from '../autosetup.js';
 import { VARIANTS, VARIANT_ORDER, differs } from '../variants.js';
@@ -222,11 +225,13 @@ function myRabbits() {
     thing you protect. */
 const kingLocked = (h) => M.royal && M.run === 'descent' && h.base === 'king' && !h.fused;
 
-// A rabbit's colour: in Adventure, where rabbits are suits (2026-10-16), its
-// suit's; elsewhere its pattern's.
-const furOf = (f) => ((f.brain === 'pattern' || f.brain === 'possessed' || f.brain === 'sentry' || f.brain === 'scared' || f.mind) && ((M.upgrades === 'par' && SUITS[f.suit]?.colour) || FUR[f.patternName])) || null;
-/** "a gears rabbit" and so on, for their piece f (Adventure). */
-const rabbitOf = (f) => (SUITS[f?.suit] ? `${/^[aeiou]/i.test(SUITS[f.suit].name) ? 'an' : 'a'} ${SUITS[f.suit].name.toLowerCase()} rabbit` : 'a rabbit');
+// A rabbit's colour: in Adventure (2026-10-16, rabbits have a kind and a
+// suit) its kind's, for theirs and for yours with one; elsewhere its
+// pattern's.
+const furOf = (f) => (M.upgrades === 'par' ? RABBITS[rabbitIn(f)]?.colour || null
+  : ((f.brain === 'pattern' || f.brain === 'possessed' || f.brain === 'sentry' || f.brain === 'scared' || f.mind) && FUR[f.patternName]) || null);
+/** "a robot rabbit of Spirals" and so on, for a piece f (Adventure). */
+const rabbitOf = (f) => (rabbitIn(f) ? `a ${rabbitName(rabbitIn(f), f.suit).toLowerCase()}` : 'a rabbit');
 /** How a piece of yours looks: in Adventure, its suit's look (Timothy,
     2026-10-15: "the vine look should be for the vine suit, we should have
     custom looks for the others that are colored like the suit"), or green
@@ -264,17 +269,27 @@ function hud() {
   $('#movemax').textContent = [level.rules.maxMoves && !(M.run === 'course' && par) ? `of ${level.rules.maxMoves}` : '', par ? `${M.run === 'course' ? 'of ' : '· '}par ${par}` : '', hop ? `· the rabbit hops ${hop === 1 ? 'next turn' : `in ${hop}`}` : ''].filter(Boolean).join(' ');
 }
 
-/** Adventure's rabbits, as they stand now: what the run has kept, and what
-    this board has taken so far. [{ type, have, made }]: `have` of the next
-    three of that kind, and how many pieces this board has made. */
-function rabbitCounts(s = now()) {
-  const kept = session.run.rabbits || {}, out = new Map();
+/** Adventure's three of a kind, as they stand now: what the run has kept,
+    and what this board has taken so far. [{ type, have, made }]: `have` of
+    the next three of that kind, and how many pieces this board has made. */
+function tallyCounts(s = now()) {
+  const kept = session.run.tally || {}, out = new Map();
   for (const [type, n] of Object.entries(kept)) out.set(type, { type, base: n, now: 0 });
   for (const f of s.foes) if (f.taken && !f.netted && PIECES[f.type] && !['rabbit', 'bunny', 'ball'].includes(f.type)) {
     if (!out.has(f.type)) out.set(f.type, { type: f.type, base: 0, now: 0 });
     out.get(f.type).now++;
   }
-  return [...out.values()].map(({ type, base, now: n }) => ({ type, have: (base + n) % RABBITS_FOR_PIECE, made: Math.floor((base + n) / RABBITS_FOR_PIECE) })).filter((r) => r.have || r.made);
+  return [...out.values()].map(({ type, base, now: n }) => ({ type, have: (base + n) % TAKE_FOR_PIECE, made: Math.floor((base + n) / TAKE_FOR_PIECE) })).filter((r) => r.have || r.made);
+}
+
+/** What a piece carries, as small drawn marks (Adventure, 2026-10-16): its
+    suit's icon, its weapon's mark and level, its rabbit's head. */
+function marks(p) {
+  const out = [];
+  if (SUITS[p.suit]) out.push(suitIcon(p.suit, SUITS[p.suit].colour, 15));
+  if (WEAPONS[p.weapon]) out.push(weaponIcon(p.weapon, 15), ...((p.wl || 1) > 1 ? [el('span', { class: 'suit' }, String(p.wl))] : []));
+  if (RABBITS[p.rabbit]) out.push(rabbitIcon(RABBITS[p.rabbit].colour, 15));
+  return out;
 }
 
 /** Adventure (2026-10-15): right under the board, your set, icons only,
@@ -287,22 +302,28 @@ function rabbitCounts(s = now()) {
     gone from it. It pops when the piece on the board changes. Names are
     there for screen readers. */
 let lastNext = null;
-const WEAPON_MODEL = { sword: 'wSword', lance: 'wLance', mace: 'wMace', net: 'wNet' };
+const WEAPON_MODEL = { sword: 'wSword', lance: 'wLance', mace: 'wMace', net: 'wNet', shield: 'wShield' };
 function nextUp() {
   const s = now(), box = $('#nextup'), view = s.set ? setView(s).filter((v) => !v.lost) : [];
   if (view.length < 2 || s.pieces[0]?.taken || s.won) { box.hidden = true; lastNext = null; return; }
-  // Each piece as it stands, with its weapon beside it.
+  // Each piece as it stands, with its weapon beside it, and a rabbit's head
+  // on one with a rabbit inside.
   const icon = (p) => {
     const cv = el('canvas', { class: 'pix', width: 38, height: 36 }), g = cv.getContext('2d');
     g.drawImage(sprite(p.shape || p.type, lookOf(p)), 0, 0);
     if (p.weapon && WEAPON_MODEL[p.weapon]) g.drawImage(sprite(WEAPON_MODEL[p.weapon], 'you'), 9, -3);
-    return cv;
+    const wrap = el('span', { class: 'slotart' }, cv);
+    if (RABBITS[p.rabbit]) wrap.append(rabbitIcon(RABBITS[p.rabbit].colour, 20, 'sicon badge'));
+    return wrap;
   };
   const open = !s.bonus && !busy && !isOver(s), key = `${s.ci}`;
   box.replaceChildren(...view.map((v) => {
-    const how = v.on ? 'on' : v.ready ? 'ready' : 'used', name = nameOf(v.p);
-    const b = el('button', { class: `slot ${how}`, title: name, 'aria-label': `${name}${v.on ? ', on the board' : v.ready ? ', ready' : ', used this round'}`, 'aria-pressed': String(v.on), disabled: !open || !v.ready || v.on ? '' : null }, icon(v.p));
-    if (open && v.ready && !v.on) b.addEventListener('click', () => choose(v.j));
+    // A piece standing by itself with its rabbit (2026-10-16): out of your
+    // choosing, marked so.
+    const how = v.on ? 'on' : v.out ? 'out' : v.ready ? 'ready' : 'used', name = nameOf(v.p);
+    const b = el('button', { class: `slot ${how}`, title: name, 'aria-label': `${name}${v.on ? ', on the board' : v.out ? ', on the board by itself' : v.ready ? ', ready' : ', used this round'}`, 'aria-pressed': String(v.on), disabled: !open || !v.ready || v.on ? '' : null }, icon(v.p));
+    if (open && v.ready && !v.on) b.addEventListener('click', () => { if (!tipHeld()) choose(v.j); });
+    inspectable(b, () => v.p, () => (v.on ? 'on' : v.out ? 'out' : v.ready ? 'ready' : 'used'));
     return b;
   }));
   box.hidden = false;
@@ -312,17 +333,19 @@ function nextUp() {
 
 /** Bring piece j of your set onto the board (Adventure): the piece there
     spins down into its plinth and this one spins up; then its moves light. */
-async function choose(j) {
+// Quick (2026-10-16, Timothy: "switching pieces is kind of slow"): the
+// swap no longer holds the board. Its moves light at once and can be
+// played while the old piece is still spinning down; the spin is 170 ms.
+function choose(j) {
   const s = now();
   if (busy || !s.set || s.bonus || isOver(s) || j === s.ci || !setReady(s, j)) return;
-  busy = true;
   const c = chooseInSet(s, j);
   game.states[game.states.length - 1] = c;
   haptic(8);
   sel = null; legal = []; placing = null;
-  await board.animate(s, c, { p: -1 });
-  busy = false;
+  hideTip();
   select(null);
+  board.animate(s, c, { p: -1 });
 }
 
 /** At the start of your turn (Adventure): if the piece on the board has had
@@ -337,11 +360,10 @@ async function readyUp(prev = null) {
   const fresh = prev && (s.round || 0) !== (prev.round || 0);
   const j = fresh ? s.set.findIndex((_, i) => setReady(s, i)) : setReady(s, s.ci) ? -1 : firstReady(s);
   if (j < 0 || j === s.ci) return;
-  busy = true;
   const c = chooseInSet(s, j);
   game.states[game.states.length - 1] = c;
-  await board.animate(s, c, { p: -1 });
-  busy = false;
+  // Not waited for: its moves light as it spins up (2026-10-16).
+  board.animate(s, c, { p: -1 });
 }
 
 /** Adventure (2026-10-15): your set, each with its suit and weapon and
@@ -353,10 +375,10 @@ function setRow() {
   box.replaceChildren(...view.map((v) => {
     const p = v.p, cv = el('canvas', { class: 'pix', width: 30, height: 36 });
     cv.getContext('2d').drawImage(sprite(p.shape || p.type, lookOf(p)), 0, 0);
-    const mark = [p.suit && SUITS[p.suit] ? el('span', { class: 'suit', style: `color:${SUITS[p.suit].colour}` }, SUITS[p.suit].mark + ' ') : null,
-      p.weapon && WEAPONS[p.weapon] ? el('span', { class: 'suit' }, WEAPONS[p.weapon].mark + (p.wl > 1 ? p.wl : '') + ' ') : null];
-    return el('div', { class: `handcell${v.on ? ' picked' : ''}` },
-      el('span', { class: 'dim' }, v.on ? (p.taken ? 'Taken' : 'Now') : v.ready ? 'Ready' : 'Used'), cv, el('span', {}, mark, nameOf(p)));
+    const cell = el('div', { class: `handcell${v.on ? ' picked' : ''}` },
+      el('span', { class: 'dim' }, v.on ? (p.taken ? 'Taken' : 'Now') : v.out ? 'By itself' : v.ready ? 'Ready' : 'Used'), cv, el('span', { class: 'marks' }, ...marks(p), ' ', nameOf(p)));
+    inspectable(cell, () => p, () => (v.on ? 'on' : v.out ? 'out' : v.ready ? 'ready' : 'used'));
+    return cell;
   }));
   // Taken from your set on this board, and caught in your net.
   const fell = (s.set || []).filter((e) => e.lost);
@@ -365,9 +387,10 @@ function setRow() {
   if (netted.length) box.append(el('div', { class: 'handcell' }, el('span', { class: 'dim' }, `${WEAPONS.net.mark} Netted`), ...netted.map((f) => el('span', { class: 'small' }, nameOf(f)))));
   const bench = session.run.hand.length - (session.pick?.length || session.run.hand.length);
   if (bench > 0) box.append(el('div', { class: 'handcell' }, el('span', { class: 'dim' }, 'Resting'), el('span', {}, `${bench} more`), el('span', { class: 'small dim' }, 'next board, maybe')));
-  const r = rabbitCounts(s);
-  if (r.length) box.append(el('div', { class: 'handcell' }, el('span', { class: 'dim' }, 'Rabbits'),
-    ...r.map((c) => el('span', { class: 'small' }, `${PIECES[c.type].name}: ${c.made ? `a new one${c.have ? ` + ${c.have}/${RABBITS_FOR_PIECE}` : ''}` : `${c.have}/${RABBITS_FOR_PIECE}`}`))));
+  const r = tallyCounts(s);
+  if (r.length) box.append(el('div', { class: 'handcell' }, el('span', { class: 'dim' }, 'Three of a kind'),
+    ...r.map((c) => el('span', { class: 'small' }, `${PIECES[c.type].name}: ${c.made ? `a new one${c.have ? ` + ${c.have}/${TAKE_FOR_PIECE}` : ''}` : `${c.have}/${TAKE_FOR_PIECE}`}`))));
+  box.append(el('div', { class: 'handcell' }, el('span', { class: 'dim' }, 'Your pieces'), el('span', {}, `${session.run.hand.length} of ${ADVENTURE_MAX}`)));
 }
 
 /** Your hand, as a row of little pieces with their suits. */
@@ -379,10 +402,9 @@ function handRow(box, { pick = null, picked = [] } = {}) {
     registerInvented(session.run.made);
     const cv = el('canvas', { class: 'pix', width: 30, height: 36 });
     cv.getContext('2d').drawImage(sprite(type, lookOf(h)), 0, 0);
-    const mark = [h.suit && SUITS[h.suit] ? el('span', { class: 'suit', style: `color:${SUITS[h.suit].colour}` }, SUITS[h.suit].mark + ' ') : null,
-      h.weapon && WEAPONS[h.weapon] ? el('span', { class: 'suit' }, WEAPONS[h.weapon].mark + (h.wl > 1 ? h.wl : '') + ' ') : null];
     const lives = h.lives > 1 ? ` (${h.lives} lives)` : '';
-    const cell = el('div', { class: `handcell${picked.includes(i) ? ' picked' : ''}` }, cv, el('span', {}, mark, name + lives));
+    const cell = el('div', { class: `handcell${picked.includes(i) ? ' picked' : ''}` }, cv, el('span', { class: 'marks' }, ...(M.upgrades === 'par' ? marks(h) : [h.suit && SUITS[h.suit] ? el('span', { class: 'suit', style: `color:${SUITS[h.suit].colour}` }, SUITS[h.suit].mark + ' ') : null,
+      h.weapon && WEAPONS[h.weapon] ? el('span', { class: 'suit' }, WEAPONS[h.weapon].mark + (h.wl > 1 ? h.wl : '') + ' ') : null]), ' ', name + lives));
     if (pick) { cell.style.cursor = 'pointer'; cell.addEventListener('click', () => pick(i)); }
     box.append(cell);
   });
@@ -393,7 +415,7 @@ function goalCard() {
   if (session.seen.has('goal')) return null;
   session.seen.add('goal');
   let text = {
-    descent: M.upgrades === 'par' ? 'Take every piece of theirs. When the last one goes, a hole opens beside you and you jump down it to the next board. Grey statues never move. A piece with a rabbit inside walks a short loop every turn, the rabbit\u2019s colour says which; the whole loop is drawn on the board, its next step boldest: stand there and it takes you. You have one piece on the board at a time: before each move, choose which of your set it is, from the icons under the board. Each piece of the set must have its turn before any goes again. Landing on a piece of theirs squashes it, as in chess; a weapon adds a way of its own. Every piece you take leaves you its rabbit, and three rabbits of a kind become that piece, which joins your set. If they take the piece on the board, it is out for this board (it is back on the next), and another of your set comes on in its place; lose all of your set on one board and the adventure is over. A net catches the first piece it takes on a board whole, with no rabbits needed. Rabbits are suits, and each does one thing in a piece of yours and another in theirs (the rabbit\u2019s colour, on the plinth and the piece, says which; yours stands on a white plinth). In theirs: gears walks its loop; stone is a sentry, leaping at anything of yours in its red reach; hearts is scared, running when you attack it, one a turn, so fork it; vines walks and leaves a vine that catches you if you land on it; stars walks two steps a turn; spirals walks and takes again. In yours: gears moves as any piece of your set; stone leaves a sentry for two turns; hearts is a life more; vines leaves a vine that catches what lands on it; stars moves twice; spirals takes again. A line of yours through one of theirs to another pins it, so it holds still.'
+    descent: M.upgrades === 'par' ? 'Take every piece of theirs. When the last one goes, a hole opens beside you and you jump down it to the next board. You have one piece on the board at a time: before each move, choose which of your set it is, from the icons under the board; each must have its turn before any goes again. Landing on a piece of theirs squashes it, as in chess; a weapon adds a way of its own. A grey statue never moves. A piece with a rabbit inside moves by itself, and the colour of its plinth says how: a robot (tangerine) walks a short loop, drawn on the board with its next square framed; a sentry (red) strikes anything of yours in its red reach; a scared one (sky blue) runs when you attack it, one a turn, so fork it; a sentient one (ink, deeper down) thinks and moves like a player. Rabbits eat playing cards, so a rabbit may carry a suit, the colour of its piece, and a suit works the same on either side: Hearts is two lives (hit, it stays and the hitter goes back), Vines leaves a trail that catches, Stars moves twice but takes once, Spirals takes again while it can, Gears trades squares with another piece. Take three of a kind and that piece joins your set, up to sixteen; a net catches one whole, with its rabbit. Now and then you win a rabbit of your own: put it in a piece, and that piece stays where it moves and acts by itself. Hold any piece, or rest the mouse on it, to see all it does.'
       : M.upgrades === 'tiles' ? 'Take their King to win the round. After each round you each turn over a tile at the edge of the board, the winner first: the board grows by that square, and the suit or weapon on the tile is yours. When the board has as many squares as the next size up, both sides get the same new piece. Every piece starts each round in a bubble: nothing can take it until it moves. Four statues stand in the middle; either side can break one by taking it. Keep your King: if they take it, the run is over.'
       : M.upgrades === 'each' && M.goal === 'carrier' ? `A rabbit rides one of their pieces. ${M.rabbitMove === 'random' ? `Every ${M.rabbitHop === 1 ? 'turn' : `${M.rabbitHop} turns`} it hops to another, at random.` : 'They can move it to another of their pieces, but that is their move for the turn.'} Take the piece it is on to fall to the next board, where you choose a suit or a weapon and they get one too. Keep your King: if they take it, the descent is over. Anything else of yours they take comes back on the next board.${M.promote === 'copy' ? ' A pawn that reaches the far row becomes a copy of another of your pieces.' : ''}`
       : M.upgrades === 'each' ? 'Take their King to fall to the next board, where each side gets an upgrade. Keep yours: if they take your King, the descent is over. Anything else of yours they take comes back on the next board. One rabbit leads their side, riding on their King: tap it to see what kind it is.'
@@ -630,7 +652,7 @@ function select(i) {
   $('#wait').hidden = !passOk;
   $('#wait').textContent = now().bonus ? 'End turn' : now().set ? 'Pass: the next piece comes on' : now().day.rules.wait ? 'Wait a turn' : 'Pass (nothing can move)';
   legal = i == null ? [] : movesFor(now(), i);
-  if (auto) info(now().set && setView(now()).filter((v) => !v.lost).length > 1 ? 'Tap a lit square to move there, or a piece under the board to bring it on instead.' : 'Tap a lit square to move there.');
+  if (auto) info(`${now().set && setView(now()).filter((v) => !v.lost && !v.out).length > 1 ? 'Tap a lit square to move there, or a piece under the board to bring it on instead.' : 'Tap a lit square to move there.'} Hold any piece to see what it does.`);
   else if (i == null) info(level.hole ? (holeOpen(now()) ? 'Tap a piece to see where it can go. The hole is open.' : 'Tap a piece to see where it can go. The hole opens once every rabbit is caught.') : 'Tap a piece to light up where it can go.');
   else {
     const p = now().pieces[i], type = p.type;
@@ -640,6 +662,111 @@ function select(i) {
   // Your set under the board (Adventure): what can be chosen now.
   if (solo() && session?.run) { setRow(); nextUp(); }
   draw();
+}
+
+// --- Looking closer (Adventure, 2026-10-16, Timothy: "we need like an item
+// tooltip thing games have for inspecting pieces on the board to see what
+// they do and stuff"). Hold a piece (on the board or under it) or rest the
+// mouse on it, and a card says everything it is: its moves, its rabbit, its
+// suit, its weapon, and how it stands now. Tapping a piece that is not a
+// move shows it too. In other modes the line under the board says it, as
+// before.
+
+let tipTimer = null, tipAt = 0, tipKey = null;
+/** Did a hold just show the card (so the tap that ends it does nothing)? */
+const tipHeld = () => performance.now() - tipAt < 700;
+function hideTip() { clearTimeout(tipTimer); tipTimer = null; tipKey = null; const t = $('#tip'); if (t) t.hidden = true; }
+
+/** One line of the card: an icon, a name in bold, and words. */
+const tipRow = (icon, head, words) => el('div', { class: 'tiprow' }, icon || el('span', { class: 'sicon' }), el('div', {}, el('b', {}, head), ' ', words));
+
+/** The card for piece p: `side` 'you' or 'foe'; `how` what it is doing
+    ('on', 'ready', 'used', 'out', or for theirs nothing). */
+function tipCard(p, side, how = null) {
+  const s = now(), adv = M.upgrades === 'par', form = formOf(p), P = PIECES[p.type] || {}, F = PIECES[form] || P;
+  const cv = el('canvas', { class: 'pix', width: 30, height: 36 });
+  cv.getContext('2d').drawImage(sprite(p.shape || p.type, side === 'you' ? lookOf(p) : p.brain === 'still' && !adv ? 'grey' : adv ? suitLook(p.suit) : 'foe', furOf(p)), 0, 0);
+  const r = rabbitIn(p);
+  const title = `${side === 'you' ? 'Your' : 'Their'} ${(P.name || p.type).toLowerCase()}${SUITS[p.suit] ? ` of ${SUITS[p.suit].name}` : ''}`;
+  const sub = side === 'you'
+    ? { on: 'On the board', ready: 'Ready this round', used: 'Has had its turn this round', out: 'On the board by itself, with its rabbit' }[how] || 'Yours'
+    : p.brain === 'still' ? 'A statue: it never moves and never takes' : r ? `${rabbitName(r, p.suit)} inside` : 'Theirs';
+  const rows = [];
+  rows.push(tipRow(null, 'Moves:', `${form !== p.type && F.name ? `Plays the part of a ${F.name.toLowerCase()} now, until it moves again. ` : ''}${F.desc || ''}`));
+  if (p.type === 'thespian') rows.push(tipRow(null, 'Thespian:', P.desc));
+  if (r && RABBITS[r]) rows.push(tipRow(rabbitIcon(RABBITS[r].colour, 20), `${RABBITS[r].name} rabbit:`, `${side === 'you' ? RABBITS[r].mine : RABBITS[r].desc}${p.route && side === 'foe' ? ` ${routeText(p)}` : ''}`));
+  else if (side === 'foe' && p.brain === 'still') rows.push(tipRow(null, 'No rabbit:', 'nothing moves it. Take it.'));
+  if (SUITS[p.suit]) rows.push(tipRow(suitIcon(p.suit, SUITS[p.suit].colour, 20), `${SUITS[p.suit].name}:`, `${suitDesc(p.suit, adv)}${p.suit === 'hearts' ? ((p.lives || 1) > 1 ? ' Its heart is not spent yet.' : ' Its heart is spent.') : ''}`));
+  if (WEAPONS[p.weapon]) rows.push(tipRow(el('span', { class: 'sicon wlight' }, weaponIcon(p.weapon, 20)), `${weaponName(p.weapon, p.wl || 1)}:`, weaponDesc(p.weapon, p.wl || 1, adv)));
+  const now2 = [];
+  if (p.stun || p.sat) now2.push('Stunned: it sits out its next turn.');
+  if (p.pinned) now2.push('Pinned by a line of yours: it holds this turn.');
+  if (p.trapped) now2.push('Last turn it could not run.');
+  if (p.netted && side === 'foe') now2.push('Netted.');
+  if (p.shape && PIECES[p.shape]) now2.push(`In the shape of a ${PIECES[p.shape].name.toLowerCase()} until it takes something else.`);
+  if (now2.length) rows.push(tipRow(null, 'Now:', now2.join(' ')));
+  return el('div', { class: 'tipcard' }, el('div', { class: 'tiphead' }, cv, el('div', {}, el('h3', {}, title), el('p', { class: 'dim' }, sub))), ...rows);
+}
+
+/** Show the card for p near the point (x, y) on the screen. */
+function showTip(p, side, x, y, how = null) {
+  if (!p) return hideTip();
+  const t = $('#tip');
+  t.replaceChildren(tipCard(p, side, how));
+  t.hidden = false;
+  const w = Math.min(320, innerWidth - 24), h = t.offsetHeight;
+  t.style.width = `${w}px`;
+  t.style.left = `${Math.max(12, Math.min(innerWidth - w - 12, x - w / 2))}px`;
+  t.style.top = `${y - h - 18 > 8 ? y - h - 18 : Math.min(innerHeight - h - 8, y + 24)}px`;
+}
+
+/** Hold (or, with a mouse, rest on) element e to see its piece's card. */
+function inspectable(e, piece, how) {
+  let timer = null, x0 = 0, y0 = 0;
+  const show = (ev) => { const r = e.getBoundingClientRect(); showTip(piece(), 'you', r.left + r.width / 2, r.top, how?.()); tipAt = ev?.pointerType === 'mouse' ? 0 : performance.now(); };
+  e.addEventListener('pointerdown', (ev) => { if (ev.pointerType === 'mouse') return; x0 = ev.clientX; y0 = ev.clientY; clearTimeout(timer); timer = setTimeout(() => show(ev), 420); });
+  e.addEventListener('pointermove', (ev) => { if (ev.pointerType !== 'mouse' && Math.hypot(ev.clientX - x0, ev.clientY - y0) > 10) clearTimeout(timer); });
+  e.addEventListener('pointerup', () => clearTimeout(timer));
+  e.addEventListener('pointerenter', (ev) => { if (ev.pointerType === 'mouse') { clearTimeout(timer); timer = setTimeout(() => show(ev), 300); } });
+  e.addEventListener('pointerleave', (ev) => { clearTimeout(timer); if (ev.pointerType === 'mouse') hideTip(); });
+  e.addEventListener('contextmenu', (ev) => ev.preventDefault());
+}
+
+/** The piece on square (x, y) of the board, as you see it: { p, side }. */
+function pieceAt(s, x, y) {
+  const hidden = hiddenFrom(s, 'you');
+  const mine = s.pieces.find((p) => !p.taken && p.x === x && p.y === y && p.type !== 'ball');
+  if (mine) return { p: mine, side: 'you', how: mine === s.pieces[0] ? 'on' : mine.ally ? 'out' : null };
+  const f = s.foes.find((q, k) => !q.taken && q.x === x && q.y === y && !hidden.has(k) && q.rides == null);
+  return f ? { p: f, side: 'foe' } : null;
+}
+
+// Holding a piece on the board, or resting the mouse on it.
+{
+  const cv = $('#board');
+  let timer = null, x0 = 0, y0 = 0, at = null;
+  const look = (ev, mouse) => {
+    if (!board || M.upgrades !== 'par' || !game) return;
+    const c = board.cellAt(ev), hit = c && pieceAt(now(), c.x, c.y);
+    if (!hit) return mouse ? hideTip() : null;
+    const r = cv.getBoundingClientRect();
+    showTip(hit.p, hit.side, ev.clientX, Math.max(r.top + 10, ev.clientY - 20), hit.how);
+    tipKey = `${c.x},${c.y}`;
+    tipAt = mouse ? 0 : performance.now();
+  };
+  cv.addEventListener('pointerdown', (ev) => { if (ev.pointerType === 'mouse') return; x0 = ev.clientX; y0 = ev.clientY; clearTimeout(timer); hideTip(); timer = setTimeout(() => look(ev, false), 420); });
+  cv.addEventListener('pointermove', (ev) => {
+    if (ev.pointerType !== 'mouse') { if (Math.hypot(ev.clientX - x0, ev.clientY - y0) > 10) clearTimeout(timer); return; }
+    const c = board?.cellAt(ev), key = c ? `${c.x},${c.y}` : null;
+    if (key === at) return;
+    at = key; clearTimeout(timer);
+    if (tipKey && tipKey !== key) hideTip();
+    timer = setTimeout(() => look(ev, true), 300);
+  });
+  cv.addEventListener('pointerup', () => clearTimeout(timer));
+  cv.addEventListener('pointerleave', () => { clearTimeout(timer); at = null; hideTip(); });
+  cv.addEventListener('contextmenu', (ev) => { if (M.upgrades === 'par') ev.preventDefault(); });
+  document.addEventListener('pointerdown', (ev) => { if (!$('#tip')?.hidden && !ev.target.closest?.('#tip')) hideTip(); }, true);
 }
 
 /** Catches this turn: into the run's tally, and (not on a test) your collection. */
@@ -658,51 +785,62 @@ function whatHappened(a, b) {
   b.foes.forEach((f, k) => {
     if (!f.taken || a.foes[k].taken) return;
     if (M.upgrades === 'par' && session?.run) {
-      // Adventure: every piece taken leaves its rabbit with you.
-      const c = rabbitCounts(b).find((q) => q.type === f.type), was = rabbitCounts(a).find((q) => q.type === f.type);
-      const name = nameOf(f).toLowerCase();
-      if (f.netted) { bits.push(`You netted their ${name}: it joins your set after this board.`); return; }
+      // Adventure: every piece taken counts toward three of a kind.
+      const c = tallyCounts(b).find((q) => q.type === f.type), was = tallyCounts(a).find((q) => q.type === f.type);
+      const name = nameOf(f).toLowerCase(), r = rabbitIn(a.foes[k]);
+      if (f.netted) { bits.push(`You netted their ${name}: it joins your set after this board${r ? `, and its ${rabbitName(r, f.suit).toLowerCase()} is yours` : ''}.`); return; }
       // Landing on it, the ordinary chess way, is a squash (Timothy,
-      // 2026-10-15); a weapon's strike only takes.
-      const squashed = b.pieces.some((p) => !p.taken && p.x === a.foes[k].x && p.y === a.foes[k].y), vined = (b.tlog || []).some((l) => l.what === 'vine' && l.k === k);
-      bits.push(`${vined ? 'Your vine catches' : squashed ? 'You squash' : 'You take'} their ${name}. ${c && c.made > (was?.made || 0) ? `That is three ${name} rabbits: ${/^[aeiou]/.test(name) ? 'an' : 'a'} ${name} joins your set after this board.` : `Its rabbit comes with you (${name} rabbits: ${c?.have || 0} of ${RABBITS_FOR_PIECE}).`}`);
+      // 2026-10-15); a weapon's strike only takes. A piece of yours with a
+      // rabbit may have taken it by itself (2026-10-16).
+      const at = (p) => !p.taken && p.x === a.foes[k].x && p.y === a.foes[k].y;
+      const ally = b.pieces.find((p, i) => i && p.ally && (at(p) || (b.tlog || []).some((l) => l.what === 'ally' && l.how === 'strike' && l.k === k && b.pieces[l.i] === p)));
+      const squashed = at(b.pieces[0] || {}), vined = (b.tlog || []).some((l) => l.what === 'vine' && l.k === k);
+      const three = c && c.made > (was?.made || 0);
+      bits.push(`${vined ? 'Your vine catches' : ally ? `Your ${nameOf(ally).toLowerCase()} takes` : squashed ? 'You squash' : 'You take'} their ${name}${r ? `, and the ${RABBITS[r].name.toLowerCase()} rabbit in it` : ''}. ${three ? (roomFor(session.run) ? `That is three: ${/^[aeiou]/.test(name) ? 'an' : 'a'} ${name} joins your set after this board.` : `That is three, but your set is full (${ADVENTURE_MAX}).`) : `(${PIECES[f.type].name}s taken: ${c?.have || 0} of ${TAKE_FOR_PIECE}.)`}`);
       return;
     }
     bits.push(f.brain === 'leader' ? `You took the rabbit that leads them.` : f.mind || f.brain === 'possessed' ? `You took their ${nameOf(f)}, and the rabbit inside is yours.` : `You took their ${nameOf(f)}.`);
   });
+  // Hearts (2026-10-16): spent, it stays; the piece that hit it goes back.
+  b.foes.forEach((f, k) => { if (!f.taken && (f.lives || 1) < (a.foes[k].lives || 1)) bits.push(`Their ${nameOf(f).toLowerCase()}\u2019s heart is spent: it stays where it is${b.pieces.some((p) => p.bounced) ? ', and your piece goes back where it came from' : ''}.`); });
+  // A piece with a rabbit stays behind (2026-10-16).
+  if (b.deployed) { const p = b.pieces[b.deployed.k]; bits.push(`Your ${nameOf(p).toLowerCase()} stays where it is, with its ${RABBITS[p.rabbit]?.name.toLowerCase() || ''} rabbit.`); }
   // Your set takes turns: say what you are now.
   if (b.set && !b.won && !b.arrived && !b.pieces[0].taken && b.pieces[0].type !== a.pieces[0].type) { const n = nameOf(b.pieces[0]).toLowerCase(); bits.push(`Now you are ${/^[aeiou]/.test(n) ? 'an' : 'a'} ${n}.`); }
   // Adventure's tactics: what their turn was, in words.
   const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
   const me = b.pieces[0], myName = me ? nameOf(me).toLowerCase() : 'piece';
   const theirs = (k) => `their ${b.foes[k]?.brain === 'crown' ? 'leader' : nameOf(b.foes[k] || {}).toLowerCase()}`;
-  const by = (l) => (l.by === 'stone' ? 'your stone' : `your ${myName}`);
+  const by = (l) => (l.by === 'stone' ? 'your stone' : l.by === 'ally' ? 'a piece of yours' : `your ${myName}`);
   for (const l of b.tlog || []) {
     if (l.what === 'pin') bits.push(`${cap(by(l))} pins ${theirs(l.k)}: it holds.`);
     if (l.what === 'check') bits.push(l.how === 'take' ? `Check! ${cap(theirs(l.k))} takes ${by(l)}.` : l.how === 'block' ? `Check! ${cap(theirs(l.k))} steps in to block, and its rabbit stands guard there now, a sentry.`
       : `${l.double ? 'Double check' : 'Check'}! Their leader runs.`);
     if (l.what === 'mate') bits.push('Checkmate! Their leader is caught, and the rest lay down their arms.');
-    if (l.what === 'flee') bits.push(`The ${M.upgrades === 'par' ? 'hearts' : 'scared'} rabbit in ${theirs(l.k)} runs.`);
+    if (l.what === 'flee') bits.push(`The scared rabbit in ${theirs(l.k)} runs.`);
+    if (l.what === 'swap') bits.push(`It trades squares with their ${nameOf(b.foes[l.with] || {}).toLowerCase()} to get away (Gears).`);
+    if (l.what === 'stunned') bits.push(`${cap(theirs(l.k))} is stunned, and sits out this turn.`);
+    if (l.what === 'ally' && l.how === 'run') bits.push(`Your ${nameOf(b.pieces[l.i]).toLowerCase()} runs from their reach.`);
+    if (l.what === 'ally' && l.how === 'stuck') bits.push(`Your ${nameOf(b.pieces[l.i]).toLowerCase()} would run, but has nowhere to go.`);
     if (l.what === 'trapped') bits.push(l.fork ? `Fork! ${cap(theirs(l.k))} could not run as well.` : l.pinned ? `${cap(theirs(l.k))} would run, but it is pinned.` : `${cap(theirs(l.k))} has nowhere to run.`);
-    if (l.what === 'sentry') bits.push(l.on === 'stone' ? `The stone rabbit in ${theirs(l.k)} leaps and breaks your stone.` : `The stone rabbit in ${theirs(l.k)} leaps.`);
-    // Rabbits as suits (2026-10-16).
-    if (l.what === 'chain') bits.push(`The spirals rabbit in ${theirs(l.k)} steps on again.`);
+    if (l.what === 'sentry') bits.push(l.on === 'stone' ? `The sentry rabbit in ${theirs(l.k)} strikes and breaks your stone.` : `The sentry rabbit in ${theirs(l.k)} strikes.`);
+    if (l.what === 'chain') bits.push(`${cap(theirs(l.k))} takes again (Spirals).`);
     if (l.what === 'stone') bits.push(`Your stone takes ${theirs(l.k)}.`);
   }
   // A piece of your set taken (Adventure): gone, and the next comes on.
   if (b.arrived) {
     const t = b.foes.find((f) => !f.taken && f.ate === 0), left = setLeft(b);
-    bits.push(`${b.arrived.lost.vined ? 'A vine of theirs catches' : t ? `${cap(theirs(b.foes.indexOf(t)))} squashes` : 'They took'} your ${nameOf(b.arrived.lost).toLowerCase()}: it is out for this board. Your ${myName} comes on in its place${left > 1 ? ` (${left} pieces left)` : ', your last piece: lose it and the adventure is over'}.`);
+    bits.push(`${b.arrived.lost.vined ? 'A vine of theirs catches' : t ? `${cap(theirs(b.foes.indexOf(t)))} squashes` : 'They took'} your ${nameOf(b.arrived.lost).toLowerCase()}: it is out for this board. ${b.arrived.recalled ? `Your ${myName}, with its rabbit, is your piece again` : `Your ${myName} comes on in its place`}${left > 1 ? ` (${left} pieces left)` : ', your last piece: lose it and the adventure is over'}.`);
   }
   if (b.foeBonus === 'vines') bits.push('Their piece of Vines takes again.');
   if (b.foeBonus === 'stars') bits.push('Their piece of Stars moves twice.');
   b.foes.forEach((f) => {
-    if (f.ate >= 0 && b.pieces[f.ate].taken && !a.pieces[f.ate].taken) bits.push(`Their ${nameOf(f)} took your ${nameOf(b.pieces[f.ate])}.`);
-    if (f.wounded >= 0) bits.push(`Their ${nameOf(f)} took your ${nameOf(b.pieces[f.wounded])}, but its heart sends it back to your first row.`);
+    if (f.ate >= 0 && b.pieces[f.ate]?.taken && a.pieces[f.ate] && !a.pieces[f.ate].taken) bits.push(`Their ${nameOf(f)} took your ${nameOf(b.pieces[f.ate])}.`);
+    if (f.wounded >= 0) bits.push(M.upgrades === 'par' ? `Their ${nameOf(f).toLowerCase()} hits your ${nameOf(b.pieces[f.wounded]).toLowerCase()}: its heart is spent, it stays, and theirs goes back.` : `Their ${nameOf(f)} took your ${nameOf(b.pieces[f.wounded])}, but its heart sends it back to your first row.`);
   });
   // Weapons and the rabbits (2026-10-13).
   if (b.revived?.side === 'foe') bits.push(`Their ${nameOf(b.foes[b.revived.i])} had a heart: it goes back to their first row.`);
-  b.pieces.forEach((p, i) => { if (p.stun && !a.pieces[i].stun) bits.push(`Your ${nameOf(p)} is stunned and sits out your next turn.`); });
+  b.pieces.forEach((p, i) => { if (p.stun && a.pieces[i] && !a.pieces[i].stun) bits.push(`Your ${nameOf(p)} is stunned and sits out your next turn.`); });
   b.foes.forEach((f, k) => { if (f.stun && !a.foes[k].stun) bits.push(`Their ${nameOf(f)} is stunned and sits out their next turn.`); });
   const ra = carrierOf(a, 'foe'), rb = carrierOf(b, 'foe');
   if (ra && rb && ra.rides !== rb.rides) bits.push(rabbitChosen(b.day.rules) ? `They move the rabbit to their ${nameOf(b.foes[rb.rides])}.` : `The rabbit hops to their ${nameOf(b.foes[rb.rides])}.`);
@@ -712,7 +850,7 @@ function whatHappened(a, b) {
   if (fb && fa && fb.by !== fa.by) bits.push(fb.by === 'you' ? 'You have the rabbit: bring it back to your first row.' : fb.by === 'foe' ? 'They have the rabbit: take the piece carrying it.' : 'The rabbit is loose.');
   if (b.hole && !holeOpen(a) && holeOpen(b) && b.day.rules.goal !== 'clear') bits.push('The hole is open.');
   // Golf (2026-10-13): a ball into the water goes back to the tee.
-  b.pieces.forEach((p, i) => { if (p.splash && p.splash.t !== a.pieces[i].splash?.t) bits.push('Splash: into the water, and back to the tee.'); });
+  b.pieces.forEach((p, i) => { if (p.splash && p.splash.t !== a.pieces[i]?.splash?.t) bits.push('Splash: into the water, and back to the tee.'); });
   if (b.shrunk.length > a.shrunk.length) bits.push('A square fell off the edge.');
   if ((b.open?.length || 0) > (a.open?.length || 0)) {
     const onIt = (q) => [...b.pieces, ...b.foes].some((p) => !p.taken && p.y * b.day.W + p.x === q);
@@ -766,12 +904,14 @@ async function play(mv) {
   game.moves.push(mv); game.states.push(b);
   shown = null;
   noteCatches(a, b);
-  haptic(b.won ? [20, 40, 30] : b.arrived || b.pieces.some((p, i) => p.taken && !a.pieces[i].taken) ? [40, 30, 40] : 10);
+  haptic(b.won ? [20, 40, 30] : b.arrived || b.pieces.some((p, i) => p.taken && a.pieces[i] && !a.pieces[i].taken) ? [40, 30, 40] : 10);
   hud();
   // A piece of your set taken (Adventure): first they take it, then the
   // next of your set drops in where you came onto the board.
   if (b.arrived) {
-    const gone = { ...b, pieces: [{ ...b.arrived.lost }], ci: b.arrived.from };
+    // (Pieces of yours standing by themselves stay where they are; one
+    // that becomes your piece again is still standing there till then.)
+    const gone = { ...b, pieces: [{ ...b.arrived.lost }, ...b.pieces.slice(1).map((p) => (p.recalled ? { ...p, taken: false } : p))], ci: b.arrived.from };
     await board.animate(mid, gone, { p: -1 });
     await board.animate(gone, b, { p: -1 });
   } else if (!b.won && !b.bonus) await board.animate(mid, b, { p: -1 });
@@ -803,6 +943,8 @@ async function play(mv) {
 let pendingPlace = null;
 $('#board').addEventListener('click', async (e) => {
   if (!board || busy || isOver(now())) return;
+  // The tap that ends a hold only showed a piece's card.
+  if (tipHeld()) return;
   const c = board.cellAt(e);
   if (!c) return;
   if (kf) return kf.tap(c);
@@ -827,8 +969,8 @@ $('#board').addEventListener('click', async (e) => {
   const here = s.pieces.map((p, k) => k).filter((k) => !s.pieces[k].taken && s.pieces[k].x === x && s.pieces[k].y === y)
     .sort((a, b) => (s.pieces[b].rides != null) - (s.pieces[a].rides != null));
   // One piece on the board (Adventure): its moves are lit already; tapping
-  // it says what it is.
-  if (here.length && solo()) return select(here[0]);
+  // it, or a piece of yours standing by itself, shows its card.
+  if (here.length && solo()) { const h = pieceAt(s, x, y); if (h) showTip(h.p, 'you', e.clientX, e.clientY - 20, h.how); return; }
   if (here.length) { const at = here.indexOf(sel); return select(at < 0 ? here[0] : at + 1 < here.length ? here[at + 1] : null); }
   select(null);
   // A stone of yours (Stone suit).
@@ -851,11 +993,11 @@ $('#board').addEventListener('click', async (e) => {
   const seen = (f) => !f.taken && f.x === x && f.y === y && !hidden.has(s.foes.indexOf(f));
   const f = s.foes.find((f) => seen(f) && f.rides != null) || s.foes.find(seen);
   if (f?.brain === 'leader') return info(leaderDesc(f, s.day));
+  // Adventure (2026-10-16): theirs show their card.
+  if (M.upgrades === 'par' && f) return showTip(f, 'foe', e.clientX, e.clientY - 20);
   if (f?.brain === 'carrier') return info(carrierText(s, f));
   if (f?.brain === 'still') return info(`A statue of their ${nameOf(f).toLowerCase()}: it never moves and never takes. Take it.`);
   // Adventure's tactics.
-  // Adventure: rabbits are suits; tapping one of theirs says what its rabbit does there.
-  if (M.upgrades === 'par' && SUITS[f?.suit]?.foeDesc) return info(`Their ${nameOf(f).toLowerCase()}, with ${rabbitOf(f)} inside. ${SUITS[f.suit].foeDesc}${f.route ? ` ${routeText(f)}` : ''}${f.lives > 1 ? ' Its heart is not spent yet.' : ''}${f.trapped ? ' Last turn it could not run.' : ''}`);
   if (f?.brain === 'sentry') return info(`Their ${nameOf(f).toLowerCase()}, with a sentry rabbit inside (red). It never walks, but if anything of yours stands in its reach (ringed red) when their turn ends, it leaps to take it. Pinned, it cannot.`);
   if (f?.brain === 'scared') return info(`Their ${nameOf(f).toLowerCase()}, with a scared rabbit inside (white): when you attack it, it runs to a square you do not attack. Their side can save only one a turn, so attack two at once.${f.trapped ? ' Last turn it could not run.' : ''}`);
   if (f?.brain === 'crown') return info('Their leader, a crowned King. Attack it, and they must answer: take your attacker if they can (the King only if nothing else of yours guards that square), else block the line (the blocker stands guard there after), else the King runs. If none of those works, it is checkmate, and every piece of theirs falls.');
@@ -1013,13 +1155,15 @@ async function adventureOver(end) {
   // Pieces of your set they took on the way (back next board).
   const fell = (end.set || []).filter((e) => e.lost).map((e) => nameOf(e).toLowerCase());
   const after = afterAdventure(run, end, session.pick || [0]);
+  // What you took: rabbits now and then, and for certain from a net (2026-10-16).
+  const taken = rabbitsTaken(end), sure = rabbitsTaken(end, true);
   const netted = netCatches(run, end);
-  const made = takeRabbits(run, end);
+  const made = takeTally(run, end);
   if (after.all) { status(`They took your ${took || 'last piece'}.`); await sleep(1600); return runOver('They took every piece of your set on one board.'); }
   const how = parVerdict(end.t, par, won), score = scoreName(end.t, par, won);
   // A piece given after this depth (a bishop after the first board, a knight
   // after the third), so you have a set to work with.
-  const gift = ADVENTURE_GIFTS[session.n];
+  const gift = ADVENTURE_GIFTS[session.n] && roomFor(run) ? ADVENTURE_GIFTS[session.n] : null;
   if (gift) { run.hand.push({ base: gift }); run.found.push(gift); }
   session.n++; run.depth = session.n;
   if (!test) { const r = mine(); r.best = Math.max(r.best || 0, session.n); saveRecords(); }
@@ -1031,7 +1175,7 @@ async function adventureOver(end) {
   if (won) await cheer(score, `${end.t} moves, par ${par}`);
   if (!calm()) { await sleep(won ? 150 : 400); if (won && board.intoHole) await board.intoHole(); else if (board.collapse) await board.collapse(); }
   if (made.length || netted.length || gift) { sfx.fanfare(3); haptic([30, 40, 30, 40, 60]); }
-  const cards = adventureCards(run, PAR_CARDS[how], rng(`reward:${session.seed}:${session.n}`));
+  const cards = adventureCards(run, PAR_CARDS[how], rng(`reward:${session.seed}:${session.n}`), taken);
   const n = PAR_CARDS[how], count = ['', 'one', 'two', 'three', 'four'][n];
   const note = `${score}: ${won ? `${end.t} moves, par ${par}.` : 'the floor gave way.'} `
     + (PAR_AUTO[how] === 'all' ? 'One card, and it goes to a piece of chance\u2019s choosing.' : PAR_AUTO[how] === 'card' ? 'One card: choose the piece for it.' : `Choose one of ${count}.`);
@@ -1039,9 +1183,13 @@ async function adventureOver(end) {
   const sub = [gift ? `${a(gift)} ${PIECES[gift].name.toLowerCase()} joins your set.` : '',
     fell.length ? `Taken on this board, back for the next: your ${fell.join(', ')}.` : '',
     ...netted.map((t) => `In your net: ${a(t).toLowerCase()} ${PIECES[t].name.toLowerCase()} joins your set.`),
-    ...made.map((t) => `Three ${PIECES[t].name.toLowerCase()} rabbits: ${a(t).toLowerCase()} ${PIECES[t].name.toLowerCase()} joins your set.`),
+    ...made.map((t) => `Three ${PIECES[t].name.toLowerCase()}s taken: ${a(t).toLowerCase()} ${PIECES[t].name.toLowerCase()} joins your set.`),
+    [...netted.full, ...made.full].length ? `Your set is full, ${ADVENTURE_MAX} pieces: no room for the ${[...netted.full, ...made.full].map((t) => PIECES[t].name.toLowerCase()).join(' or the ')}.` : '',
     run.hand.length > run.maxPieces ? `You have ${run.hand.length} pieces: each board, ${run.maxPieces} of them are your set, drawn at random.` : ''].filter(Boolean).join(' ');
-  return between({ note: `Depth ${session.n}`, sub, rewards: true, cards, rewardNote: note, rewardAuto: PAR_AUTO[how] || null, fall: true });
+  // A rabbit your net caught is yours for certain: put it in a piece after
+  // the card (each in turn), while some piece has none.
+  const extra = sure.map((r) => ({ kind: 'rabbit', ...r }));
+  return between({ note: `Depth ${session.n}`, sub, rewards: true, cards, rewardNote: note, rewardAuto: PAR_AUTO[how] || null, fall: true, extra });
 }
 
 /** A board cleared (Adventure, 2026-10-16, Timothy: "animations for ...
@@ -1064,7 +1212,7 @@ async function cheer(word, line) {
 
 let fall = null;
 
-async function between({ note, sub = '', rewards = false, combine = false, shop: shopping = false, fall: falling = false, board: newBoard = false, won = false, cards: rewardCards = null, rewardNote = null, rewardAuto = null }) {
+async function between({ note, sub = '', rewards = false, combine = false, shop: shopping = false, fall: falling = false, board: newBoard = false, won = false, cards: rewardCards = null, rewardNote = null, rewardAuto = null, extra = [] }) {
   show('between');
   $('#betweennote').textContent = note;
   $('#betweensub').textContent = sub;
@@ -1082,6 +1230,7 @@ async function between({ note, sub = '', rewards = false, combine = false, shop:
   fall = falling && !calm() && kinds.length ? startFall(cv, kinds) : null;
   cv.hidden = !fall;
   if (rewards && session.run) await reward({ k: 0, note: rewardNote, cards: rewardCards, auto: rewardAuto });
+  for (const card of extra) if (session.run?.hand.some((h) => !h.rabbit)) await reward({ k: 1, note: `In your net: a ${rabbitName(card.rabbit, card.suit).toLowerCase()}, yours.`, cards: [card], auto: 'card' });
   if (shopping && session.run) await shop();
   if (newBoard && session.run) await (M.upgrades === 'tiles' ? tileStep(won) : boardUpgrade());
   if (combine && session.run && session.claimed?.length) await combineStep();
@@ -1102,7 +1251,7 @@ async function between({ note, sub = '', rewards = false, combine = false, shop:
 }
 
 /** A suit or weapon card's name with its mark: "♥ Hearts". */
-const cardName = (c) => (c.kind === 'suit' ? `${SUITS[c.suit].mark} ${SUITS[c.suit].name}` : `${WEAPONS[c.weapon].mark} ${WEAPONS[c.weapon].name}`);
+const cardName = (c) => (c.kind === 'suit' ? `${SUITS[c.suit].mark} ${SUITS[c.suit].name}` : c.kind === 'rabbit' ? rabbitName(c.rabbit, c.suit) : `${WEAPONS[c.weapon].mark} ${WEAPONS[c.weapon].name}`);
 
 /** Offer the rewards for a finished level; resolves once one is taken. */
 function reward({ k = 0, note = null, cards: given = null, room = false, auto = false } = {}) {
@@ -1121,17 +1270,19 @@ function reward({ k = 0, note = null, cards: given = null, room = false, auto = 
       if (!fall || M.upgrades !== 'par' || i == null || !run.hand[i]) return;
       if (card.kind === 'suit') { fall.restyle(i, lookOf(run.hand[i]), SUITS[card.suit].colour); sfx.transform(0.35); }
       if (card.kind === 'weapon') { fall.arm(i, run.hand[i].weapon, WEAPONS[card.weapon].colour); sfx.equip(0.6); }
+      if (card.kind === 'rabbit') { fall.restyle(i, lookOf(run.hand[i]), RABBITS[card.rabbit].colour); sfx.transform(0.35); }
     };
     const choose = (card) => {
       haptic(14); sfx.gain();
       box.hidden = true;
-      const need = card.kind === 'fuse' ? 2 : card.kind === 'suit' || card.kind === 'weapon' || card.kind === 'promote' || card.kind === 'merge' ? 1 : 0;
+      const need = card.kind === 'fuse' ? 2 : card.kind === 'suit' || card.kind === 'weapon' || card.kind === 'promote' || card.kind === 'merge' || card.kind === 'rabbit' ? 1 : 0;
       if (!need) { applyReward(run, card, [], catalog.vetoed); if (card.kind === 'piece') { fall?.add(card.type); addToRoster(card.type); } return done(); }
       // Pick the piece (or two) it is for.
       const picked = [];
       $('#pickbox').hidden = false;
       $('#picktext').textContent = card.kind === 'fuse' ? 'Choose two pieces to fuse into one.' : card.kind === 'promote' ? 'Choose a piece to promote.'
         : card.kind === 'merge' ? `Choose a piece of yours for the ${PIECES[card.type].name}.`
+        : card.kind === 'rabbit' ? `Choose a piece to put the ${rabbitName(card.rabbit, card.suit).toLowerCase()} in (one with no rabbit yet).`
         : card.kind === 'weapon' ? `Choose a piece to give the ${WEAPONS[card.weapon].name.toLowerCase()} to${card.weapon === 'lance' ? ' (one that slides)' : ''}.` : `Choose a piece to give ${SUITS[card.suit].name} to.`;
       // A piece card can also take a gap in the row, if a piece was lost.
       const gap = card.kind === 'merge' && room ? el('button', { class: 'quiet', onclick: () => { gap.remove(); applyMerge(run, -1, card.type); fall?.add(card.type); done(); } }, `Put the ${PIECES[card.type].name} in the gap in your row`) : null;
@@ -1140,6 +1291,7 @@ function reward({ k = 0, note = null, cards: given = null, room = false, auto = 
         handRow($('#pickhand'), { picked, pick: (i) => {
           const h = run.hand[i];
           if (card.kind === 'suit' && h.suit) return;
+          if (card.kind === 'rabbit' && h.rabbit) return;
           if (card.kind === 'weapon' && !canTakeWeapon(h, card.weapon, run.made)) return;
           if (card.kind === 'merge' && !mergeTargets(run.hand, card.type, M.royal, run.made).includes(i)) return;
           if ((card.kind === 'fuse' || card.kind === 'promote') && (kingLocked(h) || (card.kind === 'fuse' && h.base === 'bunny'))) return;
@@ -1160,7 +1312,7 @@ function reward({ k = 0, note = null, cards: given = null, room = false, auto = 
     // Worse than a bogey (Adventure): the one card goes to a piece chosen by
     // chance, with nothing to choose.
     if (auto === 'all' && cards.length === 1) {
-      const card = cards[0], fits = run.hand.map((h, i) => i).filter((i) => (card.kind === 'suit' ? !run.hand[i].suit : canTakeWeapon(run.hand[i], card.weapon, run.made)));
+      const card = cards[0], fits = run.hand.map((h, i) => i).filter((i) => (card.kind === 'suit' ? !run.hand[i].suit : card.kind === 'rabbit' ? !run.hand[i].rabbit : canTakeWeapon(run.hand[i], card.weapon, run.made)));
       if (!fits.length) return done();
       const i = fits[Math.floor(rng(`luck:${session.seed}:${session.n}`)() * fits.length)], who = pieceOf(run.hand[i], run.made).name.toLowerCase();
       applyReward(run, card, [i], catalog.vetoed);
@@ -1171,12 +1323,27 @@ function reward({ k = 0, note = null, cards: given = null, room = false, auto = 
     }
     const head = note || (given ? 'A keepsake, from the waystones. Take one.' : run.hand.length < run.maxPieces ? 'Something is down here with you. Take one of them.' : 'Your hand is full. Take an upgrade.');
     // Adventure: a card is its icon and its name, nothing more (Timothy,
-    // 2026-10-16: "we don't need descriptions for the upgrades").
-    const mini = (c) => el('button', { class: 'offercard mini', onclick: () => choose(c) },
-      el('div', { class: 'icon', style: `color:${c.suit ? SUITS[c.suit].colour : WEAPONS[c.weapon]?.colour || 'var(--accent)'}` }, c.suit ? SUITS[c.suit].mark : WEAPONS[c.weapon]?.mark || '❀'),
-      el('h3', {}, c.suit ? SUITS[c.suit].name : WEAPONS[c.weapon]?.name || cardText(c).title));
+    // 2026-10-16: "we don't need descriptions for the upgrades"), drawn as
+    // a playing card ("suits upgrades should be presented as cards with the
+    // suit on them"): the suit's pip in its corners and large in the middle;
+    // a weapon's or a rabbit's the same way. Its words are kept for a hold
+    // or the mouse resting on it (title).
+    const pcard = (c, i) => {
+      const colour = c.kind === 'suit' ? SUITS[c.suit].colour : c.kind === 'rabbit' ? RABBITS[c.rabbit].colour : WEAPON_INK[c.weapon] || '#a9d98b';
+      const pip = (size, cls) => {
+        if (c.kind === 'suit') return suitIcon(c.suit, colour, size, cls);
+        if (c.kind === 'rabbit') return rabbitIcon(colour, size, cls);
+        return weaponIcon(c.weapon, size, cls);
+      };
+      const name = c.kind === 'suit' ? SUITS[c.suit].name : c.kind === 'rabbit' ? rabbitName(c.rabbit, c.suit) : WEAPONS[c.weapon]?.name || cardText(c).title;
+      return el('button', { class: `pcard ${c.kind}`, style: `--pc:${colour};--i:${i}`, title: cardText(c, true).text, 'aria-label': name, onclick: () => choose(c) },
+        el('span', { class: 'corner tl' }, pip(15, 'pip')),
+        el('span', { class: 'face' }, pip(52, 'pip'), c.kind === 'rabbit' && SUITS[c.suit] ? suitIcon(c.suit, SUITS[c.suit].colour, 22, 'pip suitof') : null),
+        el('span', { class: 'pname' }, name),
+        el('span', { class: 'corner br' }, pip(15, 'pip')));
+    };
     if (M.upgrades === 'par') {
-      box.replaceChildren(el('p', { class: 'center' }, head), el('div', { class: 'cardrow' }, ...cards.map(mini)),
+      box.replaceChildren(el('p', { class: 'center' }, head), el('div', { class: 'cardrow' }, ...cards.map(pcard)),
         el('div', { class: 'stack', style: 'margin-top:10px' }, el('button', { class: 'quiet', onclick: done }, 'Take nothing')));
       box.hidden = false;
       return;

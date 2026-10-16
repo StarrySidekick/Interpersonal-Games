@@ -597,6 +597,8 @@ export class Board {
       m.pass.forEach((q, i) => fx.push({ kind: 'spark', at: sq(q), t0: run.t0 + run.dur * (i + 1) / (m.pass.length + 1), dur: 360 }));
     }
     if (w === 'mace' && (m.stun?.length || m.push?.length)) fx.push({ kind: 'shock', at: [p1.x, p1.y], t0: t - 30, dur: 560 });
+    // A shield's push (2026-10-16): sparks where it struck each piece it shoved.
+    if (w === 'shield' && m.push?.length) m.push.forEach((e, i) => fx.push({ kind: 'spark', at: sq(e.from), t0: run.t0 + run.dur * 0.8 + i * 60, dur: 380 }));
     if (w === 'net') b.foes.forEach((f, k) => { if (f.netted && !a.foes[k].netted) fx.push({ kind: 'net', at: [a.foes[k].x, a.foes[k].y], t0: t - 160, dur: 700 }); });
     if (!fx.length) return t;
     // Kept on the board, not the tween, so their reply does not cut it short.
@@ -618,7 +620,16 @@ export class Board {
       const p0 = a.pieces[mv.p], p1 = b.pieces[mv.p];
       // A billiard ball's move bounces on the way; the rules know where.
       const via = mv.via || movesFor(a, mv.p).find((m) => m.x === p1.x && m.y === p1.y)?.via;
-      tw.piece = { i: mv.p, from: [p0.x, p0.y], to: [p1.x, p1.y], via, t0: t, dur: 190 * slow * (1 + 0.5 * (via?.length || 0)) };
+      // A heart hit (Adventure, 2026-10-16): there, and back where it came from.
+      const back = p1.bounced ? [p1.bounced] : null;
+      tw.piece = { i: mv.p, from: [p0.x, p0.y], to: [p1.x, p1.y], via: back || via, t0: t, dur: 190 * slow * (back ? 1.9 : 1 + 0.5 * (via?.length || 0)) };
+      if (back) { tw.poofs.push({ x: back[0][0], y: back[0][1], t0: t + tw.piece.dur * 0.5, dur: 460, c1: '#ffd0da', c2: '#ff5a74' }); sfx.heartBreak?.(at(t + tw.piece.dur * 0.5)); }
+      // What your move moved of theirs (a shield's push, a swap): along with it.
+      b.foes.forEach((f, k) => {
+        const f0 = a.foes[k];
+        if (f.taken || f0.taken || (f.x === f0.x && f.y === f0.y) || b.t !== a.t) return;
+        tw.foes[k] = { from: [f0.x, f0.y], to: [f.x, f.y], t0: t + tw.piece.dur * 0.7, dur: 220 * slow };
+      });
       // On crumbling ground the square it left falls away as it goes.
       if (b.gone?.length > (a.gone?.length || 0)) {
         tw.crumble = { sq: b.gone[b.gone.length - 1], t0: t + 60 * slow, dur: 420 * slow };
@@ -648,6 +659,21 @@ export class Board {
       if (any) { t += dur; sfx.move(at(t)); }
     }
     if (mv.p >= 0 && a.pieces[mv.p]?.weapon) t = this.weaponWork(a, b, mv, t, tw, at);
+    // Your pieces with a rabbit act at the start of their turn (Adventure,
+    // 2026-10-16): each that moves, or strikes from where it stands (a
+    // lunge and back), before anything is taken.
+    if (b.t !== a.t) {
+      const t0 = t + 60 * slow, dur = 300 * slow;
+      let any = false;
+      tw.mine = tw.mine || {};
+      b.pieces.forEach((p, i) => {
+        const p0 = a.pieces[i];
+        if (!i || !p.ally || !p0 || p0.taken) return;
+        if (p.struck && p.x === p0.x && p.y === p0.y) { tw.mine[i] = { from: [p0.x, p0.y], to: [p.x, p.y], via: [[p0.x + (p.struck[0] - p0.x) * 0.72, p0.y + (p.struck[1] - p0.y) * 0.72]], t0, dur: dur * 1.2 }; any = true; sfx.slide(at(t0 + dur * 0.6)); }
+        else if (p.x !== p0.x || p.y !== p0.y || p.blocked) { tw.mine[i] = { from: [p0.x, p0.y], to: [p.x, p.y], t0, dur, blocked: p.blocked }; any = true; sfx.slide(at(t0 + dur)); }
+      });
+      if (any) t = t0 + dur * 1.2;
+    }
     // A ball that was hit rolls on from where the hitter lands.
     // (Once per step: if their turn is in this step too, it rolls then.)
     if (b.won || b.t === a.t) t = this.knocked(a, b, mv.p, t, slow, tw, at);
@@ -715,9 +741,11 @@ export class Board {
       }
       if (any) t = t0 + dur;
       t = this.knocked(a, b, mv.p, t, slow, tw, at);
-      tw.eaten = new Set(b.pieces.map((p, i) => (p.taken && !a.pieces[i].taken ? i : -1)).filter((i) => i >= 0));
+      tw.eaten = new Set(b.pieces.map((p, i) => (p.taken && a.pieces[i] && !a.pieces[i].taken && !p.recalled ? i : -1)).filter((i) => i >= 0));
       tw.landAt = t - 40;
       for (const i of tw.eaten) tw.poofs.push({ x: a.pieces[i].x, y: a.pieces[i].y, t0: t - 40, dur: 480, c1: '#7a5133', c2: '#c8462e' });
+      // A heart of yours spent: a pink puff where it stands.
+      b.pieces.forEach((p, i) => { if (a.pieces[i] && !p.taken && (p.lives || 1) < (a.pieces[i].lives || 1)) { tw.poofs.push({ x: p.x, y: p.y, t0: t - 60, dur: 460, c1: '#ffd0da', c2: '#ff5a74' }); sfx.heartBreak?.(at(t - 60)); } });
       if (tw.eaten.size) { sfx.eat(at(tw.landAt)); t += 440; }
     }
     // A bubble pops (Tile Chess) when its piece first moves, in a pale puff.
@@ -787,7 +815,15 @@ export class Board {
     const p0 = a.pieces[0], p1 = b.pieces[0];
     // A piece of your set taken: the next drops in where you came onto the
     // board, landing with a puff.
-    if (a.set && b.set && p0?.taken && p1 && !p1.taken && !b.won) {
+    // A piece with a rabbit stayed behind (2026-10-16): the next of your set
+    // drops in where it started, as after a loss.
+    if (b.deployed && p1 && !p1.taken && !b.won) {
+      tw.arrive = { i: 0, t0: t + 80 * slow, dur: 380 * slow };
+      tw.poofs.push({ x: p1.x, y: p1.y, t0: tw.arrive.t0 + tw.arrive.dur, dur: 420, c1: '#ffffff', c2: '#c9d6a3', low: true });
+      sfx.stayBehind?.(at(t));
+      sfx.turn(at(tw.arrive.t0 + tw.arrive.dur));
+      t = tw.arrive.t0 + tw.arrive.dur + 120 * slow;
+    } else if (a.set && b.set && p0?.taken && p1 && !p1.taken && !b.won) {
       tw.arrive = { i: 0, t0: t + 120 * slow, dur: 460 * slow };
       tw.poofs.push({ x: p1.x, y: p1.y, t0: tw.arrive.t0 + tw.arrive.dur, dur: 420, c1: '#ffffff', c2: '#c9d6a3', low: true });
       sfx.turn(at(tw.arrive.t0 + tw.arrive.dur));
@@ -795,7 +831,7 @@ export class Board {
     } else if (a.set && b.set && a.ci !== b.ci && p0 && p1 && !p1.taken && !b.won) {
       // Quick (2026-10-16, Timothy: "swapping to the next piece should be
       // faster and animated faster").
-      tw.morph = { i: 0, from: p0, t0: t + 10 * slow, dur: 260 * slow };
+      tw.morph = { i: 0, from: p0, t0: t + 10 * slow, dur: 170 * slow };
       tw.leaves.push(leafBurst(p1.x, p1.y, tw.morph.t0 + tw.morph.dur * 0.42));
       sfx.turn(at(tw.morph.t0));
       t = tw.morph.t0 + tw.morph.dur;

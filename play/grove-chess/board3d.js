@@ -38,7 +38,7 @@ import { rng } from '../../engine/seed.js';
 import { model } from './models.js';
 import { LOOK } from './config.js';
 import { Board, tileColour, PIT, TRACK, tweenPos, wraps, drawWeaponFx } from './board.js';
-import { onBoard, brambleCount, holeOpen, nextShrink, statueKind, reachMaps, onHill, guarded, guardedSquares, threats, pinned, ghostAt, gateUp, hiddenFrom, flagAt, inCheck } from './rules.js';
+import { PIECES, onBoard, brambleCount, holeOpen, nextShrink, statueKind, reachMaps, onHill, guarded, guardedSquares, threats, pinned, ghostAt, gateUp, hiddenFrom, flagAt, inCheck } from './rules.js';
 import * as sfx from './sounds.js';
 import { haptic } from '../../engine/ui.js';
 
@@ -54,7 +54,7 @@ const PALE = '#e9e4da';   // a possessed piece whose rabbit you do not know
 const CARRIER_FUR = { you: '#cfe6b4', foe: '#c7b2ea' };
 /** Your plinth in Adventure, where theirs wear their rabbits' (suits') colours. */
 const YOUR_PLINTH = '#f6f1e3';
-const SUIT_COLOUR = { hearts: '#e0445a', spirals: '#a77bdc', gears: '#8fa6bd', stars: '#e8c547', vines: '#2fb8a0', stone: '#b08a5a' }; // run.js SUITS
+const SUIT_COLOUR = { hearts: '#e0445a', spirals: '#a77bdc', gears: '#c47a45', stars: '#e8c547', vines: '#3f9e45' }; // run.js SUITS
 // The plinth of a Changeling wearing another piece's shape: fairy silver.
 const CHANGELING_GLOW = '#d9c8f5';
 const LIFT = 10 / 28;     // the flat board's pixels of height, in model units
@@ -905,6 +905,8 @@ export class Board3D extends Board {
       });
       for (const [sq, i] of labels) number(i, sq % W, Math.floor(sq / W), col);
     });
+    // Your pieces with a robot rabbit (Adventure, 2026-10-16): their loops too.
+    last.pieces.forEach((p) => { if (p.ally && p.route && !p.taken) this.route(g, p, this.fur(p) || TRACK[0], line, inSq); });
     if (last.hole?.pattern) {
       const col = '#1d6b6b', P = track.map((st) => [st.hole.x, st.hole.y]);
       for (let i = 1; i < P.length; i++) {
@@ -958,12 +960,18 @@ export class Board3D extends Board {
     }
     const [dx, dy] = f.pattern[f.i % L], tx = f.x + dx, ty = f.y + dy;
     if (dx || dy) line(elbow([f.x, f.y], [tx, ty]), rgba(col, 0.95), 2.6);
-    // A stars rabbit walks two steps a turn: the second bold too.
-    if (this.day.rules.suitRabbits && f.suit === 'stars') { const [ex, ey] = f.pattern[(f.i + 1) % L]; if (ex || ey) line(elbow([tx, ty], [tx + ex, ty + ey]), rgba(col, 0.95), 2.6); }
-    // Its next square is framed in its colour, unless the danger ring (red,
-    // in Adventure) frames it already.
-    const box = [[4, 4], [24, 4], [24, 24], [4, 24], [4, 4]].map(([a, b]) => inSq(tx, ty, a, b));
-    if (!(dx || dy) || this.reach === false || !this.day.rules.tactics) line(box, rgba(col, 0.95), 2, dx || dy ? null : [2, 2]);
+    // Its next square is framed in its loop's colour (Timothy, 2026-10-16:
+    // "the highlighted square where a gear rabbit piece will go next should
+    // be the color of the line that shows its path, not red"), with a dark
+    // edge so it reads on any square. A rest is dashed, on its own square.
+    const frame = (x, y, rest = false) => {
+      const box = [[3, 3], [25, 3], [25, 25], [3, 25], [3, 3]].map(([a, b]) => inSq(x, y, a, b));
+      if (!rest) line(box, 'rgba(20,14,8,.45)', 4);
+      line(box, rgba(col, 0.98), 2.2, rest ? [2, 2] : null);
+    };
+    frame(tx, ty, !(dx || dy));
+    // A stars rabbit walks two steps a turn: the second bold, and framed, too.
+    if (this.day.rules.suitRabbits && f.suit === 'stars') { const [ex, ey] = f.pattern[(f.i + 1) % L]; if (ex || ey) { line(elbow([tx, ty], [tx + ex, ty + ey]), rgba(col, 0.95), 2.6); frame(tx + ex, ty + ey); } }
   }
 
   /** The lines of finished games, one colour per player. */
@@ -998,10 +1006,14 @@ export class Board3D extends Board {
       if (p.taken) return;
       if (p.weapon && !o.s) {
         const dx = 0.3 * side, lean = -0.18 * side, lv = Math.max(1, Math.min(3, p.wl || 1));
-        stand(model({ sword: 'wSword', lance: 'wLance', mace: 'wMace', net: 'wNet' }[p.weapon] || 'wSword', 'you'), x + dx, y - 0.12 * side, h + 0.8, id, { rz: lean, s: 1 });
+        stand(model({ sword: 'wSword', lance: 'wLance', mace: 'wMace', net: 'wNet', shield: 'wShield' }[p.weapon] || 'wSword', 'you'), x + dx, y - 0.12 * side, h + 0.8, id, { rz: lean, s: 1 });
         for (let n = 0; n < lv; n++) stand(model('wPip', 'you'), x + dx + (n - (lv - 1) / 2) * 0.13, y - 0.3 * side, h + 0.2, id, { s: 0.7 });
       }
-      if (p.stun) stand(model('stunStars', 'you'), x, y, h + HEAD * BIG + 2, id);
+      if (p.stun || p.sat) stand(model('stunStars', 'you'), x, y, h + HEAD * BIG + 2, id);
+      // A thespian holds up the piece whose part it plays (2026-10-16).
+      if (p.role && PIECES[p.role] && !o.s) stand(model(p.role, 'grey'), x - 0.32 * side, y + 0.1, h + HEAD * BIG + 0.6, id, { s: 0.4 });
+      // A heart not yet spent (Adventure): a little heart over its head.
+      if (this.day.rules.suitRabbits && (p.lives || 1) > 1 && !o.s) stand(model('heartPip', 'you'), x + 0.3 * side, y + 0.1, h + HEAD * BIG + 1.2, id, { s: 0.9 });
     };
     const stand = (mdl, x, y, h, id, o = {}) => {
       const [X, Z] = this.stood(x, y);
@@ -1111,7 +1123,10 @@ export class Board3D extends Board {
       }
       // Yours, in Adventure, stands on a white plinth (rabbits are suits, so
       // a suit's colour no longer tells yours from theirs, 2026-10-16).
-      stand(q.brain === 'carrier' ? model('rabbit', 'you', CARRIER_FUR.you) : model(q.shape || q.type, this.lookOf ? this.lookOf(q) : 'you', null, this.lookOfFoe ? YOUR_PLINTH : q.brain === 'possessed' ? this.fur(q) : SUIT_COLOUR[q.suit] || (q.shape ? CHANGELING_GLOW : null)), x, y, h, 100 + i, o);
+      // A piece of yours with a rabbit standing by itself (2026-10-16): the
+      // rabbit's colour on the band of your white plinth.
+      const mine = this.lookOfFoe ? (q.ally && this.fur(q) ? `${this.fur(q)}/${YOUR_PLINTH}` : YOUR_PLINTH) : null;
+      stand(q.brain === 'carrier' ? model('rabbit', 'you', CARRIER_FUR.you) : model(q.shape || q.type, this.lookOf ? this.lookOf(q) : 'you', null, mine || (q.brain === 'possessed' ? this.fur(q) : SUIT_COLOUR[q.suit] || (q.shape ? CHANGELING_GLOW : null))), x, y, h, 100 + i, o);
       where[i] = { x, y, h, i };
       armsOf(q, x, y, h, 100 + i, o, 1);
       // Guarded (2026-10-11): a shield in front. Since 2026-10-13 it flies
@@ -1173,7 +1188,7 @@ export class Board3D extends Board {
       const fl = this.lookOfFoe ? this.lookOfFoe(f) : 'foe';
       // (A rabbit inside, in Adventure a suit's, lights the plinth as it
       // possesses the piece, so it comes before a suit's own colour.)
-      const mdl = f.brain === 'crown' ? model(f.type, 'crowned') : f.brain === 'sentry' || f.brain === 'scared' ? model(f.shape || f.type, fl, null, this.glowOf(f, k, at)) : f.brain === 'still' ? model(f.shape || f.type, 'grey') : f.brain === 'leader' ? model('rabbit', 'foe', this.fur(f)) : f.brain === 'carrier' ? model('rabbit', 'foe', CARRIER_FUR.foe) : f.brain === 'possessed' && this.lookOfFoe ? model(f.shape || f.type, fl, null, this.glowOf(f, k, at)) : f.suit ? model(f.shape || f.type, fl, null, SUIT_COLOUR[f.suit]) : f.shape ? model(f.shape, fl, null, CHANGELING_GLOW) : f.brain === 'possessed' ? model(f.type, fl, null, this.glowOf(f, k, at)) : model(f.type, fl, this.fur(f));
+      const mdl = f.brain === 'crown' ? model(f.type, 'crowned') : f.brain === 'sentry' || f.brain === 'scared' || f.brain === 'sentient' ? model(f.shape || f.type, fl, null, this.glowOf(f, k, at)) : f.brain === 'still' ? model(f.shape || f.type, 'grey') : f.brain === 'leader' ? model('rabbit', 'foe', this.fur(f)) : f.brain === 'carrier' ? model('rabbit', 'foe', CARRIER_FUR.foe) : f.brain === 'possessed' && this.lookOfFoe ? model(f.shape || f.type, fl, null, this.glowOf(f, k, at)) : f.suit ? model(f.shape || f.type, fl, null, SUIT_COLOUR[f.suit]) : f.shape ? model(f.shape, fl, null, CHANGELING_GLOW) : f.brain === 'possessed' ? model(f.type, fl, null, this.glowOf(f, k, at)) : model(f.type, fl, this.fur(f));
       const fo = collapse ? { s: away(at - collapse.t0 - collapse.delay(f.x, f.y)) } : {};
       stand(mdl, x, y, h, 200 + k, fo);
       armsOf(f, x, y, h, 200 + k, fo, -1);
@@ -1297,7 +1312,7 @@ export class Board3D extends Board {
   async possess(stop = () => false) {
     const s = this.shown, t0 = performance.now(), list = [];
     s?.foes.forEach((f, k) => {
-      if (!['possessed', 'sentry', 'scared'].includes(f.brain) || f.taken) return;
+      if (!['possessed', 'sentry', 'scared', 'sentient'].includes(f.brain) || f.taken) return;
       list.push({ k, x: f.x, y: f.y, dx: (list.length % 2 ? 1 : -1) * 0.6, fur: this.fur(f) || PALE, t0: t0 + list.length * 380, dur: 1000 });
     });
     if (!list.length) return;

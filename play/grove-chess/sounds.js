@@ -235,6 +235,12 @@ export function weapon(kind, at = 0) {
     noise({ at, dur: 0.2, vol: 0.2, from: 700, type: 'lowpass' });
     return;
   }
+  // The shield (2026-10-16): a dull clang of steel on wood, and a scrape.
+  if (kind === 'shield') {
+    tone({ f: 260, f2: 180, type: 'square', at, dur: 0.16, vol: 0.08 });
+    noise({ at: at + 0.04, dur: 0.22, vol: 0.09, from: 1200, to: 400, type: 'bandpass', q: 1.2 });
+    return;
+  }
   if (kind === 'net') {
     noise({ at, dur: 0.34, vol: 0.08, from: 500, to: 2200, type: 'bandpass', q: 1.5 });
     tone({ f: 330, f2: 660, type: 'sine', at: at + 0.22, dur: 0.12, vol: 0.07 });
@@ -255,4 +261,17 @@ export function equip(at = 0) {
   tone({ f: 990, f2: 940, type: 'triangle', at, dur: 0.18, vol: 0.13 });
   noise({ at, dur: 0.03, vol: 0.08, from: 3800, type: 'bandpass', q: 5 });
   tone({ f: 1480, type: 'sine', at: at + 0.08, dur: 0.35, vol: 0.05, attack: 0.01 });
+}
+
+/** A heart spent (Adventure, 2026-10-16): a soft crack, the hit piece
+    staying put, and the taker thrown back. */
+export function heartBreak(at = 0) {
+  tone({ f: 660, f2: 330, type: 'triangle', at, dur: 0.22, vol: 0.1 });
+  noise({ at, dur: 0.12, vol: 0.06, from: 2500, type: 'bandpass', q: 3 });
+}
+
+/** A piece with a rabbit stays where it is (2026-10-16): a little rising chirp. */
+export function stayBehind(at = 0) {
+  tone({ f: 520, f2: 880, type: 'sine', at, dur: 0.14, vol: 0.07, attack: 0.01 });
+  tone({ f: 780, f2: 1170, type: 'sine', at: at + 0.09, dur: 0.12, vol: 0.05, attack: 0.01 });
 }

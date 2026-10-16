@@ -5,9 +5,9 @@
 import { el } from '../../engine/ui.js';
 import { Mesh, makeTarget, render } from '../../engine/lowpoly.js';
 import { model, suitLook } from './models.js';
-import { PIECES, descOf, rabbitDesc, RABBIT_AI_DESC, BRAMBLE_DESC, STUMP_DESC, STATUE_ROW_DESC, statueDesc, HOLE_DESC, EXIT_DESC, CRUMBLE_DESC, SHRINK_DESC, LOCKED_DESC, statueKind, leaderDesc } from './rules.js';
+import { PIECES, descOf, rabbitDesc, RABBIT_AI_DESC, BRAMBLE_DESC, STUMP_DESC, STATUE_ROW_DESC, statueDesc, HOLE_DESC, EXIT_DESC, CRUMBLE_DESC, SHRINK_DESC, LOCKED_DESC, statueKind, leaderDesc, rabbitIn } from './rules.js';
 import { routeText } from './rabbits.js';
-import { SUITS } from './run.js';
+import { SUITS, RABBITS, rabbitName } from './run.js';
 import { diagram } from './board.js';
 import { patent } from './betza.js';
 
@@ -76,8 +76,11 @@ export function piecesSheet(dialog, list, day, notes = {}) {
         const P = PIECES[f.type];
         if (f.brain === 'still') row(f.type, 'grey', P.name, 'Theirs, a statue', ['A statue of theirs: it never moves and never takes. Take it.', P.desc, ...patentLines(f.type)], false);
         // Adventure's tactics (2026-10-15).
-        // Rabbits are suits (Adventure, 2026-10-16): what its rabbit does in a piece of theirs.
-        else if (day.rules.suitRabbits && SUITS[f.suit]?.foeDesc) row(f.type, theirs(f), P.name, `Theirs, ${/^[aeiou]/i.test(SUITS[f.suit].name) ? 'an' : 'a'} ${SUITS[f.suit].name.toLowerCase()} rabbit inside`, [SUITS[f.suit].foeDesc, f.route ? routeText(f) : null, P.desc], f.brain === 'possessed');
+        // Adventure (2026-10-16): a rabbit of a kind, and maybe a suit.
+        else if (day.rules.suitRabbits && RABBITS[rabbitIn(f)]) {
+          const r = rabbitIn(f);
+          row(f.type, theirs(f), P.name, `Theirs, a ${rabbitName(r, f.suit).toLowerCase()} inside`, [RABBITS[r].desc, f.suit && SUITS[f.suit] ? `${SUITS[f.suit].name}: ${SUITS[f.suit].advDesc}` : null, P.desc], f.brain === 'possessed');
+        }
         else if (f.brain === 'sentry') row(f.type, theirs(f), P.name, 'Theirs, a sentry rabbit inside', ['A sentry rabbit (red) never walks, but if anything of yours stands in its reach (ringed red) at the end of their turn, it leaps to take it. Pinned, it cannot.', P.desc], false);
         else if (f.brain === 'crown') row(f.type, 'crowned', 'Their leader', 'A crowned King', ['Attack it and they must answer: take your attacker, else block the line (the blocker stands guard after), else the King runs. If nothing works, it is checkmate: every piece of theirs falls, and the board is yours.', P.desc], false);
         else if (f.brain === 'scared') row(f.type, theirs(f), P.name, 'Theirs, a scared rabbit inside', ['A scared rabbit (white) runs to a square you do not attack when you attack it. Their side can save only one a turn: attack two at once and one is yours.', P.desc], false);

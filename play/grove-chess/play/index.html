@@ -90,6 +90,40 @@
     padding: 12px 6px; text-align: center; background: rgba(16, 24, 20, .82); color: #eef3e6; border-color: rgba(238, 243, 230, .3); }
   .offercard.mini h3 { font-size: 15px; margin: 0; }
   .offercard.mini .icon { font-size: 40px; line-height: 1.1; }
+  /* Adventure's suits, rabbits and weapons as playing cards (2026-10-16). */
+  .cardrow .pcard { position: relative; flex: 0 0 auto; width: clamp(70px, 21vw, 96px); height: auto; aspect-ratio: 5 / 7; min-height: 0; padding: 0; margin: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    background: linear-gradient(170deg, #fffdf6, #efe6cf); color: #2a2218; border: 2px solid #d8ccae; border-radius: 11px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, .45); cursor: pointer; font: inherit; animation: deal .42s calc(var(--i) * 90ms) cubic-bezier(.3, 1.4, .6, 1) both; }
+  .pcard::before { content: ''; position: absolute; inset: 5px; border: 1.5px solid var(--pc); border-radius: 7px; opacity: .6; pointer-events: none; }
+  .pcard .corner { position: absolute; line-height: 0; }
+  .pcard .tl { top: 9px; left: 9px; }
+  .pcard .br { bottom: 9px; right: 9px; transform: rotate(180deg); }
+  .pcard .face { position: relative; line-height: 0; }
+  .pcard .suitof { position: absolute; right: -12px; bottom: -6px; }
+  .pcard .pname { font-weight: 800; font-size: 13px; line-height: 1.15; padding: 0 10px; text-align: center; }
+  .pcard:hover, .pcard:focus-visible { transform: translateY(-4px); box-shadow: 0 0 0 3px var(--pc), 0 10px 20px rgba(0, 0, 0, .5); }
+  .pcard canvas { image-rendering: pixelated; }
+  @keyframes deal { from { transform: translateY(40px) rotate(-8deg); opacity: 0; } to { transform: none; opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .cardrow .pcard { animation: none; } }
+  .sicon { display: inline-flex; align-items: center; justify-content: center; line-height: 0; vertical-align: middle; }
+  .sicon.wmark { font-size: 18px; line-height: 1; font-weight: 800; }
+  .sicon.wlight { background: #e9e2c8; border-radius: 5px; padding: 1px; }
+  .marks { display: inline-flex; align-items: center; justify-content: center; gap: 2px; flex-wrap: wrap; }
+  #nextup .slotart { position: relative; display: block; line-height: 0; }
+  #nextup .badge { position: absolute; right: -8px; bottom: 0; }
+  #nextup .slot.out { opacity: .85; border-style: dashed; }
+  /* Looking closer at a piece (Adventure, 2026-10-16): its card. */
+  /* Its own colours, light on dark, whatever the theme: an item card. */
+  #tip { position: fixed; z-index: 50; max-height: 70vh; overflow: auto; background: #101812; color: #eef3e6;
+    border: 1px solid #a9d98b; border-radius: 12px; padding: 10px 12px; box-shadow: 0 10px 28px rgba(0, 0, 0, .55); font-size: 14px; line-height: 1.35; }
+  #tip .dim { color: #a7b8a6; }
+  #tip b { color: #ffffff; }
+  .tiphead { display: flex; gap: 10px; align-items: center; margin-bottom: 6px; }
+  .tiphead canvas { width: 60px; height: 72px; flex: none; background: #e9e2c8; border-radius: 8px; }
+  .tiphead h3 { margin: 0; font-size: 17px; color: #ffffff; }
+  .tiphead p { margin: 0; font-size: 13px; }
+  .tiprow { display: grid; grid-template-columns: 22px 1fr; gap: 8px; align-items: start; padding: 5px 0; border-top: 1px solid #2c4033; }
   .offercard canvas.model { width: 60px; height: 72px; display: block; margin: 0 auto; image-rendering: pixelated; }
   .offercard canvas.diagram { width: 72px; height: 72px; margin-top: 6px; border-radius: 4px; }
   .offercard h3 { margin: 0 0 2px; font-size: 18px; }
@@ -260,6 +294,7 @@
       </div>
     </div>
     <div class="handrow" id="playhand"></div>
+    <div id="tip" role="tooltip" hidden></div>
   </section>
 
   <section data-screen="between" hidden>

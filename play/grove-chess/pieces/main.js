@@ -23,12 +23,12 @@ const powerOf = (k) => PW()[k]?.power ?? PIECES[k]?.strength ?? 0;
 const cat = loadCatalog();
 registerInvented(cat.invented);
 const save = () => saveCatalog(cat);
-const KIND = { classic: 'Classic', fairy: 'Fairy', special: "Grove Chess's own", quarry: "Grove Chess's own", neutral: 'Neutral: nobody\u2019s army' };
+const KIND = { classic: 'Classic', fairy: 'Fairy', special: "Grove Chess's own", quarry: "Grove Chess's own", neutral: 'Neutral: nobody\u2019s army', troupe: 'Adventure\u2019s troupe', companion: 'Adventure\u2019s own: your cat' };
 const list = () => Object.keys(PIECES);
 
 // --- The grid. -------------------------------------------------------------
 
-const FILTERS = [['all', 'All'], ['classic', 'Classic'], ['fairy', 'Fairy'], ['neutral', 'Neutral'], ['invented', 'Invented'], ['vetoed', 'Vetoed'], ['notes', 'With notes']];
+const FILTERS = [['all', 'All'], ['classic', 'Classic'], ['fairy', 'Fairy'], ['troupe', 'Adventure'], ['neutral', 'Neutral'], ['invented', 'Invented'], ['vetoed', 'Vetoed'], ['notes', 'With notes']];
 let filter = 'all';
 
 function shown(k) {
@@ -36,6 +36,7 @@ function shown(k) {
   if (filter === 'classic') return P.kind === 'classic';
   if (filter === 'fairy') return P.kind === 'fairy' && !P.invented;
   if (filter === 'neutral') return P.kind === 'neutral';
+  if (filter === 'troupe') return P.kind === 'troupe' || P.kind === 'companion';
   if (filter === 'invented') return !!P.invented;
   if (filter === 'vetoed') return cat.vetoed.includes(k);
   if (filter === 'notes') return !!cat.notes[k];
