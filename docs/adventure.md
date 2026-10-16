@@ -39,9 +39,27 @@ every run is different, and par should be reasonable for how deep you are.
 
 ## The game now
 
-You start with a rook, always (Timothy, 2026-10-15: "you always start with
-the rook, no choice"). Take every piece of theirs in as few moves as you
-can; then a hole opens and your piece jumps in.
+You start with your cat, always (Timothy, 2026-10-16; a rook before
+that). Take every piece of theirs in as few moves as you can; then a hole
+opens and your piece jumps in.
+
+- **The cat** (Timothy, 2026-10-16: "the player has a special new piece
+  call the cat, and it has the move set of the king. it can be given suits
+  and weapons like other pieces, and it is always rolled as one of your
+  pieces when you play. it is your starting piece. it has some
+  customization options as to its model that you can choose, like
+  different cat-like features"). `PIECES.cat` in `rules.js`, Betza `K`,
+  kind `companion` (not classic or fairy, so no other mode deals it by
+  chance; the lab can still use it). Adventure's `startPool` is `['cat']`.
+  When your collection is bigger than your set, `adventureSet` always
+  draws the cat and fills the rest at random. It takes suits and weapons
+  like any piece. **Its look** is chosen on the title screen under "Your
+  cat", Adventure only: ears (pointed, folded, tufted), tail (long,
+  curled, fluffy), face (whiskers or none) and coat (tabby, plain, socks),
+  with a live preview. Kept on this device (`ig.grove.cat.v1`); only the
+  model changes, never the moves. In code: `CAT_OPTIONS`, `setCatLook` and
+  `catShape` in `models.js`; the sprite cache key carries `catKey()` so a
+  change redraws it.
 
 - **Passing, and the order** (Timothy, 2026-10-16: "when you pass, the
   piece you have should move to the next one. when you complete the set of
@@ -182,20 +200,59 @@ can; then a hole opens and your piece jumps in.
   board draws three of them at random (in the order you got them) as your
   set, and the rest rest; the row shows how many are resting.
 - **Taken** (Timothy, 2026-10-15: "you need to lose all your pieces to
-  lose the game and you don't just go to the next level if you lose
-  one"). If they take the piece on the board, that piece is gone for good,
-  and the next of your set drops in where you came onto the board (or the
-  nearest free square to it that nothing of theirs reaches), and the board
-  goes on. The caption says who took what and how many are left; the row
-  under the board lists the lost, struck through. Only when the last of
-  the set is taken does the board end (the floor gives way: one card). With
-  no pieces left in your whole collection, the adventure is over; if some
-  were resting this board, you go on with them. In rules: `nextAfterLoss`
-  runs after their turn (in `respond` and `apply`), marks the set entry
-  `lost`, and picks the square with `entrySpot`; `nextInSet`, `setOrder`
-  and `setLeft` skip the lost. **Par stays a clean clear:** the solver does
-  not search past a loss (`ch.arrived` in `solve.js`), so par never asks
-  you to sacrifice a piece.
+  lose the game"; then 2026-10-16: "when a piece of yours is to be
+  destroyed in a level, don't then move the player position, the next
+  piece in the lineup simply appears in that spot" and "player pieces when
+  captured shouldn't disappear forever, just for that level"). If they take
+  the piece on the board, it is out **for this board only**: the next of
+  your set appears on the very square it was taken on (or, if something of
+  theirs still stands there, the nearest free square that nothing of
+  theirs reaches), and the board goes on. Next board it is back. The
+  caption says who took what and how many of the set are left; the row
+  under the board lists the lost, struck through. If they take **every
+  piece of your set on one board**, the adventure is over (my call: the
+  rule had to end somewhere once losses stopped being permanent). In
+  rules: `nextAfterLoss` runs after their turn (in `respond` and `apply`),
+  marks the set entry `lost`, and picks the square with `entrySpot(n,
+  lostPiece)`, centred on the lost piece; `afterAdventure` in `run.js` no
+  longer removes anything from your collection and returns `{ lost, all }`.
+  **Par stays a clean clear:** the solver does not search past a loss
+  (`ch.arrived` in `solve.js`), so par never asks you to sacrifice a piece.
+- **Between boards** (Timothy, 2026-10-16: "we don't need descriptions for
+  the upgrades at the end of the level. the falling animation should cover
+  the whole screen and you just choose which upgrade you want from the
+  icon and names"). The fall fills the screen: its canvas takes the
+  screen's shape (short side about 240 pixels, enlarged in crisp pixels)
+  and sits fixed behind everything (`fullfall` on the between screen).
+  The score line is at the top, the cards along the bottom, each only its
+  mark and its name. Other modes keep the old boxed fall and full cards.
+- **The piece strip is bigger** ("the piece chooser bottom bar should be
+  bigger so we can see them"): slots 76 by 84, each piece drawn at twice
+  the size, in its suit's look, with its weapon beside it.
+- **Animations** (Timothy, 2026-10-16: "animations for: a piece being
+  transformed into a suit - a piece equipping a weapon - a piece capturing
+  with a weapon - completing the level"):
+  - *A suit*: on the way down, the piece you gave it to spins faster and
+    swells, flashes, and comes out of a burst in the suit's colour wearing
+    its new look, with a shimmer up the scale (`restyle` in `fall.js`,
+    `sfx.transform`).
+  - *A weapon*: it drops in from above, spinning, into the piece's hand
+    and clicks into place with a ring of its colour (`arm` in `fall.js`,
+    `sfx.equip`). Falling pieces now carry their weapons.
+  - *Capturing with a weapon*: a sword's white slash across each square it
+    strikes; a lance's gold streak down its run, sparking at each piece it
+    passes; a mace's double shockwave and cracks where it lands; a net
+    dropping from above over what it catches and drawing tight, then a
+    gold ring. Each has its own sound (`sfx.weapon`). In code:
+    `weaponWork` in `board.js` reads the move (its `strike`, `pass`,
+    `stun`, `push`) and a net's new catch, and `drawWeaponFx` draws them
+    on both boards. They live on the board (`this.fx`), not the move's
+    tween, so their reply does not cut them short.
+  - *Completing a board*: the score word (Eagle, Birdie, Par...) pops up
+    over the board with the moves and par under it, in a burst of
+    confetti in the suits' colours, then your piece hops into the hole
+    (`cheer` in `play/main.js`, `#cheer`). Reduced motion keeps the word
+    and drops the confetti.
 - **Par and the cards** (Timothy, 2026-10-15: "par should be 5 moves to
   start (so par 5 i guess) meaning a birdie is 4, eagle is 3, bogey is 6,
   and so on. every three levels the par goes up one (5,6,7,8) up to 15. par
@@ -587,9 +644,11 @@ as game over.
 
 ## Open, and Timothy's
 
-- What happens when they take your piece: now it is gone and the board
-  ends. Alternatives: the next piece of the set comes in on the same square
-  and the board goes on.
+- Losing every piece of your set on one board ends the adventure (my
+  call, 2026-10-16). Alternatives: the board ends not cleared, with one
+  card, and you go on.
+- The cat's kind is `companion`, so no mode deals it by chance. Whether it
+  should ever appear among theirs.
 - Whether statues give rabbits (now: yes, every piece taken does).
 - Whether a new piece should join mid-board rather than after it.
 - The route kinds and their colours, and when each arrives.

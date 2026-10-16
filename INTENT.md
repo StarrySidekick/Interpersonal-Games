@@ -12,7 +12,18 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
-## 2026-10-16, newest: your stones' reach shown
+## 2026-10-16, newest: the cat, losses back next board, animations
+
+From Timothy, and built: your starting piece is a cat that moves as a
+king, takes suits and weapons, is always in your set, and has a look you
+choose (ears, tail, face, coat). A piece they take is out for that board
+only, and the next of your set appears on its square; losing the whole set
+on one board ends the run (my call). Between boards the fall fills the
+screen and the cards are an icon and a name. The piece strip is twice the
+size. New animations: a suit taking hold, a weapon taken up, each weapon's
+capture, and a board cleared.
+
+## 2026-10-16: your stones' reach shown
 
 From Timothy, and built: while a stone of yours stands, its reach is
 ringed in sand on the board, to plan around.

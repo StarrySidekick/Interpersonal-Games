@@ -32,8 +32,14 @@ export function startFall(canvas, kinds) {
   const cx = w / 2, cy = h * 0.45;
   const t0 = performance.now();
   const motes = Array.from({ length: 46 }, (_, i) => ({ x: (i * 97.3) % w, y: (i * 53.1) % h, v: 60 + ((i * 37) % 90), l: 4 + (i % 5) * 3 }));
-  // Each is a kind, or { kind, side } for a piece with a look of its own.
-  const fallers = kinds.map((k, i) => ({ kind: k.kind || k, side: k.side || 'you', t0, i }));
+  // Each is a kind, or { kind, side, weapon } for a piece with a look (and
+  // a weapon) of its own.
+  const fallers = kinds.map((k, i) => ({ kind: k.kind || k, side: k.side || 'you', weapon: k.weapon || null, t0, i }));
+  // Moments on the way down (2026-10-16): a piece taking on a suit spins and
+  // swells in a burst of the suit's colour, and comes out of it wearing the
+  // suit; a weapon drops in from above, spinning, into a piece's hand.
+  const moments = [];
+  const screenOf = (X, Y) => [cx + X * SCALE, cy - Y * Math.cos(PITCH) * SCALE];
   let landing = null, stopped = false, frame = 0;
 
   // Where faller i hangs while falling: a row across the middle.
@@ -89,7 +95,19 @@ export function startFall(canvas, kinds) {
         y = tableTop + above;
         if (!L) s = Math.max(0.01, 1 - k); // nothing to land on (should not happen)
       }
-      mesh.addXf(model(f.kind, f.side || 'you'), { t: [x, y, z], ry, rz, s }, 100 + i);
+      // A suit taking hold: a fast spin and a swell, the new look from halfway.
+      const tr = f.morph && now - f.morph.t0 < f.morph.dur ? (now - f.morph.t0) / f.morph.dur : -1;
+      if (tr >= 0) { ry += tr * tr * Math.PI * 4; s *= 1 + Math.sin(Math.PI * tr) * 0.3; }
+      const side = tr >= 0 && tr < 0.5 ? f.morph.was : f.side || 'you';
+      mesh.addXf(model(f.kind, side), { t: [x, y, z], ry, rz, s }, 100 + i);
+      f.at = [x, y + 6];
+      // Its weapon, on its right, turning with it; a new one drops in.
+      if (f.weapon) {
+        const eq = f.arming && now - f.arming.t0 < f.arming.dur ? (now - f.arming.t0) / f.arming.dur : 1;
+        const fallIn = (1 - eq) ** 2 * 70, spin = (1 - eq) * Math.PI * 6;
+        mesh.addXf(model({ sword: 'wSword', lance: 'wLance', mace: 'wMace', net: 'wNet' }[f.weapon] || 'wSword', 'you'),
+          { t: [x + Math.cos(ry) * 3, y + 1 + fallIn, z - Math.sin(ry) * 3], ry: ry + spin, rz: rz - 0.18, s }, 200 + i);
+      }
     });
     render(target, mesh, { yaw: 0, pitch: PITCH, scale: SCALE, cx, cy, outline: '#05080a' });
     // The picture goes over the backdrop, keeping the backdrop where it is empty.
@@ -98,12 +116,47 @@ export function startFall(canvas, kinds) {
     layer.width = w; layer.height = h;
     layer.getContext('2d').putImageData(target.img, 0, 0);
     ctx.drawImage(layer, 0, 0);
+    // The bursts, over the picture.
+    for (const m of moments) {
+      const k = (now - m.t0) / m.dur, f = fallers[m.i];
+      if (k < 0 || k >= 1 || !f.at) continue;
+      const [sx, sy] = screenOf(...f.at);
+      ctx.save();
+      ctx.globalAlpha = 1 - k;
+      if (m.kind === 'suit' && k < 0.25) { ctx.fillStyle = `rgba(255,255,255,${0.5 * (1 - k / 0.25)})`; ctx.beginPath(); ctx.arc(sx, sy, 16, 0, Math.PI * 2); ctx.fill(); }
+      ctx.strokeStyle = m.col; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(sx, sy, 4 + k * 30, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = m.col;
+      for (let a = 0; a < 14; a++) {
+        const ang = a * Math.PI / 7 + m.i, r = 6 + k * (m.kind === 'suit' ? 40 : 20) * (a % 2 ? 0.75 : 1);
+        ctx.fillRect(Math.round(sx + Math.cos(ang) * r) - 1, Math.round(sy + Math.sin(ang) * r) - 1, 3, 3);
+      }
+      ctx.restore();
+    }
     frame = requestAnimationFrame(draw);
   }
   frame = requestAnimationFrame(draw);
 
   return {
     add(kind) { fallers.push({ kind, t0: performance.now(), i: fallers.length }); },
+    /** Piece i takes on a look (a suit), in a burst of `col`. */
+    restyle(i, side, col = '#f2c14e') {
+      const f = fallers[i];
+      if (!f) return;
+      const t = performance.now();
+      f.morph = { t0: t, dur: 900, was: f.side || 'you' };
+      f.side = side;
+      moments.push({ i, kind: 'suit', col, t0: t + 380, dur: 760 });
+    },
+    /** Piece i takes up a weapon: it drops in, spinning, and clicks into place. */
+    arm(i, weapon, col = '#f2c14e') {
+      const f = fallers[i];
+      if (!f) return;
+      const t = performance.now();
+      f.weapon = weapon;
+      f.arming = { t0: t, dur: 650 };
+      moments.push({ i, kind: 'weapon', col, t0: t + 600, dur: 520 });
+    },
     /** The next table comes up and the pieces land on their squares. */
     land(level, state) {
       // The table without your pieces on it: they are the ones landing.

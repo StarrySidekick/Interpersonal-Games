@@ -37,7 +37,7 @@ import { Mesh, Model, makeTarget, render } from '../../engine/lowpoly.js';
 import { rng } from '../../engine/seed.js';
 import { model } from './models.js';
 import { LOOK } from './config.js';
-import { Board, tileColour, PIT, TRACK, tweenPos, wraps } from './board.js';
+import { Board, tileColour, PIT, TRACK, tweenPos, wraps, drawWeaponFx } from './board.js';
 import { onBoard, brambleCount, holeOpen, nextShrink, statueKind, reachMaps, onHill, guarded, guardedSquares, threats, pinned, ghostAt, gateUp, hiddenFrom, flagAt, inCheck } from './rules.js';
 import * as sfx from './sounds.js';
 import { haptic } from '../../engine/ui.js';
@@ -1278,6 +1278,7 @@ export class Board3D extends Board {
       for (const b of lb.bits) { g.fillStyle = b.col; g.fillRect(cx + b.vx * e * u, cy + (b.vy * e + 110 * e * e) * u, b.w * u, 2 * u); }
       g.globalAlpha = 1;
     }
+    drawWeaponFx(g, this.fx, at, (x, y) => this.mid(x, y, 4), u);
     // A ring of the rabbit's colour as it dives into a piece.
     for (const ps of this.possessing || []) {
       const k = (at - ps.t0) / ps.dur;

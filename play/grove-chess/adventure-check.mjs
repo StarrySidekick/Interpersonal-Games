@@ -269,8 +269,9 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
   const made = takeRabbits(run, { foes: [{ type: 'knight', taken: true }], pieces: [] });
   ok(made.join() === 'knight' && run.rabbits.knight === 0 && run.hand.length === 3 && run.hand[2].base === 'knight', `${RABBITS_FOR_PIECE} knight rabbits make a knight, and it joins your set`);
   const c = { pieces: [{ type: 'knight', taken: true }], set: [{ type: 'rook' }, { type: 'knight' }, { type: 'knight' }], ci: 1 };
-  afterAdventure(run, c, [0, 1, 2]);
-  ok(run.hand.length === 2 && run.lost.length === 1 && run.hand[0].base === 'rook', 'the piece taken on the board is gone; the rest stay');
+  const af = afterAdventure(run, c, [0, 1, 2]);
+  ok(run.hand.length === 3 && af.lost.join() === '1' && !af.all, 'the piece taken on the board is back next board; the rest stay too');
+  ok(afterAdventure(run, { pieces: [{ type: 'knight', taken: true }], set: [{ type: 'rook', lost: true }, { type: 'knight' }, { type: 'knight', lost: true }], ci: 1 }, [0, 1, 2]).all, 'all of the set taken: the adventure is over');
 }
 
 // Tactics (2026-10-15): pins, sentries, scared flight, the leader, stones.
@@ -365,11 +366,11 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
   let n = R.respond(s);
   const p = n.pieces[0], W = n.day.W;
   ok(n.arrived && n.set[0].lost && p.type === 'knight' && !p.taken && !R.isOver(n), 'a piece taken: the next of the set comes on, and the board goes on');
-  ok(!n.foes.some((f) => !f.taken && f.x === p.x && f.y === p.y) && !R.reachMaps(n).theirs.has(p.y * W + p.x), 'it comes on a free square out of their reach');
+  ok(p.x === 4 && p.y === 3 && !n.foes.some((f) => !f.taken && f.x === p.x && f.y === p.y), 'it comes on where the one taken stood (the sentry never moved off it)');
   ok(R.setLeft(n) === 1 && R.setView(n).filter((v) => !v.lost).length === 1, 'the one taken is out of the set');
   const run = newRun(['rook', 'knight'], 5, null);
   afterAdventure(run, n, [0, 1]);
-  ok(run.hand.length === 1 && run.hand[0].base === 'knight' && run.lost[0].base === 'rook', 'after the board, the one taken is gone for good');
+  ok(run.hand.length === 2 && run.hand[0].base === 'rook', 'after the board, the one taken is back');
   const last = R.clone(n); last.pieces[0].x = 4; last.pieces[0].y = 2;
   ok(R.isOver(R.respond(last)), 'the last of the set taken: the board is lost');
 
@@ -419,6 +420,18 @@ for (const [d, hand] of [[1, ['rook']], [2, ['rook', 'bishop']], [4, ['rook', 'b
     ok(legal && end.won && end.hole, `depth ${d}: the par line clears the board and opens the hole`);
   }
   ok(Date.now() - t0 < 12000, `depth ${d} is found in good time (${Date.now() - t0} ms)`);
+}
+
+// The cat (2026-10-16): steps as a king, starts every adventure, and is
+// always one of the set drawn.
+{
+  ok(R.PIECES.cat && R.PIECES.cat.betza === 'K', 'the cat moves as a king');
+  ok(M.startPool.join() === 'cat', 'an adventure starts with the cat');
+  const run = newRun(['rook', 'knight', 'bishop', 'cat', 'pawn', 'camel', 'ferz'], 3, null);
+  ok([...Array(40)].every((_, k) => adventureSet(run, rng('cat:' + k)).includes(3)), 'the cat is in every set drawn');
+  const lv = deal(1, ['cat'], 1);
+  const st = R.initialState(lv);
+  ok(st.pieces[0].type === 'cat' && R.movesFor(st, 0).every((mv) => Math.max(Math.abs(mv.x - st.pieces[0].x), Math.abs(mv.y - st.pieces[0].y)) === 1), 'a first board deals with the cat on it, stepping one square');
 }
 
 // Cards by par, and never a piece (pieces come from rabbits).

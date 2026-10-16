@@ -1011,6 +1011,14 @@ export const PIECES = {
     desc: 'Steps one square up, down, left or right.',
     origin: 'Named for the vizier.',
     moves: (L, p) => leap(L, p, ORTH) },
+  // Adventure's own (Timothy, 2026-10-16: "the player has a special new
+  // piece call the cat, and it has the move set of the king. it can be given
+  // suits and weapons like other pieces, and it is always rolled as one of
+  // your pieces when you play. it is your starting piece"). Its own kind, so
+  // the daily, their sides and the other modes' pools never deal it.
+  cat: { name: 'Cat', kind: 'companion', tier: 1, value: 3, betza: 'K', strength: 3,
+    desc: 'Steps one square in any direction, as a king does. Yours from the start, and always one of your set.',
+    moves: (L, p) => leap(L, p, ALL8) },
   cannon: { name: 'Cannon', kind: 'fairy', tier: 1, value: 4, betza: 'mRcpR', strength: 4,
     desc: 'Slides like a rook, but can only catch by jumping exactly one thing on the way.',
     origin: 'From xiangqi, Chinese chess.',
@@ -1341,10 +1349,10 @@ export const setLeft = (s) => (s.set ? s.set.filter((e, j) => (j === s.ci ? !s.p
 
 /** A piece of your set taken (Adventure, 2026-10-15, Timothy: "you need to
     lose all your pieces to lose the game and you don't just go to the next
-    level if you lose one"): it is gone from the set for good, and one of
-    the rest comes on where you came onto the board (the nearest free
-    square to it that nothing of theirs reaches, if that one is not): the
-    first that is ready (if none is, a new round starts). You can still
+    level if you lose one"): it is out of the set for the rest of the board
+    (it comes back on the next), and one of the rest comes on where it was
+    taken (entrySpot): the first that is ready (if none is, a new round
+    starts). You can still
     choose another before you move. The board is lost only when none is
     left. `arrived` says what happened, for the page; it is not kept.
     Mutates. */
@@ -1353,7 +1361,7 @@ function nextAfterLoss(n) {
   if (!n.set || !p?.taken || n.won) return;
   const live = n.set.map((_, j) => j).filter((j) => j !== n.ci && !n.set[j].lost);
   if (!live.length) return;
-  const at = entrySpot(n);
+  const at = entrySpot(n, p);
   if (!at) return;
   const own = {};
   for (const [k, v] of Object.entries(p)) if (!PLACE.includes(k)) own[k] = v;
@@ -1427,18 +1435,22 @@ function takeVine(n, side, x, y) {
   n.vines.splice(i, 1);
   return true;
 }
-/** Where the next of your set comes on after a loss: the square you came
-    onto the board on, or the free square nearest it, out of their reach
-    where there is one. */
-function entrySpot(n) {
-  const W = n.day.W, H = n.day.H, e = n.day.pieces[0], reach = reachMaps(n).theirs, spots = [];
+/** Where the next of your set comes on after a loss: the square the lost
+    one was taken on (`e`), or the free square nearest it. */
+function entrySpot(n, e = n.day.pieces[0]) {
+  // Since 2026-10-16 (Timothy: "when a piece of yours is to be destroyed in
+  // a level, don't then move the player position, the next piece in the
+  // lineup simply appears in that spot"): the square it was taken on, or,
+  // if one of theirs stands there now, the nearest free square to it (out
+  // of their reach if one is as near).
+  const W = n.day.W, H = n.day.H, reach = reachMaps(n).theirs, spots = [];
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     if (!onBoard(n.day, x, y) || statueAt(n, y * W + x) || crumbled(n, x, y) || shrunk(n, x, y) || waterAt(n, y * W + x)) continue;
     if (n.foes.some((f) => !f.taken && f.x === x && f.y === y) || n.stones?.some((t) => t.x === x && t.y === y)) continue;
     if (n.hole && n.hole.x === x && n.hole.y === y) continue;
     spots.push({ x, y, hot: reach.has(y * W + x) ? 1 : 0, d: Math.max(Math.abs(x - e.x), Math.abs(y - e.y)), m: Math.abs(x - e.x) + Math.abs(y - e.y) });
   }
-  spots.sort((a, b) => a.hot - b.hot || a.d - b.d || a.m - b.m || a.y - b.y || a.x - b.x);
+  spots.sort((a, b) => a.d - b.d || a.hot - b.hot || a.m - b.m || a.y - b.y || a.x - b.x);
   return spots[0] || null;
 }
 

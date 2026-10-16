@@ -937,6 +937,76 @@ function shade(hex, k) {
 
 const cache = new Map();
 
+// --- Your cat (Adventure, 2026-10-16). --------------------------------------
+// Timothy: "the player has a special new piece call the cat ... it has some
+// customization options as to its model that you can choose, like different
+// cat-like features." A cat sitting up on its plinth, in the palette's
+// colours like every piece (so a suit's look dresses it too), with its
+// collar in the trim colour (where a suit's motif sits) and a bell in gold.
+// You choose its ears, its tail, its whiskers and its coat; the choice is
+// kept by the page (play/main.js) and given here with setCatLook.
+
+/** The features a cat can have, each with its choices: [value, name]. */
+export const CAT_OPTIONS = {
+  ears: [['pointed', 'Pointed'], ['folded', 'Folded'], ['tufted', 'Tufted']],
+  tail: [['long', 'Long'], ['curled', 'Curled'], ['fluffy', 'Fluffy']],
+  whiskers: [['yes', 'Whiskers'], ['no', 'None']],
+  coat: [['tabby', 'Tabby'], ['plain', 'Plain'], ['socks', 'Socks']]
+};
+const CAT_DEFAULT = { ears: 'pointed', tail: 'long', whiskers: 'yes', coat: 'tabby' };
+let CAT = { ...CAT_DEFAULT };
+/** Your cat's features now. */
+export const catLook = () => ({ ...CAT });
+/** A short key for them, for caches of drawn cats. */
+export const catKey = () => `${CAT.ears}.${CAT.tail}.${CAT.whiskers}.${CAT.coat}`;
+/** Change your cat's features (only known choices are taken); every cat
+    built before is thrown away. */
+export function setCatLook(o = {}) {
+  const next = { ...CAT_DEFAULT };
+  for (const [k, choices] of Object.entries(CAT_OPTIONS)) if (choices.some(([v]) => v === o[k])) next[k] = o[k];
+  CAT = next;
+  for (const k of [...cache.keys()]) if (k.startsWith('cat:')) cache.delete(k);
+}
+
+function catShape() {
+  const m = plinth(new Model()), c = CAT, eyes = '#e8c547';
+  const sock = c.coat === 'socks' ? P.leaf : P.woodLight;
+  m.ellipsoid(0, 3.4, -0.7, 2.2, 1.9, 2.1, P.wood);                       // haunches
+  m.ellipsoid(0, 5.0, 0.4, 1.6, 2.2, 1.45, P.wood);                       // body
+  m.ellipsoid(0, 5.1, 1.3, 0.95, 1.5, 0.55, P.woodLight);                 // bib
+  for (const sx of [1, -1]) {
+    m.ellipsoid(sx * 0.75, 3.0, 1.3, 0.45, 1.45, 0.5, P.wood);            // front legs
+    m.ellipsoid(sx * 0.75, 1.8, 1.65, 0.55, 0.35, 0.7, sock);             // paws
+  }
+  m.lathe([[1.32, 6.55], [1.32, 6.95]], P.moss, { seg: 10 });            // the collar
+  m.ball(0, 6.35, 1.35, 0.36, P.gold, { seg: 6, rings: 4 });              // its bell
+  m.ellipsoid(0, 8.05, 0.7, 1.7, 1.45, 1.5, P.wood);                      // head
+  m.ellipsoid(0, 7.55, 1.95, 0.8, 0.55, 0.5, P.woodLight);                // muzzle
+  m.ball(0, 7.85, 2.42, 0.18, P.pink, { seg: 6, rings: 4 });              // nose
+  for (const sx of [1, -1]) {
+    m.ball(sx * 0.62, 8.35, 1.92, 0.28, eyes, { seg: 6, rings: 4 });      // eyes
+    m.ball(sx * 0.62, 8.35, 2.16, 0.13, P.eye, { seg: 5, rings: 3 });
+    if (c.ears === 'folded') m.ellipsoid(sx * 0.85, 9.25, 0.95, 0.62, 0.32, 0.52, P.wood, { rot: { rx: 0.55, rz: -sx * 0.3 } });
+    else {
+      const tall = c.ears === 'tufted' ? 1.9 : 1.35;
+      m.cone(sx * 0.95, 9.05, 0.55, 0.6, tall, P.wood, { seg: 4, rot: { rz: -sx * 0.22 } });
+      m.cone(sx * 0.93, 9.1, 0.78, 0.36, tall * 0.7, P.pink, { seg: 4, rot: { rz: -sx * 0.22 } });
+      if (c.ears === 'tufted') m.cone(sx * (0.95 + 0.42), 9.05 + tall - 0.1, 0.55, 0.14, 0.75, P.woodDark, { seg: 3, rot: { rz: -sx * 0.22 } });
+    }
+    if (c.whiskers === 'yes') for (const k of [-0.13, 0.13]) m.box(sx * 1.3, 7.6 + k, 2.15, 1.35, 0.06, 0.06, P.leaf, { ry: sx * 0.18, rz: -sx * k * 0.8 });
+  }
+  if (c.coat === 'tabby') {
+    for (const k of [-0.35, 0, 0.35]) m.box(k, 9.0, 1.15, 0.13, 0.55, 0.13, P.woodDark, { rx: -0.45 });   // forehead stripes
+  }
+  // The tail, a chain of beads (ringed dark on a tabby).
+  const bead = (pts, r) => { let n = 0; for (let i = 0; i < pts.length - 1; i++) for (let k = 0; k < 3; k++) { const t = k / 3, a = pts[i], b = pts[i + 1]; m.ball(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t, r, c.coat === 'tabby' && n++ % 3 === 2 ? P.woodDark : P.wood, { seg: 6, rings: 4 }); } };
+  if (c.tail === 'long') bead([[0, 2.4, -2.5], [0.7, 3.4, -3.1], [1.1, 4.8, -3.0], [1.2, 6.1, -2.5], [0.9, 6.9, -2.0]], 0.4);
+  else if (c.tail === 'curled') bead(Array.from({ length: 7 }, (_, i) => { const a = -Math.PI / 2 - i * 0.42; return [Math.cos(a) * 2.6, 1.9, -Math.sin(a) * 2.6 - 0.2]; }), 0.38);
+  else m.ellipsoid(1.15, 4.4, -2.6, 0.95, 2.3, 0.95, P.wood, { rot: { rz: -0.3 } });
+  return m;
+}
+MODELS.cat = () => catShape();
+
 // An invented piece (invented.js) borrows the look of an existing one.
 const LOOKS = new Map();
 export function setLook(kind, base) { if (MODELS[base]) { LOOKS.set(kind, base); for (const k of [...cache.keys()]) if (k.startsWith(kind + ':')) cache.delete(k); } }
