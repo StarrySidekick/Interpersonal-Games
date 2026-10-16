@@ -187,10 +187,10 @@ export const SCHEMA = [
       options: [{ v: 'Shuttle', label: 'Shuttle: there and back' }, { v: 'Doze', label: 'Doze: rest, there, rest, back' }, { v: 'Box step', label: 'Box step: round a square' }, { v: 'Pace', label: 'Pace: two there, rest, two back, rest' }],
       help: 'For short routes: which kinds can turn up.' },
     { key: 'suitRabbits', sub: 'rabbits', label: 'Rabbits are suits', type: 'bool', def: false,
-      help: 'Adventure (Timothy, 2026-10-16: "rabbit are suits, suits are rabbits ... rabbits do different things depending on whether it is on an enemy piece or a friendly one"). Yours: Gears moves as any piece of your set, Hearts a life more, Stone leaves a sentry for two turns, Vines a trail that catches, Spirals takes again, Stars moves twice. Theirs: Gears walks a loop, Hearts a life more, Stone is a sentry, Vines walks and leaves a trail, Spirals walks and takes again, Stars walks two steps a turn.' },
+      help: 'Adventure (Timothy, 2026-10-16: "rabbit are suits, suits are rabbits ... rabbits do different things depending on whether it is on an enemy piece or a friendly one"). Yours: Gears moves as any piece of your set, Hearts a life more, Stone leaves a sentry for two turns, Vines a trail that catches, Spirals takes again, Stars moves twice. Theirs: Gears walks a loop, Hearts is scared (runs when attacked), Stone is a sentry, Vines walks and leaves a trail, Spirals walks and takes again, Stars walks two steps a turn.' },
     { key: 'rabbitKinds', sub: 'rabbits', label: 'Their rabbits', type: 'multi', def: ['gears'],
-      options: [{ v: 'gears', label: 'Gears: walks a loop' }, { v: 'hearts', label: 'Hearts: walks, a life more' }, { v: 'vines', label: 'Vines: walks, leaves a trail' }, { v: 'stars', label: 'Stars: walks two steps' }, { v: 'spirals', label: 'Spirals: walks, takes again' }],
-      help: 'With rabbits as suits: which rabbits the walking pieces of theirs can have (their sentries are stone rabbits).' },
+      options: [{ v: 'gears', label: 'Gears: walks a loop' }, { v: 'vines', label: 'Vines: walks, leaves a trail' }, { v: 'stars', label: 'Stars: walks two steps' }, { v: 'spirals', label: 'Spirals: walks, takes again' }],
+      help: 'With rabbits as suits: which rabbits the walking pieces of theirs can have (their sentries are stone rabbits, their scared ones hearts rabbits).' },
     { key: 'hops', sub: 'rabbits', label: 'Rabbit hops per turn', type: 'int', min: 1, max: 3, def: 1 },
     { key: 'realtime', sub: 'live', label: 'Kung fu: no turns', type: 'bool', def: false,
       help: 'Real time, after Kung-Fu Chess (2002): move any piece of yours whenever it is ready, and so do they. A move takes time to travel, so a piece can dodge, and a piece that has moved rests before it moves again. Take their King.' },
@@ -1003,12 +1003,13 @@ function dealRoutes(day, S, rand) {
   }
   // Rabbits are suits (Adventure, 2026-10-16): each walker's rabbit is one
   // of the kinds the depth allows (a gears rabbit is the old robot), and a
-  // sentry is a stone rabbit. A hearts rabbit gives its piece a life more.
+  // sentry is a stone rabbit, and a scared one a hearts rabbit (2026-10-16).
   if (S.suitRabbits) {
-    const kinds = (S.rabbitKinds?.length ? S.rabbitKinds : ['gears']).filter((k) => k !== 'stone');
+    const kinds = (S.rabbitKinds?.length ? S.rabbitKinds : ['gears']).filter((k) => k !== 'stone' && k !== 'hearts');
     for (const f of day.foes) {
       if (f.brain === 'sentry') f.suit = 'stone';
-      else if (f.brain === 'possessed') { f.suit = kinds[Math.floor(rand() * kinds.length)]; if (f.suit === 'hearts') f.lives = 2; }
+      else if (f.brain === 'scared') f.suit = 'hearts';
+      else if (f.brain === 'possessed') f.suit = kinds[Math.floor(rand() * kinds.length)];
     }
   }
   // Somewhere your set can get to (a lone bishop keeps to its colour): every

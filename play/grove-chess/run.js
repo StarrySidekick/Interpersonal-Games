@@ -39,7 +39,9 @@ import { powerOf } from './power.js';
 export const SUITS = {
   hearts: { name: 'Hearts', mark: '♥', colour: '#e0445a', desc: 'A life more: when it is taken it goes back to your first row instead, on a free square you choose (the second row if the first is full, and so on), and the heart is spent.',
     setDesc: 'A life more: when it is taken it goes back to your first row instead, and the heart is spent.',
-    foeDesc: 'It walks its loop, and has a life more: squash it once and it goes back to their first row; squash it again for good.' },
+    // Theirs: the scared rabbit (2026-10-16, Timothy: "we need scared rabbit
+    // behavior back, maybe as heart rabbits").
+    foeDesc: 'Scared: it stands still, but when you attack it, it runs to a square you do not attack. Their side can save only one a turn, so attack two at once (a fork), or pin it. A gold ring means it could not run.' },
   spirals: { name: 'Spirals', mark: '@', colour: '#a77bdc', desc: 'Round the sides: off the left edge it comes back on at the right, and the other way, like Pac-Man.',
     setDesc: 'Chain captures: after it takes a piece, it may take another the same turn, and another after that.',
     foeDesc: 'It walks its loop, and when its step takes something it steps on again, taking again if it can.' },

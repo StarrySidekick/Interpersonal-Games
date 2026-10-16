@@ -50,9 +50,9 @@ for (const d of [1, 2, 3, 5, 8, 11, 14]) for (let sd = 1; sd <= 12; sd++) {
   ok(army.some((f) => f.brain === 'possessed'), `depth ${d} (${sd}): at least one of theirs walks a route`);
   ok(army.every((f) => ['possessed', 'still', 'sentry', 'scared'].includes(f.brain)), `depth ${d} (${sd}): theirs are statues, walkers, sentries or scared; no leader, nothing that thinks`);
   ok(army.every((f) => f.type !== 'pawn' || f.brain === 'still'), `depth ${d} (${sd}): pawns are statues`);
-  const allowed = ['gears', ...(d >= 3 ? ['hearts'] : []), ...(d >= 4 ? ['vines'] : []), ...(d >= 6 ? ['stars'] : []), ...(d >= 8 ? ['spirals'] : [])];
-  ok(army.every((f) => (f.brain === 'possessed' ? allowed.includes(f.suit) : f.brain === 'sentry' ? f.suit === 'stone' : !f.suit)), `depth ${d} (${sd}): walkers carry a suit rabbit the depth allows, sentries a stone one`);
-  ok(army.every((f) => (f.suit === 'hearts') === (f.lives === 2)), `depth ${d} (${sd}): a hearts rabbit, a life more`);
+  const allowed = ['gears', ...(d >= 4 ? ['vines'] : []), ...(d >= 6 ? ['stars'] : []), ...(d >= 8 ? ['spirals'] : [])];
+  ok(army.every((f) => (f.brain === 'possessed' ? allowed.includes(f.suit) : f.brain === 'sentry' ? f.suit === 'stone' : f.brain === 'scared' ? f.suit === 'hearts' : !f.suit)), `depth ${d} (${sd}): walkers carry a suit rabbit the depth allows, sentries a stone one, scared ones a hearts one`);
+  if (d < 3) ok(!army.some((f) => f.brain === 'scared'), `depth ${d} (${sd}): no hearts rabbits before depth 3`);
   const walk = army.filter((f) => f.brain === 'possessed');
   walkers += walk.length;
   ok(walk.every((f) => f.route && ROUTES[f.patternName] && f.pattern.length === ROUTES[f.patternName].len), `depth ${d} (${sd}): each walks a named route`);
@@ -197,10 +197,10 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
   n = R.apply(s, { p: 0, x: 0, y: 3 });
   ok(n.foes[0].y === 2, `their stars rabbit walks two steps (${n.foes[0].x},${n.foes[0].y})`);
 
-  // Hearts, theirs: a life more.
-  s = board({ type: 'rook', x: 0, y: 0 }, [walker('knight', 0, 3, [[1, 2], [-1, -2]], 'hearts'), { type: 'pawn', x: 4, y: 4, brain: 'still' }]);
-  n = R.playerMove(s, { p: 0, x: 0, y: 3 });
-  ok(!n.foes[0].taken && n.foes[0].lives === 1, 'their hearts rabbit survives being squashed once');
+  // Hearts, theirs: the scared rabbit (2026-10-16): attacked, it runs.
+  s = board({ type: 'rook', x: 0, y: 0 }, [{ type: 'knight', x: 2, y: 2, brain: 'scared', suit: 'hearts' }, { type: 'pawn', x: 4, y: 4, brain: 'still' }]);
+  n = R.apply(s, { p: 0, x: 0, y: 2 });
+  ok((n.foes[0].x !== 2 || n.foes[0].y !== 2) && n.tlog.some((l) => l.what === 'flee' && l.k === 0), 'their hearts rabbit runs when attacked');
 
   // Stone, yours: a stone stands two turns.
   ok(R.STONE_TURNS === 2, 'stones stand two turns');
