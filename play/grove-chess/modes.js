@@ -646,17 +646,24 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
       // scared piece from 4. No crowned leader: it came in the same day
       // and went out again (Timothy: "get rid of the leader thing i think
       // that's what confusing me"); it is still a lab setting.
-      sentries: d < 2 ? 0 : d < 6 ? 1 : d < 10 ? int(1, 2) : int(2, 3),
+      // (None at depth 3, where the hearts rabbit is new and is met alone.)
+      sentries: d < 2 || d === 3 ? 0 : d < 6 ? 1 : d < 10 ? int(1, 2) : int(2, 3),
       // Rabbits are suits (Timothy, 2026-10-16): the sentries are stone
       // rabbits, the walkers gears rabbits at first, and the other suits
       // come one at a time: hearts from 3, vines from 4, stars from 6,
-      // spirals from 8. Scared rabbits are not a suit, so none.
-      scared: 0,
-      rabbitKinds: ['gears', ...(d >= 3 ? ['hearts'] : []), ...(d >= 4 ? ['vines'] : []), ...(d >= 6 ? ['stars'] : []), ...(d >= 8 ? ['spirals'] : [])],
+      // spirals from 8. A hearts rabbit in theirs is the scared one (Timothy,
+      // 2026-10-16: "we need scared rabbit behavior back, maybe as heart
+      // rabbits"): it stands, and runs when attacked.
+      scared: d < 3 ? 0 : d < 8 ? 1 : int(1, 2),
+      rabbitKinds: ['gears', ...(d >= 4 ? ['vines'] : []), ...(d >= 6 ? ['stars'] : []), ...(d >= 8 ? ['spirals'] : [])],
       crown: false,
       statues: 0, maxMoves: 40, aim: 0
     });
     S.parMax = best; S.parMin = Math.max(1, best - 1);
+    // Sentries and scared ones are made from their statues: keep enough
+    // statues for both (taking walkers if need be, never the last), so a
+    // hearts rabbit is not crowded out by the sentries.
+    S.still = Math.min(theirs - 1, Math.max(S.still, S.sentries + S.scared));
     // A deal tried again for want of a winnable board (relax 3 on): no
     // sentries or scared ones, the pieces most likely to leave no way through.
     if (relax >= 3) { S.sentries = 0; S.scared = 0; }

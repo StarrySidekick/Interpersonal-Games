@@ -12,7 +12,13 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
-## 2026-10-16, newest: rabbits are suits
+## 2026-10-16, newest: hearts rabbits are the scared ones
+
+From Timothy: "we need scared rabbit behavior back, maybe as heart
+rabbits." Built: a hearts rabbit in one of theirs stands and runs when
+attacked, one a turn (fork it or pin it), from depth 3.
+
+## 2026-10-16: rabbits are suits
 
 From Timothy, and built: each of the six suits is a rabbit with one power
 in your piece and another in theirs (Gears changes gear / walks a loop;

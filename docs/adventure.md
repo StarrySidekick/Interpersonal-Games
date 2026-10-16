@@ -222,15 +222,18 @@ yours look like theirs.
 | Rabbit | In yours | In theirs |
 |---|---|---|
 | Gears ⚙ | **changes gear**: moves as any other piece of your set as well as its own way (my call: Timothy asked for "something new and good") | walks its loop (the old robot rabbit) |
-| Hearts ♥ | a life more | walks its loop, with a life more: squash it once and it goes back to their first row |
+| Hearts ♥ | a life more | **scared** (since 2026-10-16, Timothy: "we need scared rabbit behavior back, maybe as heart rabbits"): it stands, and when you attack it, it runs to a square you do not attack, one a turn, so fork it or pin it |
 | Stone ◆ | leaves a stone sentry where it moved from, for two turns | a sentry: stands, and leaps at anything of yours in its red reach |
 | Vines ❦ | leaves a vine on the square it left and every square it passed; one of theirs that lands on a vine on their next turn is caught; yours wither after their turn | walks its loop and leaves vines the same way; land on one on your next move and you are caught; theirs wither after your move |
 | Spirals @ | chain captures: after it takes, it may take again | walks its loop; when its step takes something (a stone of yours) it steps on again, twice more at most |
 | Stars ★ | moves twice every turn it goes | walks its loop two steps a turn |
 
 **What I decided where the ask was open:**
-- Their hearts, vines, spirals and stars rabbits **walk a loop** like
-  gears; the suit adds its power on top. That is the only way vines and
+- Their vines, spirals and stars rabbits **walk a loop** like gears; the
+  suit adds its power on top. (Hearts walked with a life more until the
+  same day, when it became the scared rabbit; I dropped the life more
+  rather than add it on top, since a piece that runs is already hard to
+  catch.) That is the only way vines and
   stars can work for them, and it is what makes "vine and gear too
   similar" a fair worry: a vines walker is a gears walker that leaves a
   trail. Stone is the one that stands.
@@ -242,16 +245,16 @@ yours look like theirs.
   so it mirrors theirs; the set's rounds keep it to one turn in three.
 - **Spirals** no longer wraps round the sides in Adventure (that is its
   power in the other modes); its chain capture was Vines' before.
-- **Scared rabbits** are not a suit, so they are no longer dealt. The
-  engine keeps them as a lab setting.
+- **Scared rabbits** came back as hearts rabbits the same day.
 - Vines go on open ground only, never under a piece, a statue or the
   hole; a leap's trail goes along its long side, then its short side, as
   the loops are drawn. A vine catches what lands on it, not what passes
   over it.
 
-**When each arrives** (`rabbitKinds` in `modes.js`): gears from depth 1,
-stone (sentries) from 2, hearts from 3, vines from 4, stars from 6,
-spirals from 8: one at a time, so each can be met alone before they mix.
+**When each arrives** (`modes.js`): gears from depth 1, stone (sentries)
+from 2, hearts (scared, one, two from depth 8) from 3, vines from 4, stars
+from 6, spirals from 8: one at a time, so each can be met alone before
+they mix.
 
 **On the board:** vines are a green stem across the square with leaves,
 yours bright, theirs dark and ringed red as danger; a stars walker's two
