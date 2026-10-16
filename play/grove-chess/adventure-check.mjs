@@ -50,6 +50,9 @@ for (const d of [1, 2, 3, 5, 8, 11, 14]) for (let sd = 1; sd <= 12; sd++) {
   ok(army.some((f) => f.brain === 'possessed'), `depth ${d} (${sd}): at least one of theirs walks a route`);
   ok(army.every((f) => ['possessed', 'still', 'sentry', 'scared'].includes(f.brain)), `depth ${d} (${sd}): theirs are statues, walkers, sentries or scared; no leader, nothing that thinks`);
   ok(army.every((f) => f.type !== 'pawn' || f.brain === 'still'), `depth ${d} (${sd}): pawns are statues`);
+  const allowed = ['gears', ...(d >= 3 ? ['hearts'] : []), ...(d >= 4 ? ['vines'] : []), ...(d >= 6 ? ['stars'] : []), ...(d >= 8 ? ['spirals'] : [])];
+  ok(army.every((f) => (f.brain === 'possessed' ? allowed.includes(f.suit) : f.brain === 'sentry' ? f.suit === 'stone' : !f.suit)), `depth ${d} (${sd}): walkers carry a suit rabbit the depth allows, sentries a stone one`);
+  ok(army.every((f) => (f.suit === 'hearts') === (f.lives === 2)), `depth ${d} (${sd}): a hearts rabbit, a life more`);
   const walk = army.filter((f) => f.brain === 'possessed');
   walkers += walk.length;
   ok(walk.every((f) => f.route && ROUTES[f.patternName] && f.pattern.length === ROUTES[f.patternName].len), `depth ${d} (${sd}): each walks a named route`);
@@ -142,19 +145,65 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
   ok(legal && R.stateKey(states[3]) === R.stateKey(c), 'a replay of the moves, each naming its piece, ends the same');
 }
 
-// Gears in your set (2026-10-15): two turns a round where the others have one.
+// Rabbits are suits (2026-10-16): each suit's face on your piece and on
+// theirs. Boards set out by hand on Adventure's rules.
 {
-  const run = newRun(['rook', 'knight'], 3, null); run.depth = 2;
-  run.hand[0].suit = 'gears';
-  const lv = makeLevel(levelSettings(M, { depth: 2, hand: handSettings(run) }, rng('gears')), 41);
-  let c = R.initialState(lv);
-  const safe = (s, j) => R.allMoves(s).find((m) => m.as === j && !R.apply(s, m).arrived && !R.isOver(R.apply(s, m)));
-  const ready = (s) => R.setView(s).filter((v) => v.ready).map((v) => v.j).join();
-  c = R.apply(c, safe(c, 0));
-  ok(ready(c) === '0,1', 'the piece of Gears has gone once and is still ready');
-  c = R.apply(c, safe(c, 0));
-  ok(ready(c) === '1', 'after its second turn, only the knight is ready');
-  ok(R.turnsOf({ suit: 'gears' }) === 2 && R.turnsOf({}) === 1, 'turnsOf');
+  const base = deal(4, ['rook'], 4242);
+  ok(base.rules.suitRabbits, 'Adventure has rabbits as suits');
+  const board = (mine, foes, set = null) => R.initialState({ ...base, pieces: [{ ...mine }], cycle: set || undefined, hole: null, stumps: new Set(),
+    foes: foes.map((f) => ({ target: true, mx: 1, my: 1, ...f })), rules: { ...base.rules } });
+  const walker = (type, x, y, steps, suit) => ({ type, x, y, brain: 'possessed', route: true, pattern: steps, patternName: 'Shuttle', suit, ...(suit === 'hearts' ? { lives: 2 } : {}) });
+  const W = base.W;
+
+  // Gears, yours: it moves as any other piece of your set as well.
+  let s = board({ type: 'rook', x: 2, y: 2, suit: 'gears' }, [{ type: 'pawn', x: 4, y: 4, brain: 'still' }], [{ type: 'rook', suit: 'gears' }, { type: 'bishop' }, { type: 'knight' }]);
+  const ms = R.movesFor(s, 0);
+  ok(ms.some((m) => m.gear === 'bishop' && m.x === 3 && m.y === 3) && ms.some((m) => m.gear === 'knight' && m.x === 3 && m.y === 4), 'a gears rabbit moves as the bishop or the knight of its set');
+  ok(R.turnsOf({ suit: 'gears' }) === 1, 'and has one turn a round, like the rest');
+
+  // Stars, yours: it moves twice every turn it goes.
+  s = board({ type: 'rook', x: 0, y: 0, suit: 'stars' }, [{ type: 'pawn', x: 4, y: 4, brain: 'still' }]);
+  let n = R.apply(s, { p: 0, x: 0, y: 1 });
+  ok(n.bonus?.why === 'stars', 'a stars rabbit: a second move');
+  n = R.apply(R.apply(n, { p: 0, x: 1, y: 1 }), { p: 0, x: 1, y: 2 });
+  ok(n.bonus?.why === 'stars', 'and again the next time it goes');
+
+  // Spirals, yours: after taking, it can take again.
+  s = board({ type: 'rook', x: 0, y: 0, suit: 'spirals' }, [{ type: 'knight', x: 0, y: 2, brain: 'still' }, { type: 'bishop', x: 3, y: 2, brain: 'still' }, { type: 'pawn', x: 4, y: 4, brain: 'still' }]);
+  n = R.apply(s, { p: 0, x: 0, y: 2 });
+  ok(n.bonus?.why === 'spirals' && R.movesFor(n, 0).every((m) => m.cap), 'a spirals rabbit takes, and may take again');
+  ok(!R.movesFor(board({ type: 'rook', x: 0, y: 0, suit: 'spirals' }, [{ type: 'pawn', x: 4, y: 4, brain: 'still' }]), 0).some((m) => m.wrapped), 'and no longer goes round the sides');
+
+  // Vines, yours: a trail where it went; one of theirs landing on it is caught.
+  s = board({ type: 'rook', x: 0, y: 0, suit: 'vines' }, [walker('knight', 1, 3, [[-1, -2], [1, 2]], 'gears'), { type: 'pawn', x: 4, y: 4, brain: 'still' }]);
+  const mid = R.playerMove(s, { p: 0, x: 0, y: 3 });
+  ok(['0,0', '0,1', '0,2'].every((q) => mid.vines.some((v) => v.side === 'you' && `${v.x},${v.y}` === q)), 'a vines rabbit leaves vines on the squares it left and passed');
+  n = R.respond(mid);
+  ok(n.foes[0].taken && n.tlog.some((l) => l.what === 'vine' && l.side === 'you'), 'their walker steps onto the vine and is caught');
+  ok(!(n.vines || []).some((v) => v.side === 'you'), 'and your vines wither after their turn');
+
+  // Vines, theirs: they walk and leave a trail; land on it and you are caught.
+  s = board({ type: 'rook', x: 0, y: 1 }, [walker('rook', 2, 0, [[0, 2], [0, -2]], 'vines'), { type: 'pawn', x: 4, y: 4, brain: 'still' }]);
+  n = R.apply(s, { p: 0, x: 0, y: 0 });
+  ok(n.foes[0].y === 2 && ['2,0', '2,1'].every((q) => n.vines?.some((v) => v.side === 'foe' && `${v.x},${v.y}` === q)), 'their vines rabbit leaves a trail');
+  ok(R.reachMaps(n).theirs.has(0 * W + 2), 'which is ringed as danger');
+  const caught = R.playerMove(n, { p: 0, x: 2, y: 0 });
+  ok(caught.pieces[0].taken && caught.pieces[0].vined, 'land on it and it catches you');
+  const passed = R.playerMove(n, { p: 0, x: 1, y: 0 });
+  ok(!passed.pieces[0].taken && (passed.vines || []).every((v) => v.side !== 'foe'), 'their vines wither once your turn is over');
+
+  // Stars, theirs: two steps a turn.
+  s = board({ type: 'rook', x: 0, y: 4 }, [walker('rook', 2, 0, [[0, 1], [0, 1], [0, -1], [0, -1]], 'stars'), { type: 'pawn', x: 4, y: 4, brain: 'still' }]);
+  n = R.apply(s, { p: 0, x: 0, y: 3 });
+  ok(n.foes[0].y === 2, `their stars rabbit walks two steps (${n.foes[0].x},${n.foes[0].y})`);
+
+  // Hearts, theirs: a life more.
+  s = board({ type: 'rook', x: 0, y: 0 }, [walker('knight', 0, 3, [[1, 2], [-1, -2]], 'hearts'), { type: 'pawn', x: 4, y: 4, brain: 'still' }]);
+  n = R.playerMove(s, { p: 0, x: 0, y: 3 });
+  ok(!n.foes[0].taken && n.foes[0].lives === 1, 'their hearts rabbit survives being squashed once');
+
+  // Stone, yours: a stone stands two turns.
+  ok(R.STONE_TURNS === 2, 'stones stand two turns');
 }
 
 // A sword that aims: it strikes past where it lands, the way it moved.
@@ -280,8 +329,8 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
     n = R.apply(n, mv);
     life.push(first()?.left);
   }
-  ok(life.join() === '2,1,', `it lasts three turns, then crumbles (${life.join(' ')})`);
-  ok(n.stones.length === 2 && n.stones.every((t) => t.left >= 1 && t.left <= 2), 'every move left one, each with its own turns');
+  ok(life.join() === '1,,', `it lasts two turns, then crumbles (${life.join(' ')})`);
+  ok(n.stones.length === 1 && n.stones[0].left === 1, 'every move left one, each with its own turns');
   const st = R.initialState({ ...s.day });
   st.stones = [{ type: 'rook', x: 2, y: 0 }];
   st.foes[0].x = 3; st.foes[0].y = 1; st.foes[0].pattern = [[-1, 2], [1, -2]];
@@ -370,5 +419,5 @@ for (const [how, want] of [['eagle', 4], ['birdie', 3], ['par', 2], ['bogey', 1]
 }
 ok([2, 3, 4, 5, 6, 7].map((t) => parVerdict(t, 5, true)).join() === 'albatross,eagle,birdie,par,bogey,worse' && parVerdict(3, 5, false) === 'worse', 'the verdicts, in golf\u2019s words');
 
-console.log(fails ? `${fails} checks failed.` : 'Adventure: statues, the Changeling, routes, the hole, choosing from the set, losing a piece, the net, tactics (pins, sentries, flight, the leader, stones), rabbits, dealing and cards check out.');
+console.log(fails ? `${fails} checks failed.` : 'Adventure: statues, the Changeling, routes, the hole, choosing from the set, rabbits as suits, losing a piece, the net, tactics (pins, sentries, flight, the leader, stones), rabbits, dealing and cards check out.');
 if (fails) process.exit(1);

@@ -52,6 +52,8 @@ const PALE = '#e9e4da';   // a possessed piece whose rabbit you do not know
 // no plinth (Timothy, 2026-10-13: "The rabbit that hops on heads should not
 // have a piece base"), in a pale shade of its side's colour.
 const CARRIER_FUR = { you: '#cfe6b4', foe: '#c7b2ea' };
+/** Your plinth in Adventure, where theirs wear their rabbits' (suits') colours. */
+const YOUR_PLINTH = '#f6f1e3';
 const SUIT_COLOUR = { hearts: '#e0445a', spirals: '#a77bdc', gears: '#8fa6bd', stars: '#e8c547', vines: '#2fb8a0', stone: '#b08a5a' }; // run.js SUITS
 // The plinth of a Changeling wearing another piece's shape: fairy silver.
 const CHANGELING_GLOW = '#d9c8f5';
@@ -849,6 +851,15 @@ export class Board3D extends Board {
       const sq = day.bramble[bc];
       for (const [a, b] of [[8, 9], [17, 7], [11, 18], [21, 19], [8, 22]]) { const [px, py] = inSq(sq % W, Math.floor(sq / W), a, b); g.fillStyle = 'rgba(63,107,44,.6)'; g.fillRect(px - 1.5, py - 0.5, 3, 1); g.fillRect(px - 0.5, py - 1.5, 1, 3); }
     }
+    // Vines (Adventure, rabbits as suits): a green stem wound across the
+    // square, with leaves; yours pale and bright, theirs dark (and ringed
+    // red, as danger, by the reach).
+    for (const vn of s.vines || []) {
+      const yours = vn.side === 'you', stem = yours ? '#7fd66a' : '#2f6b2a', leafCol = yours ? '#bff0a0' : '#4f9a3e';
+      const pts = [[4, 14], [9, 9], [14, 14], [19, 19], [24, 14]].map(([a, b]) => inSq(vn.x, vn.y, a, b));
+      line(pts, 'rgba(20,14,8,.45)', 3.6); line(pts, stem, 2.2);
+      for (const [a, b, c, d] of [[9, 9, 7, 5], [19, 19, 21, 23], [14, 14, 16, 10]]) { const [p, q] = [inSq(vn.x, vn.y, a, b), inSq(vn.x, vn.y, c, d)]; line([p, q], leafCol, 2.4); }
+    }
     if (v.track) this.tracks(g, v.track, line, inSq);
     // Your stones' turns left (Stone suit), in the near corner of each.
     for (const t of s.stones || []) {
@@ -945,6 +956,8 @@ export class Board3D extends Board {
     }
     const [dx, dy] = f.pattern[f.i % L], tx = f.x + dx, ty = f.y + dy;
     if (dx || dy) line(elbow([f.x, f.y], [tx, ty]), rgba(col, 0.95), 2.6);
+    // A stars rabbit walks two steps a turn: the second bold too.
+    if (this.day.rules.suitRabbits && f.suit === 'stars') { const [ex, ey] = f.pattern[(f.i + 1) % L]; if (ex || ey) line(elbow([tx, ty], [tx + ex, ty + ey]), rgba(col, 0.95), 2.6); }
     // Its next square is framed in its colour, unless the danger ring (red,
     // in Adventure) frames it already.
     const box = [[4, 4], [24, 4], [24, 24], [4, 24], [4, 4]].map(([a, b]) => inSq(tx, ty, a, b));
@@ -1094,7 +1107,9 @@ export class Board3D extends Board {
         else { const e = (k - cut) / (1 - cut), pop = e < 0.7 ? (e / 0.7) * 1.15 : 1.15 - ((e - 0.7) / 0.3) * 0.15; o = { ...o, s: Math.max(0.04, pop), ry: (o.ry || 0) - (1 - e) * Math.PI * 1.5 }; }
         this.settleSoon?.();
       }
-      stand(q.brain === 'carrier' ? model('rabbit', 'you', CARRIER_FUR.you) : model(q.shape || q.type, this.lookOf ? this.lookOf(q) : 'you', null, q.brain === 'possessed' ? this.fur(q) : SUIT_COLOUR[q.suit] || (q.shape ? CHANGELING_GLOW : null)), x, y, h, 100 + i, o);
+      // Yours, in Adventure, stands on a white plinth (rabbits are suits, so
+      // a suit's colour no longer tells yours from theirs, 2026-10-16).
+      stand(q.brain === 'carrier' ? model('rabbit', 'you', CARRIER_FUR.you) : model(q.shape || q.type, this.lookOf ? this.lookOf(q) : 'you', null, this.lookOfFoe ? YOUR_PLINTH : q.brain === 'possessed' ? this.fur(q) : SUIT_COLOUR[q.suit] || (q.shape ? CHANGELING_GLOW : null)), x, y, h, 100 + i, o);
       where[i] = { x, y, h, i };
       armsOf(q, x, y, h, 100 + i, o, 1);
       // Guarded (2026-10-11): a shield in front. Since 2026-10-13 it flies
@@ -1154,7 +1169,9 @@ export class Board3D extends Board {
       // wear their suit's look, plain grey without one; the rabbit inside
       // still colours the plinth.
       const fl = this.lookOfFoe ? this.lookOfFoe(f) : 'foe';
-      const mdl = f.brain === 'crown' ? model(f.type, 'crowned') : f.brain === 'sentry' || f.brain === 'scared' ? model(f.shape || f.type, fl, null, this.glowOf(f, k, at)) : f.brain === 'still' ? model(f.shape || f.type, 'grey') : f.brain === 'leader' ? model('rabbit', 'foe', this.fur(f)) : f.brain === 'carrier' ? model('rabbit', 'foe', CARRIER_FUR.foe) : f.suit ? model(f.shape || f.type, fl, null, SUIT_COLOUR[f.suit]) : f.shape ? model(f.shape, fl, null, CHANGELING_GLOW) : f.brain === 'possessed' ? model(f.type, fl, null, this.glowOf(f, k, at)) : model(f.type, fl, this.fur(f));
+      // (A rabbit inside, in Adventure a suit's, lights the plinth as it
+      // possesses the piece, so it comes before a suit's own colour.)
+      const mdl = f.brain === 'crown' ? model(f.type, 'crowned') : f.brain === 'sentry' || f.brain === 'scared' ? model(f.shape || f.type, fl, null, this.glowOf(f, k, at)) : f.brain === 'still' ? model(f.shape || f.type, 'grey') : f.brain === 'leader' ? model('rabbit', 'foe', this.fur(f)) : f.brain === 'carrier' ? model('rabbit', 'foe', CARRIER_FUR.foe) : f.brain === 'possessed' && this.lookOfFoe ? model(f.shape || f.type, fl, null, this.glowOf(f, k, at)) : f.suit ? model(f.shape || f.type, fl, null, SUIT_COLOUR[f.suit]) : f.shape ? model(f.shape, fl, null, CHANGELING_GLOW) : f.brain === 'possessed' ? model(f.type, fl, null, this.glowOf(f, k, at)) : model(f.type, fl, this.fur(f));
       const fo = collapse ? { s: away(at - collapse.t0 - collapse.delay(f.x, f.y)) } : {};
       stand(mdl, x, y, h, 200 + k, fo);
       armsOf(f, x, y, h, 200 + k, fo, -1);

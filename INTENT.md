@@ -12,7 +12,18 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
-## 2026-10-16, newest: par by depth, golf scoring, vetted boards
+## 2026-10-16, newest: rabbits are suits
+
+From Timothy, and built: each of the six suits is a rabbit with one power
+in your piece and another in theirs (Gears changes gear / walks a loop;
+Hearts a life more / a life more; Stone a sentry for two turns / is a
+sentry; Vines a trail that catches / the same; Spirals chain captures /
+takes again; Stars moves twice / two steps a turn). Their pieces wear
+their rabbit's colour; yours stand on white. Open: whether vines and gears
+are too alike; whether a freed rabbit should become a suit card. In
+[`docs/adventure.md`](docs/adventure.md), "Rabbits are suits".
+
+## 2026-10-16: par by depth, golf scoring, vetted boards
 
 From Timothy, and built: par 5 at first, one more every three boards, at
 most 15; eagle four cards, birdie three, par two, bogey one (you place it),

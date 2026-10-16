@@ -208,6 +208,72 @@ can; then a hole opens and your piece jumps in.
   two taps (the first says what the second will do), so nobody has to play
   out forty moves to find out.
 
+## Rabbits are suits
+
+Timothy, 2026-10-16: "rabbit are suits, suits are rabbits. the trick is:
+rabbits do different things depending on whether or not it's on an enemy
+piece or a friendly one ... we'll have to see if vine and gear are too
+similar." Each of the six suits is a rabbit. In a piece of yours it is the
+suit you chose from a card; in a piece of theirs it is the rabbit inside,
+and it says which by its colour, on the piece (its suit's look) and on the
+plinth. Yours stands on a white plinth, so a suit's colour never makes
+yours look like theirs.
+
+| Rabbit | In yours | In theirs |
+|---|---|---|
+| Gears ⚙ | **changes gear**: moves as any other piece of your set as well as its own way (my call: Timothy asked for "something new and good") | walks its loop (the old robot rabbit) |
+| Hearts ♥ | a life more | walks its loop, with a life more: squash it once and it goes back to their first row |
+| Stone ◆ | leaves a stone sentry where it moved from, for two turns | a sentry: stands, and leaps at anything of yours in its red reach |
+| Vines ❦ | leaves a vine on the square it left and every square it passed; one of theirs that lands on a vine on their next turn is caught; yours wither after their turn | walks its loop and leaves vines the same way; land on one on your next move and you are caught; theirs wither after your move |
+| Spirals @ | chain captures: after it takes, it may take again | walks its loop; when its step takes something (a stone of yours) it steps on again, twice more at most |
+| Stars ★ | moves twice every turn it goes | walks its loop two steps a turn |
+
+**What I decided where the ask was open:**
+- Their hearts, vines, spirals and stars rabbits **walk a loop** like
+  gears; the suit adds its power on top. That is the only way vines and
+  stars can work for them, and it is what makes "vine and gear too
+  similar" a fair worry: a vines walker is a gears walker that leaves a
+  trail. Stone is the one that stands.
+- **Gears in yours** changes gear (a pun on gears and on your set). It
+  fills a gap the other five leave: none of them change where a piece can
+  go. It also answers the dead ends: a rook of Gears can take a sentry rook
+  the bishop's way.
+- **Stars in yours** moves twice every turn it goes, not once a board,
+  so it mirrors theirs; the set's rounds keep it to one turn in three.
+- **Spirals** no longer wraps round the sides in Adventure (that is its
+  power in the other modes); its chain capture was Vines' before.
+- **Scared rabbits** are not a suit, so they are no longer dealt. The
+  engine keeps them as a lab setting.
+- Vines go on open ground only, never under a piece, a statue or the
+  hole; a leap's trail goes along its long side, then its short side, as
+  the loops are drawn. A vine catches what lands on it, not what passes
+  over it.
+
+**When each arrives** (`rabbitKinds` in `modes.js`): gears from depth 1,
+stone (sentries) from 2, hearts from 3, vines from 4, stars from 6,
+spirals from 8: one at a time, so each can be met alone before they mix.
+
+**On the board:** vines are a green stem across the square with leaves,
+yours bright, theirs dark and ringed red as danger; a stars walker's two
+steps are both drawn bold, and both its squares are danger. Tapping one of
+theirs says its rabbit and what it does (`SUITS[...].foeDesc` in
+`run.js`); the pieces sheet has a row for each kind; cards in Adventure
+read "♥ Hearts rabbit ... Choose a piece to put it in."
+
+**In rules** (`rules.suitRabbits`, a lab setting, on in Adventure):
+`trailOf`, `addTrail` and `takeVine` for vines (`s.vines`, in `clone` and
+`stateKey`); a foe landing on your vine is caught in `landFoe`, your piece
+landing on theirs in `playerMove`; theirs wither when your turn ends, yours
+in `turnOver`. Their stars, spirals and vines in `tacticsTurn`'s walking
+step. Gears' moves in `movesFor` (each says `gear`). Spirals' chain and
+Stars' every-turn second move in `openBonus`. Dealing in `dealRoutes`
+(`lab.js`): walkers get a suit from `rabbitKinds`, sentries are stone,
+hearts get a life more. Stones stand two turns now (`STONE_TURNS`).
+
+**Not decided:** whether a rabbit you free by taking one of theirs should
+become a suit card for your pieces (rabbits are suits, after all). For now
+the rabbits you collect still count by piece, three to a piece.
+
 ## The look of your pieces
 
 In Adventure each piece of yours wears its suit. Timothy asked in steps on
