@@ -210,6 +210,11 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
 
   // Stone, yours: a stone stands two turns.
   ok(R.STONE_TURNS === 2, 'stones stand two turns');
+  // Your stones' reach is shown (2026-10-16): a rook stone at (1, 1) reaches its row and file.
+  s = board({ type: 'bishop', x: 4, y: 0 }, [{ type: 'pawn', x: 4, y: 4, brain: 'still' }]);
+  s.stones = [{ type: 'rook', x: 1, y: 1, left: 2 }];
+  const reach = R.reachMaps(s, true).stones;
+  ok(reach.has(1 * W + 3) && reach.has(3 * W + 1) && !reach.has(2 * W + 2), 'your stone\u2019s reach, for the page to ring');
 }
 
 // A sword that aims: it strikes past where it lands, the way it moved.

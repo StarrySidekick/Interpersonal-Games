@@ -2083,7 +2083,8 @@ function hash01(str) {
 export function reachMaps(s, pattern = false) {
   s = seenBy(s, 'you'); // a piece hidden in a cloud shows no reach (2026-10-13)
   const W = s.day.W, yours = new Set(), theirs = new Set(), sentry = new Set();
-  if (s.won) return { yours, theirs, threat: theirs, sentry };
+  const stones = new Set();
+  if (s.won) return { yours, theirs, threat: theirs, sentry, stones };
   s.pieces.forEach((p, i) => {
     if (p.taken || p.flying) return;
     for (const m of movesFor(s, i)) if (!m.swap) { yours.add(m.y * W + m.x); for (const q of capturesOf(m, W)) yours.add(q); }
@@ -2126,7 +2127,11 @@ export function reachMaps(s, pattern = false) {
   // is gone. `threat` is the same set, for the shields.
   // Their vines (Adventure): land on one and it catches you.
   for (const v of s.vines || []) if (v.side === 'foe') theirs.add(v.y * W + v.x);
-  return { yours, theirs, threat: theirs, sentry };
+  // Your stones' reach (the Stone suit, 2026-10-16, Timothy: "we should see
+  // your sentries reach while they are present to be able to plan
+  // tactics"): where one of theirs that moves in is taken.
+  for (const t of s.stones || []) for (const m of pieceMoves(s, { ...t, taken: false }, 'you')) if (!m.swap) { stones.add(m.y * W + m.x); for (const q of capturesOf(m, W)) stones.add(q); }
+  return { yours, theirs, threat: theirs, sentry, stones };
 }
 
 

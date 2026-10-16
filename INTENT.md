@@ -12,7 +12,12 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
-## 2026-10-16, newest: sentries stay put, loops never rest, passing
+## 2026-10-16, newest: your stones' reach shown
+
+From Timothy, and built: while a stone of yours stands, its reach is
+ringed in sand on the board, to plan around.
+
+## 2026-10-16: sentries stay put, loops never rest, passing
 
 From Timothy, and built: a sentry strikes without moving; a quicker swap;
 loops with no rests; a pass spends the piece on the board and the next

@@ -525,7 +525,11 @@ itself on the square it moves off, with no button to press. Each stone is
 a sentry of yours for three turns: it stands through their turn just after
 it is left and two more, then crumbles away (a puff of grit and the
 crumble sound). A number at its corner counts the turns it has left, and
-it sinks and shrinks a little as it wears. While it stands it strikes as
+it sinks and shrinks a little as it wears. Its reach is ringed in sand on
+the board while it stands (2026-10-16, Timothy: "we should see your
+sentries reach while they are present to be able to plan tactics"),
+inside any red ring, so you can see where a walker would step into it
+(`reachMaps(s).stones`). While it stands it strikes as
 above (what moves into its reach), pins and gives check along its lines,
 and their pieces can break it. Your Stone piece is sandstone with carved
 bands; a stone left behind is darker, on pebbles. In rules: the stone is
