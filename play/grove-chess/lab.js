@@ -1312,12 +1312,22 @@ export function searchLayouts({ settings, seed, parMin, parMax, maxTries = 400, 
       if (o.yours || o.theirs) { skipped++; thrown['a piece could capture on the first move'] = (thrown['a piece could capture on the first move'] || 0) + 1; continue; }
     }
     // Quick (Adventure) skips the balance report, so it can afford a wider
-    // search for a truer par.
-    const r = solveLevel(level, { maxDepth: parMax, deadline: quick ? Math.min(t0 + maxMs, Date.now() + 2500) : t0 + maxMs, ...(quick ? { exactCap: 20000, width: 240, branch: 16, budget: 400000 } : {}) });
+    // search for a truer par; on long boards (best line over six) a
+    // narrower one, since a win inside par is what is asked, not the very
+    // best line, and the wide one took too long to vet deep boards.
+    const r = solveLevel(level, { maxDepth: parMax, deadline: quick ? Math.min(t0 + maxMs, Date.now() + 2500) : t0 + maxMs, ...(quick ? { exactCap: parMax <= 6 ? 20000 : 4000, width: parMax <= 6 ? 240 : 90, branch: parMax <= 6 ? 16 : 12, budget: 400000 } : {}) });
     tried = i + 1;
     // Quick (Adventure, 2026-10-15): winnable at the right length is all
     // that is asked; no balance report and no novice games, which are most
     // of the time a search takes.
+    // Quick: a winnable board that is shorter than asked is kept, and once a
+    // few seconds have gone the longest of those is taken (Adventure deals
+    // that way: winnable is a must, the length a wish).
+    if (quick && r.par && r.par < parMin) {
+      if (!best || r.par > best.par) best = { seed: sd, par: r.par, exact: r.exact, line: r.line };
+      if (Date.now() - t0 > Math.min(4000, maxMs)) return post({ type: 'done', seed: best.seed, par: best.par, exact: best.exact, line: best.line, tried: i + 1, balance: null, why: ['shorter than asked'], thrown, measure: null });
+      continue;
+    }
     if (quick && r.par && r.par >= parMin) {
       // Their leader (tactics): checkmate topples the board, so make sure
       // no mate comes sooner than par allows, searching every line exactly

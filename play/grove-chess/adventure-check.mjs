@@ -11,8 +11,8 @@
 
 import * as R from './rules.js';
 import { makeLevel, searchLayouts, ROUTES } from './lab.js';
-import { modeDefaults, levelSettings } from './modes.js';
-import { newRun, handSettings, adventureCards, parVerdict, PAR_CARDS, adventureSet, afterAdventure, takeRabbits, netCatches, RABBITS_FOR_PIECE, WEAPON_ORDER } from './run.js';
+import { modeDefaults, levelSettings, adventurePar, EAGLE_ROOM } from './modes.js';
+import { newRun, handSettings, adventureCards, parVerdict, PAR_CARDS, PAR_AUTO, ADVENTURE_GIFTS, adventureSet, afterAdventure, takeRabbits, netCatches, RABBITS_FOR_PIECE, WEAPON_ORDER } from './run.js';
 import { rng } from '../../engine/seed.js';
 
 let fails = 0;
@@ -326,12 +326,33 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
   ok(!WEAPON_ORDER.includes('net') && R.canArm('knight', 'net'), 'the net is Adventure\u2019s own, and any piece can carry one');
 }
 
-for (const [d, hand] of [[1, ['rook']], [2, ['bishop']], [4, ['knight', 'rook']], [6, ['rook', 'knight', 'bishop']], [9, ['rook', 'knight', 'bishop', 'camel', 'king']]]) {
-  const r = newRun(hand, 5, null); r.depth = d;
+// The hole opens beside your piece, on the way it was going (2026-10-15:
+// not toward the middle every time).
+{
+  const base = deal(1, ['rook'], 7777);
+  const st = R.initialState({ ...base, w: 5, h: 5, pieces: [{ type: 'rook', x: 0, y: 0 }], cycle: undefined, hole: null, stumps: new Set(),
+    foes: [{ type: 'knight', x: 0, y: 3, brain: 'still', target: true }], rules: { ...base.rules } });
+  const n = R.apply(st, { p: 0, x: 0, y: 3 });
+  ok(n.won && n.hole && n.hole.x === 0 && n.hole.y === 4, `the hole opens straight ahead (${n.hole?.x},${n.hole?.y})`);
+}
+// A bishop after the first board, a knight after the third; and the cards
+// with no choice.
+ok(ADVENTURE_GIFTS[1] === 'bishop' && ADVENTURE_GIFTS[3] === 'knight' && !ADVENTURE_GIFTS[2], 'the gifts');
+ok(PAR_AUTO.bogey === 'card' && PAR_AUTO.worse === 'all' && !PAR_AUTO.par, 'a bogey gives one card to place; worse, one placed by chance');
+
+// Par by depth (2026-10-15): 5, one more every three boards, at most 15.
+ok([1, 3, 4, 6, 7, 31, 60].map(adventurePar).join() === '5,5,6,6,7,15,15', 'par by depth');
+// Every board dealt is won by the solver, in two under par or three (so an
+// eagle is always there to find).
+for (const [d, hand] of [[1, ['rook']], [2, ['rook', 'bishop']], [4, ['rook', 'bishop', 'knight']], [7, ['rook', 'bishop', 'knight']], [13, ['rook', 'knight', 'camel']], [31, ['rook', 'bishop', 'knight']]]) {
+  const r = newRun(hand, 3, null); r.depth = d;
   const S = levelSettings(M, { depth: d, hand: handSettings(r) }, rng('check:' + d));
+  ok(S.parMax === adventurePar(d) - EAGLE_ROOM, `depth ${d}: par ${adventurePar(d)}, dealt to be won in ${S.parMin} to ${S.parMax}`);
   const t0 = Date.now();
   const res = await new Promise((done) => searchLayouts({ settings: S, seed: 7000 + d, parMin: S.parMin, parMax: S.parMax, maxMs: 15000, quick: true }, (m) => { if (m.type !== 'progress') done(m); }));
-  ok(res.type === 'done' && res.par >= 1, `depth ${d} deals a board with a par`);
+  const got = res.type === 'done' ? res : res.best;
+  ok(got?.line && got.par <= S.parMax, `depth ${d} deals a board the solver wins in ${got?.par} (${res.type})`);
+  res.line = got?.line; res.seed = got?.seed;
   if (res.line) {
     const { states, ok: legal } = R.replay(makeLevel(S, res.seed), res.line);
     const end = states[states.length - 1];
@@ -342,12 +363,12 @@ for (const [d, hand] of [[1, ['rook']], [2, ['bishop']], [4, ['knight', 'rook']]
 
 // Cards by par, and never a piece (pieces come from rabbits).
 const r2 = newRun(['rook'], 5, null); r2.depth = 6;
-for (const [how, want] of [['under', 3], ['par', 2], ['over', 1]]) {
+for (const [how, want] of [['eagle', 4], ['birdie', 3], ['par', 2], ['bogey', 1], ['worse', 1]]) {
   const cards = adventureCards(r2, PAR_CARDS[how], rng('cards:' + how));
   ok(cards.length === want, `${how} par gives ${want}`);
   ok(cards.every((c) => c.kind === 'suit' || c.kind === 'weapon'), `${how} par: suits and weapons only`);
 }
-ok(parVerdict(5, 6, true) === 'under' && parVerdict(6, 6, true) === 'par' && parVerdict(7, 6, true) === 'over' && parVerdict(3, 6, false) === 'over', 'the verdicts');
+ok([2, 3, 4, 5, 6, 7].map((t) => parVerdict(t, 5, true)).join() === 'albatross,eagle,birdie,par,bogey,worse' && parVerdict(3, 5, false) === 'worse', 'the verdicts, in golf\u2019s words');
 
 console.log(fails ? `${fails} checks failed.` : 'Adventure: statues, the Changeling, routes, the hole, choosing from the set, losing a piece, the net, tactics (pins, sentries, flight, the leader, stones), rabbits, dealing and cards check out.');
 if (fails) process.exit(1);
