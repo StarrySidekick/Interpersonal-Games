@@ -6,7 +6,7 @@
 // 3D models (engine/lowpoly.js).
 
 import { Mesh, Model, snapshot } from '../../engine/lowpoly.js';
-import { model, suitLook } from './models.js';
+import { model, suitLook, catKey } from './models.js';
 import { brambleCount, onBoard, movesFor, holeOpen, nextShrink, PIECES, statueKind, reachMaps, ghostAt, gateUp, hiddenFrom } from './rules.js';
 import * as sfx from './sounds.js';
 import { LOOK } from './config.js';
@@ -42,9 +42,69 @@ const DIGITS = ['111101101101111', '010110010010111', '111001111100111', '111001
 // Track colours, one per pattern foe: the first is the daily rabbit's brown.
 export const TRACK = ['#6b4a2c', '#2f6fc0', '#8a4bb0', '#118a74', '#c2378a', '#de7a1f', '#5f7a20', '#9a6a0c'];
 
+/** A weapon at work (Adventure, 2026-10-16, Timothy: "animations for ... a
+    piece capturing with a weapon"), drawn flat over either board: a sword's
+    slash across each square it strikes, a lance's streak down its run, a
+    mace's shockwave where it lands, a net dropping over what it catches.
+    `mid(x, y)` is a square's middle on screen; `u` is one of the flat
+    board's pixels there. */
+export function drawWeaponFx(g, list, at, mid, u) {
+  for (const f of list || []) {
+    const k = (at - f.t0) / f.dur;
+    if (k < 0 || k >= 1) continue;
+    g.save();
+    g.lineCap = 'round';
+    if (f.kind === 'slash') {
+      const [cx, cy] = mid(...f.at), r = 11 * u, a0 = -2.5 + k * 0.5, sweep = Math.min(1, k * 2.6) * 2.3;
+      g.strokeStyle = `rgba(255,255,255,${1 - k})`; g.lineWidth = Math.max(1, 3.4 * u * (1 - k * 0.6));
+      g.beginPath(); g.arc(cx, cy - 2 * u, r, a0, a0 + sweep); g.stroke();
+      g.strokeStyle = `rgba(190,215,255,${0.7 * (1 - k)})`; g.lineWidth = Math.max(1, 1.4 * u);
+      g.beginPath(); g.arc(cx, cy - 2 * u, r * 0.72, a0 + 0.35, a0 + sweep); g.stroke();
+    } else if (f.kind === 'streak') {
+      const [ax, ay] = mid(...f.from), [bx, by] = mid(...f.to), head = Math.min(1, k * 1.7), tail = Math.max(0, k * 1.7 - 0.7);
+      const x1 = ax + (bx - ax) * tail, y1 = ay + (by - ay) * tail, x2 = ax + (bx - ax) * head, y2 = ay + (by - ay) * head;
+      g.strokeStyle = `rgba(242,193,78,${0.9 * (1 - k * 0.6)})`; g.lineWidth = 5 * u;
+      g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
+      g.strokeStyle = `rgba(255,250,230,${1 - k * 0.5})`; g.lineWidth = Math.max(1, 1.8 * u);
+      g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
+    } else if (f.kind === 'spark') {
+      const [cx, cy] = mid(...f.at);
+      g.fillStyle = `rgba(255,236,170,${1 - k})`;
+      for (let a = 0; a < 6; a++) { const ang = a * Math.PI / 3 + 0.3, r = (3 + k * 12) * u; g.fillRect(cx + Math.cos(ang) * r - u, cy + Math.sin(ang) * r - u, 2 * u, 2 * u); }
+    } else if (f.kind === 'shock') {
+      const [cx, cy] = mid(...f.at);
+      for (const d of [0, 0.2]) {
+        const q = (k - d) / (1 - d);
+        if (q < 0) continue;
+        const r = (5 + q * 32) * u;
+        g.strokeStyle = `rgba(232,150,80,${1 - q})`; g.lineWidth = Math.max(1, (4 - 3 * q) * u);
+        g.beginPath(); g.ellipse(cx, cy, r, r * 0.7, 0, 0, Math.PI * 2); g.stroke();
+      }
+      g.strokeStyle = `rgba(90,60,30,${0.8 * (1 - k)})`; g.lineWidth = Math.max(1, 1.5 * u);
+      for (let a = 0; a < 8; a++) { const ang = a * Math.PI / 4 + 0.2, r0 = 6 * u, r1 = (8 + k * 10) * u; g.beginPath(); g.moveTo(cx + Math.cos(ang) * r0, cy + Math.sin(ang) * r0 * 0.7); g.lineTo(cx + Math.cos(ang) * r1, cy + Math.sin(ang) * r1 * 0.7); g.stroke(); }
+    } else if (f.kind === 'net') {
+      // It drops from above, lands over the square and draws tight, then glows.
+      const [cx, cy] = mid(...f.at), fall = Math.max(0, 1 - k / 0.4), half = (12 - 3 * Math.min(1, Math.max(0, k - 0.4) / 0.3)) * u;
+      const y = cy - 4 * u - fall * fall * 46 * u, alpha = k > 0.75 ? (1 - k) / 0.25 : 1;
+      g.strokeStyle = `rgba(244,236,214,${0.95 * alpha})`; g.lineWidth = Math.max(1, 1.2 * u);
+      for (let i = 0; i <= 4; i++) {
+        const o = -half + (i * half) / 2;
+        g.beginPath(); g.moveTo(cx + o, y - half); g.lineTo(cx + o * 0.8, y + half); g.stroke();
+        g.beginPath(); g.moveTo(cx - half, y + o); g.lineTo(cx + half, y + o * 0.9); g.stroke();
+      }
+      g.strokeStyle = `rgba(242,193,78,${alpha})`; g.lineWidth = Math.max(1, 2 * u);
+      g.strokeRect(cx - half, y - half, half * 2, half * 2);
+      if (k > 0.4) { const q = (k - 0.4) / 0.6; g.strokeStyle = `rgba(242,193,78,${0.8 * (1 - q)})`; g.beginPath(); g.ellipse(cx, cy, (8 + q * 18) * u, (8 + q * 18) * u * 0.7, 0, 0, Math.PI * 2); g.stroke(); }
+    }
+    g.restore();
+  }
+}
+
 const sprites = {};
+// (A cat's features can change: its key says which it was drawn with.)
+const spriteKey = (kind, side, fur) => kind + (kind === 'cat' ? catKey() : '') + side + (fur || '');
 export const sprite = (kind, side = 'you', fur = null) =>
-  sprites[kind + side + (fur || '')] || (sprites[kind + side + (fur || '')] = snapshot(model(kind, side, fur)));
+  sprites[spriteKey(kind, side, fur)] || (sprites[spriteKey(kind, side, fur)] = snapshot(model(kind, side, fur)));
 
 /** Crisp pixel drawing on one canvas. */
 export class Pen {
@@ -485,6 +545,8 @@ export class Board {
       }
     }
 
+    drawWeaponFx(pen.g, this.fx, at, (x, y) => this.centre(x, y), 1);
+
     // A winning catch. Everything holds for a beat while the square flashes,
     // then what you caught pops up, tumbles and shrinks away where it stood
     // (a small arc, so a rabbit on the top row stays on the canvas).
@@ -520,6 +582,29 @@ export class Board {
       for (const b of lb.bits) P(cx + b.vx * e, cy - 4 + b.vy * e + 110 * e * e, b.w, 2, b.col);
       g.restore();
     }
+  }
+
+  /** What your piece's weapon did on this move, for drawWeaponFx: the move
+      says (its strike, pass, stun or push, from the rules), and a net's
+      catch is what it took whole. Returns when the rest may go on. */
+  weaponWork(a, b, mv, t, tw, at) {
+    const p0 = a.pieces[mv.p], p1 = b.pieces[mv.p], W = this.day.W, sq = (q) => [q % W, Math.floor(q / W)];
+    const m = mv.strike || mv.pass || mv.stun || mv.push ? mv : movesFor(a, mv.p).find((q) => q.x === p1.x && q.y === p1.y) || mv;
+    const fx = [], w = p0.weapon, run = tw.piece || { t0: t, dur: 0 };
+    if (w === 'sword') for (const q of m.strike || []) fx.push({ kind: 'slash', at: sq(q), t0: t - 40, dur: 380 });
+    if (w === 'lance' && m.pass?.length) {
+      fx.push({ kind: 'streak', from: [p0.x, p0.y], to: [p1.x, p1.y], t0: run.t0, dur: run.dur + 320 });
+      m.pass.forEach((q, i) => fx.push({ kind: 'spark', at: sq(q), t0: run.t0 + run.dur * (i + 1) / (m.pass.length + 1), dur: 360 }));
+    }
+    if (w === 'mace' && (m.stun?.length || m.push?.length)) fx.push({ kind: 'shock', at: [p1.x, p1.y], t0: t - 30, dur: 560 });
+    if (w === 'net') b.foes.forEach((f, k) => { if (f.netted && !a.foes[k].netted) fx.push({ kind: 'net', at: [a.foes[k].x, a.foes[k].y], t0: t - 160, dur: 700 }); });
+    if (!fx.length) return t;
+    // Kept on the board, not the tween, so their reply does not cut it short.
+    const now = performance.now();
+    this.fx = [...(this.fx || []).filter((f) => f.t0 + f.dur > now), ...fx];
+    this.runUntil(Math.max(...fx.map((f) => f.t0 + f.dur)));
+    sfx.weapon(w, at(Math.max(performance.now(), fx[0].t0)));
+    return t + (w === 'net' ? 380 : 170);
   }
 
     /** Animate the step from state from state `a` to state `b` made by your move `mv`.
@@ -562,6 +647,7 @@ export class Board {
       }
       if (any) { t += dur; sfx.move(at(t)); }
     }
+    if (mv.p >= 0 && a.pieces[mv.p]?.weapon) t = this.weaponWork(a, b, mv, t, tw, at);
     // A ball that was hit rolls on from where the hitter lands.
     // (Once per step: if their turn is in this step too, it rolls then.)
     if (b.won || b.t === a.t) t = this.knocked(a, b, mv.p, t, slow, tw, at);

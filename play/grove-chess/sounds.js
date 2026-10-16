@@ -226,3 +226,33 @@ export function smash(at = 0) {
   noise({ at: at + 0.06, dur: 0.3, vol: 0.06, from: 3000, to: 1200, type: 'bandpass', q: 3 });
 }
 
+
+/** A weapon at work (2026-10-16): a sword's swish, a lance's longer rush,
+    a mace's heavy thud, a net's soft swoop and a snap as it closes. */
+export function weapon(kind, at = 0) {
+  if (kind === 'mace') {
+    tone({ f: 95, f2: 48, type: 'triangle', at, dur: 0.3, vol: 0.32 });
+    noise({ at, dur: 0.2, vol: 0.2, from: 700, type: 'lowpass' });
+    return;
+  }
+  if (kind === 'net') {
+    noise({ at, dur: 0.34, vol: 0.08, from: 500, to: 2200, type: 'bandpass', q: 1.5 });
+    tone({ f: 330, f2: 660, type: 'sine', at: at + 0.22, dur: 0.12, vol: 0.07 });
+    return;
+  }
+  noise({ at, dur: kind === 'lance' ? 0.3 : 0.16, vol: 0.14, from: 2400, to: 6000, type: 'bandpass', q: 2 });
+  tone({ f: 2200, f2: 1700, type: 'triangle', at: at + 0.04, dur: 0.12, vol: 0.05 });
+}
+
+/** A piece taking on a suit: a shimmer running up the scale. */
+export function transform(at = 0) {
+  [0, 2, 4, 5, 7, 9].forEach((d, i) => tone({ f: hz(d + 5), type: 'sine', at: at + i * 0.06, dur: 0.24, vol: 0.07, attack: 0.01 }));
+  noise({ at, dur: 0.45, vol: 0.04, from: 5000, type: 'highpass' });
+}
+
+/** A weapon taken up: it drops into the piece's hand with a clink. */
+export function equip(at = 0) {
+  tone({ f: 990, f2: 940, type: 'triangle', at, dur: 0.18, vol: 0.13 });
+  noise({ at, dur: 0.03, vol: 0.08, from: 3800, type: 'bandpass', q: 5 });
+  tone({ f: 1480, type: 'sine', at: at + 0.08, dur: 0.35, vol: 0.05, attack: 0.01 });
+}

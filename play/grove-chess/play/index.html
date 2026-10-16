@@ -27,15 +27,29 @@
   .hud b { font-size: 20px; }
   .chipline { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
   #board { width: 100%; max-width: 460px; margin: 0 auto; touch-action: manipulation; }
+  /* A board cleared (Adventure, 2026-10-16): its score word pops up over
+     the board in a burst of confetti. */
+  .boardwrap { position: relative; max-width: 460px; margin: 0 auto; }
+  #cheer { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; overflow: hidden; text-align: center; }
+  #cheer .word { font-size: clamp(36px, 12vw, 60px); font-weight: 800; line-height: 1; color: #fff6d8; letter-spacing: .02em;
+    text-shadow: 0 3px 0 #6b4a1c, 0 0 22px rgba(242, 193, 78, .85); animation: cheerpop .6s cubic-bezier(.3, 1.7, .5, 1) both; }
+  #cheer .line { margin-top: 6px; font-size: 16px; font-weight: 700; color: #fff6d8; text-shadow: 0 1px 4px #000; animation: cheerpop .5s .15s ease-out both; }
+  #cheer i { position: absolute; left: 50%; top: 50%; width: 8px; height: 8px; background: var(--c); animation: confetti 1.2s var(--d) ease-out both; }
+  @keyframes cheerpop { from { transform: scale(.3); opacity: 0; } to { transform: none; opacity: 1; } }
+  @keyframes confetti { from { transform: translate(-50%, -50%) scale(.4); opacity: 1; } to { transform: translate(calc(-50% + var(--x)), calc(-50% + var(--y))) rotate(var(--r)); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { #cheer .word, #cheer .line { animation: none; } #cheer i { display: none; } }
   #status { min-height: 26px; margin: 10px 0 2px; font-weight: 600; }
   /* Adventure: the piece that comes on next, right under the board. */
   #nextup { display: flex; justify-content: center; align-items: center; gap: 6px; margin: 8px auto 0; flex-wrap: wrap; }
-  #nextup .slot { display: flex; align-items: center; justify-content: center; flex: none; width: auto; margin: 0; padding: 2px 6px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); font: inherit; color: inherit; min-height: 44px; min-width: 44px; }
-  #nextup .slot.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  /* Big enough to see what each piece is wearing (Timothy, 2026-10-16). */
+  #nextup .slot { display: flex; align-items: center; justify-content: center; flex: none; width: auto; margin: 0; padding: 4px 8px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); font: inherit; color: inherit; min-height: 84px; min-width: 76px; }
+  #nextup .slot.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; opacity: 1; }
   #nextup .slot.ready:not([disabled]) { cursor: pointer; }
+  #nextup .slot.ready { opacity: 1; }
   #nextup .slot.used { opacity: .35; }
   #nextup .slot[disabled] { cursor: default; }
-  #nextup canvas { width: 30px; height: 36px; }
+  #nextup canvas { width: 76px; height: 72px; }
+  @media (max-width: 360px) { #nextup .slot { min-width: 60px; min-height: 70px; padding: 2px 4px; } #nextup canvas { width: 57px; height: 54px; } }
   #nextup.turn .slot.on { animation: nextpop .45s cubic-bezier(.3, 1.6, .6, 1); }
   @keyframes nextpop { from { transform: scale(.7); } to { transform: none; } }
   @media (prefers-reduced-motion: reduce) { #nextup.turn .slot.on { animation: none; } }
@@ -59,6 +73,23 @@
   .tile.offer { background: #24342a; border: 1px dashed #3b5543; font-weight: 700; padding: 0; min-height: 0; width: 100%; height: 100%; }
   button.tile.offer { cursor: pointer; border: 2px solid #6f9a5c; }
   button.tile.offer:active { background: var(--accent); }
+  /* Adventure (2026-10-16): the fall fills the screen, and the cards are an
+     icon and a name over it. */
+  section.fullfall { min-height: calc(100dvh - 40px); display: flex; flex-direction: column; color: #eef3e6; }
+  section.fullfall #fallcv { position: fixed; inset: 0; width: 100vw; height: 100dvh; max-width: none; margin: 0; border-radius: 0; z-index: 0; }
+  section.fullfall > :not(#fallcv) { position: relative; z-index: 1; }
+  section.fullfall .handcell { color: var(--text); }
+  section.fullfall #picktext { text-shadow: 0 1px 6px #000; }
+  section.fullfall .dim { color: rgba(238, 243, 230, .78); }
+  section.fullfall .fallnote { margin-top: 18px; text-shadow: 0 2px 8px #000; }
+  section.fullfall #offer, section.fullfall #pickbox { margin-top: auto; padding-bottom: 18px; }
+  section.fullfall #offer > p { text-shadow: 0 1px 6px #000; }
+  section.fullfall #offer button.quiet { color: #eef3e6; border-color: rgba(238, 243, 230, .35); background: rgba(5, 8, 10, .5); }
+  .cardrow { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+  .offercard.mini { display: grid; grid-template-columns: none; justify-items: center; gap: 4px; flex: 1 1 0; max-width: 120px; min-width: 76px;
+    padding: 12px 6px; text-align: center; background: rgba(16, 24, 20, .82); color: #eef3e6; border-color: rgba(238, 243, 230, .3); }
+  .offercard.mini h3 { font-size: 15px; margin: 0; }
+  .offercard.mini .icon { font-size: 40px; line-height: 1.1; }
   .offercard canvas.model { width: 60px; height: 72px; display: block; margin: 0 auto; image-rendering: pixelated; }
   .offercard canvas.diagram { width: 72px; height: 72px; margin-top: 6px; border-radius: 4px; }
   .offercard h3 { margin: 0 0 2px; font-size: 18px; }
@@ -106,6 +137,13 @@
   .suit { font-weight: 800; }
   /* What carries between descents, and golf's courses. */
   .handrow button.handcell { font: inherit; color: var(--text); cursor: pointer; min-height: 0; width: auto; }
+  .catpick { display: flex; gap: 12px; align-items: center; justify-content: center; margin: 4px 0 12px; padding: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
+  .catpick canvas { width: 90px; height: 108px; flex: none; }
+  #catopts { display: grid; gap: 6px; }
+  .catrow { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .catrow b { font-size: 12px; min-width: 56px; }
+  .catrow button { font: inherit; font-size: 12px; min-height: 30px; width: auto; flex: none; padding: 4px 8px; }
+  .catrow button.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
   .waystones { display: grid; gap: 6px; margin: 4px 0 12px; }
   .waystone { display: flex; gap: 10px; align-items: baseline; font-size: 14px; color: var(--dim); }
   .waystone .stone { font-size: 18px; color: var(--line); }
@@ -160,6 +198,10 @@
     <div class="handrow" id="titlehand"></div>
     <p class="small dim center" id="handnote" hidden></p>
     <div class="handrow" id="titlechoices" hidden></div>
+    <div class="catpick" id="catpick" hidden>
+      <canvas class="pix" id="catcv" width="90" height="108" aria-label="Your cat"></canvas>
+      <div id="catopts"></div>
+    </div>
     <div id="waystones" class="waystones" hidden></div>
     <div class="stack"><button class="primary" id="begin" disabled>Finding the first level…</button></div>
     <div class="row" style="margin-top:10px">
@@ -186,7 +228,7 @@
       <span class="pill" id="goalpill"></span>
     </div>
     <div class="chipline" id="chips"></div>
-    <canvas id="board" class="pix" aria-label="The board"></canvas>
+    <div class="boardwrap"><canvas id="board" class="pix" aria-label="The board"></canvas><div id="cheer" aria-live="polite" hidden></div></div>
     <div id="nextup" role="img" hidden></div>
     <p id="status"></p>
     <p id="info"></p>

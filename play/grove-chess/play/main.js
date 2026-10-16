@@ -5,7 +5,7 @@
 
 import { $, el, show, haptic, keepAwake, themeToggle } from '../../../engine/ui.js';
 import { soundToggle } from '../../../engine/sound.js';
-import { makeTarget, render } from '../../../engine/lowpoly.js';
+import { makeTarget, render, snapshot } from '../../../engine/lowpoly.js';
 import { rng } from '../../../engine/seed.js';
 import * as sfx from '../sounds.js';
 import {
@@ -17,7 +17,7 @@ import { bestMove } from '../best.js';
 import { newTiles, fillOffers, flip, frontier, tier, bounds, layout, foePick, tileKey, tileXY, SIZES } from '../tiles.js';
 import { solveLevel } from '../solve.js';
 import { scene, sceneFrame, sprite, crispWidth } from '../board.js';
-import { suitLook } from '../models.js';
+import { suitLook, model, CAT_OPTIONS, catLook, setCatLook } from '../models.js';
 import { piecesSheet } from '../sheet.js';
 import { playIntro } from '../intro.js';
 import { makeLevel, searchLayouts, decodeLevel, rabbitPool, GOAL_PILL, summary } from '../lab.js';
@@ -58,6 +58,9 @@ registerInvented(catalog.invented);
 // --- Records: only ever go up (nothing decays, no streaks). -----------------
 
 const REC = 'ig.grove.records.v1';
+const CATLOOK = 'ig.grove.cat.v1';
+try { setCatLook(JSON.parse(localStorage.getItem(CATLOOK)) || {}); } catch { /* blocked */ }
+
 function loadRecords() { try { const r = JSON.parse(localStorage.getItem(REC)); if (r && r.version === 1) return r; } catch { /* blocked */ } return { version: 1 }; }
 const records = loadRecords();
 const mine = () => (records[modeId] = records[modeId] || { played: 0, best: null });
@@ -112,9 +115,9 @@ function newSession() {
   const from = royalKing && pool.some((k) => k !== 'king') ? pool.filter((k) => k !== 'king') : pool.length ? pool : M.startPool;
   const start = Array.from({ length: count }, () => from[Math.floor(rand() * from.length)]);
   if (royalKing) start[0] = 'king';
-  // Adventure always starts with a rook (Timothy, 2026-10-15: "you always
-  // start with the rook, no choice").
-  if (M.upgrades === 'par') start.splice(0, start.length, 'rook');
+  // Adventure starts with your cat (Timothy, 2026-10-16: "it is your
+  // starting piece"; a rook before that).
+  if (M.upgrades === 'par') start.splice(0, start.length, 'cat');
   session = { seed, n: 1, found: new Map(), seen: new Set(), strokes: [], lives: M.lives, wins: 0, caught: [], claimed: [], acorns: 0, deepestBefore: deepest() };
   // One upgrade a board (2026-10-12): they carry a lineup too, their King
   // and the rest dealt from their pool, as wide as the board.
@@ -284,10 +287,17 @@ function rabbitCounts(s = now()) {
     gone from it. It pops when the piece on the board changes. Names are
     there for screen readers. */
 let lastNext = null;
+const WEAPON_MODEL = { sword: 'wSword', lance: 'wLance', mace: 'wMace', net: 'wNet' };
 function nextUp() {
   const s = now(), box = $('#nextup'), view = s.set ? setView(s).filter((v) => !v.lost) : [];
   if (view.length < 2 || s.pieces[0]?.taken || s.won) { box.hidden = true; lastNext = null; return; }
-  const icon = (p) => { const cv = el('canvas', { class: 'pix', width: 30, height: 36 }); cv.getContext('2d').drawImage(sprite(p.shape || p.type, lookOf(p)), 0, 0); return cv; };
+  // Each piece as it stands, with its weapon beside it.
+  const icon = (p) => {
+    const cv = el('canvas', { class: 'pix', width: 38, height: 36 }), g = cv.getContext('2d');
+    g.drawImage(sprite(p.shape || p.type, lookOf(p)), 0, 0);
+    if (p.weapon && WEAPON_MODEL[p.weapon]) g.drawImage(sprite(WEAPON_MODEL[p.weapon], 'you'), 9, -3);
+    return cv;
+  };
   const open = !s.bonus && !busy && !isOver(s), key = `${s.ci}`;
   box.replaceChildren(...view.map((v) => {
     const how = v.on ? 'on' : v.ready ? 'ready' : 'used', name = nameOf(v.p);
@@ -368,7 +378,7 @@ function handRow(box, { pick = null, picked = [] } = {}) {
     const { type, name } = pieceOf(h, session.run.made);
     registerInvented(session.run.made);
     const cv = el('canvas', { class: 'pix', width: 30, height: 36 });
-    cv.getContext('2d').drawImage(sprite(type, 'you'), 0, 0);
+    cv.getContext('2d').drawImage(sprite(type, lookOf(h)), 0, 0);
     const mark = [h.suit && SUITS[h.suit] ? el('span', { class: 'suit', style: `color:${SUITS[h.suit].colour}` }, SUITS[h.suit].mark + ' ') : null,
       h.weapon && WEAPONS[h.weapon] ? el('span', { class: 'suit' }, WEAPONS[h.weapon].mark + (h.wl > 1 ? h.wl : '') + ' ') : null];
     const lives = h.lives > 1 ? ` (${h.lives} lives)` : '';
@@ -383,7 +393,7 @@ function goalCard() {
   if (session.seen.has('goal')) return null;
   session.seen.add('goal');
   let text = {
-    descent: M.upgrades === 'par' ? 'Take every piece of theirs. When the last one goes, a hole opens beside you and you jump down it to the next board. Grey statues never move. A piece with a rabbit inside walks a short loop every turn, the rabbit\u2019s colour says which; the whole loop is drawn on the board, its next step boldest: stand there and it takes you. You have one piece on the board at a time: before each move, choose which of your set it is, from the icons under the board. Each piece of the set must have its turn before any goes again. Landing on a piece of theirs squashes it, as in chess; a weapon adds a way of its own. Every piece you take leaves you its rabbit, and three rabbits of a kind become that piece, which joins your set. If they take the piece on the board, it is gone for good, and another of your set comes on where you came in; lose every one and the adventure is over. A net catches the first piece it takes on a board whole, with no rabbits needed. Rabbits are suits, and each does one thing in a piece of yours and another in theirs (the rabbit\u2019s colour, on the plinth and the piece, says which; yours stands on a white plinth). In theirs: gears walks its loop; stone is a sentry, leaping at anything of yours in its red reach; hearts is scared, running when you attack it, one a turn, so fork it; vines walks and leaves a vine that catches you if you land on it; stars walks two steps a turn; spirals walks and takes again. In yours: gears moves as any piece of your set; stone leaves a sentry for two turns; hearts is a life more; vines leaves a vine that catches what lands on it; stars moves twice; spirals takes again. A line of yours through one of theirs to another pins it, so it holds still.'
+    descent: M.upgrades === 'par' ? 'Take every piece of theirs. When the last one goes, a hole opens beside you and you jump down it to the next board. Grey statues never move. A piece with a rabbit inside walks a short loop every turn, the rabbit\u2019s colour says which; the whole loop is drawn on the board, its next step boldest: stand there and it takes you. You have one piece on the board at a time: before each move, choose which of your set it is, from the icons under the board. Each piece of the set must have its turn before any goes again. Landing on a piece of theirs squashes it, as in chess; a weapon adds a way of its own. Every piece you take leaves you its rabbit, and three rabbits of a kind become that piece, which joins your set. If they take the piece on the board, it is out for this board (it is back on the next), and another of your set comes on in its place; lose all of your set on one board and the adventure is over. A net catches the first piece it takes on a board whole, with no rabbits needed. Rabbits are suits, and each does one thing in a piece of yours and another in theirs (the rabbit\u2019s colour, on the plinth and the piece, says which; yours stands on a white plinth). In theirs: gears walks its loop; stone is a sentry, leaping at anything of yours in its red reach; hearts is scared, running when you attack it, one a turn, so fork it; vines walks and leaves a vine that catches you if you land on it; stars walks two steps a turn; spirals walks and takes again. In yours: gears moves as any piece of your set; stone leaves a sentry for two turns; hearts is a life more; vines leaves a vine that catches what lands on it; stars moves twice; spirals takes again. A line of yours through one of theirs to another pins it, so it holds still.'
       : M.upgrades === 'tiles' ? 'Take their King to win the round. After each round you each turn over a tile at the edge of the board, the winner first: the board grows by that square, and the suit or weapon on the tile is yours. When the board has as many squares as the next size up, both sides get the same new piece. Every piece starts each round in a bubble: nothing can take it until it moves. Four statues stand in the middle; either side can break one by taking it. Keep your King: if they take it, the run is over.'
       : M.upgrades === 'each' && M.goal === 'carrier' ? `A rabbit rides one of their pieces. ${M.rabbitMove === 'random' ? `Every ${M.rabbitHop === 1 ? 'turn' : `${M.rabbitHop} turns`} it hops to another, at random.` : 'They can move it to another of their pieces, but that is their move for the turn.'} Take the piece it is on to fall to the next board, where you choose a suit or a weapon and they get one too. Keep your King: if they take it, the descent is over. Anything else of yours they take comes back on the next board.${M.promote === 'copy' ? ' A pawn that reaches the far row becomes a copy of another of your pieces.' : ''}`
       : M.upgrades === 'each' ? 'Take their King to fall to the next board, where each side gets an upgrade. Keep yours: if they take your King, the descent is over. Anything else of yours they take comes back on the next board. One rabbit leads their side, riding on their King: tap it to see what kind it is.'
@@ -682,7 +692,7 @@ function whatHappened(a, b) {
   // A piece of your set taken (Adventure): gone, and the next comes on.
   if (b.arrived) {
     const t = b.foes.find((f) => !f.taken && f.ate === 0), left = setLeft(b);
-    bits.push(`${b.arrived.lost.vined ? 'A vine of theirs catches' : t ? `${cap(theirs(b.foes.indexOf(t)))} squashes` : 'They took'} your ${nameOf(b.arrived.lost).toLowerCase()}: it is gone for good. Your ${myName} comes on where you came in${left > 1 ? ` (${left} pieces left)` : ', your last piece'}.`);
+    bits.push(`${b.arrived.lost.vined ? 'A vine of theirs catches' : t ? `${cap(theirs(b.foes.indexOf(t)))} squashes` : 'They took'} your ${nameOf(b.arrived.lost).toLowerCase()}: it is out for this board. Your ${myName} comes on in its place${left > 1 ? ` (${left} pieces left)` : ', your last piece: lose it and the adventure is over'}.`);
   }
   if (b.foeBonus === 'vines') bits.push('Their piece of Vines takes again.');
   if (b.foeBonus === 'stars') bits.push('Their piece of Stars moves twice.');
@@ -1000,12 +1010,12 @@ async function levelOver(end) {
  */
 async function adventureOver(end) {
   const run = session.run, won = end.won, took = !won && end.pieces[0]?.taken ? nameOf(end.pieces[0]).toLowerCase() : null;
-  // Pieces of your set they took on the way (each gone for good).
+  // Pieces of your set they took on the way (back next board).
   const fell = (end.set || []).filter((e) => e.lost).map((e) => nameOf(e).toLowerCase());
-  afterAdventure(run, end, session.pick || [0]);
+  const after = afterAdventure(run, end, session.pick || [0]);
   const netted = netCatches(run, end);
   const made = takeRabbits(run, end);
-  if (!run.hand.length) { status(`They took your ${took || 'last piece'}.`); await sleep(1600); return runOver('Every piece you had is gone.'); }
+  if (after.all) { status(`They took your ${took || 'last piece'}.`); await sleep(1600); return runOver('They took every piece of your set on one board.'); }
   const how = parVerdict(end.t, par, won), score = scoreName(end.t, par, won);
   // A piece given after this depth (a bishop after the first board, a knight
   // after the third), so you have a set to work with.
@@ -1014,11 +1024,12 @@ async function adventureOver(end) {
   session.n++; run.depth = session.n;
   if (!test) { const r = mine(); r.best = Math.max(r.best || 0, session.n); saveRecords(); }
   status(won ? `${score}${how === 'worse' ? '' : '!'} A hole opens: down you go.`
-    : end.gaveUp ? 'You let the floor give way.' : took ? `They took your ${took}: it is gone. The floor gives way.` : 'Out of moves: the floor gives way anyway.');
+    : end.gaveUp ? 'You let the floor give way.' : took ? `They took your ${took}. The floor gives way.` : 'Out of moves: the floor gives way anyway.');
   // Cleared: your piece hops into the hole that opened beside it (Timothy,
   // 2026-10-15: "the hole should just be like an animation where the piece
   // jumping in"). Otherwise the floor gives way.
-  if (!calm()) { await sleep(won ? 250 : 400); if (won && board.intoHole) await board.intoHole(); else if (board.collapse) await board.collapse(); }
+  if (won) await cheer(score, `${end.t} moves, par ${par}`);
+  if (!calm()) { await sleep(won ? 150 : 400); if (won && board.intoHole) await board.intoHole(); else if (board.collapse) await board.collapse(); }
   if (made.length || netted.length || gift) { sfx.fanfare(3); haptic([30, 40, 30, 40, 60]); }
   const cards = adventureCards(run, PAR_CARDS[how], rng(`reward:${session.seed}:${session.n}`));
   const n = PAR_CARDS[how], count = ['', 'one', 'two', 'three', 'four'][n];
@@ -1026,11 +1037,27 @@ async function adventureOver(end) {
     + (PAR_AUTO[how] === 'all' ? 'One card, and it goes to a piece of chance\u2019s choosing.' : PAR_AUTO[how] === 'card' ? 'One card: choose the piece for it.' : `Choose one of ${count}.`);
   const a = (t) => (/^[aeiou]/i.test(PIECES[t].name) ? 'An' : 'A');
   const sub = [gift ? `${a(gift)} ${PIECES[gift].name.toLowerCase()} joins your set.` : '',
-    fell.length && run.hand.length ? `Lost on this board: your ${fell.join(', ')}.` : '',
+    fell.length ? `Taken on this board, back for the next: your ${fell.join(', ')}.` : '',
     ...netted.map((t) => `In your net: ${a(t).toLowerCase()} ${PIECES[t].name.toLowerCase()} joins your set.`),
     ...made.map((t) => `Three ${PIECES[t].name.toLowerCase()} rabbits: ${a(t).toLowerCase()} ${PIECES[t].name.toLowerCase()} joins your set.`),
     run.hand.length > run.maxPieces ? `You have ${run.hand.length} pieces: each board, ${run.maxPieces} of them are your set, drawn at random.` : ''].filter(Boolean).join(' ');
   return between({ note: `Depth ${session.n}`, sub, rewards: true, cards, rewardNote: note, rewardAuto: PAR_AUTO[how] || null, fall: true });
+}
+
+/** A board cleared (Adventure, 2026-10-16, Timothy: "animations for ...
+    completing the level"): the score word pops up over the board in a burst
+    of confetti in the suits' colours, then the piece goes down the hole. */
+async function cheer(word, line) {
+  const box = $('#cheer'), cols = Object.values(SUITS).map((x) => x.colour).concat('#fff6d8', '#f2c14e');
+  const bits = calm() ? [] : Array.from({ length: 28 }, (_, i) => {
+    const ang = (i / 28) * Math.PI * 2 + (i % 3) * 0.2, r = 90 + ((i * 37) % 90);
+    return el('i', { style: `--c:${cols[i % cols.length]};--x:${Math.round(Math.cos(ang) * r)}px;--y:${Math.round(Math.sin(ang) * r - 20)}px;--r:${(i * 47) % 360}deg;--d:${(i % 5) * 45}ms` });
+  });
+  box.replaceChildren(...bits, el('div', {}, el('div', { class: 'word' }, word), el('div', { class: 'line' }, line)));
+  box.hidden = false;
+  haptic([20, 40, 20, 40, 40]);
+  await sleep(calm() ? 900 : 1400);
+  box.hidden = true;
 }
 
 // --- Between levels: the fall, and what you find. -------------------------------
@@ -1042,9 +1069,18 @@ async function between({ note, sub = '', rewards = false, combine = false, shop:
   $('#betweennote').textContent = note;
   $('#betweensub').textContent = sub;
   $('#offer').hidden = true; $('#pickbox').hidden = true; $('#betweennext').hidden = true; $('#tilebox').hidden = true;
-  const kinds = session.run ? session.run.hand.map((h) => ({ kind: pieceOf(h, session.run.made).type, side: lookOf(h) })) : [];
-  fall = falling && !calm() && kinds.length ? startFall($('#fallcv'), kinds) : null;
-  $('#fallcv').hidden = !fall;
+  const kinds = session.run ? session.run.hand.map((h) => ({ kind: pieceOf(h, session.run.made).type, side: lookOf(h), weapon: M.upgrades === 'par' ? h.weapon : null })) : [];
+  // Adventure: the fall fills the screen (Timothy, 2026-10-16), so the
+  // canvas takes the screen's shape, its short side about 240 pixels.
+  const full = falling && !calm() && M.upgrades === 'par';
+  $('[data-screen=between]').classList.toggle('fullfall', full);
+  const cv = $('#fallcv');
+  if (full) {
+    const r = innerHeight / Math.max(1, innerWidth);
+    [cv.width, cv.height] = r >= 1 ? [240, Math.round(240 * Math.min(r, 2.4))] : [Math.round(260 / Math.max(r, 0.4)), 260];
+  } else [cv.width, cv.height] = [240, 300];
+  fall = falling && !calm() && kinds.length ? startFall(cv, kinds) : null;
+  cv.hidden = !fall;
   if (rewards && session.run) await reward({ k: 0, note: rewardNote, cards: rewardCards, auto: rewardAuto });
   if (shopping && session.run) await shop();
   if (newBoard && session.run) await (M.upgrades === 'tiles' ? tileStep(won) : boardUpgrade());
@@ -1079,6 +1115,13 @@ function reward({ k = 0, note = null, cards: given = null, room = false, auto = 
   $('[data-screen=between]').classList.add('offering');
   return new Promise((resolve) => {
     const done = () => { box.hidden = true; $('#pickbox').hidden = true; $('[data-screen=between]').classList.remove('offering'); session.found.clear(); resolve(); };
+    // The card taking hold, on the way down (Adventure, 2026-10-16): the
+    // piece spins into its suit, or its weapon drops into its hand.
+    const takeHold = (card, i) => {
+      if (!fall || M.upgrades !== 'par' || i == null || !run.hand[i]) return;
+      if (card.kind === 'suit') { fall.restyle(i, lookOf(run.hand[i]), SUITS[card.suit].colour); sfx.transform(0.35); }
+      if (card.kind === 'weapon') { fall.arm(i, run.hand[i].weapon, WEAPONS[card.weapon].colour); sfx.equip(0.6); }
+    };
     const choose = (card) => {
       haptic(14); sfx.gain();
       box.hidden = true;
@@ -1108,7 +1151,7 @@ function reward({ k = 0, note = null, cards: given = null, room = false, auto = 
         if (card.kind === 'merge') $('#picktext').textContent = picked.length ? combineText(run.hand[picked[0]], card.type, run.made, 'the') : `Choose a piece of yours for the ${PIECES[card.type].name}.`;
       };
       paint();
-      $('#pickdone').onclick = () => { gap?.remove(); if (card.kind === 'merge') applyMerge(run, picked[0], card.type); else applyReward(run, card, picked, catalog.vetoed); done(); };
+      $('#pickdone').onclick = () => { gap?.remove(); if (card.kind === 'merge') applyMerge(run, picked[0], card.type); else { applyReward(run, card, picked, catalog.vetoed); takeHold(card, picked[0]); } done(); };
     };
     // A tile turned over (Tile Chess), or a bogey in Adventure: its one
     // card, straight to choosing the piece for it.
@@ -1121,11 +1164,23 @@ function reward({ k = 0, note = null, cards: given = null, room = false, auto = 
       if (!fits.length) return done();
       const i = fits[Math.floor(rng(`luck:${session.seed}:${session.n}`)() * fits.length)], who = pieceOf(run.hand[i], run.made).name.toLowerCase();
       applyReward(run, card, [i], catalog.vetoed);
+      takeHold(card, i);
       haptic(14); sfx.gain();
       $('#betweensub').textContent = `${$('#betweensub').textContent} ${note || ''} ${cardName(card)} goes to your ${who}.`.trim();
       return sleep(2200).then(done);
     }
     const head = note || (given ? 'A keepsake, from the waystones. Take one.' : run.hand.length < run.maxPieces ? 'Something is down here with you. Take one of them.' : 'Your hand is full. Take an upgrade.');
+    // Adventure: a card is its icon and its name, nothing more (Timothy,
+    // 2026-10-16: "we don't need descriptions for the upgrades").
+    const mini = (c) => el('button', { class: 'offercard mini', onclick: () => choose(c) },
+      el('div', { class: 'icon', style: `color:${c.suit ? SUITS[c.suit].colour : WEAPONS[c.weapon]?.colour || 'var(--accent)'}` }, c.suit ? SUITS[c.suit].mark : WEAPONS[c.weapon]?.mark || '❀'),
+      el('h3', {}, c.suit ? SUITS[c.suit].name : WEAPONS[c.weapon]?.name || cardText(c).title));
+    if (M.upgrades === 'par') {
+      box.replaceChildren(el('p', { class: 'center' }, head), el('div', { class: 'cardrow' }, ...cards.map(mini)),
+        el('div', { class: 'stack', style: 'margin-top:10px' }, el('button', { class: 'quiet', onclick: done }, 'Take nothing')));
+      box.hidden = false;
+      return;
+    }
     box.replaceChildren(el('p', { class: 'center' }, head),
       ...cards.map((c) => {
         const t = boardCardText(c, M.upgrades === 'par'), cv = el('canvas', { class: 'model', width: 30, height: 36 });
@@ -1443,6 +1498,7 @@ async function prepareTitle() {
   $('#testnote').hidden = !test;
   if (test) $('#testnote').textContent = 'Settings from Chaos: a test run. Nothing is kept.';
   titleHand();
+  catPicker();
   waystoneList();
   courseList();
   variantList();
@@ -1493,6 +1549,27 @@ function titleHand() {
       } }, cv, el('span', {}, PIECES[type].name)));
     }
   } });
+}
+
+/** Your cat's look, Adventure only: a feature at a time, kept on this
+    device. Only the model changes; the cat moves as a king whatever it wears. */
+const CAT_WORD = { ears: 'Ears', tail: 'Tail', whiskers: 'Face', coat: 'Coat' };
+function catPicker() {
+  const box = $('#catpick');
+  box.hidden = M.upgrades !== 'par';
+  if (box.hidden) return;
+  const look = catLook();
+  const big = snapshot(model('cat', lookOf(null)), { w: 90, h: 108, cx: 45, cy: 94, scale: 6 });
+  $('#catcv').getContext('2d').clearRect(0, 0, 90, 108);
+  $('#catcv').getContext('2d').drawImage(big, 0, 0);
+  $('#catopts').replaceChildren(...Object.entries(CAT_OPTIONS).map(([part, opts]) =>
+    el('div', { class: 'catrow' }, el('b', {}, CAT_WORD[part]), ...opts.map(([id, word]) =>
+      el('button', { class: look[part] === id ? 'on' : '', 'aria-pressed': String(look[part] === id), onclick: () => {
+        setCatLook({ ...catLook(), [part]: id });
+        try { localStorage.setItem(CATLOOK, JSON.stringify(catLook())); } catch { /* blocked */ }
+        haptic(8);
+        catPicker(); titleHand();
+      } }, word)))));
 }
 
 /** The waystones, lit and not yet. */

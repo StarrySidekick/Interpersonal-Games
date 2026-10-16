@@ -650,24 +650,29 @@ export const RABBITS_FOR_PIECE = 3;
 export function adventureSet(run, rand) {
   const all = run.hand.map((_, i) => i);
   if (all.length <= run.maxPieces) return all;
-  const pool = all.slice(), out = [];
+  // Your cat is always one of them (2026-10-16).
+  const cat = run.hand.findIndex((h) => h.base === 'cat');
+  const pool = all.filter((i) => i !== cat), out = cat >= 0 ? [cat] : [];
   while (out.length < run.maxPieces) out.push(pool.splice(Math.floor(rand() * pool.length), 1)[0]);
   return out.sort((a, b) => a - b);
 }
 
-/** After an Adventure board: the piece of the set that was on the board
-    when they took it is gone for good; hearts spent stay spent. `pick` is
-    the board's set (adventureSet). Mutates. */
+/** After an Adventure board: hearts spent stay spent. Since 2026-10-16
+    (Timothy: "player pieces when captured shouldn't disappear forever, just
+    for that level") a piece they took is back for the next board, so
+    nothing leaves the hand; but if they took every piece of the set on this
+    board, the adventure is over. `pick` is the board's set (hand indexes).
+    Returns { lost: hand indexes taken this board, all: whether every one
+    was }. Mutates. */
 export function afterAdventure(run, end, pick) {
-  const gone = new Set();
+  const lost = [];
   pick.forEach((h, j) => {
     const onBoard = !end.set || j === end.ci, live = onBoard ? end.pieces[0] : end.set[j];
-    if (!live) return;
-    if ((onBoard && live.taken) || live.lost) { gone.add(h); return; }
+    if (!live || !run.hand[h]) return;
+    if ((onBoard && live.taken) || live.lost) lost.push(h);
     if (run.hand[h].lives > 1) run.hand[h] = { ...run.hand[h], lives: live.lives ?? run.hand[h].lives };
   });
-  for (const h of gone) run.lost.push(run.hand[h]);
-  run.hand = run.hand.filter((_, i) => !gone.has(i));
+  return { lost, all: pick.length > 0 && lost.length === pick.length };
 }
 
 /** What a net caught on a board: each joins your collection whole. Returns
