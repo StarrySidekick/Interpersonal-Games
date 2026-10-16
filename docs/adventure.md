@@ -144,7 +144,9 @@ can; then a hole opens and your piece jumps in.
   takes you.** It threatens nothing else, so its only danger ring is that
   square (red, see "One colour for danger" below).
 - **The hole.** Taking the last of theirs wins the board: a hole opens on
-  the free square nearest your piece, and your piece hops into it by itself
+  the free square nearest your piece (of those, the one straight on the way
+  it was going, so it is not always toward the middle: Timothy, 2026-10-15,
+  "hole always shows up in the center space"), and your piece hops into it by itself
   (Timothy, 2026-10-15: "the hole should just be like an animation where the
   piece jumping in, it's boring to have to move it yourself"). There is no
   hole on the board before then, and no flag (that is golf's). Par is the
@@ -176,9 +178,35 @@ can; then a hole opens and your piece jumps in.
   and `setLeft` skip the lost. **Par stays a clean clear:** the solver does
   not search past a loss (`ch.arrived` in `solve.js`), so par never asks
   you to sacrifice a piece.
-- **Between boards:** over par (or not cleared), one card; on par, a
-  choice of two; under par, three. Cards are suits and weapons only now:
-  new pieces come from rabbits.
+- **Par and the cards** (Timothy, 2026-10-15: "par should be 5 moves to
+  start (so par 5 i guess) meaning a birdie is 4, eagle is 3, bogey is 6,
+  and so on. every three levels the par goes up one (5,6,7,8) up to 15. par
+  gives two things to choose from, birdie gives three, eagle four, bogey or
+  lower no choice just one, less than bogey no choice and also no choice of
+  what piece it gets applied to"). Par is set by depth (`adventurePar` in
+  `modes.js`): 5 on boards 1 to 3, 6 on 4 to 6, and so on, at most 15.
+  After a board:
+
+  | Score | Moves | Cards |
+  |---|---|---|
+  | Eagle (or albatross) | 2 or more under | choose one of four |
+  | Birdie | 1 under | choose one of three |
+  | Par | par | choose one of two |
+  | Bogey | 1 over | one card; you choose the piece for it |
+  | Double bogey or worse, or not cleared | 2 or more over | one card, given to a piece by chance |
+
+  `parVerdict`, `PAR_CARDS`, `PAR_AUTO` and `scoreName` in `run.js`. Cards
+  are suits and weapons only: new pieces come from rabbits, the net, and
+  the two given (below).
+- **Two pieces given** ("you should get a bishop after level one, then a
+  knight after level 3, so you have a set to work with on future levels"):
+  a bishop joins your set after the first board, a knight after the third,
+  however each went (`ADVENTURE_GIFTS`), said between boards with a
+  fanfare.
+- **Let the floor give way.** A board can still leave no way through once a
+  piece of your set is lost. A quiet button ends the board, not cleared, in
+  two taps (the first says what the second will do), so nobody has to play
+  out forty moves to find out.
 
 ## The look of your pieces
 
@@ -269,19 +297,34 @@ use them too.
   hearts spent; `takeRabbits` counts rabbits by kind (`run.rabbits`) and
   turns every three into a piece; `adventureCards` deals suits and weapons
   only.
-- **Par** is the Grove's solver (`searchLayouts` with `quick`), which now
-  searches wider (it skips the balance report, so it can) and gives each
-  layout at most 2.5 seconds. Measured in node: every depth from 1 to 15
-  finds a board on the first layout, mostly in under a second, worst seen
-  4.2 seconds; early boards' par is exact. Par is that plus 1 to depth 5,
-  plus 2 to depth 11, plus 3 after (`adventureSlack`).
+- **Every board is vetted** ("levels should be vetted before generating
+  each time, should be verified that they can be completed"). The solver
+  (`searchLayouts` with `quick`) wins every board before it is played: it
+  looks for a layout whose best line is two under par (an eagle) or three
+  (an albatross), so an eagle is always there to find; one it wins in
+  fewer is kept, and after four seconds the longest of those is taken. A
+  deal where the solver wins nothing is dealt again with fewer of theirs
+  (`relax`, and from the third time no sentries or scared ones), up to
+  twelve times; an unsolved board is never played (before, a search that
+  ran out of time played its seed unsolved, which is how a lone rook could
+  meet a sentry it could never take). Their number follows the best line
+  asked for: one or two fewer pieces than its moves, at most eight. On
+  boards with a best line over six moves the solver searches narrower (it
+  only has to prove a win inside par), which took a deep deal from about
+  15 seconds to about 4. Measured in node, depths 1 to 31: 0.2 to 4.2
+  seconds a board.
+- **Deep down, par outgrows the board.** A 7 x 7 board holds eight of
+  theirs, whose best line is about nine moves; par keeps rising to 15, so
+  from about depth 19 (par 11) boards come in well under it and eagles get
+  easier. Bigger boards, or a lower top par, would close that; open.
 
-| Depth | Board | Theirs | Walking | Routes | Clouds |
-|---|---|---|---|---|---|
-| 1 | 5 x 5 | 3-4 | 1-2 | Shuttle | none |
-| 2-3 | 5 x 5, odd shapes from 3 | 4-5 | 2-3 | + Doze | none |
-| 4-5 | 5 x 5 or 6 x 6 | 5-7 | 2-3 | + Box step | some, from 5 |
-| 6+ | 6 x 6 or 7 x 7 from 8, crumbling from 6 | up to 9 | 3-5 | + Pace | some, sometimes 2 |
+| Depth | Par | Best line | Board | Theirs | Routes | Clouds |
+|---|---|---|---|---|---|---|
+| 1 | 5 | 2-3 | 5 x 5 | 2 | Shuttle | none |
+| 2-3 | 5 | 2-3 | 5 x 5, odd shapes from 3 | 2 | + Doze | none |
+| 4-6 | 6 | 3-4 | 5 x 5 or 6 x 6 | 2-3 | + Box step | some, from 5 |
+| 7-9 | 7 | 4-5 | 6 x 6 or 7 x 7 from 8, crumbling from 6 | 3-4 | + Pace | some |
+| 10+ | 8 to 15 | par minus 2 or 3 | 6 x 6 or 7 x 7 | up to 8 | all | some, sometimes 2 |
 
 Harder from the start since 2026-10-15 (Timothy: "early levels should be a
 bit harder"): one more of theirs and one more walking at every depth, the

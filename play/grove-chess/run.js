@@ -569,15 +569,31 @@ export function boardCardText(card, adv = false) {
 
 // --- Adventure (Timothy, 2026-10-15). ----------------------------------------
 
-/** Par's slack in Adventure: the solver's route plus one to depth 5, two to
-    depth 11, three after, since deeper boards are harder to read; so under
-    par is always possible. */
-export const adventureSlack = (depth) => (depth <= 5 ? 1 : depth <= 11 ? 2 : 3);
-/** How a board went against par: 'under', 'par' or 'over' (not cleared
-    counts as over). */
-export const parVerdict = (moves, par, won) => (!won || !par ? 'over' : moves < par ? 'under' : moves === par ? 'par' : 'over');
-/** "you always get one though, par gives you two, better than par gives three" */
-export const PAR_CARDS = { under: 3, par: 2, over: 1 };
+/** How a board went against par, in golf's words (Timothy, 2026-10-15:
+    "par should be 5 moves ... a birdie is 4, eagle is 3, bogey is 6"):
+    'albatross' (three or more under), 'eagle', 'birdie', 'par', 'bogey'
+    (one over) or 'worse' (two or more over, or not cleared). */
+export const parVerdict = (moves, par, won) => {
+  if (!won || !par) return 'worse';
+  const d = moves - par;
+  return d <= -3 ? 'albatross' : d === -2 ? 'eagle' : d === -1 ? 'birdie' : d === 0 ? 'par' : d === 1 ? 'bogey' : 'worse';
+};
+/** Cards to choose from by verdict ("par gives two things to choose from,
+    birdie gives three, eagle four, bogey or lower no choice just one, less
+    than bogey no choice and also no choice of what piece it gets applied
+    to"): one card at a bogey, chosen for a piece; one at worse, given to a
+    piece by chance (PAR_AUTO). */
+export const PAR_CARDS = { albatross: 4, eagle: 4, birdie: 3, par: 2, bogey: 1, worse: 1 };
+/** Which verdicts give their one card without a choice: 'card' (you still
+    choose the piece) or 'all' (the piece too is chosen by chance). */
+export const PAR_AUTO = { bogey: 'card', worse: 'all' };
+/** The verdict's name for a board's end: "Eagle", "Double bogey", "4 over
+    par", "Not cleared". */
+export function scoreName(moves, par, won) {
+  if (!won) return 'Not cleared';
+  const d = moves - par;
+  return d <= -3 ? 'Albatross' : d === -2 ? 'Eagle' : d === -1 ? 'Birdie' : d === 0 ? 'Par' : d === 1 ? 'Bogey' : d === 2 ? 'Double bogey' : d === 3 ? 'Triple bogey' : `${d} over par`;
+}
 
 /** Adventure's cards after a board: `n` of them, never the same twice:
     suits and weapons some piece of yours can take (a weapon it has already
@@ -601,6 +617,11 @@ export function adventureCards(run, n, rand) {
 //
 // run.hand is everything you have collected; the set is the part of it that
 // you choose from on the board this level (at most run.maxPieces: three since 2026-10-15).
+
+/** Pieces given after a board, by its depth (Timothy, 2026-10-15: "you
+    should get a bishop after level one, then a knight after level 3, so you
+    have a set to work with on future levels"). */
+export const ADVENTURE_GIFTS = { 1: 'bishop', 3: 'knight' };
 
 /** How many rabbits of one kind make that piece. */
 export const RABBITS_FOR_PIECE = 3;

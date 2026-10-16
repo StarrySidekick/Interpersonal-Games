@@ -532,7 +532,14 @@ const AIM_STEP = { gentle: 0.35, steady: 0.6, steep: 1 };
  * `hand` is what the run carries (run.js handSettings); `veto` the
  * catalog's vetoes. `rand` rolls anything random.
  */
-export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, veto = [], invented = [] } = {}, rand = Math.random) {
+/** Adventure's par at a depth (Timothy, 2026-10-15: "par should be 5 moves
+    to start ... every three levels the par goes up one (5,6,7,8) up to 15"). */
+export const adventurePar = (depth) => Math.min(15, 5 + Math.floor((Math.max(1, depth) - 1) / 3));
+/** How far under par Adventure's boards are dealt to be won: the solver's
+    best is two under (an eagle), or three (an albatross). */
+export const EAGLE_ROOM = 2;
+
+export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, veto = [], invented = [], relax = 0 } = {}, rand = Math.random) {
   const pick = (a) => a[Math.floor(rand() * a.length)];
   const int = (a, b) => a + Math.floor(rand() * (b - a + 1));
   let S = { ...M };
@@ -612,10 +619,18 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
     // back first, then with rests, then round a square, then two there.
     const d = depth;
     const size = d <= 2 ? 5 : d <= 7 ? pick([5, 6, 6]) : pick([6, 6, 7]);
-    // A bit harder from the start (Timothy, 2026-10-15: "early levels should
-    // be a bit harder"): one more of theirs, one more walking, and the
-    // longer routes a depth or two sooner.
-    const theirs = Math.min(9, size + 2, 3 + Math.floor(d * 0.6) + int(0, 1));
+    // Par is set by depth (Timothy, 2026-10-15: "par should be 5 moves to
+    // start ... every three levels the par goes up one (5,6,7,8) up to 15"),
+    // and every board is dealt so its best line is two under par (an eagle)
+    // or three (an albatross): so an eagle is always there to find, and par
+    // leaves two moves to spare. Their number follows that best line: one or
+    // two fewer pieces than its moves (measured, 2026-10-15: a board's best
+    // line is about one move more than its pieces); `relax` takes more away
+    // when a deal finds nothing. Deep down a board holds at most eight (nine
+    // took the solver too long to vet, with a set of three to choose from),
+    // so the best line runs shorter than par allows and eagles come easier.
+    const best = adventurePar(d) - EAGLE_ROOM;
+    const theirs = Math.max(2, Math.min(8, size + 1, best - 1 - int(0, 1) - relax));
     const movers = Math.max(1, Math.min(5, theirs - 1, 1 + Math.floor((d + 1) / 3) + (rand() < 0.4 ? 1 : 0)));
     Object.assign(S, {
       w: size, h: size, shape: d < 3 ? 'rect' : pick(['rect', 'rect', 'diamond', 'round', 'cross', 'cheese']),
@@ -634,9 +649,12 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
       sentries: d < 2 ? 0 : d < 6 ? 1 : d < 10 ? int(1, 2) : int(2, 3),
       scared: d < 4 ? 0 : d < 8 ? 1 : int(1, 2),
       crown: false,
-      statues: 0, parMax: Math.min(26, 10 + d * 2), maxMoves: 40, aim: 0
+      statues: 0, maxMoves: 40, aim: 0
     });
-    S.parMin = 1;
+    S.parMax = best; S.parMin = Math.max(1, best - 1);
+    // A deal tried again for want of a winnable board (relax 3 on): no
+    // sentries or scared ones, the pieces most likely to leave no way through.
+    if (relax >= 3) { S.sentries = 0; S.scared = 0; }
   }
   if (M.run === 'descent' && M.realtime) {
     // Kung fu: their pieces rest less each level down; the ground stays

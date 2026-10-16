@@ -1656,11 +1656,18 @@ function allMoves0(s) {
   // Your set (Adventure): every move of every piece of it that is ready,
   // each saying which it is.
   if (s.set) {
-    s.set.forEach((_, j) => {
-      if (!setReady(s, j)) return;
-      const t = chooseInSet(s, j);
-      for (const m of withGrid(t, () => movesFor(t, 0))) out.push({ p: 0, ...m, as: j });
-    });
+    // Each ready piece is stood on the square in turn, in place (no copy of
+    // the state: the solver lists these at every position it looks at), and
+    // the one that was there is put back.
+    const p0 = s.pieces[0], keep = {}, ready = s.set.map((_, j) => setReady(s, j));
+    for (const k of PLACE) if (k in p0) keep[k] = p0[k];
+    try {
+      s.set.forEach((_, j) => {
+        if (!ready[j]) return;
+        s.pieces[0] = j === s.ci ? p0 : { ...s.set[j], ...keep };
+        for (const m of movesFor(s, 0)) out.push({ p: 0, ...m, as: j });
+      });
+    } finally { s.pieces[0] = p0; }
     return s.day.rules.wait || !out.length ? [{ p: -1, x: 0, y: 0, cap: false }, ...out] : out;
   }
   s.pieces.forEach((_, i) => { for (const m of movesFor(s, i)) out.push({ p: i, ...m }); });
@@ -2588,8 +2595,12 @@ export function playerMove(s, mv) {
       n.stones.push({ type: p.shape || p.type, x: fx, y: fy, left: STONE_TURNS });
     openBonus(n, mv.p, took, was);
   }
-  // The board cleared (goal 'clear'): the hole opens beside your piece.
-  if (n.won && n.day.rules.goal === 'clear' && !n.hole) n.hole = exitSpot(n);
+  // The board cleared (goal 'clear'): the hole opens beside your piece, on
+  // the way it was going.
+  if (n.won && n.day.rules.goal === 'clear' && !n.hole) {
+    const was = s.pieces[mv.p], now = n.pieces[mv.p];
+    n.hole = exitSpot(n, was && now ? [Math.sign(now.x - was.x), Math.sign(now.y - was.y)] : null);
+  }
   // Your turn is over (unless a suit left it open for this piece): the
   // piece that moved has had its turn this round.
   if (!n.bonus && mv.p >= 0) spendTurn(n);
@@ -2599,15 +2610,18 @@ export function playerMove(s, mv) {
 /** Where the way down opens on a cleared board (Adventure, 2026-10-15,
     Timothy: "the hole should just be like an animation where the piece
     jumping in, it's boring to have to move it yourself"): the free square
-    nearest your piece, so the jump in is a short hop. */
-function exitSpot(n) {
+    nearest your piece, so the jump in is a short hop; of those, the one most
+    the way it was going (`dir`), so it hops on into it rather than always
+    toward the middle (Timothy, 2026-10-15: "hole always shows up in the
+    center space"). */
+function exitSpot(n, dir = null) {
   const p = n.pieces.find((q) => !q.taken) || n.pieces[0], W = n.day.W, H = n.day.H, spots = [];
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     if ((x === p.x && y === p.y) || !onBoard(n.day, x, y) || statueAt(n, y * W + x) || crumbled(n, x, y) || shrunk(n, x, y)) continue;
     if (n.foes.some((f) => !f.taken && f.x === x && f.y === y)) continue;
-    spots.push({ x, y, d: Math.max(Math.abs(x - p.x), Math.abs(y - p.y)), m: Math.abs(x - p.x) + Math.abs(y - p.y) });
+    spots.push({ x, y, d: Math.max(Math.abs(x - p.x), Math.abs(y - p.y)), m: Math.abs(x - p.x) + Math.abs(y - p.y), on: dir ? (x - p.x) * dir[0] + (y - p.y) * dir[1] : 0 });
   }
-  spots.sort((a, b) => a.d - b.d || a.m - b.m || b.y - a.y || a.x - b.x);
+  spots.sort((a, b) => a.d - b.d || b.on - a.on || a.m - b.m || b.y - a.y || a.x - b.x);
   const s = spots[0] || { x: p.x, y: p.y };
   return { x: s.x, y: s.y, mx: 1, my: 1, i: 0 };
 }

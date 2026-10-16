@@ -12,7 +12,17 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
-## 2026-10-15, newest: choose from a set of three; squash
+## 2026-10-16, newest: par by depth, golf scoring, vetted boards
+
+From Timothy, and built: par 5 at first, one more every three boards, at
+most 15; eagle four cards, birdie three, par two, bogey one (you place it),
+worse one (placed by chance); every board won by the solver before it is
+played; a bishop after board 1 and a knight after board 3; the hole opens
+on the way your piece was going; and a two-tap "let the floor give way"
+for a board with no way left. Open: deep boards cannot fill par past about
+depth 19.
+
+## 2026-10-15: choose from a set of three; squash
 
 From Timothy, and built: your piece's moves are always lit (no tap to
 select); you choose which of your set goes each move, from a set of three,

@@ -27,12 +27,12 @@ import { startFall } from '../fall.js';
 import { fillMenu } from '../menu.js';
 import { buildForm, FORM_CSS, partsList } from '../form.js';
 import { loadCatalog, registerInvented } from '../invented.js';
-import { MODES, modeSettings, saveModeSettings, resetModeSettings, cleanMode, PANEL, levelSettings, COURSES, COURSE_ORDER, holesOf, settingShown, settingNote, describe, partLine } from '../modes.js';
+import { MODES, modeSettings, saveModeSettings, resetModeSettings, cleanMode, PANEL, levelSettings, COURSES, COURSE_ORDER, holesOf, settingShown, settingNote, describe, partLine, adventurePar } from '../modes.js';
 import {
   newRun, rewardsFor, applyReward, cardText, handSettings, afterLevel, pieceOf, SUITS, JOKERS,
   WAYSTONES, litWaystones, newlyLit, startChoices, keepsakeCards, acornsFor, priceOf, shopStock,
   canCombine, applyCombine, combineText, boardCards, boardCardText, applyMerge, mergeTargets, foeUpgrade, WEAPONS, canTakeWeapon, carriesText, foeCanUse, foeTake,
-  adventureCards, adventureSlack, parVerdict, PAR_CARDS, adventureSet, afterAdventure, takeRabbits, netCatches, RABBITS_FOR_PIECE
+  adventureCards, parVerdict, PAR_CARDS, PAR_AUTO, scoreName, ADVENTURE_GIFTS, adventureSet, afterAdventure, takeRabbits, netCatches, RABBITS_FOR_PIECE
 } from '../run.js';
 import { setupPanel, setupState, playOut } from '../autosetup.js';
 import { VARIANTS, VARIANT_ORDER, differs } from '../variants.js';
@@ -161,11 +161,17 @@ function find(n = session.n) {
   // fresh rolls, up to six, before settling for the best it saw: the daily's
   // bar in particular passes about one roll in twenty.
   const rolled = M.roll !== 'fixed';
+  // Adventure (Timothy, 2026-10-15: "levels should be vetted before
+  // generating each time, should be verified that they can be completed"):
+  // only a board the solver has won is ever played. A deal that finds none
+  // in its time is dealt again with fewer of theirs (relax), and again, as
+  // many times as it takes.
+  const vetted = M.upgrades === 'par';
   const p = (async () => {
     let last = null;
-    for (let k = 0; k < (rolled ? 6 : 1); k++) {
+    for (let k = 0; k < (rolled ? 6 : vetted ? 12 : 1); k++) {
       last = await findOnce(n, hand, k);
-      if (last.passed) break;
+      if (last.passed || (vetted && last.line)) break;
     }
     return last;
   })();
@@ -174,7 +180,7 @@ function find(n = session.n) {
 }
 
 function findOnce(n, hand, attempt) {
-  const settings = levelSettings(M, { depth: n, hole: n, round: n, hand, veto: catalog.vetoed, invented: catalog.invented },
+  const settings = levelSettings(M, { depth: n, hole: n, round: n, hand, veto: catalog.vetoed, invented: catalog.invented, relax: M.upgrades === 'par' ? attempt : 0 },
     rng(`${modeId}:${session.seed}:${n}${attempt ? ':' + attempt : ''}`));
   if (session.run?.jokers.includes('overtime') && settings.maxMoves) settings.maxMoves += 5;
   // One upgrade a board (2026-10-13, Timothy: "the calculation for balancing
@@ -185,11 +191,12 @@ function findOnce(n, hand, attempt) {
   const msg = { settings, seed: session.seed + n * 1000, parMin: settings.parMin, parMax: settings.parMax, maxMs: 15000,
     pool: rabbitPool(settings, myRabbits(), Math.max(1, settings.mine)), quick: M.upgrades === 'par' };
   if (M.roll !== 'fixed') msg.maxMs = 8000;
+  if (M.upgrades === 'par' && attempt) msg.maxMs = 6000;
   return new Promise((resolve) => {
     const done = (data) => {
       if (data.type === 'progress') return;
       const pick = data.type === 'done' ? data : data.best;
-      resolve({ settings, seed: pick ? pick.seed : msg.seed, par: pick?.par ?? null, measure: pick?.measure || null, autoBest: pick?.setup || null,
+      resolve({ settings, seed: pick ? pick.seed : msg.seed, par: pick?.par ?? null, line: pick?.line || null, measure: pick?.measure || null, autoBest: pick?.setup || null,
         setups: pick?.setups ? { wins: pick.wins, tried: pick.setups } : null, passed: data.type === 'done' });
     };
     try {
@@ -400,13 +407,14 @@ async function startLevel() {
   // one after), so under par, a birdie, means finding the best line or
   // near it; and par is the hole's stroke limit.
   if (M.run === 'course' && par) { par += session.n <= 2 ? 2 : 1; level.rules = { ...level.rules, maxMoves: par }; }
-  // Adventure (2026-10-15): par is the solver's route plus some slack, more
-  // the deeper you are, so under par is always possible.
-  if (M.upgrades === 'par' && par) par += adventureSlack(session.n);
+  // Adventure (2026-10-15): par is set by depth, and the board was dealt so
+  // its best line is two or three under it (modes.js adventurePar).
+  if (M.upgrades === 'par') par = adventurePar(session.n);
   game = { states: [initialState(level)], moves: [] };
   board = makeBoard($('#board'), level);
   board.lookOf = M.upgrades === 'par' ? lookOf : null;
   board.lookOfFoe = M.upgrades === 'par' ? (f) => suitLook(f?.suit) : null;
+  $('#drop').hidden = M.upgrades !== 'par'; dropArmed = false; $('#drop').textContent = 'Let the floor give way';
   board.reach = level.settings.showReach;
   board.reachMine = level.settings.showMyReach;
   board.guards = level.settings.showGuards;
@@ -709,12 +717,15 @@ function whatHappened(a, b) {
 /** A piece of yours that came back from a heart (2026-10-13): while set,
     tapping one of the squares it could go to puts it there instead. */
 let placing = null;
+/** Adventure: the first tap on "Let the floor give way" (the second ends the board). */
+let dropArmed = false;
 
 async function play(mv) {
   if (busy || isOver(now())) return;
   busy = true;
   let a = now();
   sel = null; legal = []; placing = null; pendingPlace = null;
+  if (dropArmed) { dropArmed = false; $('#drop').textContent = 'Let the floor give way'; }
   // Your set (Adventure): every move says which piece of it moved; one that
   // names another than the piece on the board (the best-move button) brings
   // it on first.
@@ -843,6 +854,15 @@ $('#best').onclick = async () => {
   const m = bestMove(now(), level);
   if (!m) return status('There is no move to make.');
   return play(m.p == null || m.p < 0 ? { p: -1, x: 0, y: 0 } : m);
+};
+// Stuck (Adventure, 2026-10-15): a board can still leave no way through
+// once a piece of your set is lost, and nobody should have to play out the
+// moves to find that out. Two taps end the board, not cleared.
+$('#drop').onclick = () => {
+  if (!board || !game || busy || isOver(now())) return;
+  if (!dropArmed) { dropArmed = true; haptic(8); $('#drop').textContent = 'Tap again: the board ends, not cleared'; return; }
+  dropArmed = false; $('#drop').textContent = 'Let the floor give way';
+  levelOver({ ...now(), gaveUp: true });
 };
 $('#pieces').onclick = () => openSheet?.();
 $('#setuppieces').onclick = () => openSheet?.();
@@ -974,32 +994,38 @@ async function adventureOver(end) {
   const netted = netCatches(run, end);
   const made = takeRabbits(run, end);
   if (!run.hand.length) { status(`They took your ${took || 'last piece'}.`); await sleep(1600); return runOver('Every piece you had is gone.'); }
-  const how = parVerdict(end.t, par, won);
+  const how = parVerdict(end.t, par, won), score = scoreName(end.t, par, won);
+  // A piece given after this depth (a bishop after the first board, a knight
+  // after the third), so you have a set to work with.
+  const gift = ADVENTURE_GIFTS[session.n];
+  if (gift) { run.hand.push({ base: gift }); run.found.push(gift); }
   session.n++; run.depth = session.n;
   if (!test) { const r = mine(); r.best = Math.max(r.best || 0, session.n); saveRecords(); }
-  status(won ? `${{ under: 'Under par', par: 'On par', over: 'Over par' }[how]}. A hole opens: down you go.`
-    : took ? `They took your ${took}: it is gone. The floor gives way.` : 'Out of moves: the floor gives way anyway.');
+  status(won ? `${score}${how === 'worse' ? '' : '!'} A hole opens: down you go.`
+    : end.gaveUp ? 'You let the floor give way.' : took ? `They took your ${took}: it is gone. The floor gives way.` : 'Out of moves: the floor gives way anyway.');
   // Cleared: your piece hops into the hole that opened beside it (Timothy,
   // 2026-10-15: "the hole should just be like an animation where the piece
   // jumping in"). Otherwise the floor gives way.
   if (!calm()) { await sleep(won ? 250 : 400); if (won && board.intoHole) await board.intoHole(); else if (board.collapse) await board.collapse(); }
-  if (made.length || netted.length) { sfx.fanfare(3); haptic([30, 40, 30, 40, 60]); }
+  if (made.length || netted.length || gift) { sfx.fanfare(3); haptic([30, 40, 30, 40, 60]); }
   const cards = adventureCards(run, PAR_CARDS[how], rng(`reward:${session.seed}:${session.n}`));
-  const note = !won ? 'Not cleared, but you take one thing with you.' : how === 'under' ? `Under par: ${end.t} moves, par ${par}. Choose one of three.`
-    : how === 'par' ? `On par: ${end.t} moves. Choose one of two.` : `Over par: ${end.t} moves, par ${par}. Take it; beat par for a choice.`;
+  const n = PAR_CARDS[how], count = ['', 'one', 'two', 'three', 'four'][n];
+  const note = `${score}: ${won ? `${end.t} moves, par ${par}.` : 'the floor gave way.'} `
+    + (PAR_AUTO[how] === 'all' ? 'One card, and it goes to a piece of chance\u2019s choosing.' : PAR_AUTO[how] === 'card' ? 'One card: choose the piece for it.' : `Choose one of ${count}.`);
   const a = (t) => (/^[aeiou]/i.test(PIECES[t].name) ? 'An' : 'A');
-  const sub = [fell.length && run.hand.length ? `Lost on this board: your ${fell.join(', ')}.` : '',
+  const sub = [gift ? `${a(gift)} ${PIECES[gift].name.toLowerCase()} joins your set.` : '',
+    fell.length && run.hand.length ? `Lost on this board: your ${fell.join(', ')}.` : '',
     ...netted.map((t) => `In your net: ${a(t).toLowerCase()} ${PIECES[t].name.toLowerCase()} joins your set.`),
     ...made.map((t) => `Three ${PIECES[t].name.toLowerCase()} rabbits: ${a(t).toLowerCase()} ${PIECES[t].name.toLowerCase()} joins your set.`),
     run.hand.length > run.maxPieces ? `You have ${run.hand.length} pieces: each board, ${run.maxPieces} of them are your set, drawn at random.` : ''].filter(Boolean).join(' ');
-  return between({ note: `Depth ${session.n}`, sub, rewards: true, cards, rewardNote: note, fall: true });
+  return between({ note: `Depth ${session.n}`, sub, rewards: true, cards, rewardNote: note, rewardAuto: PAR_AUTO[how] || null, fall: true });
 }
 
 // --- Between levels: the fall, and what you find. -------------------------------
 
 let fall = null;
 
-async function between({ note, sub = '', rewards = false, combine = false, shop: shopping = false, fall: falling = false, board: newBoard = false, won = false, cards: rewardCards = null, rewardNote = null }) {
+async function between({ note, sub = '', rewards = false, combine = false, shop: shopping = false, fall: falling = false, board: newBoard = false, won = false, cards: rewardCards = null, rewardNote = null, rewardAuto = null }) {
   show('between');
   $('#betweennote').textContent = note;
   $('#betweensub').textContent = sub;
@@ -1007,7 +1033,7 @@ async function between({ note, sub = '', rewards = false, combine = false, shop:
   const kinds = session.run ? session.run.hand.map((h) => ({ kind: pieceOf(h, session.run.made).type, side: lookOf(h) })) : [];
   fall = falling && !calm() && kinds.length ? startFall($('#fallcv'), kinds) : null;
   $('#fallcv').hidden = !fall;
-  if (rewards && session.run) await reward({ k: 0, note: rewardNote, cards: rewardCards });
+  if (rewards && session.run) await reward({ k: 0, note: rewardNote, cards: rewardCards, auto: rewardAuto });
   if (shopping && session.run) await shop();
   if (newBoard && session.run) await (M.upgrades === 'tiles' ? tileStep(won) : boardUpgrade());
   if (combine && session.run && session.claimed?.length) await combineStep();
@@ -1026,6 +1052,9 @@ async function between({ note, sub = '', rewards = false, combine = false, shop:
   }
   startLevel();
 }
+
+/** A suit or weapon card's name with its mark: "♥ Hearts". */
+const cardName = (c) => (c.kind === 'suit' ? `${SUITS[c.suit].mark} ${SUITS[c.suit].name}` : `${WEAPONS[c.weapon].mark} ${WEAPONS[c.weapon].name}`);
 
 /** Offer the rewards for a finished level; resolves once one is taken. */
 function reward({ k = 0, note = null, cards: given = null, room = false, auto = false } = {}) {
@@ -1069,9 +1098,21 @@ function reward({ k = 0, note = null, cards: given = null, room = false, auto = 
       paint();
       $('#pickdone').onclick = () => { gap?.remove(); if (card.kind === 'merge') applyMerge(run, picked[0], card.type); else applyReward(run, card, picked, catalog.vetoed); done(); };
     };
-    // A tile turned over (Tile Chess): its one card, straight to choosing
-    // the piece for it.
-    if (auto && cards.length === 1) { $('#betweensub').textContent = note || ''; return choose(cards[0]); }
+    // A tile turned over (Tile Chess), or a bogey in Adventure: its one
+    // card, straight to choosing the piece for it.
+    if (auto === true && cards.length === 1) { $('#betweensub').textContent = note || ''; return choose(cards[0]); }
+    if (auto === 'card' && cards.length === 1) { $('#betweensub').textContent = `${$('#betweensub').textContent} ${note || ''} The card: ${cardName(cards[0])}.`.trim(); return choose(cards[0]); }
+    // Worse than a bogey (Adventure): the one card goes to a piece chosen by
+    // chance, with nothing to choose.
+    if (auto === 'all' && cards.length === 1) {
+      const card = cards[0], fits = run.hand.map((h, i) => i).filter((i) => (card.kind === 'suit' ? !run.hand[i].suit : canTakeWeapon(run.hand[i], card.weapon, run.made)));
+      if (!fits.length) return done();
+      const i = fits[Math.floor(rng(`luck:${session.seed}:${session.n}`)() * fits.length)], who = pieceOf(run.hand[i], run.made).name.toLowerCase();
+      applyReward(run, card, [i], catalog.vetoed);
+      haptic(14); sfx.gain();
+      $('#betweensub').textContent = `${$('#betweensub').textContent} ${note || ''} ${cardName(card)} goes to your ${who}.`.trim();
+      return sleep(2200).then(done);
+    }
     const head = note || (given ? 'A keepsake, from the waystones. Take one.' : run.hand.length < run.maxPieces ? 'Something is down here with you. Take one of them.' : 'Your hand is full. Take an upgrade.');
     box.replaceChildren(el('p', { class: 'center' }, head),
       ...cards.map((c) => {

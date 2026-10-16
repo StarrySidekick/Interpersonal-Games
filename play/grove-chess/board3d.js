@@ -1339,7 +1339,9 @@ export class Board3D extends Board {
       first, then the rest after it in the same spiral out from the middle,
       falling down and away into the dark. Resolves when they are gone. */
   async collapse() {
-    const order = spiralOrder(this.day.W, this.day.H), n = Math.max(1, order.size);
+    // In Adventure the floor gives way from under your piece, not from the
+    // middle (Timothy, 2026-10-15: "hole always shows up in the center").
+    const me = this.lookOf && this.shown?.pieces?.find((p) => !p.taken), order = spiralOrder(this.day.W, this.day.H, me ? [me.x, me.y] : null), n = Math.max(1, order.size);
     const t0 = performance.now(), step = 1100 / n;
     const delay = (x, y) => (order.get(y * this.day.W + x) ?? 0) * step;
     this.tw = { poofs: [], foes: {}, tumbles: [], leaves: [], collapse: { t0, delay } };
@@ -1363,8 +1365,8 @@ export function makeBoard(canvas, day) {
 /** Every square's turn in a spiral out from the middle one: the middle
     first, then ring by ring, clockwise from the top. A map of square to
     its place in the order. */
-export function spiralOrder(W, H) {
-  const cx = Math.floor((W - 1) / 2), cy = Math.floor((H - 1) / 2), all = [];
+export function spiralOrder(W, H, from = null) {
+  const cx = from ? from[0] : Math.floor((W - 1) / 2), cy = from ? from[1] : Math.floor((H - 1) / 2), all = [];
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const ring = Math.max(Math.abs(x - cx), Math.abs(y - cy));
     // Clockwise from straight up (toward their side), 0 to 2 pi.
