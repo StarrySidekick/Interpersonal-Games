@@ -38,7 +38,7 @@ import { rng } from '../../engine/seed.js';
 import { model } from './models.js';
 import { LOOK } from './config.js';
 import { Board, tileColour, PIT, TRACK, tweenPos, wraps, drawWeaponFx } from './board.js';
-import { PIECES, onBoard, brambleCount, holeOpen, nextShrink, statueKind, reachMaps, onHill, guarded, guardedSquares, threats, pinned, ghostAt, gateUp, hiddenFrom, flagAt, inCheck } from './rules.js';
+import { PIECES, onBoard, brambleCount, holeOpen, nextShrink, statueKind, reachMaps, onHill, guarded, guardedSquares, threats, pinned, ghostAt, gateUp, hiddenFrom, flagAt, inCheck, simpleNext } from './rules.js';
 import * as sfx from './sounds.js';
 import { haptic } from '../../engine/ui.js';
 
@@ -907,6 +907,14 @@ export class Board3D extends Board {
     });
     // Your pieces with a robot rabbit (Adventure, 2026-10-16): their loops too.
     last.pieces.forEach((p) => { if (p.ally && p.route && !p.taken) this.route(g, p, this.fur(p) || TRACK[0], line, inSq); });
+    // A simple rabbit (2026-10-16), theirs or yours: its line to where it
+    // goes next, in its colour, that square framed.
+    const simple = (q, side) => {
+      const nx = !q.taken && simpleNext(last, q, side);
+      if (nx) this.route(g, { x: q.x, y: q.y, pattern: [[nx.m.x - q.x, nx.m.y - q.y]], i: 0 }, this.fur(q) || TRACK[0], line, inSq);
+    };
+    last.foes.forEach((f) => { if (f.brain === 'simple') simple(f, 'foe'); });
+    last.pieces.forEach((p) => { if (p.ally && p.rabbit === 'simple') simple(p, 'you'); });
     if (last.hole?.pattern) {
       const col = '#1d6b6b', P = track.map((st) => [st.hole.x, st.hole.y]);
       for (let i = 1; i < P.length; i++) {
@@ -1064,7 +1072,7 @@ export class Board3D extends Board {
     const G = this.guards !== false && !this.hidePieces && !tw?.collapse && s.foes.length ? this.guardOf(s, at) : null;
     const PIN = this.pinsOf(s, at), where = []; // where each of yours is drawn this frame
     if (!this.hidePieces) s.pieces.forEach((p, i) => {
-      if (p.taken && !(tw?.eaten?.has(i) && at < tw.landAt)) return;
+      if (p.taken && !(tw?.eaten?.has(i) && at < tw.landAt) && !(tw?.lifted?.has(i) && at < tw.liftAt)) return;
       let x = p.x, y = p.y, h = 0, o = {};
       // A rabbit riding on a piece's head (2026-10-11): it goes where its
       // carrier goes, up on top.
@@ -1188,7 +1196,7 @@ export class Board3D extends Board {
       const fl = this.lookOfFoe ? this.lookOfFoe(f) : 'foe';
       // (A rabbit inside, in Adventure a suit's, lights the plinth as it
       // possesses the piece, so it comes before a suit's own colour.)
-      const mdl = f.brain === 'crown' ? model(f.type, 'crowned') : f.brain === 'sentry' || f.brain === 'scared' || f.brain === 'sentient' ? model(f.shape || f.type, fl, null, this.glowOf(f, k, at)) : f.brain === 'still' ? model(f.shape || f.type, f.suit && this.lookOfFoe ? fl : 'grey') : f.brain === 'leader' ? model('rabbit', 'foe', this.fur(f)) : f.brain === 'carrier' ? model('rabbit', 'foe', CARRIER_FUR.foe) : f.brain === 'possessed' && this.lookOfFoe ? model(f.shape || f.type, fl, null, this.glowOf(f, k, at)) : f.suit ? model(f.shape || f.type, fl, null, SUIT_COLOUR[f.suit]) : f.shape ? model(f.shape, fl, null, CHANGELING_GLOW) : f.brain === 'possessed' ? model(f.type, fl, null, this.glowOf(f, k, at)) : model(f.type, fl, this.fur(f));
+      const mdl = f.brain === 'crown' ? model(f.type, 'crowned') : f.brain === 'sentry' || f.brain === 'scared' || f.brain === 'sentient' || f.brain === 'simple' || f.brain === 'trap' ? model(f.shape || f.type, fl, null, this.glowOf(f, k, at)) : f.brain === 'still' ? model(f.shape || f.type, f.suit && this.lookOfFoe ? fl : 'grey') : f.brain === 'leader' ? model('rabbit', 'foe', this.fur(f)) : f.brain === 'carrier' ? model('rabbit', 'foe', CARRIER_FUR.foe) : f.brain === 'possessed' && this.lookOfFoe ? model(f.shape || f.type, fl, null, this.glowOf(f, k, at)) : f.suit ? model(f.shape || f.type, fl, null, SUIT_COLOUR[f.suit]) : f.shape ? model(f.shape, fl, null, CHANGELING_GLOW) : f.brain === 'possessed' ? model(f.type, fl, null, this.glowOf(f, k, at)) : model(f.type, fl, this.fur(f));
       const fo = collapse ? { s: away(at - collapse.t0 - collapse.delay(f.x, f.y)) } : {};
       stand(mdl, x, y, h, 200 + k, fo);
       armsOf(f, x, y, h, 200 + k, fo, -1);
@@ -1312,7 +1320,7 @@ export class Board3D extends Board {
   async possess(stop = () => false) {
     const s = this.shown, t0 = performance.now(), list = [];
     s?.foes.forEach((f, k) => {
-      if (!['possessed', 'sentry', 'scared', 'sentient'].includes(f.brain) || f.taken) return;
+      if (!['possessed', 'sentry', 'scared', 'sentient', 'simple', 'trap'].includes(f.brain) || f.taken) return;
       list.push({ k, x: f.x, y: f.y, dx: (list.length % 2 ? 1 : -1) * 0.6, fur: this.fur(f) || PALE, t0: t0 + list.length * 380, dur: 1000 });
     });
     if (!list.length) return;

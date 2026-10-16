@@ -61,16 +61,25 @@ export const SUIT_KINDS = Object.keys(SUITS);
 export const RABBITS = {
   robot: { name: 'Robot', colour: '#ef8d32', word: 'tangerine',
     desc: 'Walks a short loop of its piece\u2019s own moves, a step every turn. Its whole loop is drawn on the board, its next square framed: stand there and it takes you.',
-    mine: 'Stays where it moved, and walks there and back by itself along its shortest move toward the nearest of theirs, taking what it steps onto.' },
+    mine: 'Walks there and back by itself along its shortest move toward the nearest of theirs, taking what it steps onto.' },
   sentry: { name: 'Sentry', colour: '#d94a3d', word: 'red',
     desc: 'Never walks, but takes anything of yours standing in its reach (ringed red) when their turn ends, striking from where it stands.',
-    mine: 'Stays where it moved, and every turn takes the most valuable piece of theirs in its reach, striking from where it stands.' },
+    mine: 'Every turn takes the most valuable piece of theirs in its reach, striking from where it stands.' },
   scared: { name: 'Scared', colour: '#7fd3e6', word: 'sky blue',
     desc: 'Stands still; when you attack it, it runs to a square you do not attack. Their side can save only one a turn, so attack two at once (a fork), or pin it. A gold ring means it could not run.',
-    mine: 'Stays where it moved; when they could take it, it runs to a square they do not reach.' },
+    mine: 'When they could take it, it runs to a square they do not reach.' },
   sentient: { name: 'Sentient', colour: '#3a3550', word: 'ink',
     desc: 'Thinks one move ahead, like a simple chess player: it moves every turn, takes what it can, and keeps out of your reach.',
-    mine: 'Stays where it moved, and plays by itself every turn, one move ahead: it takes what it can and keeps out of their reach.' }
+    mine: 'Plays by itself every turn, one move ahead: it takes what it can and keeps out of their reach.' },
+  // Two more (Timothy, 2026-10-16): "simple - just moves once, all the way
+  // if it's a slider and one hop for a leaper"; "trap - sentry but doesn't
+  // move back to its new spot".
+  simple: { name: 'Simple', colour: '#9ccf3c', word: 'lime',
+    desc: 'Makes one move a turn along one line, toward you: all the way if its piece slides, one hop if it leaps. At the end of its line it turns back. Its line is drawn, its next square framed: stand anywhere on the line and it stops there and takes you.',
+    mine: 'Makes one move a turn along one line toward the nearest of theirs: all the way if it slides, one hop if it leaps, taking what it stops on; at the end of its line it turns back.' },
+  trap: { name: 'Trap', colour: '#d6489a', word: 'magenta',
+    desc: 'Never walks, but takes anything of yours in its reach (ringed) when their turn ends, as a sentry does, and then stays on the square it took.',
+    mine: 'Every turn takes the most valuable piece of theirs in its reach, as a sentry does, and stays on the square it took.' }
 };
 /** "Robot rabbit of Spirals". */
 export const rabbitName = (r, suit = null) => `${RABBITS[r]?.name || 'A'} rabbit${SUITS[suit] ? ` of ${SUITS[suit].name}` : ''}`;

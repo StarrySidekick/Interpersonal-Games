@@ -12,7 +12,21 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
-## 2026-10-16, newest: the move chooser, and par again
+## 2026-10-16, newest: every piece stays; simple and trap rabbits
+
+From Timothy, and built: every piece of your set now stays where it moves
+("the rabbit simply defines what the peice does after its now on the
+board"); the next comes on where the round started; when the whole set
+has played they come off and a new round starts from where the last one
+landed. Two new rabbits, on either side: simple (one move a turn along a
+line, all the way for a slider, one hop for a leaper; lime) from depth 4,
+and trap (a sentry that stays where it takes; magenta) from depth 7. The
+solver's sense of progress fixed for the new rule. In
+[`docs/adventure.md`](docs/adventure.md), "Every piece stays where it
+moves". Open: my calls listed there (where the next comes on, when the
+round ends), and strong sets still beating par deep down.
+
+## 2026-10-16: the move chooser, and par again
 
 From Timothy: the box asking to turn a pawn into something when the cat
 moved. It was the box for more than one move onto a square (a shield

@@ -502,7 +502,7 @@ export class Board {
     if (hole && day.rules.goal !== 'clear') things.push({ img: sprite('flag'), x: hole.x + 0.32, y: hole.y + 0.12 });
     if (!this.hidePieces) s.pieces.forEach((p, i) => {
       // An eaten piece stays on the board until whatever ate it lands.
-      if (p.taken && !(tw?.eaten?.has(i) && at < tw.landAt)) return;
+      if (p.taken && !(tw?.eaten?.has(i) && at < tw.landAt) && !(tw?.lifted?.has(i) && at < tw.liftAt)) return;
       // A sunk ball rolls to the hole, then it is gone.
       if (s.sunk && (p.type === 'ball' || s.day.rules.goal === 'clear') && !(tw?.sinkAt && at < tw.sinkAt)) return;
       let x = p.x, y = p.y;
@@ -741,7 +741,7 @@ export class Board {
       }
       if (any) t = t0 + dur;
       t = this.knocked(a, b, mv.p, t, slow, tw, at);
-      tw.eaten = new Set(b.pieces.map((p, i) => (p.taken && a.pieces[i] && !a.pieces[i].taken && !p.recalled ? i : -1)).filter((i) => i >= 0));
+      tw.eaten = new Set(b.pieces.map((p, i) => (p.taken && a.pieces[i] && !a.pieces[i].taken && !p.recalled && !p.lifted ? i : -1)).filter((i) => i >= 0));
       tw.landAt = t - 40;
       for (const i of tw.eaten) tw.poofs.push({ x: a.pieces[i].x, y: a.pieces[i].y, t0: t - 40, dur: 480, c1: '#7a5133', c2: '#c8462e' });
       // A heart of yours spent: a pink puff where it stands.
@@ -835,6 +835,15 @@ export class Board {
       tw.leaves.push(leafBurst(p1.x, p1.y, tw.morph.t0 + tw.morph.dur * 0.42));
       sfx.turn(at(tw.morph.t0));
       t = tw.morph.t0 + tw.morph.dur;
+    }
+    // Your pieces come off the board when the whole set has played
+    // (Adventure, 2026-10-16): last of all, a soft puff where each stood.
+    const lifted = b.pieces.map((p, i) => (p.lifted && a.pieces[i] && !a.pieces[i].taken && !a.pieces[i].lifted ? i : -1)).filter((i) => i >= 0);
+    if (lifted.length) {
+      tw.lifted = new Set(lifted); tw.liftAt = t + 160 * slow;
+      for (const i of lifted) tw.poofs.push({ x: b.pieces[i].x, y: b.pieces[i].y, t0: tw.liftAt, dur: 420, c1: '#ffffff', c2: '#c9d6a3', low: true });
+      sfx.turn(at(tw.liftAt));
+      t = tw.liftAt + 260 * slow;
     }
     for (const x of [tw.piece, tw.hole, ...Object.values(tw.foes), ...Object.values(tw.mine || {})]) wrapTween(x, this.day);
     this.tw = tw;
@@ -1000,7 +1009,7 @@ export function scene(day, s = null, fur = () => null) {
     if (f.taken) continue;
     // Adventure (goal 'clear'): theirs by suit, plain grey without one.
     const fl = day.rules?.goal === 'clear' ? suitLook(f.suit) : 'foe';
-    const mdl = f.side === 'grey' || f.brain === 'still' ? model(f.type, 'grey') : ['possessed', 'sentry', 'scared'].includes(f.brain) ? model(f.type, fl, null, fur(f) || '#e9e4da') : model(f.type, fl, fur(f));
+    const mdl = f.side === 'grey' || f.brain === 'still' ? model(f.type, 'grey') : ['possessed', 'sentry', 'scared', 'sentient', 'simple', 'trap'].includes(f.brain) ? model(f.type, fl, null, fur(f) || '#e9e4da') : model(f.type, fl, fur(f));
     m.add(mdl, x0(f.x) + T / 2, 0, z0(f.y) + T / 2, id++);
   }
   return m;

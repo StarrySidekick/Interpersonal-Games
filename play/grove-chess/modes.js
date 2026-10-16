@@ -193,7 +193,7 @@ export const MODES = {
     // set; every possessed piece moving each turn on a short route; more
     // than five pieces, five drawn at random each board; and new pieces
     // only from capturing, three rabbits of a kind making that piece.
-    name: 'Adventure', blurb: 'Start with your cat, which steps like a king. Take every piece of theirs in as few moves as you can, and jump into the hole that opens. Grey statues stand still; a piece with a rabbit inside moves by itself (a robot walks a loop, a sentry strikes, a scared one runs, a sentient one thinks), and a rabbit may carry a suit. Take three of a kind and that piece joins your set, up to sixteen: one piece on the board at a time, chosen from a set of three, each taking its turn before any goes again. Lose one and the next comes on in its place, and it is back next board; lose the whole set on one board and it is over. Beat par for a choice of suits and weapons, and now and then a rabbit of your own.',
+    name: 'Adventure', blurb: 'Start with your cat, which steps like a king. Take every piece of theirs in as few moves as you can, and jump into the hole that opens. Grey statues stand still; a piece with a rabbit inside moves by itself (a robot walks a loop, a sentry strikes, a scared one runs, a simple one goes along a line, a trap strikes and stays, a sentient one thinks), and a rabbit may carry a suit. Take three of a kind and that piece joins your set, up to sixteen. Each turn you choose which of your set goes, each taking its turn before any goes again: it stays where it moved, and when the whole set has played they come off and a new round starts. Lose one and the next comes on in its place, and it is back next board; lose the whole set on one board and it is over. Beat par for a choice of suits and weapons, and now and then a rabbit of your own.',
     settings: {
       run: 'descent', roll: 'fixed', upgrades: 'par', startPieces: 1, maxPieces: 3, startPool: ['cat'], rewards: true, jokers: false, carry: false, keepsakes: false, outOfMoves: 'fall', fairyFrom: 4, ramp: 'steady',
       goal: 'clear', captureN: 0, royal: false, showdown: false, promote: 'none', fullRow: false, lineup: false, inOrder: false, mineRows: 1, foeRows: 4, arrange: false, cloud: false, ghosts: false, cycle: true, swordAims: true, squash: true, suitRabbits: true, tactics: true, wait: true,
@@ -670,6 +670,11 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
       // a time, on some of them: hearts from 4, vines from 5, stars from 6,
       // spirals from 8, gears from 10; more of them carry one deeper down.
       sentient: d < 10 ? 0 : d < 15 ? 1 : int(1, 2),
+      // Simple rabbits (one move a turn along a line, all the way) from
+      // depth 4, traps (a sentry that stays where it takes) from 7
+      // (Timothy, 2026-10-16).
+      simple: d < 4 ? 0 : d < 9 ? 1 : int(1, 2),
+      traps: d < 7 ? 0 : d < 12 ? 1 : int(1, 2),
       // (Hearts is dealt by count, `hearts`, above, since it adds a hit.)
       hearts, rabbitKinds: [...(d >= 5 ? ['vines'] : []), ...(d >= 6 ? ['stars'] : []), ...(d >= 8 ? ['spirals'] : []), ...(d >= 10 ? ['gears'] : [])],
       suitChance: d < 4 ? 0 : Math.min(70, 30 + d * 3),
@@ -680,11 +685,11 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
     // Sentries and scared ones are made from their statues: keep enough
     // statues for both (taking walkers if need be, never the last), so a
     // hearts rabbit is not crowded out by the sentries.
-    S.still = Math.min(theirs - 1, Math.max(S.still, S.sentries + S.scared + S.sentient));
+    S.still = Math.min(theirs - 1, Math.max(S.still, S.sentries + S.scared + S.sentient + S.simple + S.traps));
     // A deal tried again for want of a winnable board (relax 3 on): no
     // sentries, scared or sentient ones, the pieces most likely to leave no
     // way through.
-    if (relax >= 3) { S.sentries = 0; S.scared = 0; S.sentient = 0; }
+    if (relax >= 3) { S.sentries = 0; S.scared = 0; S.sentient = 0; S.traps = 0; }
   }
   if (M.run === 'descent' && M.realtime) {
     // Kung fu: their pieces rest less each level down; the ground stays
