@@ -2,7 +2,7 @@
 // main: one more for every push (2026-10-11). Shown at the foot of the home
 // page and of every Grove Chess page's menu. Do not edit by hand.
 export const RELEASE = {
-  "number": 83,
+  "number": 84,
   "date": "2026-10-16",
-  "note": "Adventure: the cat (king moves, your look), taken pieces back next board, full-screen fall with icon cards, a bigger piece strip, and animations for suits, weapons, weapon captures and a cleared board"
+  "note": "Adventure: the troupe (thespian, scribe, painter, bard, dancer), rabbits with a kind and a suit (sentient ones deep down), suits the same on either side, hearts that stay, the shield, rabbit pieces that act by themselves, sixteen pieces at most, a regal cat, card-suit icons and cards, an item card for any piece, quicker switching"
 };
