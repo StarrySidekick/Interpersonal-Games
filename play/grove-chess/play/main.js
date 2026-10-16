@@ -823,7 +823,7 @@ $('#board').addEventListener('click', async (e) => {
   select(null);
   // A stone of yours (Stone suit).
   const stone = (s.stones || []).find((t) => t.x === x && t.y === y);
-  if (stone) return info(`Your stone, in the shape of a ${nameOf(stone).toLowerCase()}: a sentry of yours. At the end of their turn it takes one of theirs that moved into where it attacks, and its lines pin and give check like your piece's. Their pieces can break it. It crumbles ${stone.left > 1 ? `after ${stone.left} more turns` : 'after this turn'}.`);
+  if (stone) return info(`Your stone, in the shape of a ${nameOf(stone).toLowerCase()}: a sentry of yours. Its reach is ringed in sand. At the end of their turn it takes one of theirs that moved into where it attacks, and its lines pin and give check like your piece's. Their pieces can break it. It crumbles ${stone.left > 1 ? `after ${stone.left} more turns` : 'after this turn'}.`);
   if (s.hole && s.hole.x === x && s.hole.y === y && !s.foes.some((f) => !f.taken && f.x === x && f.y === y)) return info(s.day.rules.goal === 'clear' ? `${EXIT_DESC} It is ${holeOpen(s) ? 'open' : 'shut'}.` : HOLE_DESC);
   if (s.cloudy && s.day.cloud?.has(y * s.day.W + x)) return info(cloudDesc(s.day.rules));
   if (crumbled(s, x, y)) return info(CRUMBLE_DESC);

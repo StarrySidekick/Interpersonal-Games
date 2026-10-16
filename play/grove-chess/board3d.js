@@ -821,6 +821,8 @@ export class Board3D extends Board {
       if (this.reach !== false) for (const sq of R.theirs) ring(sq, 0.07, R.sentry?.has(sq) || s.day.rules.tactics ? '#e2483a' : LOOK.reachFoe);
       // Yours only when asked for (2026-10-11: off by default).
       if (this.reachMine === true) for (const sq of R.yours) ring(sq, 0.2, LOOK.reachYou);
+      // Your stones' reach (Adventure), in sandstone, inside any red ring.
+      if (this.reach !== false) for (const sq of R.stones || []) ring(sq, 0.2, '#e0b96a');
     }
 
 
