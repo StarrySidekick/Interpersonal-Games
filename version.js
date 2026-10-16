@@ -2,7 +2,7 @@
 // main: one more for every push (2026-10-11). Shown at the foot of the home
 // page and of every Grove Chess page's menu. Do not edit by hand.
 export const RELEASE = {
-  "number": 80,
+  "number": 81,
   "date": "2026-10-16",
-  "note": "Adventure: hearts rabbits are the scared ones"
+  "note": "Adventure: sentries stay put, loops never rest, passing, quicker swap"
 };

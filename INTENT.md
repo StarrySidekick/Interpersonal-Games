@@ -12,7 +12,13 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
-## 2026-10-16, newest: hearts rabbits are the scared ones
+## 2026-10-16, newest: sentries stay put, loops never rest, passing
+
+From Timothy, and built: a sentry strikes without moving; a quicker swap;
+loops with no rests; a pass spends the piece on the board and the next
+comes on; a finished set starts again from its first piece.
+
+## 2026-10-16: hearts rabbits are the scared ones
 
 From Timothy: "we need scared rabbit behavior back, maybe as heart
 rabbits." Built: a hearts rabbit in one of theirs stands and runs when

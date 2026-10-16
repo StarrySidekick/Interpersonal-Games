@@ -935,7 +935,10 @@ export const ROUTES = {
   Shuttle: { len: 2, steps: (v) => [v, neg(v)] },
   Doze: { len: 4, steps: (v) => [[0, 0], v, [0, 0], neg(v)] },
   'Box step': { len: 4, steps: (v, w) => [v, w, neg(v), neg(w)], two: true },
-  Pace: { len: 6, steps: (v) => [v, v, [0, 0], neg(v), neg(v), [0, 0]] }
+  // No rests since 2026-10-16 (Timothy: "robot type suit rabbits should
+  // move every turn, not every other really ever, as it's confusing"); Doze,
+  // which rests, is left for the lab.
+  Pace: { len: 4, steps: (v) => [v, v, neg(v), neg(v)] }
 };
 
 /** The routes a level allows, by its routeKinds setting: a list of names. */

@@ -196,7 +196,7 @@ export const MODES = {
     name: 'Adventure', blurb: 'Start with a rook. Take every piece of theirs in as few moves as you can, and jump into the hole that opens. Grey statues stand still; pieces with a rabbit inside walk short loops, and the rabbit\u2019s colour says which. Every piece you take leaves its rabbit with you, and three of a kind become that piece, which joins your set: one piece on the board at a time, chosen from a set of three, each taking its turn before any goes again. Lose one and the next comes on; lose them all and it is over. Beat par for a choice of suits and weapons.',
     settings: {
       run: 'descent', roll: 'fixed', upgrades: 'par', startPieces: 1, maxPieces: 3, startPool: ['rook'], rewards: true, jokers: false, carry: false, keepsakes: false, outOfMoves: 'fall', fairyFrom: 4, ramp: 'steady',
-      goal: 'clear', captureN: 0, royal: false, showdown: false, promote: 'none', fullRow: false, lineup: false, inOrder: false, mineRows: 1, foeRows: 4, arrange: false, cloud: false, ghosts: false, cycle: true, swordAims: true, squash: true, suitRabbits: true, tactics: true,
+      goal: 'clear', captureN: 0, royal: false, showdown: false, promote: 'none', fullRow: false, lineup: false, inOrder: false, mineRows: 1, foeRows: 4, arrange: false, cloud: false, ghosts: false, cycle: true, swordAims: true, squash: true, suitRabbits: true, tactics: true, wait: true,
       w: 5, h: 5, foes: 3, still: 2, foePool: ['knight', 'bishop', 'rook', 'king'], darkBrain: 'possessed', patterns: 'routes', routeKinds: ['Shuttle'], oneMove: false, kinds: 1, skill: '1', style: 'balanced', rabbitMind: 'pattern', rabbits: 0,
       foesCapture: true, statues: 0, clouds: 0, maxMoves: 40, parMin: 1, parMax: 12, difficulty: 'any', balance: 'off', minEngage: 0, minCeiling: 0
     }
@@ -636,7 +636,8 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
       w: size, h: size, shape: d < 3 ? 'rect' : pick(['rect', 'rect', 'diamond', 'round', 'cross', 'cheese']),
       ground: d < 6 ? 'solid' : pick(['solid', 'solid', 'solid', 'crumble']),
       foes: theirs, still: Math.max(1, theirs - movers), foeRows: size - 1, mineRows: 1, lineup: false, fullRow: false,
-      routeKinds: d <= 1 ? ['Shuttle'] : d <= 3 ? ['Shuttle', 'Doze'] : d <= 5 ? ['Shuttle', 'Doze', 'Box step'] : ['Shuttle', 'Doze', 'Box step', 'Pace'],
+      // Loops that never rest (2026-10-16): no Doze.
+      routeKinds: d <= 3 ? ['Shuttle'] : d <= 5 ? ['Shuttle', 'Box step'] : ['Shuttle', 'Box step', 'Pace'],
       // No pawns (Timothy, 2026-10-15: "pawns kind of can't be a thing in
       // this mode due to them moving in one direction"): none of theirs, so
       // no pawn rabbits, so never a pawn in your set.

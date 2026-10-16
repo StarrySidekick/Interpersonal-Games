@@ -1326,6 +1326,8 @@ function spendTurn(n) {
   p.used = (p.used || 0) + 1;
   if (n.set.some((_, j) => setReady(n, j))) return;
   for (let j = 0; j < n.set.length; j++) { const e = inSet(n, j); if (!e.lost) delete e.used; }
+  // A new round (the page starts it again from the first of the set).
+  n.round = (n.round || 0) + 1;
 }
 /** The first of your set that is ready, from the one after the piece on the
     board, round to it; -1 if none. */
@@ -1453,7 +1455,7 @@ export function clone(s) {
     bonus: s.bonus || null, treasure: s.treasure || 0, foeTreasure: s.foeTreasure || 0, ft: s.ft || 0, ...(s.cloudy ? { cloudy: true } : {}),
     ...(s.ghostGone ? { ghostGone: s.ghostGone.slice(), ghostsLost: s.ghostsLost || 0 } : {}), ...(s.clouds ? { clouds: s.clouds.map((c) => ({ ...c })) } : {}),
     ...(s.flag ? { flag: { ...s.flag } } : {}), ...(s.flagLost ? { flagLost: true } : {}), ...(s.ep ? { ep: { ...s.ep } } : {}),
-    ...(s.set ? { set: s.set.map((e) => ({ ...e })), ci: s.ci } : {}), ...(s.stones ? { stones: s.stones.map((t) => ({ ...t })) } : {}), ...(s.vines ? { vines: s.vines.map((v) => ({ ...v })) } : {}) };
+    ...(s.set ? { set: s.set.map((e) => ({ ...e })), ci: s.ci, round: s.round || 0 } : {}), ...(s.stones ? { stones: s.stones.map((t) => ({ ...t })) } : {}), ...(s.vines ? { vines: s.vines.map((v) => ({ ...v })) } : {}) };
 }
 
 const youLook = (s) => (x, y) => look(s, x, y, 'you');
@@ -2680,7 +2682,9 @@ export function playerMove(s, mv) {
   }
   // Your turn is over (unless a suit left it open for this piece): the
   // piece that moved has had its turn this round.
-  if (!n.bonus && mv.p >= 0) spendTurn(n);
+  // A pass too (Timothy, 2026-10-16: "when you pass, the piece you have
+  // should move to the next one").
+  if (!n.bonus) spendTurn(n);
   // Their vines wither once your turn is over.
   if (!n.bonus && n.vines) n.vines = n.vines.filter((v) => v.side !== 'foe');
   return n;
@@ -2795,7 +2799,7 @@ export function inCheck(s) {
 /** Their side's turn with tactics (above). Mutates. */
 function tacticsTurn(s) {
   const W = s.day.W, log = (s.tlog = []), acted = new Set();
-  for (const f of s.foes) { delete f.pinned; delete f.trapped; delete f.fled; delete f.broke; f.from = [f.x, f.y]; }
+  for (const f of s.foes) { delete f.pinned; delete f.trapped; delete f.fled; delete f.broke; delete f.struck; f.from = [f.x, f.y]; }
   for (const t of s.stones || []) delete t.from;
   const pins = tacticalPins(s);
   for (const k of pins.keys()) { s.foes[k].pinned = true; log.push({ what: 'pin', k, by: pins.get(k).kind }); }
@@ -2894,7 +2898,15 @@ function tacticsTurn(s) {
     const me = s.pieces[0], m = ms.find((q) => me && !me.taken && q.x === me.x && q.y === me.y) || ms.find((q) => (s.stones || []).some((t) => t.x === q.x && t.y === q.y));
     if (!m) return;
     const hitsMe = me && m.x === me.x && m.y === me.y;
-    foeLand(s, k, m); acted.add(k);
+    // With rabbits as suits a sentry never moves (Timothy, 2026-10-16:
+    // "sentry rabbit shouldn't move"): it strikes from where it stands, and
+    // the page shows it lunging and back (`struck`).
+    if (s.day.rules.suitRabbits) {
+      f.struck = [m.x, m.y];
+      if (hitsMe) { f.ate = 0; if (!capturePiece(s, me, k)) { f.wounded = 0; f.ate = -1; } settleRevivals(s); }
+      else { const st = s.stones.findIndex((t) => t.x === m.x && t.y === m.y); if (st >= 0) s.stones.splice(st, 1); f.broke = true; }
+    } else foeLand(s, k, m);
+    acted.add(k);
     log.push({ what: 'sentry', k, on: hitsMe ? 'piece' : 'stone' });
   });
   if (lost(s)) return;

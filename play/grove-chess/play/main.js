@@ -318,11 +318,15 @@ async function choose(j) {
 /** At the start of your turn (Adventure): if the piece on the board has had
     its turn this round, the first of your set that is ready comes on, as a
     start; tap another under the board to choose it instead. */
-async function readyUp() {
+async function readyUp(prev = null) {
   const s = now();
-  if (!s.set || s.bonus || isOver(s) || setReady(s, s.ci)) return;
-  const j = firstReady(s);
-  if (j < 0) return;
+  if (!s.set || s.bonus || isOver(s)) return;
+  // A new round starts again from the first of the set (Timothy,
+  // 2026-10-16: "when you complete the set of pieces you have it should just
+  // start again from number 1 -> 2 -> 3 again for that level").
+  const fresh = prev && (s.round || 0) !== (prev.round || 0);
+  const j = fresh ? s.set.findIndex((_, i) => setReady(s, i)) : setReady(s, s.ci) ? -1 : firstReady(s);
+  if (j < 0 || j === s.ci) return;
   busy = true;
   const c = chooseInSet(s, j);
   game.states[game.states.length - 1] = c;
@@ -614,7 +618,7 @@ function select(i) {
   // is allowed, when a suit left the turn open, or when nothing can move.
   const passOk = allMoves(now()).some((m) => m.p === -1);
   $('#wait').hidden = !passOk;
-  $('#wait').textContent = now().bonus ? 'End turn' : now().day.rules.wait ? 'Wait a turn' : 'Pass (nothing can move)';
+  $('#wait').textContent = now().bonus ? 'End turn' : now().set ? 'Pass: the next piece comes on' : now().day.rules.wait ? 'Wait a turn' : 'Pass (nothing can move)';
   legal = i == null ? [] : movesFor(now(), i);
   if (auto) info(now().set && setView(now()).filter((v) => !v.lost).length > 1 ? 'Tap a lit square to move there, or a piece under the board to bring it on instead.' : 'Tap a lit square to move there.');
   else if (i == null) info(level.hole ? (holeOpen(now()) ? 'Tap a piece to see where it can go. The hole is open.' : 'Tap a piece to see where it can go. The hole opens once every rabbit is caught.') : 'Tap a piece to light up where it can go.');
@@ -767,7 +771,7 @@ async function play(mv) {
   if (b.bonus) { haptic([12, 30, 12]); sfx.gain(); status(bonusLine(b)); return select(b.bonus.p); }
   status(whatHappened(a, b));
   // Your set (Adventure): a ready piece comes on, as a start.
-  await readyUp();
+  await readyUp(a);
   // Hearts: one of yours is back on your first row; you may put it on
   // another free square there.
   if (b.revived?.side === 'you' && b.revived.options.length > 1) {
