@@ -1296,7 +1296,7 @@ const PLACE = ['x', 'y', 'from', 'taken', 'rides', 'stun', 'bubble', 'ate', 'blo
 /** Piece j of your set as it is now (the one on the board is pieces[0]). */
 const inSet = (s, j) => (j === s.ci ? s.pieces[0] : s.set[j]);
 /** How many turns a round a piece of the set has: Gears two, the rest one. */
-export const turnsOf = (e) => (e?.suit === 'gears' ? 2 : 1);
+export const turnsOf = () => 1;
 /** Can piece j of your set move this turn: still yours, and with a turn
     left this round? */
 export const setReady = (s, j) => { const e = inSet(s, j); return !!e && !e.lost && !e.taken && (e.used || 0) < turnsOf(e); };
@@ -1369,7 +1369,7 @@ function nextAfterLoss(n) {
     sentry of their piece each time it moves? and it lasts for three moves
     than disappears"): how many turns a stone stands, their turn just after
     it is left counted first. */
-export const STONE_TURNS = 3;
+export const STONE_TURNS = 2;
 /** The end of a whole turn: every stone of yours has a turn less, and
     crumbles away when it has none left. Mutates. */
 function stonesAge(n) {
@@ -1377,8 +1377,54 @@ function stonesAge(n) {
   for (const t of n.stones) t.left = (t.left ?? STONE_TURNS) - 1;
   n.stones = n.stones.filter((t) => t.left > 0);
 }
-/** Everything at the end of a whole turn of theirs. Mutates. */
-function turnOver(n) { stonesAge(n); nextAfterLoss(n); }
+/** Everything at the end of a whole turn of theirs: your stones age, your
+    vines wither (theirs wait for your move), a lost piece is replaced, and a
+    board their turn cleared (a vine or a stone taking the last) opens its
+    hole. Mutates. */
+function turnOver(n) {
+  stonesAge(n);
+  if (n.vines) n.vines = n.vines.filter((v) => v.side !== 'you');
+  if (n.won && n.day.rules.goal === 'clear' && !n.hole) n.hole = exitSpot(n);
+  nextAfterLoss(n);
+}
+
+// --- Vines (Adventure's suits as rabbits, 2026-10-16). -----------------------
+// Timothy: "vine: leaves a vine between previous location and new one, if
+// next turn an enemy moves into it it captures them. disappears after one
+// turn <-> same for enemy". A piece with a vines rabbit leaves a vine on
+// the square it moves off and every square it passes on the way (a leap
+// goes along its long side, then its short one, as the routes are drawn).
+// The other side's next move that lands on one is caught by it. Yours
+// wither at the end of their turn; theirs at the end of yours.
+
+/** The squares a move from (ax, ay) to (bx, by) leaves a vine on: where it
+    started and where it went on the way, not where it landed. */
+export function trailOf(ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay, out = [[ax, ay]];
+  if (!dx && !dy) return [];
+  let x = ax, y = ay;
+  const step = (tx, ty) => { while (x !== tx || y !== ty) { x += Math.sign(tx - x); y += Math.sign(ty - y); if (x !== bx || y !== by) out.push([x, y]); } };
+  if (!dx || !dy || Math.abs(dx) === Math.abs(dy)) step(bx, by);
+  else { step(...(Math.abs(dx) > Math.abs(dy) ? [bx, ay] : [ax, by])); step(bx, by); }
+  return out;
+}
+/** Leave `side`'s vines along a move. Only on open ground: not on a piece,
+    a statue, the hole, water or ground that is gone. Mutates. */
+function addTrail(n, side, ax, ay, bx, by) {
+  n.vines = n.vines || [];
+  for (const [x, y] of trailOf(ax, ay, bx, by)) {
+    if (!onBoard(n.day, x, y) || crumbled(n, x, y) || shrunk(n, x, y) || statueAt(n, y * n.day.W + x) || waterAt(n, y * n.day.W + x)) continue;
+    if ((n.hole && n.hole.x === x && n.hole.y === y) || n.pieces.some((p) => !p.taken && p.x === x && p.y === y) || n.foes.some((f) => !f.taken && f.x === x && f.y === y)) continue;
+    if (!n.vines.some((v) => v.x === x && v.y === y && v.side === side)) n.vines.push({ x, y, side });
+  }
+}
+/** Is a vine of `side` on (x, y)? If so it is used up. Mutates. */
+function takeVine(n, side, x, y) {
+  const i = n.vines?.findIndex((v) => v.side === side && v.x === x && v.y === y) ?? -1;
+  if (i < 0) return false;
+  n.vines.splice(i, 1);
+  return true;
+}
 /** Where the next of your set comes on after a loss: the square you came
     onto the board on, or the free square nearest it, out of their reach
     where there is one. */
@@ -1407,7 +1453,7 @@ export function clone(s) {
     bonus: s.bonus || null, treasure: s.treasure || 0, foeTreasure: s.foeTreasure || 0, ft: s.ft || 0, ...(s.cloudy ? { cloudy: true } : {}),
     ...(s.ghostGone ? { ghostGone: s.ghostGone.slice(), ghostsLost: s.ghostsLost || 0 } : {}), ...(s.clouds ? { clouds: s.clouds.map((c) => ({ ...c })) } : {}),
     ...(s.flag ? { flag: { ...s.flag } } : {}), ...(s.flagLost ? { flagLost: true } : {}), ...(s.ep ? { ep: { ...s.ep } } : {}),
-    ...(s.set ? { set: s.set.map((e) => ({ ...e })), ci: s.ci } : {}), ...(s.stones ? { stones: s.stones.map((t) => ({ ...t })) } : {}) };
+    ...(s.set ? { set: s.set.map((e) => ({ ...e })), ci: s.ci } : {}), ...(s.stones ? { stones: s.stones.map((t) => ({ ...t })) } : {}), ...(s.vines ? { vines: s.vines.map((v) => ({ ...v })) } : {}) };
 }
 
 const youLook = (s) => (x, y) => look(s, x, y, 'you');
@@ -1473,7 +1519,7 @@ function throughCloud(B, W, p, m) {
 function pieceMoves0(s, p, side) {
   // Spirals (2026-10-13): this piece goes round the left and right edges,
   // as on a board whose sides join (Pac-Man's tunnel).
-  if (p.suit === 'spirals' && !s.day.rules.wrap) return pieceMoves0(wrapView(s), p, side);
+  if (p.suit === 'spirals' && !s.day.rules.wrap && !s.day.rules.suitRabbits) return pieceMoves0(wrapView(s), p, side);
   let ms;
   if (p.type === 'ball') { ballView = true; try { ms = PIECES[p.type].moves(sight(s, p, side), p, 1, s.day); } finally { ballView = false; } }
   else ms = PIECES[p.type].moves(sight(s, p, side), p, side === 'you' ? 1 : -1, s.day);
@@ -1536,11 +1582,23 @@ export function movesFor(s, i) {
   if (s.day.rules.promote === 'copy' && p.type === 'pawn') ms = promoteChoices(s, 'you', i, ms);
   // Gears (Spirals until 2026-10-13): it may trade squares with any other
   // piece of yours.
-  if (p.suit === 'gears') {
+  if (p.suit === 'gears' && !s.day.rules.suitRabbits) {
     s.pieces.forEach((q, k) => { if (k !== i && !q.taken && q.type !== 'ball' && q.rides == null && q.brain !== 'carrier') ms.push({ x: q.x, y: q.y, cap: false, swap: true }); });
   }
-  // Stone (Adventure, 2026-10-15): once a board, any move of it may leave a
-  // stone of itself behind, on the square it leaves.
+  // A gears rabbit in your piece (Adventure's suits as rabbits, 2026-10-16):
+  // it changes gear, moving as any other piece of your set can as well as
+  // its own way. Each such move says which (`gear`).
+  if (p.suit === 'gears' && s.day.rules.suitRabbits && s.set && i === 0) {
+    const W = s.day.W, seen = new Set(ms.map((m) => m.y * W + m.x)), own = p.shape || p.type;
+    s.set.forEach((e, j) => {
+      const t = e.shape || e.type;
+      if (j === s.ci || e.lost || t === own || !PIECES[t]?.moves) return;
+      for (const m of pieceMoves(s, { ...p, type: t, shape: undefined, weapon: undefined, wl: undefined }, 'you')) {
+        if (m.swap || seen.has(m.y * W + m.x)) continue;
+        seen.add(m.y * W + m.x); ms.push({ ...m, gear: t });
+      }
+    });
+  }
   return ms;
 }
 
@@ -1563,8 +1621,11 @@ const onFoe = (s, m) => s.foes.some((f) => !f.taken && f.x === m.x && f.y === m.
 function openBonus(n, i, took, wasBonus) {
   const p = n.pieces[i];
   if (n.won || p.taken || lost(n)) return;
-  if (p.suit === 'vines' && took && pieceMoves(n, p, 'you').some(takesAny)) { n.bonus = { p: i, cap: true, why: 'vines' }; return; }
-  if (p.suit === 'stars' && !p.starUsed && !wasBonus) { p.starUsed = true; n.bonus = { p: i, cap: false, why: 'stars' }; }
+  // With suits as rabbits (Adventure, 2026-10-16) the chain is Spirals'
+  // (Vines leave a trail instead), and Stars move twice every turn they go.
+  const sr = n.day.rules.suitRabbits, chain = sr ? 'spirals' : 'vines';
+  if (p.suit === chain && took && pieceMoves(n, p, 'you').some(takesAny)) { n.bonus = { p: i, cap: true, why: chain }; return; }
+  if (p.suit === 'stars' && (sr || !p.starUsed) && !wasBonus) { p.starUsed = true; n.bonus = { p: i, cap: false, why: 'stars' }; }
 }
 
 /** Where a thinking foe can go. */
@@ -1749,7 +1810,7 @@ function landFoe(s, f, x, y, m = null) {
   if (mate) { f.ate = -1; f.from = [f.x, f.y]; f.x = x; f.y = y; f.blocked = false; f.rides = s.foes.indexOf(mate); return; }
   // Gears: landing on another piece of theirs trades squares with it, and
   // a rabbit riding either goes with its carrier.
-  const swap = f.suit === 'gears' ? s.foes.find((q) => q !== f && !q.taken && q.rides == null && q.x === x && q.y === y) : null;
+  const swap = f.suit === 'gears' && !s.day.rules.suitRabbits ? s.foes.find((q) => q !== f && !q.taken && q.rides == null && q.x === x && q.y === y) : null;
   if (swap) {
     const j = s.foes.indexOf(swap), fx = f.x, fy = f.y;
     f.ate = -1; f.from = [fx, fy]; f.x = x; f.y = y; f.blocked = false;
@@ -1774,6 +1835,8 @@ function landFoe(s, f, x, y, m = null) {
   // descent), or a queen (chess variants, 2026-10-11).
   if (m?.promote && f.type === 'pawn' && PIECES[m.promote]) promoteTo(f, m.promote);
   else if (s.day.rules.promote === true && f.type === 'pawn' && y === 0) f.type = 'queen';
+  // A vine of yours where it lands catches it (Adventure's Vines).
+  if (s.vines && takeVine(s, 'you', x, y)) { captureFoe(s, f, -1); s.tlog?.push({ what: 'vine', side: 'you', k }); }
 }
 
 /** Their piece k makes move m: what its weapon does, landing, and what
@@ -2033,7 +2096,13 @@ export function reachMaps(s, pattern = false) {
     // reach is no danger to stand in either (2026-10-15).
     if (f.taken || f.flying || f.brain === 'pattern' || f.brain === 'leader' || f.brain === 'carrier' || f.brain === 'still' || f.brain === 'scared' || f.brain === 'crown') continue;
     // A piece walking a route (Adventure) only ever goes to its next square.
-    if (f.route) { const [dx, dy] = f.pattern[f.i % f.pattern.length]; if ((dx || dy) && canTake(s.day.rules, f)) theirs.add((f.y + dy) * W + f.x + dx); continue; }
+    if (f.route) {
+      const L = f.pattern.length, [dx, dy] = f.pattern[f.i % L];
+      if ((dx || dy) && canTake(s.day.rules, f)) theirs.add((f.y + dy) * W + f.x + dx);
+      // A stars rabbit walks two steps a turn: both are danger.
+      if (s.day.rules.suitRabbits && f.suit === 'stars' && canTake(s.day.rules, f)) { const [ex, ey] = f.pattern[(f.i + 1) % L]; if (ex || ey) theirs.add((f.y + dy + ey) * W + f.x + dx + ex); }
+      continue;
+    }
     const ms = pieceMoves(s, f, 'foe');
     for (const m of ms) { theirs.add(m.y * W + m.x); for (const q of capturesOf(m, W)) theirs.add(q); }
     // A sentry rabbit's reach (Adventure): stand in it and it leaps.
@@ -2053,6 +2122,8 @@ export function reachMaps(s, pattern = false) {
   // shows its reach, and a pawn its empty diagonals (patternReach). The
   // look through their own pieces, ghosts and gates (releases 56 and 57)
   // is gone. `threat` is the same set, for the shields.
+  // Their vines (Adventure): land on one and it catches you.
+  for (const v of s.vines || []) if (v.side === 'foe') theirs.add(v.y * W + v.x);
   return { yours, theirs, threat: theirs, sentry };
 }
 
@@ -2593,6 +2664,12 @@ export function playerMove(s, mv) {
     // it left, a sentry of yours for three turns (stonesAge).
     if (p.suit === 'stone' && n.stones && !crumbled(n, fx, fy) && (fx !== p.x || fy !== p.y) && !n.stones.some((t) => t.x === fx && t.y === fy))
       n.stones.push({ type: p.shape || p.type, x: fx, y: fy, left: STONE_TURNS });
+    // Vines (suits as rabbits): a vine of theirs where it lands catches it;
+    // a piece of Vines leaves a trail of its own.
+    if (n.day.rules.suitRabbits && !p.taken) {
+      if (n.vines && takeVine(n, 'foe', p.x, p.y)) { p.vined = true; if (!capturePiece(n, p, -1)) delete p.vined; settleRevivals(n); }
+      else if (p.suit === 'vines' && (fx !== p.x || fy !== p.y)) addTrail(n, 'you', fx, fy, p.x, p.y);
+    }
     openBonus(n, mv.p, took, was);
   }
   // The board cleared (goal 'clear'): the hole opens beside your piece, on
@@ -2604,6 +2681,8 @@ export function playerMove(s, mv) {
   // Your turn is over (unless a suit left it open for this piece): the
   // piece that moved has had its turn this round.
   if (!n.bonus && mv.p >= 0) spendTurn(n);
+  // Their vines wither once your turn is over.
+  if (!n.bonus && n.vines) n.vines = n.vines.filter((v) => v.side !== 'foe');
   return n;
 }
 
@@ -2797,7 +2876,14 @@ function tacticsTurn(s) {
   s.foes.forEach((f, k) => {
     if (f.taken || f.brain !== 'possessed' || acted.has(k) || lost(s)) return;
     if (pins.has(k)) { f.from = [f.x, f.y]; f.blocked = false; f.rested = false; f.ate = -1; return; }
+    const sr = s.day.rules.suitRabbits, start = [f.x, f.y];
     possessedStep(s, f);
+    // Their rabbits (suits as rabbits, 2026-10-16): a stars rabbit walks two
+    // steps a turn; a spirals rabbit that takes something steps on again
+    // (twice more at most); a vines rabbit leaves a trail where it went.
+    if (sr && f.suit === 'stars' && !f.taken && !lost(s)) possessedStep(s, f);
+    for (let c = 0; sr && f.suit === 'spirals' && c < 2 && !f.taken && !lost(s) && (f.ate >= 0 || f.broke); c++) { delete f.broke; log.push({ what: 'chain', k }); possessedStep(s, f); }
+    if (sr && f.suit === 'vines' && !f.taken && (f.x !== start[0] || f.y !== start[1])) addTrail(s, 'foe', start[0], start[1], f.x, f.y);
   });
   if (lost(s)) return;
 
@@ -3127,6 +3213,7 @@ export function stateKey(s) {
   if (s.day.rules.oneMove) k += `|f${s.ft || 0}`; // whose turn it is on their side
   // Your set (Adventure): which of it is on the board, and what each keeps.
   if (s.stones?.length) k += '|S' + s.stones.map((t) => `${t.type}${t.x},${t.y}:${t.left}`).join(';');
+  if (s.vines?.length) k += '|V' + s.vines.map((v) => `${v.side[0]}${v.x},${v.y}`).sort().join(';');
   if (s.set) k += `|k${s.ci}` + s.set.map((e, j) => j === s.ci ? '' : (e.lives > 1 ? 'L' + e.lives : '') + (e.starUsed ? '*' : '') + (e.shape ? '~' + e.shape : '') + (e.netted ? 'n' + e.netted : '') + (e.used ? 'u' + e.used : '') + (e.lost ? 'x' : '') + (e.moved && e.type === 'pawn' ? 'm' : '')).join(',');
   k += '|';
   for (const f of s.foes) k += f.taken ? '--' : f.x + ',' + f.y + ',' + f.i + (f.lives > 1 ? 'L' + f.lives : '') + (f.starUsed ? '*' : '') + (f.mx > 0 ? '+' : '-') + (f.my > 0 ? '+' : '-') + (f.idle ? 'i' + f.idle : '') + (f.stun ? 'z' : '') + (f.bubble ? 'o' : '') + (f.moved && f.type === 'pawn' && s.day.rules.pawnTwo ? 'm' : '') + (f.promoted ? f.type : '') + (f.shape ? '~' + f.shape : '') + (f.brain === 'sentry' ? 's' : '') + ';';

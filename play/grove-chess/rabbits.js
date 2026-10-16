@@ -53,7 +53,11 @@ export const ROUTE_SAY = {
 };
 
 /** "A tangerine rabbit inside walks it there and back, ..." */
-export const routeText = (f) => `A robot rabbit (${FUR_WORD[f.patternName] || ''}, ${f.patternName}) walks it ${ROUTE_SAY[f.patternName] || 'on a route'}, tracing its shape over and over, and it takes you if you stand where it steps next. Its whole route is dashed on the board, and its next step drawn solid.`;
+export const routeText = (f) => (f.suit
+  // Rabbits are suits (Adventure, 2026-10-16): the rabbit is said by the
+  // page; this is the loop it walks.
+  ? `Its loop is a ${f.patternName.toLowerCase()}: it walks it ${ROUTE_SAY[f.patternName] || 'round and round'}, and takes you if you stand where it steps next. The whole loop is drawn on the board, its next step boldest.`
+  : `A robot rabbit (${FUR_WORD[f.patternName] || ''}, ${f.patternName}) walks it ${ROUTE_SAY[f.patternName] || 'on a route'}, tracing its shape over and over, and it takes you if you stand where it steps next. Its whole route is dashed on the board, and its next step drawn solid.`);
 
 const KEY = 'ig.grove.rabbits.v1';
 

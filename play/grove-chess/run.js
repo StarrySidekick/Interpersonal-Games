@@ -31,19 +31,34 @@ import { parseBetza, betzaMoves } from './betza.js';
 import { registerInvented, newId, estimateStrength } from './invented.js';
 import { powerOf } from './power.js';
 
+// In Adventure the suits are rabbits (Timothy, 2026-10-16: "rabbit are
+// suits, suits are rabbits. the trick is: rabbits do different things
+// depending on whether or not it's on an enemy piece or a friendly one").
+// `setDesc` is a rabbit's power in a piece of yours there, `foeDesc` in one
+// of theirs; `desc` is the suit as every other mode has it.
 export const SUITS = {
-  hearts: { name: 'Hearts', mark: '♥', colour: '#e0445a', desc: 'A life more: when it is taken it goes back to your first row instead, on a free square you choose (the second row if the first is full, and so on), and the heart is spent.' },
-  spirals: { name: 'Spirals', mark: '@', colour: '#a77bdc', desc: 'Round the sides: off the left edge it comes back on at the right, and the other way, like Pac-Man.' },
+  hearts: { name: 'Hearts', mark: '♥', colour: '#e0445a', desc: 'A life more: when it is taken it goes back to your first row instead, on a free square you choose (the second row if the first is full, and so on), and the heart is spent.',
+    setDesc: 'A life more: when it is taken it goes back to your first row instead, and the heart is spent.',
+    foeDesc: 'It walks its loop, and has a life more: squash it once and it goes back to their first row; squash it again for good.' },
+  spirals: { name: 'Spirals', mark: '@', colour: '#a77bdc', desc: 'Round the sides: off the left edge it comes back on at the right, and the other way, like Pac-Man.',
+    setDesc: 'Chain captures: after it takes a piece, it may take another the same turn, and another after that.',
+    foeDesc: 'It walks its loop, and when its step takes something it steps on again, taking again if it can.' },
   gears: { name: 'Gears', mark: '⚙', colour: '#8fa6bd', desc: 'Swap: as its move, it can trade squares with any other piece of yours.',
-    // Adventure (2026-10-15): first a skip in the cycle; since you choose
-    // from your set, two turns a round (rules.js turnsOf).
-    setDesc: 'Wound up: it has two turns each round of your set, where the others have one.' },
-  stars: { name: 'Stars', mark: '★', colour: '#e8c547', desc: 'Moves twice: once a level, its first move is followed straight away by a second.' },
-  vines: { name: 'Vines', mark: '❦', colour: '#2fb8a0', desc: 'Chain captures: after it takes a piece, it may take another the same turn, and another after that.' },
+    // Adventure: a skip in the cycle, then two turns a round, then (as a
+    // rabbit, 2026-10-16: "something new and good") a change of gear.
+    setDesc: 'Changes gear: it can move as any other piece of your set, as well as its own way.',
+    foeDesc: 'It walks its loop, tracing the same shape over and over: the robot of the rabbits.' },
+  stars: { name: 'Stars', mark: '★', colour: '#e8c547', desc: 'Moves twice: once a level, its first move is followed straight away by a second.',
+    setDesc: 'Moves twice: every turn it goes, its first move is followed straight away by a second.',
+    foeDesc: 'It walks its loop two steps a turn.' },
+  vines: { name: 'Vines', mark: '❦', colour: '#2fb8a0', desc: 'Chain captures: after it takes a piece, it may take another the same turn, and another after that.',
+    setDesc: 'Leaves a vine on the square it moves off and every square it passes. A piece of theirs that lands on a vine on their next turn is caught. The vines wither after their turn.',
+    foeDesc: 'It walks its loop and leaves a vine where it went. Land on one on your next move and it catches you. Its vines wither after your move.' },
   // Adventure only (Timothy, 2026-10-15: "a new suit called stone that lets
   // you leave a sentry behind of your piece"): needs one piece taking turns.
   stone: { name: 'Stone', mark: '◆', colour: '#b08a5a', adventure: true,
-    desc: 'Every move, it leaves a stone copy of itself on the square it leaves: a sentry of yours for three turns, then it crumbles. A stone takes any piece of theirs that moves into where it attacks, and its lines pin and give check like your piece\u2019s.' }
+    desc: 'Every move, it leaves a stone copy of itself on the square it leaves: a sentry of yours for two turns, then it crumbles. A stone takes any piece of theirs that moves into where it attacks, and its lines pin and give check like your piece\u2019s.',
+    foeDesc: 'A sentry: it never walks, but anything of yours that stands in its reach (ringed red) when their turn ends, it leaps to take. Pinned, it cannot.' }
 };
 /** The suits every mode deals (Stone is Adventure's own). */
 export const SUIT_KINDS = Object.keys(SUITS).filter((k) => !SUITS[k].adventure);
@@ -247,7 +262,9 @@ export function applyReward(run, card, targets = [], veto = []) {
 /** Plain words for a reward card. */
 export function cardText(card, adv = false) {
   if (card.kind === 'piece') return { title: PIECES[card.type].name, text: PIECES[card.type].desc, tag: PIECES[card.type].kind === 'fairy' ? 'A fairy piece' : 'A classic piece' };
-  if (card.kind === 'suit') return { title: `${SUITS[card.suit].mark} ${SUITS[card.suit].name}`, text: suitDesc(card.suit, adv) + ' Choose a piece to give it to.', tag: 'A suit' };
+  if (card.kind === 'suit') return adv
+    ? { title: `${SUITS[card.suit].mark} ${SUITS[card.suit].name} rabbit`, text: suitDesc(card.suit, adv) + ' Choose a piece to put it in.', tag: 'A rabbit' }
+    : { title: `${SUITS[card.suit].mark} ${SUITS[card.suit].name}`, text: suitDesc(card.suit, adv) + ' Choose a piece to give it to.', tag: 'A suit' };
   if (card.kind === 'weapon') return { title: `${WEAPONS[card.weapon].mark} ${WEAPONS[card.weapon].name}`, text: `${weaponDesc(card.weapon, 1, adv)} Choose a piece to give it to; on one that has a ${WEAPONS[card.weapon].name.toLowerCase()} already, it goes up a level (to 3 at most).`, tag: 'A weapon' };
   if (card.kind === 'fuse') return { title: 'Fuse', text: 'Two of your pieces become one, with every move of both. It frees a slot for a new find.', tag: 'An item' };
   if (card.kind === 'promote') return { title: 'Promotion', text: 'One of your pieces becomes the next piece up in strength.', tag: 'An item' };
