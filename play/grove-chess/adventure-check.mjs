@@ -50,6 +50,7 @@ for (const d of [1, 2, 3, 5, 8, 11, 14]) for (let sd = 1; sd <= 12; sd++) {
   ok(army.some((f) => f.brain === 'possessed'), `depth ${d} (${sd}): at least one of theirs walks a route`);
   ok(army.every((f) => ['possessed', 'still', 'sentry', 'scared'].includes(f.brain)), `depth ${d} (${sd}): theirs are statues, walkers, sentries or scared; no leader, nothing that thinks`);
   ok(army.every((f) => f.type !== 'pawn' || f.brain === 'still'), `depth ${d} (${sd}): pawns are statues`);
+  ok(army.every((f) => !f.route || f.pattern.every(([dx, dy]) => dx || dy)), `depth ${d} (${sd}): walkers never rest (a step every turn)`);
   const allowed = ['gears', ...(d >= 4 ? ['vines'] : []), ...(d >= 6 ? ['stars'] : []), ...(d >= 8 ? ['spirals'] : [])];
   ok(army.every((f) => (f.brain === 'possessed' ? allowed.includes(f.suit) : f.brain === 'sentry' ? f.suit === 'stone' : f.brain === 'scared' ? f.suit === 'hearts' : !f.suit)), `depth ${d} (${sd}): walkers carry a suit rabbit the depth allows, sentries a stone one, scared ones a hearts one`);
   if (d < 3) ok(!army.some((f) => f.brain === 'scared'), `depth ${d} (${sd}): no hearts rabbits before depth 3`);
@@ -141,6 +142,11 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
   c = R.apply(c, m3);
   ok(c.pieces[0].type === 'knight' && as(c) === '0,1,2', 'all three have gone: a new round, all ready again');
   ok(R.setView(c).map((v) => v.p.type).join() === 'rook,knight,bishop' && R.setView(c).filter((v) => v.on).length === 1, 'setView: the set in its own order, one on the board');
+  // A pass spends the turn of the piece on the board (2026-10-16), and a
+  // finished round counts up, so the page can start again from the first.
+  const p0 = R.initialState(lv), passed = R.apply(p0, { p: -1, x: 0, y: 0 });
+  ok(R.isLegal(p0, { p: -1, x: 0, y: 0 }) && !R.setReady(passed, passed.ci) && R.firstReady(passed) === 1, 'a pass: the piece on the board has had its turn, and the next is up');
+  ok((c.round || 0) === 1, 'the round counts up when all three have gone');
   const lineOf = [m1, m2, m3], { ok: legal, states } = R.replay(lv, lineOf);
   ok(legal && R.stateKey(states[3]) === R.stateKey(c), 'a replay of the moves, each naming its piece, ends the same');
 }
@@ -284,7 +290,7 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
   // 2. A sentry takes what stands where it attacks; pinned, it cannot.
   s = board({ type: 'rook', x: 4, y: 3 }, [{ type: 'rook', x: 4, y: 0, brain: 'sentry' }, { type: 'pawn', x: 0, y: 4, brain: 'still' }]);
   n = R.respond(s);
-  ok(n.pieces[0].taken && n.foes[0].y === 3, 'a sentry takes your piece, moving there');
+  ok(n.pieces[0].taken && n.foes[0].x === 4 && n.foes[0].y === 0 && n.foes[0].struck?.join() === '4,3', 'a sentry takes your piece from where it stands (it never moves)');
   s = board({ type: 'bishop', x: 1, y: 4 }, [{ type: 'rook', x: 2, y: 3, brain: 'sentry' }, { type: 'knight', x: 4, y: 1, brain: 'still' }]);
   n = R.respond(s);
   ok(!n.pieces[0].taken, 'a pinned sentry cannot strike');
@@ -324,7 +330,7 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
   ok(n.stones.length === 1 && first()?.left === R.STONE_TURNS - 1, 'a move leaves a stone where it was, its first turn spent');
   const life = [first()?.left];
   for (let k = 0; k < 2; k++) {
-    const mv = R.allMoves(n).find((m) => { const b = R.apply(n, m); return !b.arrived && !R.isOver(b); });
+    const mv = R.allMoves(n).find((m) => { if (m.p < 0) return false; const b = R.apply(n, m); return !b.arrived && !R.isOver(b); });
     if (!mv) break;
     n = R.apply(n, mv);
     life.push(first()?.left);
@@ -359,7 +365,7 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
   const run = newRun(['rook', 'knight'], 5, null);
   afterAdventure(run, n, [0, 1]);
   ok(run.hand.length === 1 && run.hand[0].base === 'knight' && run.lost[0].base === 'rook', 'after the board, the one taken is gone for good');
-  const last = R.clone(n); last.pieces[0].x = 0; last.pieces[0].y = 3;
+  const last = R.clone(n); last.pieces[0].x = 4; last.pieces[0].y = 2;
   ok(R.isOver(R.respond(last)), 'the last of the set taken: the board is lost');
 
   // The net, at level 1: the first piece it takes joins you whole, the next leaves a rabbit.

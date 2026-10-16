@@ -49,7 +49,7 @@ export const ROUTE_SAY = {
   'Shuttle': 'there and back, a move every turn',
   'Doze': 'a rest, a move there, a rest, a move back',
   'Box step': 'round a square, a move every turn',
-  'Pace': 'two moves there, a rest, two moves back, a rest'
+  'Pace': 'two moves there, two moves back'
 };
 
 /** "A tangerine rabbit inside walks it there and back, ..." */

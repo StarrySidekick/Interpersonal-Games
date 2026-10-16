@@ -43,6 +43,18 @@ You start with a rook, always (Timothy, 2026-10-15: "you always start with
 the rook, no choice"). Take every piece of theirs in as few moves as you
 can; then a hole opens and your piece jumps in.
 
+- **Passing, and the order** (Timothy, 2026-10-16: "when you pass, the
+  piece you have should move to the next one. when you complete the set of
+  pieces you have it should just start again from number 1 -> 2 -> 3 again
+  for that level"). A pass ("Pass: the next piece comes on", always there in
+  Adventure now, `wait`) spends the turn of the piece on the board, as a
+  move does, and their turn follows. The next piece comes on in the set's
+  order; when all of the set have gone, a new round starts again from the
+  first (`round` counts them; the page's `readyUp` brings on the first). You
+  can still tap another under the board. The set itself is drawn at random
+  from your pieces at the start of each board, when you have more than
+  three. The swap is quicker too (260 ms, from 560: "swapping to the next
+  piece should be faster and animated faster").
 - **One piece on the board, chosen from your set** (Timothy, 2026-10-15:
   "you don't automatically cycle between your pieces, you choose between
   your set. sets are three instead of five now. however, you have to use all
@@ -127,9 +139,15 @@ can; then a hole opens and your piece jumps in.
   | Route | Colour | Steps | From depth |
   |---|---|---|---|
   | Shuttle | tangerine | there, back | 1 |
-  | Doze | sky blue | rest, there, rest, back | 2 |
+  | Doze | sky blue | rest, there, rest, back | not dealt since 2026-10-16 (it rests) |
   | Box step | moss green | round a square: there, across, back, across | 4 |
-  | Pace | crimson | there, there, rest, back, back, rest | 6 |
+  | Pace | crimson | there, there, back, back (no rests since 2026-10-16) | 6 |
+
+  **No rests** (Timothy, 2026-10-16: "robot type suit rabbits should move
+  every turn, not every other really ever, as it's confusing"): every loop
+  Adventure deals takes a step every turn. Doze stays in the lab. (The
+  colours in this table are the old route colours; since rabbits are suits
+  a walker wears its rabbit's colour.)
 
   On the board each walker's **whole loop** is drawn in its colour
   (Timothy, 2026-10-15: "you see robot rabbits full move loop on the
@@ -223,7 +241,7 @@ yours look like theirs.
 |---|---|---|
 | Gears ⚙ | **changes gear**: moves as any other piece of your set as well as its own way (my call: Timothy asked for "something new and good") | walks its loop (the old robot rabbit) |
 | Hearts ♥ | a life more | **scared** (since 2026-10-16, Timothy: "we need scared rabbit behavior back, maybe as heart rabbits"): it stands, and when you attack it, it runs to a square you do not attack, one a turn, so fork it or pin it |
-| Stone ◆ | leaves a stone sentry where it moved from, for two turns | a sentry: stands, and leaps at anything of yours in its red reach |
+| Stone ◆ | leaves a stone sentry where it moved from, for two turns | a sentry: stands, and strikes anything of yours in its red reach without moving (it lunges and comes back; since 2026-10-16, Timothy: "sentry rabbit shouldn't move") |
 | Vines ❦ | leaves a vine on the square it left and every square it passed; one of theirs that lands on a vine on their next turn is caught; yours wither after their turn | walks its loop and leaves vines the same way; land on one on your next move and you are caught; theirs wither after your move |
 | Spirals @ | chain captures: after it takes, it may take again | walks its loop; when its step takes something (a stone of yours) it steps on again, twice more at most |
 | Stars ★ | moves twice every turn it goes | walks its loop two steps a turn |

@@ -607,7 +607,12 @@ export class Board {
       b.foes.forEach((f, k) => {
         const f0 = a.foes[k];
         if (f0.taken || tw.caught.has(k)) return;
-        if (f.x !== f0.x || f.y !== f0.y || f.blocked) {
+        // A sentry strikes from where it stands (Adventure): it lunges most
+        // of the way to what it takes, and back.
+        if (f.struck && f.x === f0.x && f.y === f0.y) {
+          tw.foes[k] = { from: [f0.x, f0.y], to: [f.x, f.y], via: [[f0.x + (f.struck[0] - f0.x) * 0.72, f0.y + (f.struck[1] - f0.y) * 0.72]], t0, dur: dur * 1.2 };
+          any = true; sfx.slide(at(t0 + dur * 0.6));
+        } else if (f.x !== f0.x || f.y !== f0.y || f.blocked) {
           tw.foes[k] = { from: [f0.x, f0.y], to: [f.x, f.y], t0, dur, hop: f.brain === 'pattern', blocked: f.blocked };
           any = true;
           // Each hop is a note for its direction (sounds.js). A crowd of
@@ -702,7 +707,9 @@ export class Board {
       sfx.turn(at(tw.arrive.t0 + tw.arrive.dur));
       t = tw.arrive.t0 + tw.arrive.dur + 200 * slow;
     } else if (a.set && b.set && a.ci !== b.ci && p0 && p1 && !p1.taken && !b.won) {
-      tw.morph = { i: 0, from: p0, t0: t + 60 * slow, dur: 560 * slow };
+      // Quick (2026-10-16, Timothy: "swapping to the next piece should be
+      // faster and animated faster").
+      tw.morph = { i: 0, from: p0, t0: t + 10 * slow, dur: 260 * slow };
       tw.leaves.push(leafBurst(p1.x, p1.y, tw.morph.t0 + tw.morph.dur * 0.42));
       sfx.turn(at(tw.morph.t0));
       t = tw.morph.t0 + tw.morph.dur;
