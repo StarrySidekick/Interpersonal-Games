@@ -23,9 +23,10 @@ import { initialState, allMoves, playerMove, respond, isOver, stateKey, movesFor
 /** How far a position is from a win. Lower is closer. */
 export function score(s) {
   const r = s.day.rules, W = s.day.W;
-  const alive = s.pieces.filter((p) => !p.taken);
+  let alive = s.pieces.filter((p) => !p.taken);
   if (!alive.length) return Infinity;
-  const lostPieces = s.pieces.length - alive.length;
+  // (A piece of Adventure's set lifted at the end of a round is not lost.)
+  const lostPieces = s.pieces.filter((p) => p.taken && !p.lifted).length;
 
   // Rabbits, then the ball: while any rabbit is loose, score the chase (and
   // keep it worse than any position in the ball phase, so catching the last
@@ -46,7 +47,15 @@ export function score(s) {
   if (!need.length) need = s.foes.filter((f) => !f.taken);
 
   const hit = new Set();
-  s.pieces.forEach((p, i) => { for (const m of movesFor(s, i)) if (m.cap) hit.add(m.y * W + m.x); });
+  if (s.set) {
+    // Adventure's set (2026-10-16: every piece stays where it moves, and
+    // only one with a rabbit acts there): what the set can take from where
+    // the next comes on, and what the pieces standing with a rabbit can.
+    // Nearness counts from those too, not from a piece that just stands.
+    for (const m of allMoves(s)) if (m.cap) hit.add(m.y * W + m.x);
+    s.pieces.forEach((p, i) => { if (i && p.ally && p.rabbit && !p.taken) for (const m of movesFor(s, i)) if (m.cap) hit.add(m.y * W + m.x); });
+    alive = alive.filter((p) => p === s.pieces[0] || (p.ally && p.rabbit && p.rabbit !== 'sentry' && p.rabbit !== 'scared'));
+  } else s.pieces.forEach((p, i) => { for (const m of movesFor(s, i)) if (m.cap) hit.add(m.y * W + m.x); });
   const gap = (f) => (hit.has(f.y * W + f.x) ? 0 : 1 + Math.min(...alive.map((p) => Math.max(Math.abs(p.x - f.x), Math.abs(p.y - f.y)))));
 
   if (r.goal === 'any') return Math.min(...need.map(gap)) * 10 + lostPieces * 40;

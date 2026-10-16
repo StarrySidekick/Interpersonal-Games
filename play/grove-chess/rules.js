@@ -1272,10 +1272,10 @@ for (const [k, o] of Object.entries(CONFIG.pieces || {})) {
     move behavior. rabbits have a type and a suit now"): what a piece with
     one inside does by itself. A piece's `rabbit` (yours) or its brain
     (theirs: 'possessed' is the robot) says which. */
-export const RABBIT_TYPES = ['robot', 'sentry', 'scared', 'sentient'];
+export const RABBIT_TYPES = ['robot', 'sentry', 'scared', 'sentient', 'simple', 'trap'];
 /** The kind of rabbit inside piece p, or null: from its brain (theirs) or
     its `rabbit` (yours). */
-export const rabbitIn = (p) => (p?.rabbit && RABBIT_TYPES.includes(p.rabbit) ? p.rabbit : ({ possessed: 'robot', sentry: 'sentry', scared: 'scared', sentient: 'sentient' })[p?.brain] || null);
+export const rabbitIn = (p) => (p?.rabbit && RABBIT_TYPES.includes(p.rabbit) ? p.rabbit : ({ possessed: 'robot', sentry: 'sentry', scared: 'scared', sentient: 'sentient', simple: 'simple', trap: 'trap' })[p?.brain] || null);
 
 /** The parts a thespian can play (Adventure's pieces, no pawn: it only goes
     one way, and no cat, which steps as a king does). */
@@ -1393,6 +1393,8 @@ export function initialState(day) {
   s.pieces.forEach((p, i) => cast(p, `you${i}`));
   s.foes.forEach((f, k) => cast(f, `foe${k}`));
   (s.set || []).forEach((e, j) => { if (j === s.ci) e.role = s.pieces[0].role; else cast(e, `set${j}`); });
+  // A simple rabbit of theirs (2026-10-16) takes its line: toward you.
+  for (const f of s.foes) if (f.brain === 'simple' && !f.dir) planLine(s, f, 'foe');
   if (day.rules.first === 'them') { foesAct(s); s.opened = true; }
   return s;
 }
@@ -1446,7 +1448,9 @@ function spendTurn(n) {
   const p = n.pieces[0];
   if (!n.set || !p || p.taken) return;
   p.used = (p.used || 0) + 1;
-  if (n.set.some((_, j) => setReady(n, j))) return;
+  // In Adventure the round ends at the start of their turn (deploy), when
+  // the pieces standing on the board come off.
+  if (n.day.rules.suitRabbits || n.set.some((_, j) => setReady(n, j))) return;
   for (let j = 0; j < n.set.length; j++) { const e = inSet(n, j); if (!e.lost && e.out == null) delete e.used; }
   // A new round (the page starts it again from the first of the set).
   n.round = (n.round || 0) + 1;
@@ -1473,12 +1477,17 @@ export const setLeft = (s) => (s.set ? s.set.filter((e, j) => (j === s.ci ? !s.p
 function nextAfterLoss(n) {
   const p = n.pieces[0];
   if (!n.set || !p?.taken || n.won) return;
-  const live = n.set.map((_, j) => j).filter((j) => j !== n.ci && !n.set[j].lost && n.set[j].out == null);
+  const own = {};
+  for (const [k, v] of Object.entries(p)) if (!PLACE.includes(k)) own[k] = v;
+  const others = () => n.set.map((_, j) => j).filter((j) => j !== n.ci && !n.set[j].lost && n.set[j].out == null);
+  // Adventure (2026-10-16): none of the rest ready means the set has all
+  // been played: a new round. The pieces standing come off the board, and
+  // the first comes on where this one was taken.
+  if (n.day.rules.suitRabbits && !others().some((j) => setReady(n, j)) && alliesOf(n).length) { n.set[n.ci] = { ...own, lost: true }; newRound(n); }
+  const live = others();
   if (!live.length) return recall(n, p);
   const at = entrySpot(n, p);
   if (!at) return;
-  const own = {};
-  for (const [k, v] of Object.entries(p)) if (!PLACE.includes(k)) own[k] = v;
   n.set[n.ci] = { ...own, lost: true };
   if (!live.some((j) => setReady(n, j))) for (const j of live) delete n.set[j].used;
   const L = n.set.length;
@@ -1508,6 +1517,36 @@ function recall(n, p) {
   n.pieces[k] = { ...a, taken: true, recalled: true };
 }
 
+/** What a piece standing by itself carries that is about standing there,
+    not about what it is: left behind when it comes off the board. */
+const ALLY_ONLY = ['ally', 'fresh', 'pattern', 'route', 'i', 'mx', 'my', 'patternName', 'mind', 'struck', 'fled', 'trapped', 'blocked', 'dir'];
+
+/** A new round (Adventure, 2026-10-16, Timothy: "after the full set is
+    played, they are removed from the board and then it starts again"):
+    every piece of yours standing by itself comes off the board, back into
+    your set as it is now (one taken while it stood is out for the board),
+    and every piece of the set is ready again. The piece on the board stays:
+    the new round starts where it stands. Those lifted stay in s.pieces, in
+    their places, taken and `lifted`, for the page to show them going; the
+    next piece left standing clears them away (deploy). Mutates. */
+function newRound(n) {
+  let lifted = 0;
+  n.set.forEach((e, j) => {
+    if (j === n.ci || e.out == null) return;
+    const k = e.out, a = n.pieces[k];
+    if (!a || a.taken) { const { out, ...rest } = e; n.set[j] = { ...rest, lost: true }; return; }
+    const back = {};
+    for (const [key, v] of Object.entries(a)) if (!PLACE.includes(key) && !ALLY_ONLY.includes(key)) back[key] = v;
+    delete back.used;
+    n.set[j] = back;
+    n.pieces[k] = { ...a, taken: true, lifted: true };
+    lifted++;
+  });
+  for (let j = 0; j < n.set.length; j++) { const e = inSet(n, j); if (!e.lost) delete e.used; }
+  n.round = (n.round || 0) + 1;
+  if (lifted) n.lifted = lifted;
+}
+
 /** Stone (Adventure, 2026-10-15, Timothy: "stone suit now leaves behind a
     sentry of their piece each time it moves? and it lasts for three moves
     than disappears"): how many turns a stone stands, their turn just after
@@ -1529,6 +1568,9 @@ function turnOver(n) {
   if (n.vines) n.vines = n.vines.filter((v) => v.side !== 'you');
   if (n.won && n.day.rules.goal === 'clear' && !n.hole) n.hole = exitSpot(n);
   nextAfterLoss(n);
+  // Adventure (2026-10-16): the whole set has played, so the pieces
+  // standing come off and a new round starts.
+  if (n.set && n.day.rules.suitRabbits && !n.won && n.pieces[0] && !n.pieces[0].taken && !n.set.some((_, j) => setReady(n, j))) newRound(n);
 }
 
 // --- Vines (Adventure's suits as rabbits, 2026-10-16). -----------------------
@@ -2275,6 +2317,12 @@ export function reachMaps(s, pattern = false) {
     // Adventure's crowned leader takes only in answer to a check, so its
     // reach is no danger to stand in either (2026-10-15).
     if (f.taken || f.flying || f.brain === 'pattern' || f.brain === 'leader' || f.brain === 'carrier' || f.brain === 'still' || f.brain === 'scared' || f.brain === 'crown') continue;
+    // A simple rabbit (2026-10-16) goes along its line to one square.
+    if (f.brain === 'simple') {
+      const nx = simpleNext(s, f, 'foe');
+      if (nx && canTake(s.day.rules, f)) (s.day.rules.tactics ? steps : theirs).add(nx.m.y * W + nx.m.x);
+      continue;
+    }
     // A piece walking a route (Adventure) only ever goes to its next square.
     if (f.route) {
       // Its next square is framed in its loop's colour, not ringed red
@@ -2290,7 +2338,7 @@ export function reachMaps(s, pattern = false) {
     const ms = pieceMoves(s, f, 'foe');
     for (const m of ms) { theirs.add(m.y * W + m.x); for (const q of capturesOf(m, W)) theirs.add(q); }
     // A sentry rabbit's reach (Adventure): stand in it and it leaps.
-    if (f.brain === 'sentry') for (const m of ms) { sentry.add(m.y * W + m.x); for (const q of capturesOf(m, W)) sentry.add(q); }
+    if (f.brain === 'sentry' || f.brain === 'trap') for (const m of ms) { sentry.add(m.y * W + m.x); for (const q of capturesOf(m, W)) sentry.add(q); }
     // A sword strikes round every square it could land on: all of those are
     // dangerous to stand on.
     if (f.weapon === 'sword') for (const m of ms) for (const [dx, dy] of SWORD[Math.max(1, Math.min(3, f.wl || 1))]) {
@@ -3031,7 +3079,7 @@ function tacticsTurn(s) {
   for (const k of pins.keys()) { s.foes[k].pinned = true; log.push({ what: 'pin', k, by: pins.get(k).kind }); }
   const free = (k) => !s.foes[k].taken && !s.foes[k].stun && !pins.has(k) && !acted.has(k);
   const quiet = (f) => pieceMoves(s, f, 'foe').filter((m) => !m.cap && !m.swap);
-  const toSentry = (f) => { f.brain = 'sentry'; f.patternName = 'Sentry'; delete f.pattern; delete f.route; };
+  const toSentry = (f) => { f.brain = 'sentry'; f.patternName = 'Sentry'; delete f.pattern; delete f.route; delete f.dir; };
   const value = (f) => PIECES[f.type]?.value || 1;
   const mate = () => {
     for (const f of s.foes) if (!f.taken) f.taken = true;
@@ -3041,6 +3089,9 @@ function tacticsTurn(s) {
   // How many of yours are down (a heart spent counts): to tell whether a
   // move of theirs took something.
   const down = () => s.pieces.reduce((t, p) => t + (p.taken ? 9 : 0) - (p.lives || 1), 0) + (s.stones || []).length * -1;
+  // How many of yours are taken (for a spirals chain, which goes on only
+  // after a capture).
+  const fell = () => s.pieces.filter((p) => p.taken).length;
   // A vines rabbit leaves its trail wherever it went (2026-10-16: the suits
   // are the same on theirs as on yours).
   const trail = (f, start) => { if (sr && f.suit === 'vines' && !f.taken && (f.x !== start[0] || f.y !== start[1])) addTrail(s, 'foe', start[0], start[1], f.x, f.y); };
@@ -3068,7 +3119,7 @@ function tacticsTurn(s) {
         const line = between(W, c.p.x, c.p.y, lead.x, lead.y);
         for (let k = 0; k < s.foes.length && !done && line.length; k++) {
           const f = s.foes[k];
-          if (!free(k) || k === lk || !['possessed', 'sentry', 'scared'].includes(f.brain)) continue;
+          if (!free(k) || k === lk || !['possessed', 'sentry', 'scared', 'simple', 'trap'].includes(f.brain)) continue;
           const m = quiet(f).find((q) => line.includes(q.y * W + q.x));
           if (!m) continue;
           landFoe(s, f, m.x, m.y); acted.add(k); toSentry(f);
@@ -3123,8 +3174,21 @@ function tacticsTurn(s) {
   // stars walks two steps, taking at most once; spirals steps on again
   // after a step that takes, as long as it takes; vines leaves a trail.
   s.foes.forEach((f, k) => {
-    if (f.taken || f.brain !== 'possessed' || acted.has(k) || f.stun || lost(s)) return;
+    if (f.taken || (f.brain !== 'possessed' && f.brain !== 'simple') || acted.has(k) || f.stun || lost(s)) return;
     if (pins.has(k)) { f.from = [f.x, f.y]; f.blocked = false; f.rested = false; f.ate = -1; return; }
+    // A simple rabbit (2026-10-16): one move along its line, all the way.
+    if (f.brain === 'simple') {
+      const start = [f.x, f.y], was = down(), fellWas = fell();
+      simpleStep(s, f, k, 'foe');
+      if (sr && f.suit === 'stars' && !f.taken && !lost(s)) simpleStep(s, f, k, 'foe', down() > was);
+      for (let c = 0; sr && f.suit === 'spirals' && fell() > fellWas && c < 16 && !f.taken && !lost(s); c++) {
+        const w = fell();
+        log.push({ what: 'chain', k });
+        if (!simpleStep(s, f, k, 'foe') || fell() <= w) break;
+      }
+      trail(f, start);
+      return;
+    }
     const start = [f.x, f.y], was = down();
     possessedStep(s, f);
     const took = down() > was;
@@ -3140,7 +3204,7 @@ function tacticsTurn(s) {
   // rabbit minds' way, mindStep) and makes its move, unless pinned.
   s.foes.forEach((f, k) => {
     if (f.taken || f.brain !== 'sentient' || !free(k) || lost(s)) return;
-    const start = [f.x, f.y], was = down(), fell = () => s.pieces.filter((p) => p.taken).length, fellWas = fell();
+    const start = [f.x, f.y], was = down(), fellWas = fell();
     f.mind = f.mind || { iq: 6, trait: 'hunter' };
     mindStep(s, f, k, 'foe');
     let took = down() > was, caught = fell() > fellWas;
@@ -3163,7 +3227,9 @@ function tacticsTurn(s) {
   // rabbits, then your stones; from where they stand. A sentry of spirals
   // strikes everything of yours in its reach.
   s.foes.forEach((f, k) => {
-    if (f.brain !== 'sentry' || !free(k) || lost(s)) return;
+    // A trap (2026-10-16, Timothy: "sentry but doesn't move back to its
+    // new spot") takes the same way, and stays where it took.
+    if ((f.brain !== 'sentry' && f.brain !== 'trap') || !free(k) || lost(s)) return;
     for (let c = 0; c < (sr && f.suit === 'spirals' ? 16 : 1) && !lost(s); c++) {
       const ms = pieceMoves(s, f, 'foe').filter((m) => m.cap && canTake(s.day.rules, f));
       const at = (q) => s.pieces.findIndex((p) => !p.taken && p.x === q.x && p.y === q.y);
@@ -3174,14 +3240,14 @@ function tacticsTurn(s) {
       // With rabbits as suits a sentry never moves (Timothy, 2026-10-16:
       // "sentry rabbit shouldn't move"): it strikes from where it stands, and
       // the page shows it lunging and back (`struck`).
-      if (sr) {
+      if (sr && f.brain === 'sentry') {
         f.struck = [m.x, m.y];
         if (i >= 0) { f.ate = i; if (!capturePiece(s, s.pieces[i], k)) { f.wounded = i; f.ate = -1; } settleRevivals(s); }
         else { const st = s.stones.findIndex((t) => t.x === m.x && t.y === m.y); if (st >= 0) s.stones.splice(st, 1); f.broke = true; }
         recast(s, f, 's' + k);
       } else foeLand(s, k, m);
       acted.add(k);
-      log.push({ what: 'sentry', k, on: i === 0 ? 'piece' : i > 0 ? 'ally' : 'stone', i });
+      log.push({ what: f.brain === 'trap' ? 'trap' : 'sentry', k, on: i === 0 ? 'piece' : i > 0 ? 'ally' : 'stone', i });
       // A heart that holds ends a sentry of spirals' strikes too.
       if (sr && f.wounded >= 0) break;
     }
@@ -3243,32 +3309,108 @@ function bestTake(s, f, side) {
 /** Your pieces with a rabbit standing on the board by themselves. */
 export const alliesOf = (s) => s.pieces.filter((p, i) => i > 0 && p.ally && !p.taken);
 
-/** The piece on the board, if it has a rabbit and moved this turn, stays
-    there and the next of your set comes on where it started. Mutates. */
+/** The end of your turn in Adventure (2026-10-16, Timothy: "pieces ...
+    leave themselves behind after being played. the rabbit simply defines
+    what the peice does after its now on the board. after the full set is
+    played, they are removed from the board and then it starts again"): the
+    piece that moved stays where it is (`ally`, by itself), and the next of
+    your set that is ready comes on where it started. When none is ready,
+    the whole set has played: the one that moved last stays on as your
+    piece, the pieces standing act once more, and at the end of their turn
+    they come off (newRound, from turnOver), so the new round starts where
+    the last one landed. A pass leaves nothing behind. Mutates. */
 function deploy(n, log) {
   const p = n.pieces[0], from = n.turnFrom;
   n.turnFrom = null;
-  if (!n.set || !p || p.taken || !p.rabbit || n.won || !from || (from[0] === p.x && from[1] === p.y)) return;
-  const live = n.set.map((_, j) => j).filter((j) => j !== n.ci && !n.set[j].lost && n.set[j].out == null);
-  if (!live.length) return;
+  if (!n.set || !p || p.taken || n.won) return;
+  const ready = n.set.map((_, j) => j).filter((j) => j !== n.ci && setReady(n, j));
+  if (!ready.length || !from) return;
   const at = entrySpot(n, { x: from[0], y: from[1] });
   if (!at) return;
+  // The first to stand this round clears away the pieces of the last
+  // (lifted, or taken where they stood): nothing points at them now.
+  if (n.pieces.length > 1 && !n.set.some((e) => e.out != null)) n.pieces = [n.pieces[0]];
   const k = n.pieces.length, own = {};
   for (const [key, v] of Object.entries(p)) if (!PLACE.includes(key)) own[key] = v;
   const ally = { ...p, ally: true, fresh: true };
   delete ally.used;
   if (ally.rabbit === 'robot') planRoute(n, ally);
+  if (ally.rabbit === 'simple') planLine(n, ally, 'you');
   if (ally.rabbit === 'sentient') ally.mind = { iq: 8, trait: 'aggressive' };
   n.pieces.push(ally);
   n.set[n.ci] = { ...own, out: k };
-  if (!live.some((j) => setReady(n, j))) { for (const j of live) delete n.set[j].used; n.round = (n.round || 0) + 1; }
   const L = n.set.length;
-  let j = live[0];
-  for (let d = 1; d <= L; d++) if (live.includes((n.ci + d) % L) && setReady(n, (n.ci + d) % L)) { j = (n.ci + d) % L; break; }
+  let j = ready[0];
+  for (let d = 1; d <= L; d++) if (ready.includes((n.ci + d) % L)) { j = (n.ci + d) % L; break; }
   n.deployed = { k, from: n.ci, at: [at.x, at.y] };
   log.push({ what: 'deploy', i: k });
   n.ci = j;
   n.pieces[0] = { ...n.set[j], x: at.x, y: at.y };
+}
+
+/** A simple rabbit's line for piece q of `side` (2026-10-16): of the ways
+    its moves go, the one most toward the nearest piece of the other side
+    (ties: the one that goes further). Sets q.dir, or deletes it if it has
+    no move. Mutates q. */
+export function planLine(s, q, side) {
+  const other = (side === 'foe' ? s.pieces : s.foes).filter((o) => !o.taken && o.x >= 0);
+  const near = other.sort((f, g) => Math.max(Math.abs(f.x - q.x), Math.abs(f.y - q.y)) - Math.max(Math.abs(g.x - q.x), Math.abs(g.y - q.y)))[0];
+  const ways = new Map();
+  for (const m of pieceMoves(s, q, side)) {
+    if (m.swap || m.push?.length) continue;
+    const ex = m.x - q.x, ey = m.y - q.y, g = gcd(Math.abs(ex), Math.abs(ey)) || 1, key = `${ex / g},${ey / g}`;
+    ways.set(key, Math.max(ways.get(key) || 0, g));
+  }
+  if (!ways.size) { delete q.dir; return; }
+  const toward = near ? [near.x - q.x, near.y - q.y] : [0, side === 'foe' ? 1 : -1], d = Math.hypot(...toward) || 1;
+  const cos = ([x, y]) => (x * toward[0] + y * toward[1]) / (Math.hypot(x, y) * d);
+  const best = [...ways.entries()].map(([k, far]) => ({ v: k.split(',').map(Number), far }))
+    .sort((a, b) => cos(b.v) - cos(a.v) || b.far - a.far || a.v[1] - b.v[1] || a.v[0] - b.v[0])[0];
+  q.dir = best.v;
+}
+
+/** A simple rabbit's move this turn (2026-10-16, Timothy: "simple - just
+    moves once, all the way if it's a slider and one hop for a leaper"): of
+    piece q's moves along its line (q.dir), the one that goes furthest: a
+    slider to the edge, or to the first piece in its way (taking it if it is
+    the other side's); a leaper one hop. If it cannot go its way it turns
+    back. Returns { m, path, turned } (path: every square it could stop on
+    that way, which is where it would take a piece standing there), or null
+    if it can go neither way. `noTake`: a move that takes is not allowed. */
+export function simpleNext(s, q, side, noTake = false) {
+  if (!q.dir) return null;
+  const W = s.day.W, ms = pieceMoves(s, q, side).filter((m) => !m.swap && !m.push?.length && (!noTake || !takesAny(m)));
+  const along = (dx, dy) => {
+    let best = null, bt = 0;
+    const path = [];
+    for (const m of ms) {
+      const ex = m.x - q.x, ey = m.y - q.y, t = dx ? ex / dx : ey / dy;
+      if (!(t > 0) || ex !== t * dx || ey !== t * dy || !Number.isInteger(t)) continue;
+      path.push(m.y * W + m.x);
+      if (t > bt) { bt = t; best = m; }
+    }
+    return best ? { m: best, path } : null;
+  };
+  const [dx, dy] = q.dir;
+  const go = along(dx, dy);
+  if (go) return go;
+  const back = along(-dx, -dy);
+  return back ? { ...back, turned: true } : null;
+}
+
+/** A simple rabbit's move, made: piece q (index k) of `side`. A thespian,
+    whose moves change, finds its line again when it has none. Returns
+    whether it moved. Mutates. */
+function simpleStep(s, q, k, side, noTake = false) {
+  delete q.bounced;
+  let nx = simpleNext(s, q, side, noTake);
+  if (!nx && (!q.dir || q.type === 'thespian')) { planLine(s, q, side); nx = simpleNext(s, q, side, noTake); }
+  if (!nx) { q.from = [q.x, q.y]; q.blocked = true; return false; }
+  if (nx.turned) q.dir = [-q.dir[0], -q.dir[1]];
+  if (side === 'foe') foeLand(s, k, nx.m);
+  else { q.from = [q.x, q.y]; armsBefore(s, 'you', k, nx.m); landMine(s, k, nx.m.x, nx.m.y, nx.m); armsAfter(s, 'you', k, nx.m); settleRevivals(s); }
+  q.blocked = false;
+  return true;
 }
 
 /** A robot rabbit's loop for your piece a: there and back along its
@@ -3290,6 +3432,7 @@ function foeDanger(s) {
   const W = s.day.W, out = new Set();
   for (const f of s.foes) {
     if (f.taken || f.flying || f.stun || !canTake(s.day.rules, f) || ['scared', 'still', 'crown'].includes(f.brain)) continue;
+    if (f.brain === 'simple') { const nx = simpleNext(s, f, 'foe'); for (const q of nx?.path || []) out.add(q); continue; }
     if (f.route) {
       const L = f.pattern.length, [dx, dy] = f.pattern[f.i % L];
       out.add((f.y + dy) * W + f.x + dx);
@@ -3325,6 +3468,30 @@ function alliesAct(s, log) {
         // Spirals strikes on while it takes; a heart that holds ends it.
         if (!down) break;
       }
+    } else if (a.rabbit === 'trap') {
+      // A trap (2026-10-16, Timothy: "sentry but doesn't move back to its
+      // new spot"): it takes as a sentry does, and stays where it took.
+      for (let c = 0; c < (a.suit === 'spirals' ? 16 : 1) && !s.won && !a.taken; c++) {
+        const m = bestTake(s, a, 'you');
+        if (!m) break;
+        const f = fell();
+        armsBefore(s, 'you', k, m); landMine(s, k, m.x, m.y, m); armsAfter(s, 'you', k, m); settleRevivals(s);
+        log.push({ what: 'ally', how: 'trap', i: k, held: !!a.bounced });
+        if (fell() <= f) break;
+      }
+    } else if (a.rabbit === 'simple') {
+      const steps = a.suit === 'stars' ? 2 : 1;
+      let took = false;
+      for (let c = 0; c < steps && !s.won && !a.taken; c++) {
+        const before = gone(), fellBefore = fell();
+        if (!simpleStep(s, a, k, 'you', c > 0 && took)) break;
+        if (gone() > before) took = true;
+        for (let r = 0; a.suit === 'spirals' && fell() > fellBefore && r < 16 && !s.won && !a.taken; r++) {
+          const b2 = fell();
+          if (!simpleStep(s, a, k, 'you') || fell() <= b2) break;
+        }
+      }
+      if (a.x !== start[0] || a.y !== start[1] || gone() > was) log.push({ what: 'ally', how: 'walk', i: k });
     } else if (a.rabbit === 'robot' && a.pattern) {
       const steps = a.suit === 'stars' ? 2 : 1;
       let took = false;
@@ -3681,7 +3848,7 @@ export function replay(day, moves) {
 
 export function stateKey(s) {
   let k = '';
-  for (const p of s.pieces) k += p.taken ? '--' : p.x + ',' + p.y + (p.lives > 1 ? 'L' + p.lives : '') + (p.starUsed ? '*' : '') + (p.stun ? 'z' : '') + (p.bubble ? 'o' : '') + (p.moved && p.type === 'pawn' && s.day.rules.pawnTwo ? 'm' : '') + (p.promoted ? p.type : '') + (p.shape ? '~' + p.shape : '') + (p.role ? '%' + p.role : '') + (p.netted ? 'n' + p.netted : '') + (p.used ? 'u' + p.used : '') + (p.ally ? 'a' + (p.i ?? '') + (p.idle ? 'i' + p.idle : '') : '') + ';';
+  for (const p of s.pieces) k += p.lifted ? '' : p.taken ? '--' : p.x + ',' + p.y + (p.dir ? 'd' + p.dir : '') + (p.lives > 1 ? 'L' + p.lives : '') + (p.starUsed ? '*' : '') + (p.stun ? 'z' : '') + (p.bubble ? 'o' : '') + (p.moved && p.type === 'pawn' && s.day.rules.pawnTwo ? 'm' : '') + (p.promoted ? p.type : '') + (p.shape ? '~' + p.shape : '') + (p.role ? '%' + p.role : '') + (p.netted ? 'n' + p.netted : '') + (p.used ? 'u' + p.used : '') + (p.ally ? 'a' + (p.i ?? '') + (p.idle ? 'i' + p.idle : '') : '') + ';';
   if (s.bonus) k += `|b${s.bonus.p}${s.bonus.cap ? 'c' : ''}${s.bonus.noCap ? 'n' : ''}${s.bonus.why === 'gears' ? 'g' : ''}`;
   if (s.cloudy) k += '|c';
   if (s.day.rules.oneMove) k += `|f${s.ft || 0}`; // whose turn it is on their side
@@ -3690,7 +3857,7 @@ export function stateKey(s) {
   if (s.vines?.length) k += '|V' + s.vines.map((v) => `${v.side[0]}${v.x},${v.y}`).sort().join(';');
   if (s.set) k += `|k${s.ci}` + s.set.map((e, j) => j === s.ci ? '' : (e.lives > 1 ? 'L' + e.lives : '') + (e.starUsed ? '*' : '') + (e.shape ? '~' + e.shape : '') + (e.role ? '%' + e.role : '') + (e.netted ? 'n' + e.netted : '') + (e.used ? 'u' + e.used : '') + (e.lost ? 'x' : '') + (e.out != null ? 'o' + e.out : '') + (e.moved && e.type === 'pawn' ? 'm' : '')).join(',');
   k += '|';
-  for (const f of s.foes) k += f.taken ? '--' : f.x + ',' + f.y + ',' + f.i + (f.lives > 1 ? 'L' + f.lives : '') + (f.starUsed ? '*' : '') + (f.mx > 0 ? '+' : '-') + (f.my > 0 ? '+' : '-') + (f.idle ? 'i' + f.idle : '') + (f.stun ? 'z' : '') + (f.bubble ? 'o' : '') + (f.moved && f.type === 'pawn' && s.day.rules.pawnTwo ? 'm' : '') + (f.promoted ? f.type : '') + (f.shape ? '~' + f.shape : '') + (f.role ? '%' + f.role : '') + (f.brain === 'sentry' ? 's' : '') + ';';
+  for (const f of s.foes) k += f.taken ? '--' : f.x + ',' + f.y + ',' + f.i + (f.dir ? 'd' + f.dir : '') + (f.lives > 1 ? 'L' + f.lives : '') + (f.starUsed ? '*' : '') + (f.mx > 0 ? '+' : '-') + (f.my > 0 ? '+' : '-') + (f.idle ? 'i' + f.idle : '') + (f.stun ? 'z' : '') + (f.bubble ? 'o' : '') + (f.moved && f.type === 'pawn' && s.day.rules.pawnTwo ? 'm' : '') + (f.promoted ? f.type : '') + (f.shape ? '~' + f.shape : '') + (f.role ? '%' + f.role : '') + (f.brain === 'sentry' ? 's' : '') + ';';
   if (s.flag) k += `|F${s.flag.by || ''}${s.flag.i},${s.flag.x},${s.flag.y}`;
   if (s.ep) k += `|e${s.ep.side}${s.ep.at}`;
   if (s.hole) k += `|h${s.hole.x},${s.hole.y},${s.hole.i}${s.hole.mx > 0 ? '+' : '-'}${s.hole.my > 0 ? '+' : '-'}`;

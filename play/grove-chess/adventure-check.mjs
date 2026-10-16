@@ -51,7 +51,8 @@ for (const d of [1, 2, 3, 5, 8, 11, 14]) for (let sd = 1; sd <= 12; sd++) {
   const st = R.initialState(lv), W = lv.W;
   const army = st.foes.filter((f) => f.type !== 'rabbit');
   ok(army.some((f) => f.brain === 'possessed'), `depth ${d} (${sd}): at least one of theirs walks a route`);
-  ok(army.every((f) => ['possessed', 'still', 'sentry', 'scared', ...(d >= 10 ? ['sentient'] : [])].includes(f.brain)), `depth ${d} (${sd}): theirs are statues, walkers, sentries or scared (sentient only from depth 10); no leader`);
+  ok(army.every((f) => ['possessed', 'still', 'sentry', 'scared', ...(d >= 4 ? ['simple'] : []), ...(d >= 7 ? ['trap'] : []), ...(d >= 10 ? ['sentient'] : [])].includes(f.brain)), `depth ${d} (${sd}): theirs are statues, walkers, sentries or scared (simple from depth 4, traps from 7, sentient from 10); no leader`);
+  ok(army.every((f) => f.brain !== 'simple' || (f.dir && R.simpleNext(st, f, 'foe'))), `depth ${d} (${sd}): a simple rabbit has a line, and a move along it`);
   ok(army.every((f) => f.type !== 'pawn' || f.brain === 'still'), `depth ${d} (${sd}): pawns are statues`);
   ok(army.every((f) => !f.route || f.pattern.every(([dx, dy]) => dx || dy)), `depth ${d} (${sd}): walkers never rest (a step every turn)`);
   const allowed = [...(d >= 4 ? ['hearts'] : []), ...(d >= 5 ? ['vines'] : []), ...(d >= 6 ? ['stars'] : []), ...(d >= 8 ? ['spirals'] : []), ...(d >= 10 ? ['gears'] : [])];
@@ -68,6 +69,9 @@ for (const d of [1, 2, 3, 5, 8, 11, 14]) for (let sd = 1; sd <= 12; sd++) {
   if (army.some((f) => f.brain === 'sentient')) continue;
   let c = R.clone(st);
   c.pieces = [];
+  // (Simple rabbits stand still for this: they go along lines of their own,
+  // and may stand in a loop's way, as a sentient one may.)
+  for (const f of c.foes) if (f.brain === 'simple') f.brain = 'still';
   const seen = new Map(walk.map((f) => [st.foes.indexOf(f), new Set([f.y * W + f.x])]));
   for (let t = 0; t < 24; t++) {
     c = R.respond(c);
@@ -138,17 +142,22 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
   ok(as(c) === '0,1,2', 'at first any of the three can move');
   // Bishop first, then the rook: no move may use either again until the knight has gone.
   const safe = (s, j) => R.allMoves(s).find((m) => m.as === j && !R.apply(s, m).arrived && !R.isOver(R.apply(s, m)));
-  const m1 = safe(c, 2);
+  const m1 = safe(c, 2), home = [c.pieces[0].x, c.pieces[0].y];
   ok(m1 && R.isLegal(c, m1), 'choosing the bishop and moving it is legal');
   c = R.apply(c, m1);
-  ok(c.pieces[0].type === 'bishop' && as(c) === '0,1', 'the bishop stays on the board, used; the other two are ready');
+  // Since 2026-10-16 (Timothy: "pieces ... leave themselves behind after
+  // being played"): every piece stays where it moved, and the next comes on
+  // where it started.
+  ok(c.pieces[1]?.type === 'bishop' && c.pieces[1].ally && c.pieces[1].x === m1.x && c.pieces[1].y === m1.y, 'the bishop stays where it moved, by itself');
+  ok(c.pieces[0].type === 'rook' && c.pieces[0].x === home[0] && c.pieces[0].y === home[1] && as(c) === '0,1', 'the rook comes on where the bishop started; the other two are ready');
   ok(!R.isLegal(c, { ...R.movesFor(c, 0)[0], p: 0, as: 2 }), 'the bishop cannot go again yet');
   const m2 = safe(c, 0);
   c = R.apply(c, m2);
-  ok(c.pieces[0].type === 'rook' && as(c) === '1', 'then only the knight is ready');
+  ok(c.pieces[0].type === 'knight' && R.alliesOf(c).length === 2 && as(c) === '1', 'the rook stays too; only the knight is ready');
   const m3 = safe(c, 1);
   c = R.apply(c, m3);
-  ok(c.pieces[0].type === 'knight' && as(c) === '0,1,2', 'all three have gone: a new round, all ready again');
+  ok(c.pieces[0].type === 'knight' && c.pieces[0].x === m3.x && c.pieces[0].y === m3.y && as(c) === '0,1,2', 'all three have gone: a new round, from where the knight landed, all ready again');
+  ok(!R.alliesOf(c).length && c.lifted === 2, '"after the full set is played, they are removed from the board"');
   ok(R.setView(c).map((v) => v.p.type).join() === 'rook,knight,bishop' && R.setView(c).filter((v) => v.on).length === 1, 'setView: the set in its own order, one on the board');
   // A pass spends the turn of the piece on the board (2026-10-16), and a
   // finished round counts up, so the page can start again from the first.
@@ -317,12 +326,13 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
   ok(n.foes[0].taken && n.pieces[1].x === 0 && n.pieces[1].y === 3 && n.tlog.some((l) => l.what === 'ally' && l.how === 'strike'), 'the next turn the sentry strikes what is in its reach, from where it stands');
 
   // A robot walks there and back.
-  s = board([{ type: 'rook', x: 0, y: 0, rabbit: 'robot' }, { type: 'knight' }], [{ type: 'bishop', x: 4, y: 3, brain: 'still' }, { type: 'pawn', x: 4, y: 0, brain: 'still' }]);
+  s = board([{ type: 'rook', x: 0, y: 0, rabbit: 'robot' }, { type: 'knight' }, { type: 'bishop' }], [{ type: 'bishop', x: 4, y: 3, brain: 'still' }, { type: 'pawn', x: 4, y: 0, brain: 'still' }]);
   n = R.apply(s, { p: 0, x: 0, y: 3, as: 0 });
   const a = n.pieces[1], start = [a.x, a.y];
   ok(a.ally && a.route && a.pattern?.length === 2, 'a robot rabbit of yours gets a loop');
-  const n1 = R.apply(n, { p: -1, x: 0, y: 0 }), n2 = R.apply(n1, { p: -1, x: 0, y: 0 });
+  const n1 = R.apply(n, { p: -1, x: 0, y: 0, as: 1 }), n2 = R.apply(n1, { p: -1, x: 0, y: 0, as: 2 });
   ok((n1.pieces[1].x !== start[0] || n1.pieces[1].y !== start[1]) && n2.pieces[1].x === start[0] && n2.pieces[1].y === start[1], 'and walks it, there and back');
+  ok(n2.pieces[1].lifted && !R.alliesOf(n2).length, 'and comes off when the whole set has had its turn');
 
   // A scared one runs from their reach.
   // (Their sentry at (2, 4) reaches down file 2, onto (2, 0).)
@@ -330,15 +340,60 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
   n = R.apply(s, { p: 0, x: 2, y: 0, as: 0 });
   ok(n.pieces[1].ally && !n.pieces[1].taken && n.pieces[1].x !== 2 && n.tlog.some((l) => l.what === 'ally' && l.how === 'run'), 'a scared rabbit of yours runs out of their reach, even the turn it stays');
 
-  // The last of your set taken: one with a rabbit is your piece again.
+  // The last of your set ready taken: the set has all played, so the rook
+  // comes off and is your piece again, where the knight was taken.
   s = board([{ type: 'rook', x: 0, y: 0, rabbit: 'sentry' }, { type: 'knight' }], [{ type: 'rook', x: 4, y: 2, brain: 'sentry' }, { type: 'pawn', x: 4, y: 0, brain: 'still' }]);
   n = R.apply(s, { p: 0, x: 0, y: 3, as: 0 });
   ok(n.pieces[0].type === 'knight', 'the knight comes on');
   const lose = R.allMoves(n).find((m) => m.p === 0 && m.y === 2 && m.x !== 4);
   n = R.apply(n, lose);
-  ok(n.arrived?.recalled === 1 && n.pieces[0].type === 'rook' && !n.pieces[0].taken && !R.isOver(n), 'the knight taken, the rook with its rabbit is your piece again');
+  ok(n.arrived && n.pieces[0].type === 'rook' && !n.pieces[0].taken && n.pieces[0].x === lose.x && n.pieces[0].y === lose.y && !R.isOver(n), 'the knight taken, the rook comes off the board and is your piece again where the knight fell');
   const run = newRun(['rook', 'knight'], 3, null);
   ok(afterAdventure(run, n, [0, 1]).lost.join() === '1', 'and after the board only the knight counts as lost');
+}
+
+// Simple rabbits and traps (2026-10-16, Timothy: "simple - just moves once,
+// all the way if it's a slider and one hop for a leaper; trap - sentry but
+// doesn't move back to its new spot"), theirs and yours.
+{
+  const base = { ...deal(1, ['rook'], 4246), W: 5, H: 5, holes: new Set() };
+  const board = (cycle, foes) => R.initialState({ ...base, pieces: [{ ...cycle[0] }], cycle: cycle.map(({ x, y, ...o }) => o), hole: null, stumps: new Set(),
+    foes: foes.map((f) => ({ target: true, mx: 1, my: 1, ...f })), rules: { ...base.rules } });
+  const pass = (s, as) => R.apply(s, { p: -1, x: 0, y: 0, as });
+  // Theirs: a simple rook slides its whole line, then back.
+  let s = board([{ type: 'knight', x: 4, y: 0 }, { type: 'bishop' }], [{ type: 'rook', x: 0, y: 4, brain: 'simple' }, { type: 'pawn', x: 2, y: 2, brain: 'still' }]);
+  ok(s.foes[0].dir?.join() === '0,-1', 'their simple rook takes the line toward you');
+  let n = pass(s, 0);
+  ok(n.foes[0].x === 0 && n.foes[0].y === 0, 'and goes all the way along it in one move');
+  n = pass(n, 1);
+  ok(n.foes[0].x === 0 && n.foes[0].y === 4 && n.foes[0].dir.join() === '0,1', 'at the end of its line it turns back, all the way again');
+  // A leaper hops once.
+  s = board([{ type: 'rook', x: 4, y: 0 }, { type: 'bishop' }], [{ type: 'knight', x: 0, y: 4, brain: 'simple' }, { type: 'pawn', x: 2, y: 2, brain: 'still' }]);
+  const k0 = [s.foes[0].x, s.foes[0].y], d0 = s.foes[0].dir;
+  n = pass(s, 0);
+  ok(n.foes[0].x === k0[0] + d0[0] && n.foes[0].y === k0[1] + d0[1], 'a simple knight hops once');
+  // Standing on its line, you are taken there.
+  s = board([{ type: 'rook', x: 0, y: 0 }, { type: 'bishop' }], [{ type: 'rook', x: 0, y: 4, brain: 'simple' }, { type: 'pawn', x: 4, y: 4, brain: 'still' }]);
+  n = R.apply(s, { p: 0, x: 0, y: 2, as: 0 });
+  ok(n.pieces.some((p) => p.type === 'rook' && p.taken) && n.foes[0].y === 2, 'a piece of yours on its line is taken where it stands');
+  // Theirs: a trap takes as a sentry does, and stays.
+  s = board([{ type: 'rook', x: 0, y: 0 }, { type: 'bishop' }], [{ type: 'knight', x: 2, y: 3, brain: 'trap' }, { type: 'pawn', x: 4, y: 4, brain: 'still' }]);
+  n = R.apply(s, { p: 0, x: 0, y: 2, as: 0 });
+  ok(n.pieces.some((p) => p.type === 'rook' && p.taken) && n.foes[0].x === 0 && n.foes[0].y === 2 && n.tlog.some((l) => l.what === 'trap'), 'their trap takes what stands in its reach, and stays on that square');
+  ok(R.reachMaps(R.initialState({ ...s.day })).sentry.has(2 * 5 + 0), 'its reach is ringed, as a sentry\u2019s is');
+  // Yours: a simple rook stays, then slides its line and takes.
+  s = board([{ type: 'rook', x: 0, y: 0, rabbit: 'simple' }, { type: 'knight' }, { type: 'bishop' }], [{ type: 'bishop', x: 4, y: 2, brain: 'still' }, { type: 'pawn', x: 2, y: 4, brain: 'still' }]);
+  n = R.apply(s, { p: 0, x: 0, y: 2, as: 0 });
+  ok(n.pieces[1].ally && n.pieces[1].dir?.join() === '1,0', 'a simple rabbit of yours takes a line toward theirs');
+  n = pass(n, 1);
+  ok(n.foes[0].taken && n.pieces[1].x === 4 && n.pieces[1].y === 2, 'and goes all the way along it, taking what is at the end');
+  // Yours: a trap knight takes what comes into its reach, and stays there.
+  s = board([{ type: 'knight', x: 0, y: 0, rabbit: 'trap' }, { type: 'rook' }, { type: 'bishop' }], [{ type: 'bishop', x: 3, y: 3, brain: 'still' }, { type: 'pawn', x: 4, y: 0, brain: 'still' }]);
+  n = R.apply(s, { p: 0, x: 1, y: 2, as: 0 });
+  ok(n.pieces[1].ally && !n.foes[0].taken, 'a trap of yours waits the turn it stays');
+  n = pass(n, 1);
+  ok(n.foes[0].taken && n.pieces[1].x === 3 && n.pieces[1].y === 3 && n.tlog.some((l) => l.how === 'trap'), 'then takes what is in its reach, and stays where it took');
+  ok(R.RABBIT_TYPES.includes('simple') && R.RABBIT_TYPES.includes('trap') && R.rabbitIn({ brain: 'trap' }) === 'trap' && R.rabbitIn({ brain: 'simple' }) === 'simple', 'both are rabbit kinds, theirs and yours');
 }
 
 // A sword that aims: it strikes past where it lands, the way it moved.

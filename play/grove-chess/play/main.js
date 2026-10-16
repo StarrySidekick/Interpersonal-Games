@@ -176,8 +176,10 @@ function find(n = session.n) {
   // And tuned to par (2026-10-16, Timothy: "make sure levels are tuned
   // properly with par rules that i set out"): a board whose best line came
   // out shorter than par asks (a strong set clears more than one a move) is
-  // dealt again with more to do (`press`: more of theirs, more of Hearts, a
-  // bigger board), up to three times, and the longest kept.
+  // dealt again with more to do (`press`: more of theirs, more of Hearts),
+  // once, and the longer kept. (Up to three times until every piece stayed
+  // where it moved, 2026-10-16: since then a second or third time has not
+  // once landed on par, and each cost five seconds.)
   const p = (async () => {
     let last = null, short = null, relax = 0, press = 0;
     for (let k = 0; k < (rolled ? 6 : vetted ? 12 : 1); k++) {
@@ -186,7 +188,7 @@ function find(n = session.n) {
       if (last.line && !last.short) break;
       if (last.line) {
         if (!short || last.par > short.par) short = last;
-        if (press >= 3) break;
+        if (press >= 1) break;
         press++;
       } else if (short) break; // more to do found nothing: the longest short one
       else relax++;
@@ -209,7 +211,10 @@ function findOnce(n, hand, attempt, relax = 0, press = 0) {
   const msg = { settings, seed: session.seed + n * 1000, parMin: settings.parMin, parMax: settings.parMax, maxMs: 15000,
     pool: rabbitPool(settings, myRabbits(), Math.max(1, settings.mine)), quick: M.upgrades === 'par' };
   if (M.roll !== 'fixed') msg.maxMs = 8000;
-  if (M.upgrades === 'par' && attempt) msg.maxMs = 6000;
+  // Adventure: six seconds a deal again, seven the first (2026-10-16: a
+  // first deal that finds no win in seven seconds rarely finds one in
+  // fifteen; dealing again with fewer of theirs is quicker).
+  if (M.upgrades === 'par') msg.maxMs = attempt ? 6000 : 7000;
   return new Promise((resolve) => {
     const done = (data) => {
       if (data.type === 'progress') return;
@@ -333,7 +338,7 @@ function nextUp() {
     // A piece standing by itself with its rabbit (2026-10-16): out of your
     // choosing, marked so.
     const how = v.on ? 'on' : v.out ? 'out' : v.ready ? 'ready' : 'used', name = nameOf(v.p);
-    const b = el('button', { class: `slot ${how}`, title: name, 'aria-label': `${name}${v.on ? ', on the board' : v.out ? ', on the board by itself' : v.ready ? ', ready' : ', used this round'}`, 'aria-pressed': String(v.on), disabled: !open || !v.ready || v.on ? '' : null }, icon(v.p));
+    const b = el('button', { class: `slot ${how}`, title: name, 'aria-label': `${name}${v.on ? ', your move' : v.out ? ', standing where it moved' : v.ready ? ', ready' : ', used this round'}`, 'aria-pressed': String(v.on), disabled: !open || !v.ready || v.on ? '' : null }, icon(v.p));
     if (open && v.ready && !v.on) b.addEventListener('click', () => { if (!tipHeld()) choose(v.j); });
     inspectable(b, () => v.p, () => (v.on ? 'on' : v.out ? 'out' : v.ready ? 'ready' : 'used'));
     return b;
@@ -388,7 +393,7 @@ function setRow() {
     const p = v.p, cv = el('canvas', { class: 'pix', width: 30, height: 36 });
     cv.getContext('2d').drawImage(sprite(p.shape || p.type, lookOf(p)), 0, 0);
     const cell = el('div', { class: `handcell${v.on ? ' picked' : ''}` },
-      el('span', { class: 'dim' }, v.on ? (p.taken ? 'Taken' : 'Now') : v.out ? 'By itself' : v.ready ? 'Ready' : 'Used'), cv, el('span', { class: 'marks' }, ...marks(p), ' ', nameOf(p)));
+      el('span', { class: 'dim' }, v.on ? (p.taken ? 'Taken' : 'Now') : v.out ? 'Standing' : v.ready ? 'Ready' : 'Used'), cv, el('span', { class: 'marks' }, ...marks(p), ' ', nameOf(p)));
     inspectable(cell, () => p, () => (v.on ? 'on' : v.out ? 'out' : v.ready ? 'ready' : 'used'));
     return cell;
   }));
@@ -427,7 +432,7 @@ function goalCard() {
   if (session.seen.has('goal')) return null;
   session.seen.add('goal');
   let text = {
-    descent: M.upgrades === 'par' ? 'Take every piece of theirs. When the last one goes, a hole opens beside you and you jump down it to the next board. You have one piece on the board at a time: before each move, choose which of your set it is, from the icons under the board; each must have its turn before any goes again. Landing on a piece of theirs squashes it, as in chess; a weapon adds a way of its own. A grey statue never moves. A piece with a rabbit inside moves by itself, and the colour of its plinth says how: a robot (tangerine) walks a short loop, drawn on the board with its next square framed; a sentry (red) strikes anything of yours in its red reach; a scared one (sky blue) runs when you attack it, one a turn, so fork it; a sentient one (ink, deeper down) thinks and moves like a player. Rabbits eat playing cards, so a rabbit may carry a suit, the colour of its piece, and a suit works the same on either side: Hearts is two lives (hit, it stays and the hitter goes back), Vines leaves a trail that catches, Stars moves twice but takes once, Spirals takes again while it can (a heart that holds ends it), Gears trades squares with another piece. Take three of a kind and that piece joins your set, up to sixteen; a net catches one whole, with its rabbit. Now and then you win a rabbit of your own: put it in a piece, and that piece stays where it moves and acts by itself. Hold any piece, or rest the mouse on it, to see all it does.'
+    descent: M.upgrades === 'par' ? 'Take every piece of theirs. When the last one goes, a hole opens beside you and you jump down it to the next board. Before each move, choose which piece of your set goes, from the icons under the board: it comes on where the round started, moves, and stays where it moved. Each must have its turn before any goes again; when the whole set has played, they come off the board and a new round starts from where the last one landed. Landing on a piece of theirs squashes it, as in chess; a weapon adds a way of its own. A grey statue never moves. A piece with a rabbit inside moves by itself, and the colour of its plinth says how: a robot (tangerine) walks a short loop, drawn on the board with its next square framed; a sentry (red) strikes anything of yours in its red reach; a scared one (sky blue) runs when you attack it, one a turn, so fork it; a simple one (lime) makes one move a turn along its line, all the way; a trap (magenta) strikes like a sentry and stays where it took; a sentient one (ink, deeper down) thinks and moves like a player. Rabbits eat playing cards, so a rabbit may carry a suit, the colour of its piece, and a suit works the same on either side: Hearts is two lives (hit, it stays and the hitter goes back), Vines leaves a trail that catches, Stars moves twice but takes once, Spirals takes again while it can (a heart that holds ends it), Gears trades squares with another piece. Take three of a kind and that piece joins your set, up to sixteen; a net catches one whole, with its rabbit. Now and then you win a rabbit of your own: put it in a piece, and while that piece stands on the board it acts by itself. Hold any piece, or rest the mouse on it, to see all it does.'
       : M.upgrades === 'tiles' ? 'Take their King to win the round. After each round you each turn over a tile at the edge of the board, the winner first: the board grows by that square, and the suit or weapon on the tile is yours. When the board has as many squares as the next size up, both sides get the same new piece. Every piece starts each round in a bubble: nothing can take it until it moves. Four statues stand in the middle; either side can break one by taking it. Keep your King: if they take it, the run is over.'
       : M.upgrades === 'each' && M.goal === 'carrier' ? `A rabbit rides one of their pieces. ${M.rabbitMove === 'random' ? `Every ${M.rabbitHop === 1 ? 'turn' : `${M.rabbitHop} turns`} it hops to another, at random.` : 'They can move it to another of their pieces, but that is their move for the turn.'} Take the piece it is on to fall to the next board, where you choose a suit or a weapon and they get one too. Keep your King: if they take it, the descent is over. Anything else of yours they take comes back on the next board.${M.promote === 'copy' ? ' A pawn that reaches the far row becomes a copy of another of your pieces.' : ''}`
       : M.upgrades === 'each' ? 'Take their King to fall to the next board, where each side gets an upgrade. Keep yours: if they take your King, the descent is over. Anything else of yours they take comes back on the next board. One rabbit leads their side, riding on their King: tap it to see what kind it is.'
@@ -701,7 +706,7 @@ function tipCard(p, side, how = null) {
   const r = rabbitIn(p);
   const title = `${side === 'you' ? 'Your' : 'Their'} ${(P.name || p.type).toLowerCase()}${SUITS[p.suit] ? ` of ${SUITS[p.suit].name}` : ''}`;
   const sub = side === 'you'
-    ? { on: 'On the board', ready: 'Ready this round', used: 'Has had its turn this round', out: 'On the board by itself, with its rabbit' }[how] || 'Yours'
+    ? { on: 'Your move', ready: 'Ready this round', used: 'Has had its turn this round', out: r ? 'Standing where it moved, acting by its rabbit, until the whole set has played' : 'Standing where it moved until the whole set has played' }[how] || 'Yours'
     : p.brain === 'still' ? 'A statue: it never moves and never takes' : r ? `${rabbitName(r, p.suit)} inside` : 'Theirs';
   const rows = [];
   rows.push(tipRow(null, 'Moves:', `${form !== p.type && F.name ? `Plays the part of a ${F.name.toLowerCase()} now, until it moves again. ` : ''}${F.desc || ''}`));
@@ -804,7 +809,7 @@ function whatHappened(a, b) {
       // Landing on it, the ordinary chess way, is a squash (Timothy,
       // 2026-10-15); a weapon's strike only takes. A piece of yours with a
       // rabbit may have taken it by itself (2026-10-16).
-      const at = (p) => !p.taken && p.x === a.foes[k].x && p.y === a.foes[k].y;
+      const at = (p) => (!p.taken || p.lifted) && p.x === a.foes[k].x && p.y === a.foes[k].y;
       const ally = b.pieces.find((p, i) => i && p.ally && (at(p) || (b.tlog || []).some((l) => l.what === 'ally' && l.how === 'strike' && l.k === k && b.pieces[l.i] === p)));
       const squashed = at(b.pieces[0] || {}), vined = (b.tlog || []).some((l) => l.what === 'vine' && l.k === k);
       const three = c && c.made > (was?.made || 0);
@@ -816,7 +821,9 @@ function whatHappened(a, b) {
   // Hearts (2026-10-16): spent, it stays; the piece that hit it goes back.
   b.foes.forEach((f, k) => { if (!f.taken && (f.lives || 1) < (a.foes[k].lives || 1)) bits.push(`Their ${nameOf(f).toLowerCase()}\u2019s heart is spent: it stays where it is${b.pieces.some((p) => p.bounced) ? ', and your piece goes back where it came from' : ''}.`); });
   // A piece with a rabbit stays behind (2026-10-16).
-  if (b.deployed) { const p = b.pieces[b.deployed.k]; bits.push(`Your ${nameOf(p).toLowerCase()} stays where it is, with its ${RABBITS[p.rabbit]?.name.toLowerCase() || ''} rabbit.`); }
+  // Every piece stays where it moved (2026-10-16), and the next comes on
+  // where it started; when the whole set has played, they come off.
+  if (b.deployed) { const p = b.pieces[b.deployed.k]; bits.push(`Your ${nameOf(p).toLowerCase()} stays where it is${RABBITS[p.rabbit] ? `, its ${RABBITS[p.rabbit].name.toLowerCase()} rabbit in charge` : ''}.`); }
   // Your set takes turns: say what you are now.
   if (b.set && !b.won && !b.arrived && !b.pieces[0].taken && b.pieces[0].type !== a.pieces[0].type) { const n = nameOf(b.pieces[0]).toLowerCase(); bits.push(`Now you are ${/^[aeiou]/.test(n) ? 'an' : 'a'} ${n}.`); }
   // Adventure's tactics: what their turn was, in words.
@@ -834,11 +841,14 @@ function whatHappened(a, b) {
     if (l.what === 'stunned') bits.push(`${cap(theirs(l.k))} is stunned, and sits out this turn.`);
     if (l.what === 'ally' && l.how === 'run') bits.push(`Your ${nameOf(b.pieces[l.i]).toLowerCase()} runs from their reach.`);
     if (l.what === 'ally' && l.how === 'stuck') bits.push(`Your ${nameOf(b.pieces[l.i]).toLowerCase()} would run, but has nowhere to go.`);
+    if (l.what === 'ally' && l.how === 'trap') bits.push(l.held ? `Your ${nameOf(b.pieces[l.i]).toLowerCase()} springs its trap, but a heart holds and it goes back.` : `Your ${nameOf(b.pieces[l.i]).toLowerCase()} springs its trap, and stays there.`);
     if (l.what === 'trapped') bits.push(l.fork ? `Fork! ${cap(theirs(l.k))} could not run as well.` : l.pinned ? `${cap(theirs(l.k))} would run, but it is pinned.` : `${cap(theirs(l.k))} has nowhere to run.`);
     if (l.what === 'sentry') bits.push(l.on === 'stone' ? `The sentry rabbit in ${theirs(l.k)} strikes and breaks your stone.` : `The sentry rabbit in ${theirs(l.k)} strikes.`);
+    if (l.what === 'trap') bits.push(`The trap rabbit in ${theirs(l.k)} springs, and stays where it took.`);
     if (l.what === 'chain') bits.push(`${cap(theirs(l.k))} takes again (Spirals).`);
     if (l.what === 'stone') bits.push(`Your stone takes ${theirs(l.k)}.`);
   }
+  if (b.lifted) bits.push(`Your whole set has played: your pieces come off the board, and a new round starts from here.`);
   // A piece of your set taken (Adventure): gone, and the next comes on.
   if (b.arrived) {
     const t = b.foes.find((f) => !f.taken && f.ate === 0), left = setLeft(b);
@@ -847,7 +857,8 @@ function whatHappened(a, b) {
   if (b.foeBonus === 'vines') bits.push('Their piece of Vines takes again.');
   if (b.foeBonus === 'stars') bits.push('Their piece of Stars moves twice.');
   b.foes.forEach((f) => {
-    if (f.ate >= 0 && b.pieces[f.ate]?.taken && a.pieces[f.ate] && !a.pieces[f.ate].taken) bits.push(`Their ${nameOf(f)} took your ${nameOf(b.pieces[f.ate])}.`);
+    if (f.ate > 0 && M.upgrades === 'par' && b.pieces[f.ate]?.taken && a.pieces[f.ate] && !a.pieces[f.ate].taken) bits.push(`Their ${nameOf(f).toLowerCase()} took your ${nameOf(b.pieces[f.ate]).toLowerCase()} where it stood: it is out for this board.`);
+    else if (f.ate >= 0 && b.pieces[f.ate]?.taken && a.pieces[f.ate] && !a.pieces[f.ate].taken) bits.push(`Their ${nameOf(f)} took your ${nameOf(b.pieces[f.ate])}.`);
     if (f.wounded >= 0) bits.push(M.upgrades === 'par' ? `Their ${nameOf(f).toLowerCase()} hits your ${nameOf(b.pieces[f.wounded]).toLowerCase()}: its heart is spent, it stays, and theirs goes back.` : `Their ${nameOf(f)} took your ${nameOf(b.pieces[f.wounded])}, but its heart sends it back to your first row.`);
   });
   // Weapons and the rabbits (2026-10-13).

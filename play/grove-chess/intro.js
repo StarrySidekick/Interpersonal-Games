@@ -103,7 +103,7 @@ export async function playIntro(board, level, { goal = null, section = null, see
 
     // 1b. Rabbits come in out of the fog and possess their pieces (only on
     // the 3D board, and only on levels with possessed pieces).
-    if (!skipped && board.possess && level.foes.some((f) => ['possessed', 'sentry', 'scared', 'sentient'].includes(f.brain))) await board.possess(() => skipped);
+    if (!skipped && board.possess && level.foes.some((f) => ['possessed', 'sentry', 'scared', 'sentient', 'simple', 'trap'].includes(f.brain))) await board.possess(() => skipped);
 
     // 2. A card for each kind of piece you have, then one for the goal.
     // With `seen` (a Set, kept by the caller across levels) a card plays

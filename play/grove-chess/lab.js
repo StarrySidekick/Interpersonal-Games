@@ -141,6 +141,10 @@ export const SCHEMA = [
       help: 'With tactics: pieces with a scared rabbit inside, which run when you attack them, only one a turn.' },
     { key: 'sentient', sub: 'theirs', label: 'Of the statues, sentient rabbits', type: 'int', min: 0, max: 4, def: 0,
       help: 'With tactics (Adventure, 2026-10-16, Timothy: "actual piece behavior like a game of chess against a simple ai"): pieces with a sentient rabbit inside, which think one move ahead and move every turn: they take what they can and keep out of your reach.' },
+    { key: 'simple', sub: 'theirs', label: 'Of the statues, simple rabbits', type: 'int', min: 0, max: 4, def: 0,
+      help: 'With tactics (Adventure, 2026-10-16, Timothy: "simple - just moves once, all the way if it\u2019s a slider and one hop for a leaper"): pieces with a simple rabbit inside, which make one move a turn along a line toward you, as far as they go, and turn back at the end of it.' },
+    { key: 'traps', sub: 'theirs', label: 'Of the statues, trap rabbits', type: 'int', min: 0, max: 4, def: 0,
+      help: 'With tactics (Adventure, 2026-10-16, Timothy: "trap - sentry but doesn\u2019t move back to its new spot"): pieces with a trap rabbit inside, which take anything of yours in their reach as a sentry does, and stay where they took it.' },
     { key: 'crown', sub: 'theirs', label: 'A crowned leader', type: 'bool', def: false,
       help: 'With tactics: one of the statues is their leader, a crowned King. Attack it and they must answer; checkmate it and the board is yours.' },
     { key: 'rabbits', sub: 'theirs', label: 'Free rabbits', type: 'int', min: 0, max: 4, def: 0,
@@ -1012,6 +1016,10 @@ function dealRoutes(day, S, rand) {
     for (let n = 0; n < S.sentries && still.length; n++) Object.assign(day.foes[still.shift()], { brain: 'sentry', patternName: 'Sentry' });
     for (let n = 0; n < S.scared && still.length; n++) Object.assign(day.foes[still.shift()], { brain: 'scared', patternName: 'Scared' });
     for (let n = 0; n < (S.sentient || 0) && still.length; n++) Object.assign(day.foes[still.shift()], { brain: 'sentient', patternName: 'Sentient', mind: { iq: 6, trait: 'hunter' } });
+    // Simple rabbits and traps (2026-10-16). A simple one takes its line
+    // when the board starts (initialState).
+    for (let n = 0; n < (S.simple || 0) && still.length; n++) Object.assign(day.foes[still.shift()], { brain: 'simple', patternName: 'Simple' });
+    for (let n = 0; n < (S.traps || 0) && still.length; n++) Object.assign(day.foes[still.shift()], { brain: 'trap', patternName: 'Trap' });
   }
   // Rabbits were suits for part of 2026-10-16 (a walker's suit was its
   // rabbit, a sentry was stone and a scared one hearts).
@@ -1023,7 +1031,7 @@ function dealRoutes(day, S, rand) {
     const kinds = (S.rabbitKinds || []).filter((k) => SUITS[k] && !SUITS[k].gone);
     for (const f of day.foes) {
       delete f.suit; delete f.lives;
-      if (!['possessed', 'sentry', 'scared', 'sentient'].includes(f.brain) || !kinds.length || rand() * 100 >= (S.suitChance || 0)) continue;
+      if (!['possessed', 'sentry', 'scared', 'sentient', 'simple', 'trap'].includes(f.brain) || !kinds.length || rand() * 100 >= (S.suitChance || 0)) continue;
       f.suit = kinds[Math.floor(rand() * kinds.length)];
       if (f.suit === 'hearts') f.lives = 2;
     }
@@ -1035,7 +1043,7 @@ function dealRoutes(day, S, rand) {
   // statue, and the hole, moved there if it is not. (Routes already touch it.)
   const free = shuffled([...reach].filter((q) => !used.has(q)), rand);
   const move = (o) => { const q = free.pop(); if (q === undefined) return; used.delete(o.y * W + o.x); o.x = q % W; o.y = Math.floor(q / W); used.add(q); };
-  for (const f of day.foes) if (['still', 'sentry', 'scared', 'sentient', 'crown'].includes(f.brain) && !reach.has(f.y * W + f.x)) move(f);
+  for (const f of day.foes) if (['still', 'sentry', 'scared', 'sentient', 'simple', 'trap', 'crown'].includes(f.brain) && !reach.has(f.y * W + f.x)) move(f);
   if (day.hole && !reach.has(day.hole.y * W + day.hole.x)) move(day.hole);
 }
 
