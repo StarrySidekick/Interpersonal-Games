@@ -74,7 +74,7 @@ export function piecesSheet(dialog, list, day, notes = {}) {
           [f.brain === 'ai' ? RABBIT_AI_DESC : rabbitDesc(day.rules), f.brain === 'ai' ? null : notes.rabbit], f.brain === 'ai');
       } else {
         const P = PIECES[f.type];
-        if (f.brain === 'still') row(f.type, 'grey', P.name, 'Theirs, a statue', ['A statue of theirs: it never moves and never takes. Take it.', P.desc, ...patentLines(f.type)], false);
+        if (f.brain === 'still') row(f.type, f.suit ? theirs(f) : 'grey', P.name, f.suit ? `Theirs, a statue of ${f.suit[0].toUpperCase() + f.suit.slice(1)}` : 'Theirs, a statue', ['A statue of theirs: it never moves and never takes. Take it.', P.desc, ...patentLines(f.type)], false);
         // Adventure's tactics (2026-10-15).
         // Adventure (2026-10-16): a rabbit of a kind, and maybe a suit.
         else if (day.rules.suitRabbits && RABBITS[rabbitIn(f)]) {

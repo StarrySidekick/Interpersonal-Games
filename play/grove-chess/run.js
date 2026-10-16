@@ -41,7 +41,7 @@ export const SUITS = {
   hearts: { name: 'Hearts', mark: '♥', colour: '#e0445a', desc: 'A life more: when it is taken it goes back to your first row instead, on a free square you choose (the second row if the first is full, and so on), and the heart is spent.',
     advDesc: 'Two lives. Hit once, it stays where it is and its heart is spent, and the piece that hit it goes back where it came from.' },
   spirals: { name: 'Spirals', mark: '@', colour: '#a77bdc', desc: 'Round the sides: off the left edge it comes back on at the right, and the other way, like Pac-Man.',
-    advDesc: 'Chain captures: after it takes a piece it may take another, and another, as long as it can.' },
+    advDesc: 'Chain captures: after it takes a piece it may take another, and another, as long as it can. A heart that holds ends it.' },
   gears: { name: 'Gears', mark: '⚙', colour: '#c47a45', desc: 'Swap: as its move, it can trade squares with any other piece of yours.',
     advDesc: 'As its move, it can trade squares with any other piece on the board.' },
   stars: { name: 'Stars', mark: '★', colour: '#e8c547', desc: 'Moves twice: once a level, its first move is followed straight away by a second.',

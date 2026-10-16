@@ -524,7 +524,7 @@ export class Board {
         x = q.x; y = q.y;
         lift = t.hop ? Math.sin(Math.PI * q.k) * (t.blocked ? 3 : 9) : 0;
       }
-      things.push({ img: sprite(f.brain === 'leader' ? 'rabbit' : f.shape || f.type, f.brain === 'still' ? 'grey' : f.brain !== 'leader' && this.lookOfFoe ? this.lookOfFoe(f) : 'foe', this.fur(f)), x, y, lift, ring: marked && f.target ? 'rgba(227,189,87,.9)' : null });
+      things.push({ img: sprite(f.brain === 'leader' ? 'rabbit' : f.shape || f.type, f.brain === 'still' && !(f.suit && this.lookOfFoe) ? 'grey' : f.brain !== 'leader' && this.lookOfFoe ? this.lookOfFoe(f) : 'foe', this.fur(f)), x, y, lift, ring: marked && f.target ? 'rgba(227,189,87,.9)' : null });
     });
     (s.clouds || []).forEach((c, i) => {
       let { x, y } = c;

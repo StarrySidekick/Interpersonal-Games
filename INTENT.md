@@ -12,7 +12,21 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
-## 2026-10-16, newest: the troupe, rabbits with a kind and a suit, the shield
+## 2026-10-16, newest: the move chooser, and par again
+
+From Timothy: the box asking to turn a pawn into something when the cat
+moved. It was the box for more than one move onto a square (a shield
+squashes or pushes; gears squashed or swapped), worded for a pawn. Now it
+names the moves, and gears no longer offers a swap where it can take.
+And "make sure levels are tuned properly with par rules": hearts of
+theirs counted as moves, boards that come in short dealt again with more
+(`press`), the solver faster, and a spirals chain now ends on a hit a
+heart holds (it chained on before, so hearts cost spirals nothing; my
+call). Every board measured lands two or three
+under par with a plain hand; a very strong set still beats a few by 4 or
+5. In [`docs/adventure.md`](docs/adventure.md), "Tuned to par again".
+
+## 2026-10-16: the troupe, rabbits with a kind and a suit, the shield
 
 From Timothy, and built: switching pieces quicker (170 ms, moves lit at
 once); at most sixteen pieces; the cat upright, regal, in armour; hearts

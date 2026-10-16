@@ -173,20 +173,32 @@ function find(n = session.n) {
   // in its time is dealt again with fewer of theirs (relax), and again, as
   // many times as it takes.
   const vetted = M.upgrades === 'par';
+  // And tuned to par (2026-10-16, Timothy: "make sure levels are tuned
+  // properly with par rules that i set out"): a board whose best line came
+  // out shorter than par asks (a strong set clears more than one a move) is
+  // dealt again with more to do (`press`: more of theirs, more of Hearts, a
+  // bigger board), up to three times, and the longest kept.
   const p = (async () => {
-    let last = null;
+    let last = null, short = null, relax = 0, press = 0;
     for (let k = 0; k < (rolled ? 6 : vetted ? 12 : 1); k++) {
-      last = await findOnce(n, hand, k);
-      if (last.passed || (vetted && last.line)) break;
+      last = await findOnce(n, hand, k, relax, press);
+      if (!vetted) { if (last.passed) break; continue; }
+      if (last.line && !last.short) break;
+      if (last.line) {
+        if (!short || last.par > short.par) short = last;
+        if (press >= 3) break;
+        press++;
+      } else if (short) break; // more to do found nothing: the longest short one
+      else relax++;
     }
-    return last;
+    return vetted && short && (!last.line || last.short) ? short : last;
   })();
   session.found.set(key, p);
   return p;
 }
 
-function findOnce(n, hand, attempt) {
-  const settings = levelSettings(M, { depth: n, hole: n, round: n, hand, veto: catalog.vetoed, invented: catalog.invented, relax: M.upgrades === 'par' ? attempt : 0 },
+function findOnce(n, hand, attempt, relax = 0, press = 0) {
+  const settings = levelSettings(M, { depth: n, hole: n, round: n, hand, veto: catalog.vetoed, invented: catalog.invented, relax: M.upgrades === 'par' ? relax : 0, press: M.upgrades === 'par' ? press : 0 },
     rng(`${modeId}:${session.seed}:${n}${attempt ? ':' + attempt : ''}`));
   if (session.run?.jokers.includes('overtime') && settings.maxMoves) settings.maxMoves += 5;
   // One upgrade a board (2026-10-13, Timothy: "the calculation for balancing
@@ -203,7 +215,7 @@ function findOnce(n, hand, attempt) {
       if (data.type === 'progress') return;
       const pick = data.type === 'done' ? data : data.best;
       resolve({ settings, seed: pick ? pick.seed : msg.seed, par: pick?.par ?? null, line: pick?.line || null, measure: pick?.measure || null, autoBest: pick?.setup || null,
-        setups: pick?.setups ? { wins: pick.wins, tried: pick.setups } : null, passed: data.type === 'done' });
+        setups: pick?.setups ? { wins: pick.wins, tried: pick.setups } : null, passed: data.type === 'done', short: pick?.par != null && pick.par < settings.parMin });
     };
     try {
       const w = new Worker(new URL('../lab-worker.js', import.meta.url), { type: 'module' });
@@ -415,7 +427,7 @@ function goalCard() {
   if (session.seen.has('goal')) return null;
   session.seen.add('goal');
   let text = {
-    descent: M.upgrades === 'par' ? 'Take every piece of theirs. When the last one goes, a hole opens beside you and you jump down it to the next board. You have one piece on the board at a time: before each move, choose which of your set it is, from the icons under the board; each must have its turn before any goes again. Landing on a piece of theirs squashes it, as in chess; a weapon adds a way of its own. A grey statue never moves. A piece with a rabbit inside moves by itself, and the colour of its plinth says how: a robot (tangerine) walks a short loop, drawn on the board with its next square framed; a sentry (red) strikes anything of yours in its red reach; a scared one (sky blue) runs when you attack it, one a turn, so fork it; a sentient one (ink, deeper down) thinks and moves like a player. Rabbits eat playing cards, so a rabbit may carry a suit, the colour of its piece, and a suit works the same on either side: Hearts is two lives (hit, it stays and the hitter goes back), Vines leaves a trail that catches, Stars moves twice but takes once, Spirals takes again while it can, Gears trades squares with another piece. Take three of a kind and that piece joins your set, up to sixteen; a net catches one whole, with its rabbit. Now and then you win a rabbit of your own: put it in a piece, and that piece stays where it moves and acts by itself. Hold any piece, or rest the mouse on it, to see all it does.'
+    descent: M.upgrades === 'par' ? 'Take every piece of theirs. When the last one goes, a hole opens beside you and you jump down it to the next board. You have one piece on the board at a time: before each move, choose which of your set it is, from the icons under the board; each must have its turn before any goes again. Landing on a piece of theirs squashes it, as in chess; a weapon adds a way of its own. A grey statue never moves. A piece with a rabbit inside moves by itself, and the colour of its plinth says how: a robot (tangerine) walks a short loop, drawn on the board with its next square framed; a sentry (red) strikes anything of yours in its red reach; a scared one (sky blue) runs when you attack it, one a turn, so fork it; a sentient one (ink, deeper down) thinks and moves like a player. Rabbits eat playing cards, so a rabbit may carry a suit, the colour of its piece, and a suit works the same on either side: Hearts is two lives (hit, it stays and the hitter goes back), Vines leaves a trail that catches, Stars moves twice but takes once, Spirals takes again while it can (a heart that holds ends it), Gears trades squares with another piece. Take three of a kind and that piece joins your set, up to sixteen; a net catches one whole, with its rabbit. Now and then you win a rabbit of your own: put it in a piece, and that piece stays where it moves and acts by itself. Hold any piece, or rest the mouse on it, to see all it does.'
       : M.upgrades === 'tiles' ? 'Take their King to win the round. After each round you each turn over a tile at the edge of the board, the winner first: the board grows by that square, and the suit or weapon on the tile is yours. When the board has as many squares as the next size up, both sides get the same new piece. Every piece starts each round in a bubble: nothing can take it until it moves. Four statues stand in the middle; either side can break one by taking it. Keep your King: if they take it, the run is over.'
       : M.upgrades === 'each' && M.goal === 'carrier' ? `A rabbit rides one of their pieces. ${M.rabbitMove === 'random' ? `Every ${M.rabbitHop === 1 ? 'turn' : `${M.rabbitHop} turns`} it hops to another, at random.` : 'They can move it to another of their pieces, but that is their move for the turn.'} Take the piece it is on to fall to the next board, where you choose a suit or a weapon and they get one too. Keep your King: if they take it, the descent is over. Anything else of yours they take comes back on the next board.${M.promote === 'copy' ? ' A pawn that reaches the far row becomes a copy of another of your pieces.' : ''}`
       : M.upgrades === 'each' ? 'Take their King to fall to the next board, where each side gets an upgrade. Keep yours: if they take your King, the descent is over. Anything else of yours they take comes back on the next board. One rabbit leads their side, riding on their King: tap it to see what kind it is.'
@@ -1814,4 +1826,4 @@ prepareTitle();
 requestAnimationFrame(previewFrame);
 
 // For automated tests: read-only access, and a way to move.
-window.__play = { now: () => (game ? now() : null), level: () => level, board: () => board, kf: () => kf, session: () => session, settings: () => M, play: (mv) => play(mv), par: () => par, busy: () => busy };
+window.__play = { now: () => (game ? now() : null), level: () => level, board: () => board, kf: () => kf, session: () => session, settings: () => M, play: (mv) => play(mv), par: () => par, busy: () => busy, select: (i) => select(i) };
