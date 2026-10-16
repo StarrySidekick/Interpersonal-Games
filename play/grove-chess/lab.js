@@ -193,6 +193,8 @@ export const SCHEMA = [
     { key: 'rabbitKinds', sub: 'rabbits', label: 'Suits on their rabbits', type: 'multi', def: ['vines'],
       options: [{ v: 'hearts', label: 'Hearts: two lives' }, { v: 'vines', label: 'Vines: leaves a trail' }, { v: 'stars', label: 'Stars: two moves' }, { v: 'spirals', label: 'Spirals: takes again' }, { v: 'gears', label: 'Gears: trades squares' }],
       help: 'With Adventure\u2019s rabbits: which suits the rabbits in their pieces can have, as often as the next setting says.' },
+    { key: 'hearts', sub: 'rabbits', label: 'Of theirs, of Hearts', type: 'int', min: 0, max: 8, def: 0,
+      help: 'With Adventure\u2019s rabbits: this many of their pieces carry Hearts, two lives each, statues included. Dealt by count, not by chance, since each takes a second hit (Adventure deals deep boards their length this way).' },
     { key: 'suitChance', sub: 'rabbits', label: 'Of their rabbits, with a suit', type: 'int', min: 0, max: 100, def: 0, unit: 'percent',
       help: 'With Adventure\u2019s rabbits: how likely each rabbit of theirs is to carry a suit. Without one its piece is grey.' },
     { key: 'hops', sub: 'rabbits', label: 'Rabbit hops per turn', type: 'int', min: 1, max: 3, def: 1 },
@@ -1025,6 +1027,9 @@ function dealRoutes(day, S, rand) {
       f.suit = kinds[Math.floor(rand() * kinds.length)];
       if (f.suit === 'hearts') f.lives = 2;
     }
+    // Hearts by count (2026-10-16): a second hit each, so the dealer can
+    // size a board's line; any of theirs but a leader.
+    for (const f of shuffled(day.foes.filter((q) => q.type !== 'rabbit' && q.type !== 'bunny' && q.brain !== 'crown'), rand).slice(0, S.hearts || 0)) { f.suit = 'hearts'; f.lives = 2; }
   }
   // Somewhere your set can get to (a lone bishop keeps to its colour): every
   // statue, and the hole, moved there if it is not. (Routes already touch it.)

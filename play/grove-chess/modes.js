@@ -539,7 +539,7 @@ export const adventurePar = (depth) => Math.min(15, 5 + Math.floor((Math.max(1, 
     best is two under (an eagle), or three (an albatross). */
 export const EAGLE_ROOM = 2;
 
-export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, veto = [], invented = [], relax = 0 } = {}, rand = Math.random) {
+export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, veto = [], invented = [], relax = 0, press = 0 } = {}, rand = Math.random) {
   const pick = (a) => a[Math.floor(rand() * a.length)];
   const int = (a, b) => a + Math.floor(rand() * (b - a + 1));
   let S = { ...M };
@@ -618,7 +618,7 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
     // first board and more deeper, with longer routes as you go: there and
     // back first, then with rests, then round a square, then two there.
     const d = depth;
-    const size = d <= 2 ? 5 : d <= 7 ? pick([5, 6, 6]) : pick([6, 6, 7]);
+    const size = Math.min(7, (d <= 2 ? 5 : d <= 7 ? pick([5, 6, 6]) : pick([6, 6, 7])) + (press >= 2 ? 1 : 0));
     // Par is set by depth (Timothy, 2026-10-15: "par should be 5 moves to
     // start ... every three levels the par goes up one (5,6,7,8) up to 15"),
     // and every board is dealt so its best line is two under par (an eagle)
@@ -630,7 +630,17 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
     // took the solver too long to vet, with a set of three to choose from),
     // so the best line runs shorter than par allows and eagles come easier.
     const best = adventurePar(d) - EAGLE_ROOM;
-    const theirs = Math.max(2, Math.min(8, size + 1, best - 1 - int(0, 1) - relax));
+    // How many hits that best line takes, a move each, less one; a piece of
+    // Hearts takes two (2026-10-16). `press` asks for more when a deal came
+    // out shorter than par wants (a strong set: chains, strikes, swaps and
+    // pieces with rabbits take more than one a move), two hits a step.
+    // Their pieces are those hits less some of Hearts, for variety from
+    // depth 4; past eight pieces (the most the solver can vet in time) the
+    // rest of the hits are hearts, so deep boards fill their par.
+    const hits = Math.max(2, best - 1 - int(0, 1) - relax + 2 * press);
+    const variety = d < 4 ? 0 : int(0, d < 10 ? 1 : 2);
+    const theirs = Math.max(2, Math.min(8, size + 1, hits - variety));
+    const hearts = d < 4 ? 0 : Math.max(0, Math.min(theirs, hits - theirs));
     const movers = Math.max(1, Math.min(5, theirs - 1, 1 + Math.floor((d + 1) / 3) + (rand() < 0.4 ? 1 : 0)));
     Object.assign(S, {
       w: size, h: size, shape: d < 3 ? 'rect' : pick(['rect', 'rect', 'diamond', 'round', 'cross', 'cheese']),
@@ -660,7 +670,8 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
       // a time, on some of them: hearts from 4, vines from 5, stars from 6,
       // spirals from 8, gears from 10; more of them carry one deeper down.
       sentient: d < 10 ? 0 : d < 15 ? 1 : int(1, 2),
-      rabbitKinds: [...(d >= 4 ? ['hearts'] : []), ...(d >= 5 ? ['vines'] : []), ...(d >= 6 ? ['stars'] : []), ...(d >= 8 ? ['spirals'] : []), ...(d >= 10 ? ['gears'] : [])],
+      // (Hearts is dealt by count, `hearts`, above, since it adds a hit.)
+      hearts, rabbitKinds: [...(d >= 5 ? ['vines'] : []), ...(d >= 6 ? ['stars'] : []), ...(d >= 8 ? ['spirals'] : []), ...(d >= 10 ? ['gears'] : [])],
       suitChance: d < 4 ? 0 : Math.min(70, 30 + d * 3),
       crown: false,
       statues: 0, maxMoves: 40, aim: 0

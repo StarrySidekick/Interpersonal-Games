@@ -55,7 +55,7 @@ for (const d of [1, 2, 3, 5, 8, 11, 14]) for (let sd = 1; sd <= 12; sd++) {
   ok(army.every((f) => f.type !== 'pawn' || f.brain === 'still'), `depth ${d} (${sd}): pawns are statues`);
   ok(army.every((f) => !f.route || f.pattern.every(([dx, dy]) => dx || dy)), `depth ${d} (${sd}): walkers never rest (a step every turn)`);
   const allowed = [...(d >= 4 ? ['hearts'] : []), ...(d >= 5 ? ['vines'] : []), ...(d >= 6 ? ['stars'] : []), ...(d >= 8 ? ['spirals'] : []), ...(d >= 10 ? ['gears'] : [])];
-  ok(army.every((f) => (f.brain === 'still' ? !f.suit : !f.suit || allowed.includes(f.suit))), `depth ${d} (${sd}): a rabbit carries no suit or one the depth allows; a statue none`);
+  ok(army.every((f) => (f.brain === 'still' ? !f.suit || (f.suit === 'hearts' && d >= 4) : !f.suit || allowed.includes(f.suit))), `depth ${d} (${sd}): a rabbit carries no suit or one the depth allows; a statue none, or hearts`);
   ok(army.every((f) => (f.suit === 'hearts') === (f.lives === 2)), `depth ${d} (${sd}): hearts, and only hearts, is two lives`);
   ok(army.every((f) => R.PIECES[f.type].kind === 'classic' || R.PIECES[f.type].kind === 'troupe'), `depth ${d} (${sd}): no fairy pieces but the troupe`);
   if (d < 4) ok(army.every((f) => R.PIECES[f.type].kind === 'classic'), `depth ${d} (${sd}): classic pieces only before depth 4`);
@@ -192,6 +192,11 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
   ok(n.bonus?.why === 'spirals' && R.movesFor(n, 0).every((m) => m.cap), 'a piece of spirals takes, and may take again');
   n = R.apply(n, { p: 0, x: 3, y: 2 });
   ok(n.bonus?.why === 'spirals', 'and again');
+  // But on a capture only (2026-10-16): a heart that holds sends it back
+  // and ends the chain, so two hearts cost two moves, not one.
+  s = board({ type: 'rook', x: 0, y: 0, suit: 'spirals' }, [{ type: 'knight', x: 0, y: 2, brain: 'still', suit: 'hearts', lives: 2 }, { type: 'bishop', x: 3, y: 0, brain: 'still' }, { type: 'pawn', x: 4, y: 4, brain: 'still' }]);
+  n = R.apply(s, { p: 0, x: 0, y: 2 });
+  ok(!n.bonus && n.foes[0].lives === 1 && !n.foes[0].taken && n.pieces[0].x === 0 && n.pieces[0].y === 0, 'a heart that holds sends a piece of spirals back, and its chain ends');
   ok(!R.movesFor(board({ type: 'rook', x: 0, y: 0, suit: 'spirals' }, [{ type: 'pawn', x: 4, y: 4, brain: 'still' }]), 0).some((m) => m.wrapped), 'and no longer goes round the sides');
 
   // Vines, yours: a trail where it went; one of theirs landing on it is caught.

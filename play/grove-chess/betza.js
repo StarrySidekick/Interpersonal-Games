@@ -113,12 +113,19 @@ export function rideVecs(code, fwd = 1) {
  */
 export function betzaMoves(code) {
   const terms = parseBetza(code);
+  // Each term's directions, worked out once for each way a side faces (for
+  // speed, 2026-10-16: the solver asks for these moves a great many times).
+  const dirsFor = new Map();
+  const vecsOf = (fwd) => {
+    if (!dirsFor.has(fwd)) dirsFor.set(fwd, terms.map(({ dirs, jump }) => orient(...jump).filter(([dx, dy]) => suits(dirs, dx, dy, fwd))));
+    return dirsFor.get(fwd);
+  };
   return (L, p, fwd = 1) => {
-    const found = new Map();
+    const found = new Map(), all = vecsOf(fwd);
     const put = (x, y, cap) => { const k = `${x},${y}`; if (!found.has(k)) found.set(k, { x, y, cap }); };
-    for (const { mods, dirs, jump, ride } of terms) {
+    for (let t = 0; t < terms.length; t++) {
+      const { mods, ride } = terms[t], vecs = all[t];
       const moveOk = !mods.includes('c') || mods.includes('m'), capOk = !mods.includes('m') || mods.includes('c');
-      const vecs = orient(...jump).filter(([dx, dy]) => suits(dirs, dx, dy, fwd));
       if (mods.includes('q')) { circular(L, p, vecs, put); continue; }
       for (const [dx, dy] of vecs) {
         if (mods.includes('g')) {          // grasshopper: over the first thing, land just beyond

@@ -39,6 +39,9 @@ function sym(a, b) {
     for (const sx of [1, -1]) for (const sy of [1, -1]) out.set(`${p * sx},${q * sy}`, [p * sx, q * sy]);
   return [...out.values()];
 }
+// Every square exactly two away (the squirrel's, and the dancer's), worked
+// out once.
+const TWO_AWAY = [...sym(2, 0), ...sym(2, 1), ...sym(2, 2)];
 
 // What a square holds, from the point of view of the side moving into it.
 // OWN is one of your own side; ENEMY is something you could take; HIDDEN is
@@ -1100,7 +1103,7 @@ export const PIECES = {
   dancer: { name: 'Dancer', kind: 'troupe', tier: 1, value: 4, betza: 'NAD', strength: 5,
     desc: 'Hops to any square exactly two away, over anything.',
     origin: 'Adventure’s troupe, 2026; the squirrel of fairy chess.',
-    moves: (L, p) => leap(L, p, [...sym(2, 0), ...sym(2, 1), ...sym(2, 2)]) },
+    moves: (L, p) => leap(L, p, TWO_AWAY) },
   cannon: { name: 'Cannon', kind: 'fairy', tier: 1, value: 4, betza: 'mRcpR', strength: 4,
     desc: 'Slides like a rook, but can only catch by jumping exactly one thing on the way.',
     origin: 'From xiangqi, Chinese chess.',
@@ -1111,7 +1114,7 @@ export const PIECES = {
     moves: mao },
   squirrel: { name: 'Squirrel', kind: 'fairy', tier: 1, value: 4, betza: 'NAD', strength: 5,
     desc: 'Leaps to any square exactly two away, over anything.',
-    moves: (L, p) => leap(L, p, [...sym(2, 0), ...sym(2, 1), ...sym(2, 2)]) },
+    moves: (L, p) => leap(L, p, TWO_AWAY) },
   rose: { name: 'Rose', kind: 'fairy', tier: 1, value: 4.5, betza: 'qN', strength: 5.5,
     desc: 'Makes knight jumps that curve, each one turning further, tracing a circle. Stops at anything in its path.',
     moves: rose },
@@ -1573,7 +1576,9 @@ function entrySpot(n, e = n.day.pieces[0]) {
   // lineup simply appears in that spot"): the square it was taken on, or,
   // if one of theirs stands there now, the nearest free square to it (out
   // of their reach if one is as near).
-  const W = n.day.W, H = n.day.H, R = reachMaps(n), reach = new Set([...R.theirs, ...R.steps]), spots = [];
+  // (Where theirs could move or take next turn: foeDanger, lighter than
+  // reachMaps, since the solver comes here for every loss it looks at.)
+  const W = n.day.W, H = n.day.H, reach = foeDanger(n), spots = [];
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     if (!onBoard(n.day, x, y) || statueAt(n, y * W + x) || crumbled(n, x, y) || shrunk(n, x, y) || waterAt(n, y * W + x)) continue;
     if (n.foes.some((f) => !f.taken && f.x === x && f.y === y) || n.stones?.some((t) => t.x === x && t.y === y)) continue;
@@ -1596,12 +1601,22 @@ export function setView(s) {
 }
 
 export function clone(s) {
-  return { day: s.day, t: s.t, pieces: s.pieces.map((p) => ({ ...p })), foes: s.foes.map((f) => ({ ...f })),
+  // Field by field, not by spreading (for speed, 2026-10-16: the solver
+  // clones a state for every position it looks at).
+  const n = { day: s.day, t: s.t, pieces: s.pieces.map((p) => ({ ...p })), foes: s.foes.map((f) => ({ ...f })),
     hole: s.hole ? { ...s.hole } : null, gone: s.gone.slice(), shrunk: s.shrunk ? s.shrunk.slice() : [], open: s.open ? s.open.slice() : [], won: s.won, sunk: s.sunk,
-    bonus: s.bonus || null, treasure: s.treasure || 0, foeTreasure: s.foeTreasure || 0, ft: s.ft || 0, ...(s.cloudy ? { cloudy: true } : {}),
-    ...(s.ghostGone ? { ghostGone: s.ghostGone.slice(), ghostsLost: s.ghostsLost || 0 } : {}), ...(s.clouds ? { clouds: s.clouds.map((c) => ({ ...c })) } : {}),
-    ...(s.flag ? { flag: { ...s.flag } } : {}), ...(s.flagLost ? { flagLost: true } : {}), ...(s.ep ? { ep: { ...s.ep } } : {}),
-    ...(s.set ? { set: s.set.map((e) => ({ ...e })), ci: s.ci, round: s.round || 0 } : {}), ...(s.stones ? { stones: s.stones.map((t) => ({ ...t })) } : {}), ...(s.vines ? { vines: s.vines.map((v) => ({ ...v })) } : {}), ...(s.turnFrom ? { turnFrom: s.turnFrom } : {}) };
+    bonus: s.bonus || null, treasure: s.treasure || 0, foeTreasure: s.foeTreasure || 0, ft: s.ft || 0 };
+  if (s.cloudy) n.cloudy = true;
+  if (s.ghostGone) { n.ghostGone = s.ghostGone.slice(); n.ghostsLost = s.ghostsLost || 0; }
+  if (s.clouds) n.clouds = s.clouds.map((c) => ({ ...c }));
+  if (s.flag) n.flag = { ...s.flag };
+  if (s.flagLost) n.flagLost = true;
+  if (s.ep) n.ep = { ...s.ep };
+  if (s.set) { n.set = s.set.map((e) => ({ ...e })); n.ci = s.ci; n.round = s.round || 0; }
+  if (s.stones) n.stones = s.stones.map((t) => ({ ...t }));
+  if (s.vines) n.vines = s.vines.map((v) => ({ ...v }));
+  if (s.turnFrom) n.turnFrom = s.turnFrom;
+  return n;
 }
 
 const youLook = (s) => (x, y) => look(s, x, y, 'you');
@@ -1738,9 +1753,13 @@ export function movesFor(s, i) {
   // with another piece"): as its move, it can trade squares with any other
   // piece on the board, yours or theirs. (It changed gear, moving as any
   // piece of your set, from earlier that day.)
+  // Not with one it could squash where it stands: taking it is the move,
+  // and asking which every time was a nuisance (Timothy, 2026-10-16, of a
+  // popup on moving his cat).
   if (p.suit === 'gears' && s.day.rules.suitRabbits) {
+    const takes = new Set(ms.filter((m) => m.cap).map((m) => m.y * s.day.W + m.x));
     for (const q of [...s.pieces, ...s.foes]) {
-      if (q === p || q.taken || q.flying || q.rides != null || q.x < 0 || ['ball', 'bunny', 'rabbit'].includes(q.type)) continue;
+      if (q === p || q.taken || q.flying || q.rides != null || q.x < 0 || ['ball', 'bunny', 'rabbit'].includes(q.type) || takes.has(q.y * s.day.W + q.x)) continue;
       ms.push({ x: q.x, y: q.y, cap: false, swap: true });
     }
   }
@@ -1763,13 +1782,15 @@ const onFoe = (s, m) => s.foes.some((f) => !f.taken && f.x === m.x && f.y === m.
  * caller that plays a move then a reply (the page, the solver, the
  * measures) handles it unchanged.
  */
-function openBonus(n, i, took, wasBonus) {
+function openBonus(n, i, took, wasBonus, caught = took) {
   const p = n.pieces[i];
   if (n.won || p.taken || lost(n)) return;
   // With suits as rabbits (Adventure, 2026-10-16) the chain is Spirals'
   // (Vines leave a trail instead), and Stars move twice every turn they go.
+  // Spirals chains on a capture only (2026-10-16): a hit a heart holds sends
+  // the hitter back and ends it, or two hearts cost no more than one move.
   const sr = n.day.rules.suitRabbits, chain = sr ? 'spirals' : 'vines';
-  if (p.suit === chain && took && pieceMoves(n, p, 'you').some(takesAny)) { n.bonus = { p: i, cap: true, why: chain }; return; }
+  if (p.suit === chain && (sr ? caught : took) && pieceMoves(n, p, 'you').some(takesAny)) { n.bonus = { p: i, cap: true, why: chain }; return; }
   // Stars in Adventure (2026-10-16, Timothy: "two moves, can still only
   // capture once"): if the first move took something, the second cannot.
   if (p.suit === 'stars' && (sr || !p.starUsed) && !wasBonus) { p.starUsed = true; n.bonus = { p: i, cap: false, why: 'stars', ...(sr && took ? { noCap: true } : {}) }; }
@@ -2856,7 +2877,7 @@ export function playerMove(s, mv) {
     settleRevivals(n);
     if (!m.swap && !m.hop) passGhosts(n, 'you', fx, fy, m.x, m.y, m.wrapped);
     flagHome(n);
-    const took = gone() > before || n.foes.reduce((t, f) => t + (f.lives || 1), 0) < lives;
+    const caught = gone() > before, took = caught || n.foes.reduce((t, f) => t + (f.lives || 1), 0) < lives;
     // Stone (Adventure): every move leaves a stone of itself on the square
     // it left, a sentry of yours for three turns (stonesAge).
     if (p.suit === 'stone' && n.stones && !crumbled(n, fx, fy) && (fx !== p.x || fy !== p.y) && !n.stones.some((t) => t.x === fx && t.y === fy))
@@ -2867,7 +2888,7 @@ export function playerMove(s, mv) {
       if (n.vines && takeVine(n, 'foe', p.x, p.y)) { p.vined = true; if (!capturePiece(n, p, -1)) delete p.vined; settleRevivals(n); }
       else if (p.suit === 'vines' && (fx !== p.x || fy !== p.y)) addTrail(n, 'you', fx, fy, p.x, p.y);
     }
-    openBonus(n, mv.p, took, was);
+    openBonus(n, mv.p, took, was, caught);
   }
   // The board cleared (goal 'clear'): the hole opens beside your piece, on
   // the way it was going.
@@ -3108,7 +3129,8 @@ function tacticsTurn(s) {
     possessedStep(s, f);
     const took = down() > was;
     if (sr && f.suit === 'stars' && !f.taken && !lost(s)) possessedStep(s, f, false, took);
-    for (let c = 0; sr && f.suit === 'spirals' && c < 16 && !f.taken && !lost(s) && (f.ate >= 0 || f.broke || f.wounded >= 0); c++) { delete f.broke; log.push({ what: 'chain', k }); possessedStep(s, f); }
+    // (On a capture only: a heart of yours that holds ends the chain.)
+    for (let c = 0; sr && f.suit === 'spirals' && c < 16 && !f.taken && !lost(s) && (f.ate >= 0 || f.broke); c++) { delete f.broke; log.push({ what: 'chain', k }); possessedStep(s, f); }
     trail(f, start);
   });
   if (lost(s)) return;
@@ -3118,18 +3140,18 @@ function tacticsTurn(s) {
   // rabbit minds' way, mindStep) and makes its move, unless pinned.
   s.foes.forEach((f, k) => {
     if (f.taken || f.brain !== 'sentient' || !free(k) || lost(s)) return;
-    const start = [f.x, f.y], was = down();
+    const start = [f.x, f.y], was = down(), fell = () => s.pieces.filter((p) => p.taken).length, fellWas = fell();
     f.mind = f.mind || { iq: 6, trait: 'hunter' };
     mindStep(s, f, k, 'foe');
-    let took = down() > was;
+    let took = down() > was, caught = fell() > fellWas;
     if (sr && f.suit === 'stars' && !f.taken && !lost(s)) mindStep(s, f, k, 'foe', false, took);
-    for (let c = 0; sr && f.suit === 'spirals' && took && c < 16 && !f.taken && !lost(s); c++) {
+    for (let c = 0; sr && f.suit === 'spirals' && caught && c < 16 && !f.taken && !lost(s); c++) {
       const m = bestTake(s, f, 'foe');
       if (!m) break;
-      const w = down();
+      const w = down(), fw = fell();
       foeLand(s, k, m);
       log.push({ what: 'chain', k });
-      took = down() > w;
+      took = down() > w; caught = fell() > fw;
     }
     acted.add(k);
     if (f.x !== start[0] || f.y !== start[1] || took) log.push({ what: 'think', k });
@@ -3160,6 +3182,8 @@ function tacticsTurn(s) {
       } else foeLand(s, k, m);
       acted.add(k);
       log.push({ what: 'sentry', k, on: i === 0 ? 'piece' : i > 0 ? 'ally' : 'stone', i });
+      // A heart that holds ends a sentry of spirals' strikes too.
+      if (sr && f.wounded >= 0) break;
     }
   });
   if (lost(s)) return;
@@ -3223,7 +3247,7 @@ export const alliesOf = (s) => s.pieces.filter((p, i) => i > 0 && p.ally && !p.t
     there and the next of your set comes on where it started. Mutates. */
 function deploy(n, log) {
   const p = n.pieces[0], from = n.turnFrom;
-  delete n.turnFrom;
+  n.turnFrom = null;
   if (!n.set || !p || p.taken || !p.rabbit || n.won || !from || (from[0] === p.x && from[1] === p.y)) return;
   const live = n.set.map((_, j) => j).filter((j) => j !== n.ci && !n.set[j].lost && n.set[j].out == null);
   if (!live.length) return;
@@ -3280,7 +3304,7 @@ function foeDanger(s) {
 
 /** Every piece of yours with a rabbit takes its turn. Mutates. */
 function alliesAct(s, log) {
-  const W = s.day.W, gone = () => s.foes.reduce((t, f) => t + (f.taken ? 9 : 0) - (f.lives || 1), 0);
+  const W = s.day.W, gone = () => s.foes.reduce((t, f) => t + (f.taken ? 9 : 0) - (f.lives || 1), 0), fell = () => s.foes.filter((f) => f.taken).length;
   for (let k = 1; k < s.pieces.length; k++) {
     const a = s.pieces[k];
     if (!a.ally || a.taken || s.won || lost(s)) continue;
@@ -3295,20 +3319,22 @@ function alliesAct(s, log) {
         if (!m) break;
         const f = s.foes.find((q) => !q.taken && q.x === m.x && q.y === m.y);
         a.struck = [m.x, m.y];
-        captureFoe(s, f, k);
+        const down = captureFoe(s, f, k);
         recast(s, a, 'a' + k);
         log.push({ what: 'ally', how: 'strike', i: k, k: s.foes.indexOf(f) });
+        // Spirals strikes on while it takes; a heart that holds ends it.
+        if (!down) break;
       }
     } else if (a.rabbit === 'robot' && a.pattern) {
       const steps = a.suit === 'stars' ? 2 : 1;
       let took = false;
       for (let c = 0; c < steps && !s.won && !a.taken; c++) {
-        const before = gone();
+        const before = gone(), fellBefore = fell();
         if (!allyStep(s, a, k, c > 0 && took)) break;
         if (gone() > before) took = true;
-        for (let r = 0; a.suit === 'spirals' && gone() > before && r < 16 && !s.won && !a.taken; r++) {
-          const b2 = gone();
-          if (!allyStep(s, a, k, false) || gone() <= b2) break;
+        for (let r = 0; a.suit === 'spirals' && fell() > fellBefore && r < 16 && !s.won && !a.taken; r++) {
+          const b2 = fell();
+          if (!allyStep(s, a, k, false) || fell() <= b2) break;
         }
       }
       if (a.x !== start[0] || a.y !== start[1] || gone() > was) log.push({ what: 'ally', how: 'walk', i: k });
@@ -3323,15 +3349,17 @@ function alliesAct(s, log) {
       }
     } else if (a.rabbit === 'sentient') {
       a.mind = a.mind || { iq: 8, trait: 'aggressive' };
+      const fellWas = fell();
       mindStep(s, a, k, 'you');
-      let took = gone() > was;
+      const took = gone() > was;
+      let caught = fell() > fellWas;
       if (a.suit === 'stars' && !a.taken && !s.won) mindStep(s, a, k, 'you', false, took);
-      for (let c = 0; a.suit === 'spirals' && took && c < 16 && !a.taken && !s.won; c++) {
+      for (let c = 0; a.suit === 'spirals' && caught && c < 16 && !a.taken && !s.won; c++) {
         const m = bestTake(s, a, 'you');
         if (!m) break;
-        const w = gone();
+        const w = fell();
         armsBefore(s, 'you', k, m); landMine(s, k, m.x, m.y, m); armsAfter(s, 'you', k, m);
-        took = gone() > w;
+        caught = fell() > w;
       }
       if (a.x !== start[0] || a.y !== start[1] || gone() > was) log.push({ what: 'ally', how: 'think', i: k });
     }

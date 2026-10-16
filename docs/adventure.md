@@ -400,12 +400,14 @@ yellow, spirals purple, gears copper. Stone is gone ("stones - removed").
 | Hearts | Two lives. Hit once, it stays where it is, its heart spent, and the piece that hit it goes back where it came from (a robot that bounced tries the same step again). A little heart floats over it while the heart is whole |
 | Vines | The vine trap as before: a trail where it moved; the other side's next move landing on it is caught |
 | Stars | Two moves a turn, but it takes at most once ("can still only capture once"): if the first took, the second cannot. Their robots walk two steps |
-| Spirals | Chain captures for as long as it can take ("perpetual"); a sentry of spirals strikes all in its reach |
+| Spirals | Chain captures for as long as it can take ("perpetual"); a sentry of spirals strikes all in its reach. On a capture only (since "Tuned to par again"): a hit that a heart holds sends the hitter back and ends the chain |
 | Gears | Trades squares with another piece, as its move. Yours: with any piece on the board, theirs too. Theirs: a scared one can run by trading with another of theirs out of your reach, and a sentient one may trade as its move |
 
-Their rabbits carry suits from depth 4, one suit at a time (hearts 4,
-vines 5, stars 6, spirals 8, gears 10), more of them deeper (30% at depth
-4 rising to 70%: `suitChance`). "Pieces without suits are gray."
+Their rabbits carry suits from depth 5, one suit at a time (vines 5,
+stars 6, spirals 8, gears 10), more of them deeper (45% at depth 5 rising
+to 70%: `suitChance`). Hearts is dealt by count instead, from depth 4 (see
+"Tuned to par again" below), on any of theirs, statues too. "Pieces
+without suits are gray."
 
 **Weapons** ("weapon/tool defines capture style").
 - Sword and lance: as they were.
@@ -423,6 +425,15 @@ vines 5, stars 6, spirals 8, gears 10), more of them deeper (30% at depth
 - Net ("nothing new but you are guaranteed to get the corresponding rabbit
   of the peice you capture"): it still nets the piece whole, and the rabbit
   inside, if any, is yours: after the card you put it in a piece.
+- **More than one way onto a square** (Timothy, 2026-10-16: "getting some
+  weird popup that asks to turn a pawn into something when i move the cat").
+  A shield gives two moves onto a piece of theirs (squash it, or push it);
+  gears gave two (squash it, or trade places). The page asks which, but the
+  box was written for a pawn promoting and said so. Now it says "Your cat
+  can go there more than one way" and names each move (Squash it, Push it,
+  Push it off, Swap places, Strike); the pawn's words are kept for a pawn.
+  And gears no longer offers a trade onto a piece it can take, since taking
+  it is the move anyone wants: no box at all there.
 
 **Three of a kind.** Pieces you take still count toward their kind, three
 to a piece (`takeTally`, `run.tally`). They were called rabbits; now that
@@ -552,6 +563,54 @@ use them too.
   theirs, whose best line is about nine moves; par keeps rising to 15, so
   from about depth 19 (par 11) boards come in well under it and eagles get
   easier. Bigger boards, or a lower top par, would close that; open.
+  (Mostly closed since: see the next.)
+- **Tuned to par again after the troupe, rabbits and suits** (Timothy,
+  2026-10-16: "make sure levels are tuned properly with par rules that i
+  set out now that we have all these changes"). His rules: par 5 at first,
+  one more every three depths up to 15; birdie one under, eagle two,
+  bogey one over; boards dealt so the solver's best line is two or three
+  under par, so an eagle is always there to find. The new pieces broke
+  that deep down: a gears cat, a shield, a spirals chain and pieces left
+  standing with rabbits clear a board in far fewer moves, and hearts (now
+  on either side) add moves the deal did not count. Four changes:
+  - *Spirals chains on a capture only.* A piece of spirals hitting a
+    piece of Hearts was sent back and then chained on, from where it
+    started, as if it had taken: it could hit every heart twice in one
+    counted move, so a board with more hearts came out *shorter* (one
+    deal: eight of theirs, seven of them Hearts, best line 2 moves against
+    par 14). Now a hit that a heart holds ends the chain, on every side
+    (your piece, your pieces with rabbits, theirs, their sentries), so a
+    heart costs a move, as two lives should. My call, from his rules:
+    hearts "stay where they are after being hit, and the piece that moved
+    to capture it then moves back", and the chain is a "chain capture".
+  - *Hearts by count.* A heart of theirs is one more hit, so the deal now
+    counts it as part of the best line: the hits it wants (best line less
+    one or two) are split between pieces and hearts, from depth 4
+    (`hearts` in `levelSettings`, "Of theirs, of Hearts" in the lab).
+  - *Press.* A board whose best line comes in shorter than asked is dealt
+    again with more to do (`press`: two more hits each time, one size up
+    at the second), up to three times; the longest found is kept. This is
+    the other half of `relax`, which deals fewer when nothing is won.
+  - *Faster solving*, so the extra deals fit: each piece's Betza moves
+    are worked out once per side, the squares two away once, a state is
+    copied field by field, and where the next of your set comes on after
+    a loss uses the lighter danger map (`foeDanger`). That last one is a
+    small rule change: a square only a statue, a scared one or a stunned
+    one could reach no longer counts as in their reach when picking it.
+
+  Measured in node, dealt as the page deals, three seeds a depth at
+  depths 1 to 10, 12, 14, 16, 18, 20, 24 and 28. With a plain hand (a cat
+  of hearts, a bishop with a sword, a knight, a rook, a painter): every
+  board two or three under par, none outside it (release 84: 48 of 51,
+  three 4 or 5 under). With a strong hand (a gears cat, a shield bishop
+  with a sentry rabbit, a spirals knight with a sword, a stars rook with a
+  robot rabbit): 44 of 51 two or three under; the other seven, all at
+  depth 14 or deeper, 4 or 5 under, since that set clears boards faster
+  than eight of theirs on a 7 x 7 can hold (release 84: 32 of 51, the
+  worst 10 under). A deal takes about a second in the middle, 10 to
+  15 at the slow end, about 23 at worst; in Chromium a strong set at
+  depth 13 and 14 took 17 to 19 seconds, the cost of dealing again. Open:
+  dealing faster, or a bigger board for strong sets deep down.
 
 | Depth | Par | Best line | Board | Theirs | Routes | Clouds |
 |---|---|---|---|---|---|---|
