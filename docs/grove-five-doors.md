@@ -72,7 +72,10 @@ it carries over.
 **Measured** (Chromium, the best-move button playing): three boards, 12
 moves, about a minute of moves and animation; a person reading the board
 takes the five minutes. Dealing 76 days took 11 minutes of node time
-(1 to 35 seconds a day), run three months side by side.
+(1 to 35 seconds a day), run three months side by side. Later the same
+day the days from 2026-10-18 on were dealt again under Adventure's new rules
+(shields that slide, smaller boards: `adventure.md`, "Shields that slide,
+small boards, fewer words"); the first day stays as it shipped.
 
 **Decided without him (mine, his to change):**
 

@@ -454,6 +454,7 @@ function shoves(s, p, side, ms, lv) {
   for (const m of ms) {
     if (!m.cap || m.swap || m.wrapped || !enemyOn(s, side, m.y * W + m.x)) continue;
     const [ux, uy] = DIR8[(((Math.round(Math.atan2(m.y - p.y, m.x - p.x) / (Math.PI / 4))) % 8) + 8) % 8];
+    if (s.day.rules.shieldSlide) { const sl = shieldSlides(s, p, side, m, ux, uy, lv); if (sl) out.push(sl); continue; }
     const row = [m.y * W + m.x];
     let x = m.x, y = m.y, push = null;
     for (let n = 0; n < 8; n++) {
@@ -467,6 +468,43 @@ function shoves(s, p, side, ms, lv) {
     if (push) out.push({ x: m.x, y: m.y, cap: false, push, shove: true });
   }
   return out;
+}
+
+/** A shield's push that slides (rules.shieldSlide, Adventure, 2026-10-17,
+    Timothy: "shields causes enemy pieces to slide perpetually like
+    sliders, not just move the space relative to the pusher ... if it hits
+    a piece both peices get stunned, if it hits the edge of the board it
+    falls off"). The piece p lands on, and up to lv in a row behind it, slide
+    on the way p moved (to the nearest of the eight directions) until
+    something stops them: off the edge (or onto fallen ground), the whole row
+    falls and is taken; into a piece, either side's, they stop against it and
+    the front one and the one it hit are stunned (`bump`); into anything else
+    (a raised gate, say), they stop and the front one is stunned. A row that
+    cannot move at all cannot be pushed. The move, or null. */
+function shieldSlides(s, p, side, m, ux, uy, lv) {
+  const { W, H } = s.day, own = side === 'you' ? s.pieces : s.foes;
+  const sqAt = (x, y) => { const [a, b] = fold(s.day, x, y); return { a, b, q: b * W + a, off: !onBoard(s.day, a, b) || crumbled(s, a, b) || shrunk(s, a, b) || waterAt(s, b * W + a) }; };
+  const pieceOn = (q) => !!enemyOn(s, side, q) || own.some((o) => o !== p && !o.taken && !o.flying && o.rides == null && o.type !== 'ball' && o.y * W + o.x === q);
+  const row = [m.y * W + m.x];
+  let x = m.x, y = m.y;
+  for (;;) {
+    const c = sqAt(x + ux, y + uy);
+    if (c.off || !enemyOn(s, side, c.q) || row.length >= lv) break;
+    row.push(c.q); x += ux; y += uy;
+  }
+  let k = 0, falls = false, hit = null;
+  for (let n = 0; n < W * H; n++) {
+    const c = sqAt(x + ux * (k + 1), y + uy * (k + 1));
+    if (c.off) { falls = true; break; }
+    if (pieceOn(c.q) || statueAt(s, c.q)) { hit = c.q; break; }
+    if (look(s, c.a, c.b, side) !== EMPTY || ghostAt(s, c.q) || flagFree(s, c.q) || (s.hole && s.hole.x === c.a && s.hole.y === c.b)) { hit = -1; break; }
+    k++;
+  }
+  if (!falls && !k) return null;
+  const on = (q, d) => sqAt((q % W) + ux * d, ((q / W) | 0) + uy * d).q;
+  const push = row.map((f) => ({ from: f, to: falls ? -1 : on(f, k) }));
+  const bump = falls ? [] : [on(row[row.length - 1], k), ...(hit >= 0 && hit !== null ? [hit] : [])];
+  return { x: m.x, y: m.y, cap: false, push, shove: true, slid: falls ? -1 : k, dir: [ux, uy], ...(bump.length ? { bump } : {}) };
 }
 
 /** What a weapon does before its piece lands: a lance takes what it passed
@@ -486,6 +524,9 @@ function armsBefore(n, side, i, m) {
       list.forEach((r) => { if (!r.taken && r.rides === j) { r.x = tx; r.y = ty; } });
       if (who !== side && !m.shove) q.stun = true;
     }
+    // A shield's slide that hit something: the front piece and what it hit
+    // are stunned, whichever side each is on.
+    for (const sq of m.bump || []) for (const r of [...n.pieces, ...n.foes]) if (!r.taken && !r.flying && r.rides == null && r.type !== 'ball' && r.y * W + r.x === sq) r.stun = true;
   }
   return took;
 }

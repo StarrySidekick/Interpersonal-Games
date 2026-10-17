@@ -12,7 +12,18 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
-## 2026-10-17, newest: five doors, and a daily of three Adventure boards
+## 2026-10-17, newest: shields that slide, small boards, fewer words
+
+From Timothy, and built: a shield's push slides until it hits something
+(both stunned) or goes off the edge (it falls, animated); the long mode
+descriptions gone; robots show only their next square, no arrows; boards
+from 3x3; early boards a smudge harder; the card screen fits a phone. The
+capture rule he asked about was already so. The daily's days from
+2026-10-18 were dealt again under the new rules. In
+[`docs/adventure.md`](docs/adventure.md), "Shields that slide, small
+boards, fewer words".
+
+## 2026-10-17: five doors, and a daily of three Adventure boards
 
 From Timothy: a general pass of the chess, centred on Adventure; the daily
 as "a 5 minute or less version of adventure you can play and share"; and

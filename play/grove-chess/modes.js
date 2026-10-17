@@ -150,7 +150,7 @@ export function cleanMode(raw = {}) {
 
 export const MODES = {
   daily: {
-    name: 'The daily', blurb: 'One board a day, the same for everyone: easy to win in a lot of moves, hard to win in a few.',
+    name: 'The daily', blurb: 'Practice boards like the first daily\'s.',
     settings: { run: 'single', roll: 'daily', difficulty: 'normal', aim: 4, minEngage: 50, goal: 'all', royal: false, showdown: false, maxMoves: 20 }
   },
   descent: {
@@ -169,7 +169,7 @@ export const MODES = {
     // from one to another every three turns, whose piece is the one to take;
     // pawns that become a copy of another of yours; and a draft of suits and
     // weapons only.
-    name: 'The descent', blurb: 'Rook, bishop, King, knight and rook each, a full row on a five by six board, with a row of pawns in front; theirs stand opposite, each facing its twin, as in chess. A pawn may step two squares on its first move, and take en passant. A rabbit rides their pieces; moving it to another of their pieces costs them their turn. Take the piece it is on to fall to the next board, where you choose a suit or a weapon, one of two, and they get one too. A pawn that reaches the far row becomes a copy of another of yours. From depth 6 the board is seven by seven. If they take your King the descent is over.',
+    name: 'The descent', blurb: 'Full armies on a small board. Take the piece the rabbit rides to fall to the next board, and choose an upgrade.',
     settings: {
       run: 'descent', roll: 'fixed', startPieces: 5, maxPieces: 8, startPool: ['rook', 'bishop', 'king', 'knight', 'rook'], pawnRow: true, foeLine: 'mirror', rewards: true, jokers: false, ramp: 'steady', outOfMoves: 'fall', upgrades: 'each', growAt: 6, carry: false,
       goal: 'carrier', rabbitMove: 'choose', rabbitHop: 3, rabbitSides: 'theirs', promote: 'copy', royal: true, showdown: true, w: 5, h: 6, foes: 4, foePool: ['knight', 'bishop', 'rook'], darkBrain: 'think', skill: '1', style: 'balanced', rabbitMind: 'mind', iq: 3, kinds: 1,
@@ -193,16 +193,16 @@ export const MODES = {
     // set; every possessed piece moving each turn on a short route; more
     // than five pieces, five drawn at random each board; and new pieces
     // only from capturing, three rabbits of a kind making that piece.
-    name: 'Adventure', blurb: 'Start with your cat, which steps like a king. Take every piece of theirs in as few moves as you can, and jump into the hole that opens. Grey statues stand still; a piece with a rabbit inside moves by itself (a robot walks a loop, a sentry strikes, a scared one runs, a simple one goes along a line, a trap strikes and stays, a sentient one thinks), and a rabbit may carry a suit. Take three of a kind and that piece joins your set, up to sixteen. Each turn you choose which of your set you are, each taking its turn before any goes again: it moves and turns into the next, and stays standing there when that one moves on; when the whole set has played they come off and a new round starts. Lose one and the next comes on in its place, and it is back next board; lose the whole set on one board and it is over. Beat par for a choice of suits and weapons, and now and then a rabbit of your own.',
+    name: 'Adventure', blurb: 'Start with your cat. Take every piece, jump down the hole, and see how deep you go.',
     settings: {
       run: 'descent', roll: 'fixed', upgrades: 'par', startPieces: 1, maxPieces: 4, startPool: ['cat'], rewards: true, jokers: false, carry: false, keepsakes: false, outOfMoves: 'fall', fairyFrom: 4, ramp: 'steady',
-      goal: 'clear', captureN: 0, royal: false, showdown: false, promote: 'none', fullRow: false, lineup: false, inOrder: false, mineRows: 1, foeRows: 4, arrange: false, cloud: false, ghosts: false, cycle: true, swordAims: true, squash: true, suitRabbits: true, tactics: true, wait: true,
+      goal: 'clear', captureN: 0, royal: false, showdown: false, promote: 'none', fullRow: false, lineup: false, inOrder: false, mineRows: 1, foeRows: 4, arrange: false, cloud: false, ghosts: false, cycle: true, swordAims: true, shieldSlide: true, squash: true, suitRabbits: true, tactics: true, wait: true,
       w: 5, h: 5, foes: 3, still: 2, foePool: ['knight', 'bishop', 'rook', 'king'], darkBrain: 'possessed', patterns: 'routes', routeKinds: ['Shuttle'], oneMove: false, kinds: 1, skill: '1', style: 'balanced', rabbitMind: 'pattern', rabbits: 0,
       foesCapture: true, statues: 0, clouds: 0, maxMoves: 40, parMin: 1, parMax: 12, difficulty: 'any', balance: 'off', minEngage: 0, minCeiling: 0
     }
   },
   kungfu: {
-    name: 'Kung fu descent', blurb: 'The descent with no turns, after Kung-Fu Chess. Move any piece whenever it is ready, and so do they; moves take time to travel, and a piece that moved must rest. Take their King to fall to the next level.',
+    name: 'Kung fu descent', blurb: 'The descent with no turns: move any piece whenever it is ready, and so do they.',
     settings: {
       run: 'descent', roll: 'fixed', realtime: true, startPieces: 6, maxPieces: 8, rewards: true, jokers: true, ramp: 'steady', outOfMoves: 'fall',
       goal: 'king', royal: true, showdown: false, cloud: false, w: 6, h: 6, foes: 2, foePool: ['king', 'pawn', 'knight', 'bishop'], darkBrain: 'possessed', rabbitMind: 'mind', iq: 3, kinds: 1,
@@ -210,11 +210,11 @@ export const MODES = {
     }
   },
   chaos: {
-    name: 'Chaos', blurb: 'A single level from a completely random mix of every rule and setting. It is always winnable and balanced, and as hard as you ask.',
+    name: 'Chaos', blurb: 'One random level, always winnable, as hard as you ask.',
     settings: { run: 'single', roll: 'chaos', difficulty: 'normal', fullRow: false }
   },
   golf: {
-    name: 'Golf', blurb: 'A course of holes. Your sliders are the clubs: move one into the ball and it slides on the same way until something stops it. Sink it at par or better to play the next hole; over par, play the hole again.',
+    name: 'Golf', blurb: 'Your sliders are the clubs. Sink the ball at par or better.',
     settings: {
       run: 'course', roll: 'fixed', courseName: 'meadow', courseHoles: 9, goal: 'hole', royal: false, showdown: false, fullRow: false, cloud: false, foes: 0, rabbits: 0, rabbitsEat: false, rabbitMind: 'mind', traits: ['messy', 'shy', 'guard'], iq: 4,
       mine: 3, minePool: GOLF_POOL, statues: 2, statuesTake: false, ballCaptures: false, ballMove: 'hit', holeMoves: 'still',
@@ -222,14 +222,14 @@ export const MODES = {
     }
   },
   variants: {
-    name: 'Chess variants', blurb: 'Real chess variants, small and strange, from their own starting positions, against a side that thinks. Pick one below.',
+    name: 'Chess variants', blurb: 'Real chess variants, small and strange, against a side that thinks. Pick one below.',
     settings: { run: 'single', roll: 'fixed', variant: 'gardner', darkBrain: 'think', skill: '2', style: 'balanced', maxMoves: 0, showReach: true, solve: false }
   },
   trials: {
     // A layout found in the piece trials (trials/), played against a side
     // that thinks. The position comes with the link; on its own this mode
     // plays the descent's lineup on an open five by six board.
-    name: 'Piece trials', blurb: 'A layout from the piece trials: the same army on each side, theirs thinking. Take their King and keep yours.',
+    name: 'Piece trials', blurb: 'A layout from the piece trials. Take their King and keep yours.',
     settings: { run: 'single', roll: 'fixed', position: '[shortrook]nkb[tallrook]/5/5/5/5/[Tallrook]BKN[Shortrook]', darkBrain: 'think', skill: '2', style: 'balanced', maxMoves: 0, showReach: true, solve: false, cloud: false, showdown: false }
   },
   tiles: {
@@ -240,7 +240,7 @@ export const MODES = {
     // (destroyable) statues, and a rule that gives every piece at the
     // beginning of the round invincibility until it moves for the first time
     // in the round ... also no rabbit here for now."
-    name: 'Tile Chess', blurb: 'The descent\u2019s two lines, rook, bishop, King, knight and rook with a row of pawns in front, facing each other on a five by six board, with four statues in the middle that either side can break. Every piece starts each round in a bubble, and nothing can take it until it moves. Take their King to win the round. Then each of you turns over a tile at the edge of the board, the winner first: the board grows by that square, and the suit or weapon on it is yours. When the board is as big as the next size up, each side gets the same new piece. If they take your King, the run is over.',
+    name: 'Tile Chess', blurb: 'Win a round, turn over a tile: the board grows, and the upgrade on it is yours.',
     settings: {
       run: 'descent', roll: 'fixed', startPieces: 5, maxPieces: 8, startPool: ['rook', 'bishop', 'king', 'knight', 'rook'], pawnRow: true, foeLine: 'mirror', rewards: true, jokers: false, ramp: 'steady', outOfMoves: 'fall', upgrades: 'tiles', growAt: 0, carry: false,
       goal: 'king', promote: 'copy', royal: true, showdown: false, w: 5, h: 6, foes: 4, foePool: ['knight', 'bishop', 'rook'], darkBrain: 'think', skill: '1', style: 'balanced', rabbitMind: 'mind', iq: 3, kinds: 1,
@@ -255,11 +255,11 @@ export const MODES = {
     // 2026-10-14: "i want codified mode selector for capture the flag").
     // Both sides the same, as in chess without a King: the rabbit is the
     // whole game.
-    name: 'Capture the rabbit', blurb: 'Capture the flag, with a rabbit for the flag. It sits in the middle of a seven by seven board. Take it, and the piece that took it carries it on its head; bring that piece back to your first row to win. If they take the piece carrying it, the rabbit is theirs, and they win by carrying it to their first row. Both sides line up the same, rooks, knights, bishops and a queen behind a row of pawns, and theirs think two moves ahead. There are no Kings.',
+    name: 'Capture the rabbit', blurb: 'Capture the rabbit and carry it home to your first row.',
     settings: { run: 'single', roll: 'fixed', goal: 'flag', royal: false, position: 'rnbqbnr/ppppppp/7/7/7/PPPPPPP/RNBQBNR', w: 7, h: 7, darkBrain: 'think', skill: '2', style: 'balanced', maxMoves: 40, showReach: true, solve: false, cloud: false, showdown: false }
   },
   autochess: {
-    name: 'Autochess', blurb: 'Put rabbits in your pieces and let them fight. Win rounds to grow your side; lose three and it is over.',
+    name: 'Autochess', blurb: 'Put rabbits in your pieces and let them fight. Lose three rounds and it is over.',
     settings: {
       run: 'rounds', roll: 'fixed', mode: 'auto', autoPool: 'all', oneMove: false, fullRow: false, cloud: false, lives: 3, startPieces: 3, maxPieces: 6, rewards: true, shop: true, jokers: false,
       goal: 'all', royal: false, showdown: false, foes: 2, foePool: ['king', 'knight', 'bishop', 'wazir'], darkBrain: 'possessed', rabbitMind: 'mind', iq: 4, kinds: 2,
@@ -273,11 +273,14 @@ export const MODES = {
 // Adventure's rules, on three stored boards a day (daily5.js). Its boards
 // are made ahead of time, so these settings only set how it plays.
 MODES.today = {
-  name: 'The daily', blurb: 'Three boards of Adventure a day, the same for everyone. Take every piece in as few moves as you can, scored like golf, and share your card.',
+  name: 'The daily', blurb: 'Three boards of Adventure, the same for everyone today. Share your card.',
   settings: { ...MODES.adventure.settings }
 };
 // The first daily's practice boards keep their own name (its id stays, for links).
 MODES.daily.name = 'The rabbit: practice';
+// (Every blurb a sentence or two since 2026-10-17, Timothy: "the super long
+// descriptions for the modes need to go". The eight parts, folded away on
+// each title screen, still say everything.)
 
 // Timothy's changes to the presets, from config.js (the settings console).
 for (const [id, over] of Object.entries(CONFIG.modes || {})) if (MODES[id] && over) Object.assign(MODES[id].settings, over);
@@ -633,7 +636,10 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
     // first board and more deeper, with longer routes as you go: there and
     // back first, then with rests, then round a square, then two there.
     const d = depth;
-    const size = Math.min(7, (d <= 2 ? 5 : d <= 7 ? pick([5, 6, 6]) : pick([6, 6, 7])) + (press >= 2 ? 1 : 0));
+    // Small boards first (Timothy, 2026-10-17: "boards can start smaller
+    // that 5x5, down to 3x3"): three or four squares a side at first,
+    // growing to seven deep down.
+    const size = Math.min(7, (d === 1 ? pick([3, 4]) : d === 2 ? pick([3, 4, 4]) : d <= 4 ? pick([4, 4, 5]) : d <= 7 ? pick([4, 5, 6, 6]) : pick([5, 6, 6, 7])) + (press >= 2 ? 1 : 0));
     // Par is set by depth (Timothy, 2026-10-15: "par should be 5 moves to
     // start ... every three levels the par goes up one (5,6,7,8) up to 15"),
     // and every board is dealt so its best line is two under par (an eagle)
@@ -652,7 +658,10 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
     // Their pieces are those hits less some of Hearts, for variety from
     // depth 4; past eight pieces (the most the solver can vet in time) the
     // rest of the hits are hearts, so deep boards fill their par.
-    const hits = Math.max(2, best - 1 - int(0, 1) - relax + 2 * press);
+    // (One more hit down to depth 6 since 2026-10-17, Timothy: "early levels
+    // should still be a smudge harder": three of theirs on the first boards,
+    // not two.)
+    const hits = Math.max(2, best - (d <= 6 ? 0 : 1) - int(0, 1) - relax + 2 * press);
     const variety = d < 4 ? 0 : int(0, d < 10 ? 1 : 2);
     const theirs = Math.max(2, Math.min(8, size + 1, hits - variety));
     const hearts = d < 4 ? 0 : Math.max(0, Math.min(theirs, hits - theirs));
@@ -662,7 +671,7 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
       ground: d < 6 ? 'solid' : pick(['solid', 'solid', 'solid', 'crumble']),
       foes: theirs, still: Math.max(1, theirs - movers), foeRows: size - 1, mineRows: 1, lineup: false, fullRow: false,
       // Loops that never rest (2026-10-16): no Doze.
-      routeKinds: d <= 3 ? ['Shuttle'] : d <= 5 ? ['Shuttle', 'Box step'] : ['Shuttle', 'Box step', 'Pace'],
+      routeKinds: d <= 2 ? ['Shuttle'] : d <= 5 ? ['Shuttle', 'Box step'] : ['Shuttle', 'Box step', 'Pace'],
       // No pawns (Timothy, 2026-10-15: "pawns kind of can't be a thing in
       // this mode due to them moving in one direction"): none of theirs, so
       // no pawn rabbits, so never a pawn in your set.
@@ -696,7 +705,9 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
       crown: false,
       statues: 0, maxMoves: 40, aim: 0
     });
-    S.parMax = best; S.parMin = Math.max(1, best - 1);
+    // The first three boards take the whole best line asked (three moves),
+    // never two (2026-10-17).
+    S.parMax = best; S.parMin = d <= 3 ? best : Math.max(1, best - 1);
     // Sentries and scared ones are made from their statues: keep enough
     // statues for both (taking walkers if need be, never the last), so a
     // hearts rabbit is not crowded out by the sentries.

@@ -60,7 +60,7 @@ export const SUIT_KINDS = Object.keys(SUITS);
     (`mine`). */
 export const RABBITS = {
   robot: { name: 'Robot', colour: '#ef8d32', word: 'tangerine',
-    desc: 'Walks a short loop of its piece\u2019s own moves, a step every turn. Its whole loop is drawn on the board, its next square framed: stand there and it takes you.',
+    desc: 'Walks a short loop of its piece\u2019s own moves, a step every turn. Its next square is framed in its colour: stand there and it takes you.',
     mine: 'Walks there and back by itself along its shortest move toward the nearest of theirs, taking what it steps onto.' },
   sentry: { name: 'Sentry', colour: '#d94a3d', word: 'red',
     desc: 'Never walks, but takes anything of yours standing in its reach (ringed red) when their turn ends, striking from where it stands.',
@@ -102,7 +102,9 @@ export const WEAPONS = {
   // still squash. just the push. if the piece is pushed off the board it is
   // captured"; 2026-10-17: "always push, no squashing anymore").
   shield: { name: 'Shield', mark: '⛨', colour: '#8fa6bd', adventure: true,
-    desc: (lv) => `It never squashes: moving onto a piece of theirs, it pushes it one square on, the way it moved, and takes its square.${lv > 1 ? ` Up to ${['', '', 'two', 'three'][lv]} pieces in a row go together.` : ''} A piece pushed off the board is taken; one with nowhere to go cannot be moved onto.` },
+    desc: (lv) => `It never squashes: moving onto a piece of theirs, it pushes it one square on, the way it moved, and takes its square.${lv > 1 ? ` Up to ${['', '', 'two', 'three'][lv]} pieces in a row go together.` : ''} A piece pushed off the board is taken; one with nowhere to go cannot be moved onto.`,
+    // 2026-10-17 (Timothy): what it pushes slides on until it hits something.
+    advDesc: (lv) => `It never squashes: moving onto a piece of theirs, it pushes it, and the piece slides on the way it was pushed until something stops it.${lv > 1 ? ` Up to ${['', '', 'two', 'three'][lv]} pieces in a row slide together.` : ''} Into another piece: both are stunned. Off the edge: it falls and is taken. One that cannot move at all cannot be pushed.` },
   // Adventure only (Timothy, 2026-10-15: "new weapon/tool: net (like a bug
   // net) using it captures the piece you capture, and you just get it
   // without having to collect 3 of them"). Once a board per level, so a

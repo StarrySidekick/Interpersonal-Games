@@ -911,7 +911,7 @@ export class Board3D extends Board {
     // goes next, in its colour, that square framed.
     const simple = (q, side) => {
       const nx = !q.taken && simpleNext(last, q, side);
-      if (nx) this.route(g, { x: q.x, y: q.y, pattern: [[nx.m.x - q.x, nx.m.y - q.y]], i: 0 }, this.fur(q) || TRACK[0], line, inSq);
+      if (nx) this.route(g, { x: q.x, y: q.y, pattern: [[nx.m.x - q.x, nx.m.y - q.y]], i: 0 }, this.fur(q) || TRACK[0], line, inSq, true);
     };
     last.foes.forEach((f) => { if (f.brain === 'simple') simple(f, 'foe'); });
     last.pieces.forEach((p) => { if (p.ally && p.rabbit === 'simple') simple(p, 'you'); });
@@ -924,22 +924,16 @@ export class Board3D extends Board {
     }
   }
 
-  /** A route (Adventure, 2026-10-15): all of it, from where the piece
-      stands round to where it ends up again, with a dot on each stop and
-      an arrow on each leg; and its next step, bolder, to a frame on the
-      square it moves to next turn. A rest
-      next: a dashed frame on its own square. The colour is its rabbit's. */
-  route(g, f, col, line, inSq) {
-    const L = f.pattern.length, pts = [[f.x, f.y]];
-    let x = f.x, y = f.y;
-    for (let j = 0; j < L; j++) {
-      const [dx, dy] = f.pattern[(f.i + j) % L];
-      if (dx || dy) { x += dx; y += dy; pts.push([x, y]); }
-    }
-    // Square by square, with right-angle turns, not as the crow flies
-    // (Timothy, 2026-10-15): a step along a row or file goes straight; a
-    // diagonal goes as a staircase; a leap goes along its long side, then
-    // turns for its short side, the way a knight's L is drawn.
+  /** Where a walker goes next (Adventure): its next square framed in its
+      rabbit's colour, and nothing else. (Timothy, 2026-10-17: "take away
+      the arrows describing where robot peices will go, just keep the color
+      coded cell highlight". The whole loop, with an arrow on each leg and a
+      dot on each stop, was drawn from 2026-10-15.) `path`: a simple
+      rabbit's line to that square, bold, since anywhere on it is in its
+      way. A rest is a dashed frame on its own square. */
+  route(g, f, col, line, inSq, path = false) {
+    const L = f.pattern.length;
+    // Square by square, with right-angle turns: a diagonal as a staircase.
     const elbow = ([ax, ay], [bx, by]) => {
       const dx = bx - ax, dy = by - ay, sx = Math.sign(dx), sy = Math.sign(dy), out = [[ax, ay]];
       let x = ax, y = ay;
@@ -949,25 +943,8 @@ export class Board3D extends Board {
       out.push([bx, by]);
       return out.map(([x, y]) => this.mid(x, y));
     };
-    // The whole loop, plain to see (Timothy, 2026-10-15: "you see robot
-    // rabbits full move loop on the board"): a steady line in its rabbit's
-    // colour, an arrow on each leg the way it goes, a dot on every stop.
-    const arrow = (seg) => {
-      const lens = seg.slice(1).map((q, i) => Math.hypot(q[0] - seg[i][0], q[1] - seg[i][1]));
-      let half = lens.reduce((a, b) => a + b, 0) / 2, i = 0;
-      while (i < lens.length - 1 && half > lens[i]) { half -= lens[i]; i++; }
-      const [ax, ay] = seg[i], [bx, by] = seg[i + 1], d = lens[i] || 1, ux = (bx - ax) / d, uy = (by - ay) / d;
-      const mx = ax + ux * half, my = ay + uy * half, k = this.scale * 1.5;
-      line([[mx - ux * k + uy * k * 0.8, my - uy * k - ux * k * 0.8], [mx + ux * k * 0.4, my + uy * k * 0.4], [mx - ux * k - uy * k * 0.8, my - uy * k + ux * k * 0.8]], rgba(col, 0.95), 1.8);
-    };
-    for (let j = 1; j < pts.length; j++) { const seg = elbow(pts[j - 1], pts[j]); line(seg, rgba(col, 0.62), 1.7); arrow(seg); }
-    for (const [sx, sy] of pts.slice(1, -1)) {
-      const [px, py] = this.mid(sx, sy);
-      g.beginPath(); g.arc(px, py, this.scale * 1.1, 0, Math.PI * 2);
-      g.fillStyle = col; g.fill(); g.lineWidth = 1; g.strokeStyle = 'rgba(247,240,218,.9)'; g.stroke();
-    }
     const [dx, dy] = f.pattern[f.i % L], tx = f.x + dx, ty = f.y + dy;
-    if (dx || dy) line(elbow([f.x, f.y], [tx, ty]), rgba(col, 0.95), 2.6);
+    if (path && (dx || dy)) line(elbow([f.x, f.y], [tx, ty]), rgba(col, 0.95), 2.6);
     // Its next square is framed in its loop's colour (Timothy, 2026-10-16:
     // "the highlighted square where a gear rabbit piece will go next should
     // be the color of the line that shows its path, not red"), with a dark
@@ -979,7 +956,7 @@ export class Board3D extends Board {
     };
     frame(tx, ty, !(dx || dy));
     // A stars rabbit walks two steps a turn: the second bold, and framed, too.
-    if (this.day.rules.suitRabbits && f.suit === 'stars') { const [ex, ey] = f.pattern[(f.i + 1) % L]; if (ex || ey) { line(elbow([tx, ty], [tx + ex, ty + ey]), rgba(col, 0.95), 2.6); frame(tx + ex, ty + ey); } }
+    if (this.day.rules.suitRabbits && f.suit === 'stars') { const [ex, ey] = f.pattern[(f.i + 1) % L]; if (ex || ey) { if (path) line(elbow([tx, ty], [tx + ex, ty + ey]), rgba(col, 0.95), 2.6); frame(tx + ex, ty + ey); } }
   }
 
   /** The lines of finished games, one colour per player. */
@@ -1176,6 +1153,7 @@ export class Board3D extends Board {
     // its move into the cloud (2026-10-13).
     const HID = hiddenFrom(s, 'you'), foeAt = [];
     s.foes.forEach((f, k) => {
+      if (tw?.falls?.some((fl) => fl.k === k)) return; // sliding off the edge: drawn below
       if (f.taken && !(tw?.caught?.has(k) && at < tw.caughtAt)) return;
       if (HID.has(k) && !f.taken) return;
       let x = f.x, y = f.y, h = 0;
@@ -1244,6 +1222,22 @@ export class Board3D extends Board {
       }
       const mdl = tb.possessed ? model('rabbit', 'foe', tb.fur) : (tb.grey ? model(tb.kind, 'grey') : model(tb.kind, tb.look || 'foe', tb.fur));
       stand(mdl, tb.x, tb.y, h, 600, { rz: rot, ry: rot * 0.6, s: Math.max(0.02, sc) });
+    }
+    // Pushed off the board by a shield (2026-10-17): it slides to the edge,
+    // tips over it and drops away, tumbling, out of sight.
+    for (const fl of tw?.falls || []) {
+      const e = at - fl.t0;
+      if (e > fl.slide + fl.drop) continue;
+      const [dx, dy] = fl.dir, edge = fl.d - 0.5;
+      let x = fl.from[0], y = fl.from[1], h = 0, o = {};
+      if (e > 0 && e <= fl.slide) { const k = e / fl.slide; x += dx * edge * k; y += dy * edge * k; }
+      else if (e > fl.slide) {
+        const k = (e - fl.slide) / fl.drop;
+        x += dx * (edge + 0.45 * k); y += dy * (edge + 0.45 * k); h = -k * k * 46;
+        o = { rz: k * 1.4 * (dx || 1), rx: k * 0.9 * (dy || 0), s: Math.max(0.05, 1 - 0.35 * k) };
+      }
+      stand(model(fl.kind, fl.look, null, fl.fur), x, y, h, 200 + fl.k, o);
+      this.settleSoon();
     }
     // The opening's possession: a rabbit of each piece's colour hops in out of
     // the fog and dives into it.

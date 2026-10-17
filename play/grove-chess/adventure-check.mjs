@@ -21,6 +21,9 @@ import { rng } from '../../engine/seed.js';
 let fails = 0;
 const ok = (c, msg) => { if (!c) { fails++; console.log('FAIL', msg); } };
 const M = modeDefaults('adventure');
+// Hand-built positions below are laid out on five by five; Adventure deals
+// smaller boards than that at first since 2026-10-17, so they ask for it.
+const FIVE = { w: 5, h: 5, foeRows: 4 };
 const deal = (d, hand, sd, more = {}) => {
   const run = newRun(hand, 5, null); run.depth = d;
   return makeLevel({ ...levelSettings(M, { depth: d, hand: handSettings(run) }, rng(`deal:${d}:${sd}`)), ...more }, sd);
@@ -134,7 +137,9 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
 {
   const run = newRun(['rook', 'knight', 'bishop'], 3, null); run.depth = 2;
   run.hand[1].suit = 'hearts'; run.hand[1].lives = 2;
-  const lv = makeLevel(levelSettings(M, { depth: 2, hand: handSettings(run) }, rng('cycle')), 31);
+  // (Five by five, so the moves below have room: depth 2 deals three or
+  // four squares a side since 2026-10-17.)
+  const lv = makeLevel({ ...levelSettings(M, { depth: 2, hand: handSettings(run) }, rng('cycle')), w: 5, h: 5, foeRows: 4 }, 31);
   let c = R.initialState(lv);
   ok(lv.pieces.length === 1 && lv.cycle?.length === 3, 'one piece on the board, three in the set');
   ok(R.initialState(lv).set[1].suit === 'hearts', 'each piece of the set keeps its suit while it waits');
@@ -172,7 +177,7 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
 // Suits (2026-10-16): the same on either side. Boards set out by hand on
 // Adventure's rules: a 5 x 5 board, your piece, their pieces.
 {
-  const base = { ...deal(1, ['rook'], 4242), W: 5, H: 5, holes: new Set() };
+  const base = { ...deal(1, ['rook'], 4242, FIVE), W: 5, H: 5, holes: new Set() };
   ok(base.rules.suitRabbits, 'Adventure has its rabbits and suits');
   const board = (mine, foes, set = null) => R.initialState({ ...base, pieces: [{ ...mine }], cycle: set || undefined, hole: null, stumps: new Set(),
     foes: foes.map((f) => ({ target: true, mx: 1, my: 1, ...f })), rules: { ...base.rules } });
@@ -267,7 +272,7 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
 
 // The mace stuns round where it lands, and the stun holds (2026-10-16).
 {
-  const base = { ...deal(1, ['rook'], 4243), W: 5, H: 5, holes: new Set() };
+  const base = { ...deal(1, ['rook'], 4243, FIVE), W: 5, H: 5, holes: new Set() };
   const board = (mine, foes) => R.initialState({ ...base, pieces: [{ ...mine }], cycle: undefined, hole: null, stumps: new Set(), foes: foes.map((f) => ({ target: true, mx: 1, my: 1, ...f })), rules: { ...base.rules } });
   let s = board({ type: 'rook', x: 0, y: 0, weapon: 'mace', wl: 2 }, [{ type: 'knight', x: 1, y: 2, brain: 'possessed', route: true, pattern: [[1, 2], [-1, -2]], patternName: 'Shuttle' }, { type: 'pawn', x: 4, y: 4, brain: 'still' }]);
   const m = R.movesFor(s, 0).find((q) => q.x === 0 && q.y === 2);
@@ -279,10 +284,12 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
   ok(n2.foes[0].x === 2 && n2.foes[0].y === 4, 'and walks again the turn after');
 }
 
-// The shield pushes (2026-10-16); off the board, a piece is taken.
+// The shield pushes (2026-10-16); off the board, a piece is taken. (One
+// square on, as it was until the slide below: the rule the daily's first
+// day, 2026-10-17, still plays.)
 {
-  const base = { ...deal(1, ['rook'], 4244), W: 5, H: 5, holes: new Set() };
-  const board = (mine, foes) => R.initialState({ ...base, pieces: [{ ...mine }], cycle: undefined, hole: null, stumps: new Set(), foes: foes.map((f) => ({ target: true, mx: 1, my: 1, ...f })), rules: { ...base.rules } });
+  const base = { ...deal(1, ['rook'], 4244, FIVE), W: 5, H: 5, holes: new Set() };
+  const board = (mine, foes) => R.initialState({ ...base, pieces: [{ ...mine }], cycle: undefined, hole: null, stumps: new Set(), foes: foes.map((f) => ({ target: true, mx: 1, my: 1, ...f })), rules: { ...base.rules, shieldSlide: false } });
   let s = board({ type: 'rook', x: 0, y: 0, weapon: 'shield', wl: 1 }, [{ type: 'knight', x: 0, y: 2, brain: 'still' }, { type: 'bishop', x: 3, y: 0, brain: 'still' }, { type: 'pawn', x: 4, y: 4, brain: 'still' }]);
   const W = base.W, ms = R.movesFor(s, 0);
   // (2026-10-17, Timothy: "for pieces with the shield weapon, always push,
@@ -298,10 +305,36 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
   ok(!WEAPON_ORDER.includes('shield') && R.canArm('knight', 'shield'), 'the shield is Adventure’s own, and any piece can carry one');
 }
 
+// A shield's push slides (2026-10-17, Timothy: "shields causes enemy pieces
+// to slide perpetually like sliders ... if it hits a piece both peices get
+// stunned, if it hits the edge of the board it falls off").
+{
+  const base = { ...deal(1, ['rook'], 4244, FIVE), W: 5, H: 5, holes: new Set() };
+  ok(base.rules.shieldSlide, 'Adventure slides what a shield pushes');
+  const board = (mine, foes) => R.initialState({ ...base, pieces: mine.map((p) => ({ ...p })), cycle: undefined, hole: null, stumps: new Set(), foes: foes.map((f) => ({ target: true, mx: 1, my: 1, ...f })), rules: { ...base.rules } });
+  const W = base.W, rook = { type: 'rook', x: 0, y: 0, weapon: 'shield', wl: 1 };
+  let s = board([rook], [{ type: 'knight', x: 0, y: 1, brain: 'still' }, { type: 'bishop', x: 0, y: 4, brain: 'still' }]);
+  let push = R.movesFor(s, 0).find((q) => q.push && q.x === 0 && q.y === 1);
+  ok(push && push.push[0].to === 3 * W && push.bump?.includes(3 * W) && push.bump.includes(4 * W), 'a pushed piece slides on until it meets a piece');
+  let n = R.playerMove(s, { p: 0, ...push });
+  ok(n.pieces[0].y === 1 && n.foes[0].y === 3 && n.foes[0].stun && n.foes[1].stun && !n.foes[0].taken, 'the shield takes its square; the slider and what it hit are both stunned');
+  s = board([rook], [{ type: 'knight', x: 0, y: 2, brain: 'still' }, { type: 'pawn', x: 4, y: 4, brain: 'still' }]);
+  push = R.movesFor(s, 0).find((q) => q.push && q.x === 0 && q.y === 2);
+  ok(push && push.push[0].to === -1 && R.takesAny(push), 'one with nothing in its way slides off the edge and is taken');
+  n = R.playerMove(s, { p: 0, ...push });
+  ok(n.foes[0].taken && n.pieces[0].y === 2, 'and falls');
+  s = board([rook], [{ type: 'knight', x: 0, y: 1, brain: 'still' }, { type: 'bishop', x: 0, y: 2, brain: 'still' }]);
+  ok(!R.movesFor(s, 0).some((q) => q.x === 0 && q.y === 1), 'one that cannot move at all cannot be pushed');
+  s = board([rook, { type: 'cat', x: 0, y: 4 }], [{ type: 'knight', x: 0, y: 1, brain: 'still' }, { type: 'pawn', x: 4, y: 0, brain: 'still' }]);
+  push = R.movesFor(s, 0).find((q) => q.push && q.x === 0 && q.y === 1);
+  n = push && R.playerMove(s, { p: 0, ...push });
+  ok(n && n.foes[0].y === 3 && n.foes[0].stun && n.pieces[1].stun, 'into a piece of yours, both are stunned too');
+}
+
 // The troupe (2026-10-16): the thespian changes its part every move.
 {
   ok(['thespian', 'scribe', 'painter', 'bard', 'dancer'].every((k) => R.PIECES[k]?.kind === 'troupe'), 'the troupe is its own kind, so no other mode deals it');
-  const base = { ...deal(1, ['rook'], 4245), W: 5, H: 5, holes: new Set() };
+  const base = { ...deal(1, ['rook'], 4245, FIVE), W: 5, H: 5, holes: new Set() };
   let s = R.initialState({ ...base, pieces: [{ type: 'thespian', x: 2, y: 2 }], cycle: undefined, hole: null, stumps: new Set(), foes: [{ type: 'pawn', x: 4, y: 4, brain: 'still', target: true }], rules: { ...base.rules } });
   ok(R.THESPIAN_ROLES.includes(s.pieces[0].role), `a thespian starts with a part (${s.pieces[0].role})`);
   const parts = new Set([s.pieces[0].role]);
@@ -317,7 +350,7 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
 // Your pieces with a rabbit (2026-10-16): it stays where it moved, the next
 // comes on where it started, and it acts by itself from then on.
 {
-  const base = { ...deal(1, ['rook'], 4246), W: 5, H: 5, holes: new Set() };
+  const base = { ...deal(1, ['rook'], 4246, FIVE), W: 5, H: 5, holes: new Set() };
   const board = (cycle, foes) => R.initialState({ ...base, pieces: [{ ...cycle[0] }], cycle: cycle.map(({ x, y, ...o }) => o), hole: null, stumps: new Set(),
     foes: foes.map((f) => ({ target: true, mx: 1, my: 1, ...f })), rules: { ...base.rules } });
   let s = board([{ type: 'rook', x: 0, y: 0, rabbit: 'sentry' }, { type: 'knight' }, { type: 'bishop' }], [{ type: 'knight', x: 2, y: 3, brain: 'still' }, { type: 'pawn', x: 4, y: 4, brain: 'still' }]);
@@ -360,7 +393,7 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
 // all the way if it's a slider and one hop for a leaper; trap - sentry but
 // doesn't move back to its new spot"), theirs and yours.
 {
-  const base = { ...deal(1, ['rook'], 4246), W: 5, H: 5, holes: new Set() };
+  const base = { ...deal(1, ['rook'], 4246, FIVE), W: 5, H: 5, holes: new Set() };
   const board = (cycle, foes) => R.initialState({ ...base, pieces: [{ ...cycle[0] }], cycle: cycle.map(({ x, y, ...o }) => o), hole: null, stumps: new Set(),
     foes: foes.map((f) => ({ target: true, mx: 1, my: 1, ...f })), rules: { ...base.rules } });
   const pass = (s, as) => R.apply(s, { p: -1, x: 0, y: 0, as });
@@ -403,7 +436,7 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
 // enemy move through it in the next turn, they get captured"): a piece that
 // moves through a vine is caught there, theirs or yours.
 {
-  const base = { ...deal(1, ['rook'], 4246), W: 5, H: 5, holes: new Set() };
+  const base = { ...deal(1, ['rook'], 4246, FIVE), W: 5, H: 5, holes: new Set() };
   const board = (cycle, foes) => R.initialState({ ...base, pieces: [{ ...cycle[0] }], cycle: cycle.map(({ x, y, ...o }) => o), hole: null, stumps: new Set(),
     foes: foes.map((f) => ({ target: true, mx: 1, my: 1, i: 0, ...f })), rules: { ...base.rules } });
   // Your rook of Vines leaves (0,0) to (0,2) behind it; their rook slides
@@ -516,7 +549,7 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
 // Tactics (2026-10-15): pins, sentries, scared flight, the leader, stones.
 // Each on a board set out by hand: a 5 x 5 board, your piece, their pieces.
 {
-  const base = deal(1, ['rook'], 7777);
+  const base = deal(1, ['rook'], 7777, FIVE);
   const board = (mine, foes, extra = {}) => {
     const lv = { ...base, pieces: [mine], foes: foes.map((f) => ({ target: true, mx: 1, my: 1, ...f })), cycle: undefined, hole: null, stumps: new Set(), rules: { ...base.rules, tactics: true, ...extra } };
     return R.initialState(lv);
@@ -573,7 +606,7 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
 // where you came in (out of their reach), and the board goes on; only the
 // last one taken loses it. And the net: what it takes joins you whole.
 {
-  const base = deal(1, ['rook'], 7777);
+  const base = deal(1, ['rook'], 7777, FIVE);
   const board = (cycle, foes) => R.initialState({ ...base, pieces: [{ ...cycle[0] }], cycle: cycle.length > 1 ? cycle.map(({ x, y, ...o }) => o) : undefined,
     foes: foes.map((f) => ({ target: true, mx: 1, my: 1, ...f })), hole: null, stumps: new Set(), rules: { ...base.rules, tactics: true } });
   let s = board([{ type: 'rook', x: 4, y: 3 }, { type: 'knight' }], [{ type: 'rook', x: 4, y: 0, brain: 'sentry' }, { type: 'pawn', x: 0, y: 4, brain: 'still' }]);
@@ -611,7 +644,7 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
 // The hole opens beside your piece, on the way it was going (2026-10-15:
 // not toward the middle every time).
 {
-  const base = deal(1, ['rook'], 7777);
+  const base = deal(1, ['rook'], 7777, FIVE);
   const st = R.initialState({ ...base, w: 5, h: 5, pieces: [{ type: 'rook', x: 0, y: 0 }], cycle: undefined, hole: null, stumps: new Set(),
     foes: [{ type: 'knight', x: 0, y: 3, brain: 'still', target: true }], rules: { ...base.rules } });
   const n = R.apply(st, { p: 0, x: 0, y: 3 });
