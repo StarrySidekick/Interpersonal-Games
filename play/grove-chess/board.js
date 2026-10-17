@@ -614,7 +614,7 @@ export class Board {
   animate(a, b, mv, slow = 1) {
     let t = performance.now();
     // Sounds are scheduled now, for the moment their frame will be drawn.
-    const start = t, at = (ms) => (ms - start) / 1000;
+    const start = t, at = (ms) => (ms - start) / 1000, t0Stood = t + 60 * slow;
     const tw = { poofs: [], foes: {}, tumbles: [], leaves: [] };
     if (mv.p >= 0) {
       const p0 = a.pieces[mv.p], p1 = b.pieces[mv.p];
@@ -836,6 +836,9 @@ export class Board {
       sfx.turn(at(tw.morph.t0));
       t = tw.morph.t0 + tw.morph.dur;
     }
+    // A piece of yours left standing (Adventure, 2026-10-17): it shows
+    // itself where the piece after it set out from, with a puff.
+    if (b.stood && b.pieces[b.stood.k] && !b.pieces[b.stood.k].taken) { const q = b.pieces[b.stood.k]; tw.poofs.push({ x: q.x, y: q.y, t0: t0Stood, dur: 420, c1: '#ffffff', c2: '#c9d6a3', low: true }); sfx.stayBehind?.(at(t0Stood)); }
     // Your pieces come off the board when the whole set has played
     // (Adventure, 2026-10-16): last of all, a soft puff where each stood.
     const lifted = b.pieces.map((p, i) => (p.lifted && a.pieces[i] && !a.pieces[i].taken && !a.pieces[i].lifted ? i : -1)).filter((i) => i >= 0);

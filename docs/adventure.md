@@ -404,29 +404,40 @@ from the [start] leave themselves behind after being played. the rabbit
 simply defines what the peice does after its now on the board. after the
 full set is played, they are removed from the board and then it starts
 again").
-- Each turn you choose a piece of your set that is ready. It comes on where
-  the round started (the square the last piece moved from: `turnFrom`,
-  `entrySpot`), moves, and stays on the square it moved to (`deploy`). A
-  piece with no rabbit just stands: it blocks, it can be taken (then it is
-  out for the board), and it pins and gives check like any piece of yours.
-  A piece with a rabbit acts by it, every turn from the next.
+- *The order* (Timothy, 2026-10-17: "so i think we got it flipped: the
+  piece moves, then its transforms into the next piece. then, after that
+  piece leaves that spot, the old piece stays there"). Release 86 had it
+  the other way round: the piece stayed where it landed at once, and the
+  next came on where it had started. Now (`deploy`, `pending`):
+  1. Each turn you choose a piece of your set that is ready, and it moves.
+  2. It turns into the next of your set that is ready, on the square where
+     it landed (the turn spin, as before); you may still choose another.
+     It is `pending`: inside the next piece, not on the board.
+  3. When that next piece moves off the square, the one before is left
+     standing on it (`standBehind`; the free square nearest, if that one
+     is taken).
+  So your piece walks on as it did before the change, and leaves a trail
+  of your pieces behind it, one move behind. A piece with no rabbit just
+  stands: it blocks, it can be taken (then it is out for the board), and
+  it pins and gives check like any piece of yours. A piece with a rabbit
+  acts by it from the turn it is left standing.
 - When every piece of the set has had its turn, the one that moved last
-  stays on as your piece, the pieces standing act once more, and at the
-  end of their turn they all come off the board (`newRound`, from
-  `turnOver`), back into your set as they are (a heart spent stays spent).
-  The new round starts from where the last one landed, with the first of
-  your set. A puff where each stood, and the caption says so.
+  stays your piece (nothing is pending), the pieces standing act once
+  more, and at the end of their turn they all come off the board
+  (`newRound`, from `turnOver`), back into your set as they are (a heart
+  spent stays spent). The new round starts from where the last one landed,
+  with the first of your set. A puff where each stood, and the caption says
+  so.
 - If your piece is taken and none of the rest is ready, the same: the
   pieces standing come off, and the first comes on where it was taken.
 - *Calls of mine*:
-  - Where the next comes on: where the round started, as a piece with a
-    rabbit did before. So within a round every piece sets out from one
-    square, and the last piece's move is how the round's start moves on:
-    choosing which goes last is the plan.
   - The round ends after the standing pieces have acted on its last turn,
-    not before: otherwise a piece with a rabbit in a set of two would never
-    act.
-  - A pass leaves nothing behind (the piece did not move).
+    not before.
+  - A pass leaves nothing behind and turns into nothing: the piece did not
+    move. A piece still pending is left behind when the next piece that
+    moves leaves its square.
+  - A piece whose move ends where it began (a heart sent it back) still
+    leaves the one before standing, on the free square nearest.
   - The board cleared ends it at once, whoever is standing (the hole is an
     animation, as before).
 - **Par, measured again.** Two fixes so dealing keeps up with the rule:
@@ -442,13 +453,15 @@ again").
     landed on par (0 of 11 in the measure), and each cost about five
     seconds.
 
-  Measured as before (51 boards a hand, depths 1 to 28): the plain hand 51
-  of 51 two or three under par, a deal 0.9 seconds in the middle, 8.9 for
-  the slowest tenth, 24 at worst. The strong hand 35 of 51, a deal 1.1
-  seconds in the middle, 10.4 for the slowest tenth (16.6 with three
-  re-deals), 23 at worst: from depth 10 on its boards come in 4 or 5 under
-  (one at depth 28, 9 under), its suits and rabbits clearing more than a
-  7 x 7 board can hold. Open: a bigger board for strong sets.
+  Measured as before (51 boards a hand, depths 1 to 28), with the order
+  fixed (2026-10-17): the plain hand 51 of 51 two or three under par, a
+  deal 0.9 seconds in the middle, 8.4 for the slowest tenth, 21 at worst.
+  The strong hand 33 of 51, a deal 1.0 seconds in the middle, 11.7 for the
+  slowest tenth, 16 at worst: from depth 10 on its boards come in 4 to 6
+  under, its suits and rabbits clearing more than a 7 x 7 board can hold.
+  Three re-deals instead of one gave the same 33 (a second or third landed
+  on par 0 times of 8) and cost five seconds more at the slow end. Open: a
+  bigger board for strong sets.
 
 **Suits, the same on either side** ("they also apply about the same for
 player and enemy pieces now"). Colours: hearts red, vines green, stars

@@ -1496,6 +1496,7 @@ function nextAfterLoss(n) {
   n.arrived = { lost: { ...p }, from: n.ci };
   n.ci = j;
   n.pieces[0] = { ...n.set[j], x: at.x, y: at.y };
+  if (n.pending === j) n.pending = null;
 }
 
 /** The last of your set taken while pieces of yours with a rabbit still
@@ -1544,6 +1545,7 @@ function newRound(n) {
   });
   for (let j = 0; j < n.set.length; j++) { const e = inSet(n, j); if (!e.lost) delete e.used; }
   n.round = (n.round || 0) + 1;
+  n.pending = null;
   if (lifted) n.lifted = lifted;
 }
 
@@ -1658,6 +1660,7 @@ export function clone(s) {
   if (s.stones) n.stones = s.stones.map((t) => ({ ...t }));
   if (s.vines) n.vines = s.vines.map((v) => ({ ...v }));
   if (s.turnFrom) n.turnFrom = s.turnFrom;
+  if (s.pending != null) n.pending = s.pending;
   return n;
 }
 
@@ -3312,40 +3315,54 @@ export const alliesOf = (s) => s.pieces.filter((p, i) => i > 0 && p.ally && !p.t
 /** The end of your turn in Adventure (2026-10-16, Timothy: "pieces ...
     leave themselves behind after being played. the rabbit simply defines
     what the peice does after its now on the board. after the full set is
-    played, they are removed from the board and then it starts again"): the
-    piece that moved stays where it is (`ally`, by itself), and the next of
-    your set that is ready comes on where it started. When none is ready,
-    the whole set has played: the one that moved last stays on as your
-    piece, the pieces standing act once more, and at the end of their turn
-    they come off (newRound, from turnOver), so the new round starts where
-    the last one landed. A pass leaves nothing behind. Mutates. */
+    played, they are removed from the board and then it starts again"; and
+    2026-10-17, the order: "the piece moves, then its transforms into the
+    next piece. then, after that piece leaves that spot, the old piece stays
+    there"):
+    1. The piece before this one (`pending`) stays on the square this one
+       set out from (or the free square nearest it): `ally`, by itself,
+       acting by its rabbit from this turn on.
+    2. This one turns into the next of your set that is ready, where it
+       landed, and is pending in its turn.
+    When none is ready the whole set has played: this one stays your piece,
+    the pieces standing act once more, and at the end of their turn they
+    come off (newRound, from turnOver). A pass leaves nothing and changes
+    nothing here. Mutates. */
 function deploy(n, log) {
   const p = n.pieces[0], from = n.turnFrom;
   n.turnFrom = null;
-  if (!n.set || !p || p.taken || n.won) return;
+  if (!n.set || n.won) return;
+  if (from && n.pending != null && n.pending !== n.ci) standBehind(n, from, log);
+  if (!from || !p || p.taken) return;
   const ready = n.set.map((_, j) => j).filter((j) => j !== n.ci && setReady(n, j));
-  if (!ready.length || !from) return;
+  if (!ready.length) return;
+  const L = n.set.length;
+  let j = ready[0];
+  for (let d = 1; d <= L; d++) if (ready.includes((n.ci + d) % L)) { j = (n.ci + d) % L; break; }
+  n.pending = n.ci;
+  bringOn(n, j);
+}
+
+/** The pending piece of your set (see deploy) stands on the board by
+    itself, on `from` or the free square nearest it. Mutates. */
+function standBehind(n, from, log) {
+  const j = n.pending, e = n.set[j];
+  n.pending = null;
+  if (!e || e.lost || e.out != null) return;
   const at = entrySpot(n, { x: from[0], y: from[1] });
   if (!at) return;
   // The first to stand this round clears away the pieces of the last
   // (lifted, or taken where they stood): nothing points at them now.
-  if (n.pieces.length > 1 && !n.set.some((e) => e.out != null)) n.pieces = [n.pieces[0]];
-  const k = n.pieces.length, own = {};
-  for (const [key, v] of Object.entries(p)) if (!PLACE.includes(key)) own[key] = v;
-  const ally = { ...p, ally: true, fresh: true };
-  delete ally.used;
-  if (ally.rabbit === 'robot') planRoute(n, ally);
-  if (ally.rabbit === 'simple') planLine(n, ally, 'you');
-  if (ally.rabbit === 'sentient') ally.mind = { iq: 8, trait: 'aggressive' };
-  n.pieces.push(ally);
-  n.set[n.ci] = { ...own, out: k };
-  const L = n.set.length;
-  let j = ready[0];
-  for (let d = 1; d <= L; d++) if (ready.includes((n.ci + d) % L)) { j = (n.ci + d) % L; break; }
-  n.deployed = { k, from: n.ci, at: [at.x, at.y] };
-  log.push({ what: 'deploy', i: k });
-  n.ci = j;
-  n.pieces[0] = { ...n.set[j], x: at.x, y: at.y };
+  if (n.pieces.length > 1 && !n.set.some((q) => q.out != null)) n.pieces = [n.pieces[0]];
+  const k = n.pieces.length, a = { ...e, x: at.x, y: at.y, ally: true };
+  delete a.used; delete a.out;
+  if (a.rabbit === 'robot') planRoute(n, a);
+  if (a.rabbit === 'simple') planLine(n, a, 'you');
+  if (a.rabbit === 'sentient') a.mind = { iq: 8, trait: 'aggressive' };
+  n.pieces.push(a);
+  n.set[j] = { ...e, out: k };
+  n.stood = { k, j };
+  log.push({ what: 'stand', i: k });
 }
 
 /** A simple rabbit's line for piece q of `side` (2026-10-16): of the ways
@@ -3452,8 +3469,7 @@ function alliesAct(s, log) {
     const a = s.pieces[k];
     if (!a.ally || a.taken || s.won || lost(s)) continue;
     delete a.struck; delete a.bounced; delete a.fled; delete a.trapped; a.from = [a.x, a.y]; a.blocked = false;
-    // It moved this turn already, so it waits; but a scared one runs.
-    if (a.fresh) { delete a.fresh; if (a.rabbit !== 'scared') continue; }
+    // (It stands only from a turn after it moved, so it acts at once.)
     if (a.stun) continue;
     const start = [a.x, a.y], was = gone();
     if (a.rabbit === 'sentry') {
@@ -3855,7 +3871,7 @@ export function stateKey(s) {
   // Your set (Adventure): which of it is on the board, and what each keeps.
   if (s.stones?.length) k += '|S' + s.stones.map((t) => `${t.type}${t.x},${t.y}:${t.left}`).join(';');
   if (s.vines?.length) k += '|V' + s.vines.map((v) => `${v.side[0]}${v.x},${v.y}`).sort().join(';');
-  if (s.set) k += `|k${s.ci}` + s.set.map((e, j) => j === s.ci ? '' : (e.lives > 1 ? 'L' + e.lives : '') + (e.starUsed ? '*' : '') + (e.shape ? '~' + e.shape : '') + (e.role ? '%' + e.role : '') + (e.netted ? 'n' + e.netted : '') + (e.used ? 'u' + e.used : '') + (e.lost ? 'x' : '') + (e.out != null ? 'o' + e.out : '') + (e.moved && e.type === 'pawn' ? 'm' : '')).join(',');
+  if (s.set) k += `|k${s.ci}${s.pending != null ? 'p' + s.pending : ''}` + s.set.map((e, j) => j === s.ci ? '' : (e.lives > 1 ? 'L' + e.lives : '') + (e.starUsed ? '*' : '') + (e.shape ? '~' + e.shape : '') + (e.role ? '%' + e.role : '') + (e.netted ? 'n' + e.netted : '') + (e.used ? 'u' + e.used : '') + (e.lost ? 'x' : '') + (e.out != null ? 'o' + e.out : '') + (e.moved && e.type === 'pawn' ? 'm' : '')).join(',');
   k += '|';
   for (const f of s.foes) k += f.taken ? '--' : f.x + ',' + f.y + ',' + f.i + (f.dir ? 'd' + f.dir : '') + (f.lives > 1 ? 'L' + f.lives : '') + (f.starUsed ? '*' : '') + (f.mx > 0 ? '+' : '-') + (f.my > 0 ? '+' : '-') + (f.idle ? 'i' + f.idle : '') + (f.stun ? 'z' : '') + (f.bubble ? 'o' : '') + (f.moved && f.type === 'pawn' && s.day.rules.pawnTwo ? 'm' : '') + (f.promoted ? f.type : '') + (f.shape ? '~' + f.shape : '') + (f.role ? '%' + f.role : '') + (f.brain === 'sentry' ? 's' : '') + ';';
   if (s.flag) k += `|F${s.flag.by || ''}${s.flag.i},${s.flag.x},${s.flag.y}`;
