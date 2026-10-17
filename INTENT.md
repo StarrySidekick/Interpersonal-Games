@@ -12,7 +12,17 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
-## 2026-10-17, newest: the order fixed
+## 2026-10-17, newest: sets of four, no squashing, vines, the troupe to find
+
+From Timothy, and built: a set of four; the shield always pushes, and the
+sword and lance no longer squash (the mace still does); the net only on
+your cat; a vine now catches a piece that moves through it, not only one
+landing on it (it rarely caught anything before); and pieces of the troupe
+to find in the offers from depth 2. In
+[`docs/adventure.md`](docs/adventure.md), "Sets of four, weapons that do
+not squash, vines, the troupe to find".
+
+## 2026-10-17: the order fixed
 
 Timothy: "we got it flipped: the piece moves, then its transforms into the
 next piece. then, after that piece leaves that spot, the old piece stays

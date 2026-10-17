@@ -195,7 +195,7 @@ export const MODES = {
     // only from capturing, three rabbits of a kind making that piece.
     name: 'Adventure', blurb: 'Start with your cat, which steps like a king. Take every piece of theirs in as few moves as you can, and jump into the hole that opens. Grey statues stand still; a piece with a rabbit inside moves by itself (a robot walks a loop, a sentry strikes, a scared one runs, a simple one goes along a line, a trap strikes and stays, a sentient one thinks), and a rabbit may carry a suit. Take three of a kind and that piece joins your set, up to sixteen. Each turn you choose which of your set you are, each taking its turn before any goes again: it moves and turns into the next, and stays standing there when that one moves on; when the whole set has played they come off and a new round starts. Lose one and the next comes on in its place, and it is back next board; lose the whole set on one board and it is over. Beat par for a choice of suits and weapons, and now and then a rabbit of your own.',
     settings: {
-      run: 'descent', roll: 'fixed', upgrades: 'par', startPieces: 1, maxPieces: 3, startPool: ['cat'], rewards: true, jokers: false, carry: false, keepsakes: false, outOfMoves: 'fall', fairyFrom: 4, ramp: 'steady',
+      run: 'descent', roll: 'fixed', upgrades: 'par', startPieces: 1, maxPieces: 4, startPool: ['cat'], rewards: true, jokers: false, carry: false, keepsakes: false, outOfMoves: 'fall', fairyFrom: 4, ramp: 'steady',
       goal: 'clear', captureN: 0, royal: false, showdown: false, promote: 'none', fullRow: false, lineup: false, inOrder: false, mineRows: 1, foeRows: 4, arrange: false, cloud: false, ghosts: false, cycle: true, swordAims: true, squash: true, suitRabbits: true, tactics: true, wait: true,
       w: 5, h: 5, foes: 3, still: 2, foePool: ['knight', 'bishop', 'rook', 'king'], darkBrain: 'possessed', patterns: 'routes', routeKinds: ['Shuttle'], oneMove: false, kinds: 1, skill: '1', style: 'balanced', rabbitMind: 'pattern', rabbits: 0,
       foesCapture: true, statues: 0, clouds: 0, maxMoves: 40, parMin: 1, parMax: 12, difficulty: 'any', balance: 'off', minEngage: 0, minCeiling: 0
@@ -281,8 +281,11 @@ function loadAll() { try { const s = JSON.parse(localStorage.getItem(KEY)); retu
 
 /** A mode's settings: its preset with the player's changes on top. */
 export function modeSettings(id) {
-  const mine = loadAll()[id];
-  return cleanMode({ ...modeDefaults(id), ...(mine || {}) });
+  const mine = { ...(loadAll()[id] || {}) };
+  // Adventure's set size is its own (2026-10-17, Timothy: "you roll a set of
+  // four pieces by default instead of 5"): a size kept from before is let go.
+  if (id === 'adventure') delete mine.maxPieces;
+  return cleanMode({ ...modeDefaults(id), ...mine });
 }
 
 /** Keep a mode's settings (only what differs from its preset). */
@@ -305,7 +308,8 @@ const runIs = (...r) => (S) => r.includes(S.run);
 const hasBall = (S) => ['hole', 'descent', 'mix'].includes(S.goal);
 const SHOWN = {
   // The session.
-  startPieces: runIs('descent', 'rounds'), maxPieces: runIs('descent', 'rounds'), startPool: runIs('descent', 'rounds'),
+  // (Adventure's set is four, Timothy's number (2026-10-17), not a setting.)
+  startPieces: runIs('descent', 'rounds'), maxPieces: (S) => runIs('descent', 'rounds')(S) && S.upgrades !== 'par', startPool: runIs('descent', 'rounds'),
   rewards: runIs('descent', 'rounds'), jokers: runIs('descent', 'rounds'), findPool: runIs('descent', 'rounds'), ramp: runIs('descent', 'rounds'),
   upgrades: runIs('descent'), pawnRow: (S) => S.run === 'descent' && (S.upgrades === 'each' || S.upgrades === 'tiles'), growAt: (S) => S.run === 'descent' && S.upgrades === 'each', foeLine: (S) => S.run === 'descent' && (S.upgrades === 'each' || S.upgrades === 'tiles'),
   carry: runIs('descent'), keepsakes: (S) => S.run === 'descent' && S.carry, fairyFrom: runIs('descent'), startDifficulty: runIs('descent'), boardGrows: runIs('descent'), outOfMoves: runIs('descent'),

@@ -47,7 +47,7 @@ export const SUITS = {
   stars: { name: 'Stars', mark: '★', colour: '#e8c547', desc: 'Moves twice: once a level, its first move is followed straight away by a second.',
     advDesc: 'Two moves every turn it goes, but it takes at most once: if the first move takes something, the second cannot.' },
   vines: { name: 'Vines', mark: '❦', colour: '#3f9e45', desc: 'Chain captures: after it takes a piece, it may take another the same turn, and another after that.',
-    advDesc: 'Leaves a vine on the square it moves off and every square it passes. The other side\u2019s next move that lands on a vine is caught by it; then the vines wither.' }
+    advDesc: 'Leaves a vine on the square it moves off and every square it passes. A piece of the other side that moves onto or through one of them on its next turn is caught there; then the vines wither.' }
 };
 /** The suits every mode deals. */
 export const SUIT_KINDS = Object.keys(SUITS);
@@ -89,25 +89,26 @@ export const rabbitName = (r, suit = null) => `${RABBITS[r]?.name || 'A'} rabbit
 export const WEAPONS = {
   sword: { name: 'Sword', mark: '†', colour: '#d4dbe3', desc: (lv) => `Strikes instead of landing: it cannot move onto a piece, but takes what stands ${['', 'in front of', 'in front of or beside', 'in front of, beside or diagonally in front of'][lv]} where it lands.`,
     // Adventure's way (2026-10-15): aiming the way it moves
-    // (rules.swordAims), and still able to squash (rules.squash).
-    advDesc: (lv) => `It can squash, as any piece can. Landing on an empty square, it also strikes the next square past it, in the direction it moved${['', '', ', and the squares to either side of that', ', the squares to either side, and the two between'][lv]}, taking what stands there.` },
+    // (rules.swordAims). It squashed as well until 2026-10-17 (Timothy: "no
+    // squashing for sword or lance either").
+    advDesc: (lv) => `It cannot land on a piece of theirs. Landing on an empty square, it strikes the next square past it, in the direction it moved${['', '', ', and the squares to either side of that', ', the squares to either side, and the two between'][lv]}, taking what stands there.` },
   lance: { name: 'Lance', mark: '↟', colour: '#c9a46a', desc: (lv) => `Takes what it slides through, up to ${['', 'one piece', 'two pieces', 'three pieces'][lv]}, and lands on an empty square beyond; it cannot move onto a piece. Only on a piece that slides.`,
-    advDesc: (lv) => `It can squash, as any piece can; or it can slide through up to ${['', 'one piece', 'two pieces', 'three pieces'][lv]} of theirs, taking each, and land on an empty square beyond. Only on a piece that slides.` },
+    advDesc: (lv) => `It cannot land on a piece of theirs; it slides through up to ${['', 'one piece', 'two pieces', 'three pieces'][lv]} of theirs, taking each, and lands on an empty square beyond. Only on a piece that slides.` },
   mace: { name: 'Mace', mark: '✸', colour: '#a07a5a', desc: (lv) => `Sliding, it pushes up to ${['', 'one piece', 'two pieces', 'three pieces'][lv]} ahead of it; theirs it pushes are stunned, and one already stunned is taken. Stepping or leaping, it stuns what stands ${['', 'in front of and behind', 'round the sides of', 'all round'][lv]} where it lands. A stunned piece misses its next turn.`,
     // Adventure's (2026-10-16, Timothy: "mace - still stuns and no longer
     // pushes anything, just adds the AOE stun to the landing").
     advDesc: (lv) => `It can squash, as any piece can. Wherever it lands it stuns the pieces of theirs ${['', 'in front of it and behind it', 'in front of it, behind it and to each side', 'all round it'][lv]}: a stunned piece sits out their next turn.` },
   // Adventure's own (2026-10-16, Timothy: "shield (new) - pushes pieces, can
   // still squash. just the push. if the piece is pushed off the board it is
-  // captured").
+  // captured"; 2026-10-17: "always push, no squashing anymore").
   shield: { name: 'Shield', mark: '⛨', colour: '#8fa6bd', adventure: true,
-    desc: (lv) => `It can squash, as any piece can; or, moving onto a piece of theirs, it can push it one square on, the way it moved, and take its square.${lv > 1 ? ` Up to ${['', '', 'two', 'three'][lv]} pieces in a row go together.` : ''} A piece pushed off the board is taken.` },
+    desc: (lv) => `It never squashes: moving onto a piece of theirs, it pushes it one square on, the way it moved, and takes its square.${lv > 1 ? ` Up to ${['', '', 'two', 'three'][lv]} pieces in a row go together.` : ''} A piece pushed off the board is taken; one with nowhere to go cannot be moved onto.` },
   // Adventure only (Timothy, 2026-10-15: "new weapon/tool: net (like a bug
   // net) using it captures the piece you capture, and you just get it
   // without having to collect 3 of them"). Once a board per level, so a
   // net fills your collection a piece a board, not a whole board's worth.
   net: { name: 'Net', mark: '◍', colour: '#8c6f45', adventure: true,
-    desc: (lv) => `Moves as it always does, but the first ${['', 'piece', 'two pieces', 'three pieces'][lv]} of theirs it takes on each board ${lv > 1 ? 'are' : 'is'} netted whole: ${lv > 1 ? 'each' : 'it'} joins your set when the board ends, and the rabbit inside, if there is one, is yours to put in a piece of your choosing.` }
+    desc: (lv) => `Only your cat can carry it. It moves as it always does, but the first ${['', 'piece', 'two pieces', 'three pieces'][lv]} of theirs it takes on each board ${lv > 1 ? 'are' : 'is'} netted whole: ${lv > 1 ? 'each' : 'it'} joins your set when the board ends, and the rabbit inside, if there is one, is yours to put in a piece of your choosing.` }
 };
 /** The weapons every mode deals; Adventure deals the net as well. */
 export const WEAPON_ORDER = Object.keys(WEAPONS).filter((w) => !WEAPONS[w].adventure);
@@ -299,7 +300,7 @@ export function applyReward(run, card, targets = [], veto = []) {
 
 /** Plain words for a reward card. */
 export function cardText(card, adv = false) {
-  if (card.kind === 'piece') return { title: PIECES[card.type].name, text: PIECES[card.type].desc, tag: PIECES[card.type].kind === 'fairy' ? 'A fairy piece' : 'A classic piece' };
+  if (card.kind === 'piece') return { title: PIECES[card.type].name, text: `${PIECES[card.type].desc}${adv ? ' It joins your deck.' : ''}`, tag: PIECES[card.type].kind === 'fairy' || PIECES[card.type].kind === 'troupe' ? 'A fairy piece' : 'A classic piece' };
   if (card.kind === 'suit') return adv
     ? { title: `${SUITS[card.suit].mark} ${SUITS[card.suit].name} rabbit`, text: suitDesc(card.suit, adv) + ' Choose a piece to put it in.', tag: 'A rabbit' }
     : { title: `${SUITS[card.suit].mark} ${SUITS[card.suit].name}`, text: suitDesc(card.suit, adv) + ' Choose a piece to give it to.', tag: 'A suit' };
@@ -658,11 +659,24 @@ export function scoreName(moves, par, won) {
     but rarely you get a rabbit") one of them is a rabbit you took on the
     board (`taken`, from rabbitsTaken), for a piece with none yet. */
 export const RABBIT_CHANCE = 0.2;
+/** How often an offer holds a piece of the troupe to take (2026-10-17,
+    Timothy: "make it so you can find some of the new fairy pieces as part
+    of your deck"): one offer in four from depth 2, while the deck has
+    room. */
+export const PIECE_CHANCE = 0.25;
+/** The fairy pieces you can find: the troupe. */
+export const TROUPE = Object.keys(PIECES).filter((k) => PIECES[k].kind === 'troupe');
 export function adventureCards(run, n, rand, taken = []) {
   const rest = [], out = [];
   if (run.hand.some((h) => !h.suit)) for (const suit of Object.keys(SUITS)) rest.push({ kind: 'suit', suit });
   for (const w of Object.keys(WEAPONS)) if (run.hand.some((h) => canTakeWeapon(h, w, run.made))) rest.push({ kind: 'weapon', weapon: w });
   while (out.length < n && rest.length) out.push(rest.splice(Math.floor(rand() * rest.length), 1)[0]);
+  // A piece of the troupe, one you do not have if there is one.
+  if ((run.depth || 1) >= 2 && roomFor(run) && rand() < PIECE_CHANCE) {
+    const have = new Set(run.hand.map((h) => h.base)), fresh = TROUPE.filter((t) => !have.has(t)), from = fresh.length ? fresh : TROUPE;
+    const card = { kind: 'piece', type: from[Math.floor(rand() * from.length)] };
+    if (out.length) out[Math.floor(rand() * out.length)] = card; else out.push(card);
+  }
   if (taken.length && run.hand.some((h) => !h.rabbit) && rand() < RABBIT_CHANCE) {
     const r = taken[Math.floor(rand() * taken.length)], card = { kind: 'rabbit', rabbit: r.rabbit, ...(r.suit ? { suit: r.suit } : {}) };
     if (out.length) out[Math.floor(rand() * out.length)] = card; else out.push(card);

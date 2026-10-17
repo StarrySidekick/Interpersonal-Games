@@ -15,7 +15,7 @@
 import * as R from './rules.js';
 import { makeLevel, searchLayouts, ROUTES } from './lab.js';
 import { modeDefaults, levelSettings, adventurePar, EAGLE_ROOM } from './modes.js';
-import { newRun, handSettings, adventureCards, parVerdict, PAR_CARDS, PAR_AUTO, ADVENTURE_GIFTS, adventureSet, afterAdventure, takeTally, netCatches, TAKE_FOR_PIECE, WEAPON_ORDER, rabbitsTaken, ADVENTURE_MAX, applyReward, SUITS } from './run.js';
+import { canTakeWeapon, newRun, handSettings, adventureCards, parVerdict, PAR_CARDS, PAR_AUTO, ADVENTURE_GIFTS, adventureSet, afterAdventure, takeTally, netCatches, TAKE_FOR_PIECE, WEAPON_ORDER, rabbitsTaken, ADVENTURE_MAX, applyReward, SUITS } from './run.js';
 import { rng } from '../../engine/seed.js';
 
 let fails = 0;
@@ -285,7 +285,9 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
   const board = (mine, foes) => R.initialState({ ...base, pieces: [{ ...mine }], cycle: undefined, hole: null, stumps: new Set(), foes: foes.map((f) => ({ target: true, mx: 1, my: 1, ...f })), rules: { ...base.rules } });
   let s = board({ type: 'rook', x: 0, y: 0, weapon: 'shield', wl: 1 }, [{ type: 'knight', x: 0, y: 2, brain: 'still' }, { type: 'bishop', x: 3, y: 0, brain: 'still' }, { type: 'pawn', x: 4, y: 4, brain: 'still' }]);
   const W = base.W, ms = R.movesFor(s, 0);
-  ok(ms.some((q) => q.cap && q.x === 0 && q.y === 2), 'a shield can still squash');
+  // (2026-10-17, Timothy: "for pieces with the shield weapon, always push,
+  // no squashing anymore".)
+  ok(!ms.some((q) => q.cap && q.x === 0 && q.y === 2), 'a shield never squashes');
   const push = ms.find((q) => q.push && q.x === 0 && q.y === 2);
   ok(push && push.push[0].to === 3 * W, 'or push the piece one square on');
   let n = R.playerMove(s, { p: 0, ...push });
@@ -397,6 +399,57 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
   ok(R.RABBIT_TYPES.includes('simple') && R.RABBIT_TYPES.includes('trap') && R.rabbitIn({ brain: 'trap' }) === 'trap' && R.rabbitIn({ brain: 'simple' }) === 'simple', 'both are rabbit kinds, theirs and yours');
 }
 
+// Vines (2026-10-17, Timothy: "it should leave a vine in your paths and if
+// enemy move through it in the next turn, they get captured"): a piece that
+// moves through a vine is caught there, theirs or yours.
+{
+  const base = { ...deal(1, ['rook'], 4246), W: 5, H: 5, holes: new Set() };
+  const board = (cycle, foes) => R.initialState({ ...base, pieces: [{ ...cycle[0] }], cycle: cycle.map(({ x, y, ...o }) => o), hole: null, stumps: new Set(),
+    foes: foes.map((f) => ({ target: true, mx: 1, my: 1, i: 0, ...f })), rules: { ...base.rules } });
+  // Your rook of Vines leaves (0,0) to (0,2) behind it; their rook slides
+  // along row 1, through (0,1).
+  let s = board([{ type: 'rook', x: 0, y: 0, suit: 'vines' }, { type: 'bishop' }], [{ type: 'rook', x: 4, y: 1, brain: 'simple', dir: [-1, 0] }, { type: 'pawn', x: 4, y: 4, brain: 'still' }]);
+  s.foes[0].dir = [-1, 0];
+  let n = R.playerMove(s, { p: 0, x: 0, y: 3, as: 0 });
+  ok(n.vines.filter((v) => v.side === 'you').length === 3, 'a piece of Vines leaves a vine where it set out and on every square it passed');
+  n = R.respond(n);
+  ok(n.foes[0].taken && n.foes[0].x === 0 && n.foes[0].y === 1 && n.tlog.some((l) => l.what === 'vine'), 'their piece that moves onto the vine is caught on it');
+  s = board([{ type: 'rook', x: 0, y: 0, suit: 'vines' }, { type: 'bishop' }], [{ type: 'queen', x: 3, y: 1, brain: 'simple' }, { type: 'pawn', x: 4, y: 4, brain: 'still' }]);
+  s.foes[0].dir = [-1, 0];
+  s.foes[0].x = 4; s.foes[0].y = 1;
+  n = R.playerMove(s, { p: 0, x: 0, y: 3, as: 0 });
+  n.vines = n.vines.filter((v) => !(v.x === 0 && v.y === 1)).concat([{ x: 2, y: 1, side: 'you' }]);
+  n = R.respond(n);
+  ok(n.foes[0].taken && n.foes[0].x === 2 && n.foes[0].y === 1, 'and one that would slide on through it is stopped and caught there');
+  // Theirs catch yours the same way.
+  s = board([{ type: 'rook', x: 0, y: 0 }, { type: 'bishop' }], [{ type: 'bishop', x: 4, y: 4, brain: 'still' }, { type: 'pawn', x: 4, y: 3, brain: 'still' }]);
+  s.vines = [{ x: 0, y: 2, side: 'foe' }];
+  n = R.playerMove(s, { p: 0, x: 0, y: 4, as: 0 });
+  ok(n.pieces[0].y === 2 && (n.pieces[0].taken || n.pieces[0].vined), 'a piece of yours sliding through a vine of theirs is caught on it');
+}
+
+// A set of four (2026-10-17, Timothy: "you roll a set of four pieces by
+// default instead of 5"), and pieces of the troupe to find.
+{
+  ok(M.maxPieces === 4, 'Adventure\u2019s set is four');
+  const r = newRun(['cat', 'bishop', 'knight', 'rook', 'painter', 'bard'], M.maxPieces, null);
+  const pick = adventureSet(r, rng('four'));
+  ok(pick.length === 4 && pick.includes(0), 'six in the deck: four drawn each board, the cat always one');
+  const counts = { 1: 0, 5: 0 }, kinds = new Set();
+  for (const d of [1, 5]) for (let k = 0; k < 400; k++) {
+    const run = newRun(['cat', 'bishop'], 4, null); run.depth = d;
+    for (const c of adventureCards(run, 3, rng(`find:${d}:${k}`))) if (c.kind === 'piece') { counts[d]++; kinds.add(c.type); }
+  }
+  ok(!counts[1] && counts[5] > 50 && [...kinds].every((t) => R.PIECES[t].kind === 'troupe') && kinds.size === 5, `a piece of the troupe now and then from depth 2 (${counts[5]} in 400 offers), all five to find`);
+  const full = newRun(Array(16).fill('rook'), 4, null); full.depth = 5;
+  let none = true;
+  for (let k = 0; k < 200; k++) if (adventureCards(full, 3, rng(`full:${k}`)).some((c) => c.kind === 'piece')) none = false;
+  ok(none, 'none once the deck holds sixteen');
+  const run = newRun(['cat'], 4, null);
+  applyReward(run, { kind: 'piece', type: 'dancer' });
+  ok(run.hand.length === 2 && run.hand[1].base === 'dancer', 'a piece found joins your deck');
+}
+
 // A sword that aims: it strikes past where it lands, the way it moved.
 {
   ok(R.swordAim(0, 3, 1).join() === '0,1' && R.swordAim(-2, 0, 1).join() === '-1,0' && R.swordAim(2, 2, 1).join() === '1,1', 'straight on, for a slide');
@@ -418,14 +471,15 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
     }
   }
   ok(found, 'a board where the sword strikes');
-  // Squash (2026-10-15): a sword or a lance still takes by landing on a
-  // piece in Adventure; without the rule (the descent) it cannot.
+  // Squash (2026-10-15): a sword or a lance took by landing on a piece in
+  // Adventure too, until 2026-10-17 (Timothy: "no squashing for sword or
+  // lance either changed my mind. still squashing for mace though").
   const base = makeLevel(levelSettings(M, { depth: 1, hand: handSettings(newRun(['rook'], 3, null)) }, rng('sq')), 900);
-  for (const weapon of ['sword', 'lance']) {
-    const st = (squash) => R.initialState({ ...base, pieces: [{ type: 'rook', x: 0, y: 0, weapon, wl: 1 }], cycle: undefined, hole: null, stumps: new Set(),
-      foes: [{ type: 'knight', x: 0, y: 3, brain: 'still', target: true }, { type: 'pawn', x: 4, y: 4, brain: 'still', target: true }], rules: { ...base.rules, squash } });
-    ok(base.rules.squash && R.movesFor(st(true), 0).some((m) => m.cap && m.x === 0 && m.y === 3), `a ${weapon} can squash in Adventure`);
-    ok(!R.movesFor(st(false), 0).some((m) => m.cap && m.x === 0 && m.y === 3), `without squash, a ${weapon} cannot land on a piece`);
+  for (const weapon of ['sword', 'lance', 'mace']) {
+    const st = R.initialState({ ...base, pieces: [{ type: 'rook', x: 0, y: 0, weapon, wl: 1 }], cycle: undefined, hole: null, stumps: new Set(),
+      foes: [{ type: 'knight', x: 0, y: 3, brain: 'still', target: true }, { type: 'pawn', x: 4, y: 4, brain: 'still', target: true }], rules: { ...base.rules } });
+    const lands = R.movesFor(st, 0).some((m) => m.cap && m.x === 0 && m.y === 3);
+    ok(weapon === 'mace' ? lands : !lands, weapon === 'mace' ? 'a mace still squashes' : `a ${weapon} cannot land on a piece in Adventure`);
   }
 }
 
@@ -551,7 +605,7 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
   const r3 = newRun(['rook', 'knight'], 3, null);
   applyReward(r3, { kind: 'rabbit', rabbit: 'robot', suit: 'spirals' }, [1]);
   ok(r3.hand[1].rabbit === 'robot' && r3.hand[1].suit === 'spirals' && handSettings(r3).handMods[1].rabbit === 'robot', 'a rabbit put in a piece, with its suit, goes onto the board with it');
-  ok(!WEAPON_ORDER.includes('net') && R.canArm('knight', 'net'), 'the net is Adventure\u2019s own, and any piece can carry one');
+  ok(!WEAPON_ORDER.includes('net') && R.canArm('cat', 'net') && !R.canArm('knight', 'net') && !canTakeWeapon({ base: 'rook' }, 'net') && canTakeWeapon({ base: 'cat' }, 'net'), 'the net is Adventure\u2019s own, and only your cat can carry one (2026-10-17)');
 }
 
 // The hole opens beside your piece, on the way it was going (2026-10-15:
