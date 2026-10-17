@@ -2,7 +2,7 @@
 // main: one more for every push (2026-10-11). Shown at the foot of the home
 // page and of every Grove Chess page's menu. Do not edit by hand.
 export const RELEASE = {
-  "number": 90,
+  "number": 91,
   "date": "2026-10-17",
-  "note": "Adventure: shields that slide, boards from 3x3, fewer words, cards fit a phone"
+  "note": "Adventure: boards from rules, bosses every fifth board, the dark after a double bogey, lanterns and a field guide, hedges, Adventure Tactics, a sequence for each new piece"
 };
