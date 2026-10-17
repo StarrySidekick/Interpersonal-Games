@@ -2,7 +2,7 @@
 // main: one more for every push (2026-10-11). Shown at the foot of the home
 // page and of every Grove Chess page's menu. Do not edit by hand.
 export const RELEASE = {
-  "number": 89,
+  "number": 90,
   "date": "2026-10-17",
-  "note": "Five doors: the daily (three boards of Adventure a day, shared), Adventure, Golf, Custom, Variants"
+  "note": "Adventure: shields that slide, boards from 3x3, fewer words, cards fit a phone"
 };
