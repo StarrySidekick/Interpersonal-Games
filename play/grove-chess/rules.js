@@ -229,7 +229,7 @@ function passGhosts(s, side, fx, fy, tx, ty, wrapped = false) {
 /** A statue taken where a piece lands (statues can be taken, 2026-10-13). Mutates. */
 function breakStatue(s, x, y) {
   const sq = y * s.day.W + x;
-  if (s.day.rules.statuesTake && statueAt(s, sq)) { s.open = [...(s.open || []), sq]; s.broke = sq; }
+  if (s.day.rules.statuesTake && !s.day.rules.hedges && statueAt(s, sq)) { s.open = [...(s.open || []), sq]; s.broke = sq; }
 }
 
 /** Is the hole open? On a descent level it stays shut until every rabbit
@@ -319,7 +319,7 @@ function enemyOn(s, side, sq) {
 const flagFree = (s, sq) => !!s.flag && !s.flag.by && s.flag.y * s.day.W + s.flag.x === sq;
 /** Is there something on sq that `side` could take: a piece of the other
     side, a statue that can be taken, or the free rabbit? */
-const takeable = (s, side, sq) => !!enemyOn(s, side, sq) || (s.day.rules.statuesTake && statueAt(s, sq)) || flagFree(s, sq);
+const takeable = (s, side, sq) => !!enemyOn(s, side, sq) || (s.day.rules.statuesTake && !s.day.rules.hedges && statueAt(s, sq)) || flagFree(s, sq);
 
 /** The squares a move takes on: where it lands, if it takes there; a
     sword's strikes; a lance's passes; a mace's pushes that take. */
@@ -535,6 +535,8 @@ function armsBefore(n, side, i, m) {
     on a step or a leap stuns. Mutates; returns how many it took. */
 function armsAfter(n, side, i, m) {
   let took = 0;
+  // A hedge a sword stopped on is cut down (2026-10-17).
+  if (m.cut != null && statueAt(n, m.cut)) { n.open = [...(n.open || []), m.cut]; n.cutAt = m.cut; }
   for (const q of m.strike || []) if (takeAt(n, side, i, q)) took++;
   for (const q of m.stun || []) { const e = enemyOn(n, side, q); if (e) e.stun = true; }
   return took;
@@ -545,7 +547,7 @@ function armsAfter(n, side, i, m) {
 function takeAt(n, side, i, sq) {
   const e = enemyOn(n, side, sq);
   if (e) { if (side === 'you') captureFoe(n, e, i); else capturePiece(n, e, i); return true; }
-  if (n.day.rules.statuesTake && statueAt(n, sq)) { n.open = [...(n.open || []), sq]; n.broke = sq; return true; }
+  if (n.day.rules.statuesTake && !n.day.rules.hedges && statueAt(n, sq)) { n.open = [...(n.open || []), sq]; n.broke = sq; return true; }
   if (flagFree(n, sq)) { n.flag.by = side; n.flag.i = i; return true; }
   return false;
 }
@@ -795,7 +797,7 @@ export function look(s, x, y, side = 'you') {
   const sq = y * s.day.W + x;
   // A statue that can be taken reads as something to take, to either side
   // (not to a ball, which only stops at it).
-  if (statueAt(s, sq)) return s.day.rules.statuesTake && !ballView ? ENEMY : STUMP;
+  if (statueAt(s, sq)) return cutting ? EMPTY : s.day.rules.statuesTake && !s.day.rules.hedges && !ballView ? ENEMY : STUMP;
   // A ghost: open ground to its own side, a wall to the other.
   const ghost = ghostAt(s, sq);
   if (ghost) return ghost === side ? EMPTY : STUMP;
@@ -1348,7 +1350,8 @@ export const GATE_DESC = 'A gate: up one turn and down the next. Down, it is ope
 export const WANDER_DESC = 'A cloud, drifting one square a turn on its own. A piece under it is hidden from the other side, and so is its move into the cloud. A move that runs into a hidden piece stops there and takes it. You see your own pieces under it. A ball hit into a cloud stops dead there.';
 export const STATUE_TAKE_DESC = 'A statue: a standing stone with a spiral cut in it. It never moves and belongs to nobody. Sliders stop at it; leapers and hoppers go over it. Either side can take it, and then it is gone.';
 /** A statue, in words, for this level's rules. */
-export const statueDesc = (rules) => (rules?.statuesTake ? STATUE_TAKE_DESC : STUMP_DESC);
+export const HEDGE_DESC = 'A hedge. Nothing can stop on it or slide through it; a leaper, like a knight, hops over. A piece with a sword goes straight through, and cuts down one it stops on.';
+export const statueDesc = (rules) => (rules?.hedges ? HEDGE_DESC : rules?.statuesTake ? STATUE_TAKE_DESC : STUMP_DESC);
 export const STATUE_ROW_DESC = 'Here the whole middle row is statues, and after every turn one of them, at random, sinks away and opens its square.';
 export const STUMP_DESC = 'A statue: a standing stone with a spiral cut in it, older than the board. It never moves and nothing can take it. Sliders stop at it, leapers jump over it, and pieces that hop (the grasshopper, the cannon) can hop over it.';
 
@@ -1529,7 +1532,11 @@ function nextAfterLoss(n) {
   // Adventure (2026-10-16): none of the rest ready means the set has all
   // been played: a new round. The pieces standing come off the board, and
   // the first comes on where this one was taken.
-  if (n.day.rules.suitRabbits && !others().some((j) => setReady(n, j)) && alliesOf(n).length) { n.set[n.ci] = { ...own, lost: true }; newRound(n); }
+  if (n.day.rules.suitRabbits && !others().some((j) => setReady(n, j)) && alliesOf(n).length) {
+    n.set[n.ci] = { ...own, lost: true };
+    if (n.day.rules.stayBehind === 'tactics') return freePlay(n);
+    newRound(n);
+  }
   const live = others();
   if (!live.length) return recall(n, p);
   const at = entrySpot(n, p);
@@ -1615,10 +1622,50 @@ function turnOver(n) {
   stonesAge(n);
   if (n.vines) n.vines = n.vines.filter((v) => v.side !== 'you');
   if (n.won && n.day.rules.goal === 'clear' && !n.hole) n.hole = exitSpot(n);
+  starve(n);
   nextAfterLoss(n);
   // Adventure (2026-10-16): the whole set has played, so the pieces
-  // standing come off and a new round starts.
-  if (n.set && n.day.rules.suitRabbits && !n.won && n.pieces[0] && !n.pieces[0].taken && !n.set.some((_, j) => setReady(n, j))) newRound(n);
+  // standing come off and a new round starts. (Tactics: they stay, and
+  // from now on move freely.)
+  if (n.set && n.day.rules.suitRabbits && !n.won && n.pieces[0] && !n.pieces[0].taken && !n.set.some((_, j) => setReady(n, j))) {
+    if (n.day.rules.stayBehind === 'tactics') freePlay(n); else newRound(n);
+  }
+}
+
+/** The dark (rules.starve, Adventure, 2026-10-17, Timothy: "a point at
+    which your pieces start to get eaten every turn or something, like
+    past a double bogey"): from that many moves on, at the end of each of
+    their turns the dark takes a piece of yours: the one on the board (or,
+    moving freely, the first still standing). A heart holds once, as
+    always. Taken, the next of your set comes on (nextAfterLoss); the last
+    taken loses the board. Mutates. */
+function starve(n) {
+  const at = n.day.rules.starve;
+  if (!at || n.t + 1 < at || n.won || lost(n)) return; // (n.t counts up after this)
+  const i = n.free ? n.pieces.findIndex((p) => !p.taken) : 0, p = n.pieces[i];
+  if (!p || p.taken) return;
+  const gone = capturePiece(n, p, -1);
+  (n.tlog = n.tlog || []).push({ what: 'starve', i, held: !gone });
+}
+
+/** Adventure Tactics (rules.stayBehind 'tactics', Timothy, 2026-10-17: "you
+    have three pieces in a set, and you play them like you do now, and they
+    stay where the are, but then once you play the three, you then can move
+    them each one by one like regular chess, for the rest of the level"):
+    the set is done with, and every piece of yours still on the board is
+    yours to move, any one a turn. One with a rabbit no longer acts by
+    itself. Mutates. */
+function freePlay(n) {
+  n.pieces = n.pieces.map((p) => {
+    if (p.taken) return p;
+    const q = { ...p };
+    for (const k of [...ALLY_ONLY, 'used', 'idle']) delete q[k];
+    return q;
+  });
+  delete n.set; delete n.ci; delete n.round;
+  n.pending = null;
+  n.free = true;
+  n.freed = true; // this turn: for the page to say so
 }
 
 // --- Vines (Adventure's suits as rabbits, 2026-10-16). -----------------------
@@ -1728,6 +1775,7 @@ export function clone(s) {
   if (s.vines) n.vines = s.vines.map((v) => ({ ...v }));
   if (s.turnFrom) n.turnFrom = s.turnFrom;
   if (s.pending != null) n.pending = s.pending;
+  if (s.free) n.free = true;
   return n;
 }
 
@@ -1762,6 +1810,9 @@ export function cloudFor(s, side) {
 let openCloud = false;
 /** While true, look() is reading for a ball, which stops at statues. */
 let ballView = false;
+/** While true, look() reads a hedge as open ground: a sword cuts through
+    (rules.hedges, Adventure, 2026-10-17). */
+let cutting = false;
 
 /** Piece p's moves, from `side`. Under the first-turn cloud: its moves with
     the cloud as a wall, plus any that end on an empty square of the cloud
@@ -1824,6 +1875,22 @@ function pieceMoves0(s, p, side) {
   if (s.day.rules.pawnDouble && p.type === 'pawn') {
     const f = side === 'you' ? 1 : -1, L = sight(s, p, side);
     if (p.y === (f > 0 ? 1 : s.day.H - 2) && L(p.x, p.y + f) === EMPTY && L(p.x, p.y + 2 * f) === EMPTY) ms = [...ms, { x: p.x, y: p.y + 2 * f, cap: false }];
+  }
+  // Hedges (rules.hedges, Adventure, 2026-10-17, Timothy: "can be moved
+  // through if one has a sword, otherwise can only be hopped over"): a piece
+  // with a sword goes through them as if they were open ground, and one it
+  // stops on it cuts down (`cut`).
+  if (p.weapon === 'sword' && s.day.rules.hedges && s.day.stumps.size) {
+    const seen = new Set(ms.map((m) => m.y * s.day.W + m.x));
+    let more;
+    cutting = true;
+    try { more = PIECES[p.type].moves(sight(s, p, side), p, side === 'you' ? 1 : -1, s.day); } finally { cutting = false; }
+    for (const m of more) {
+      const q = m.y * s.day.W + m.x;
+      if (seen.has(q)) continue;
+      seen.add(q);
+      ms = [...ms, statueAt(s, q) ? { ...m, cap: false, cut: q } : m];
+    }
   }
   // Weapons (2026-10-13): a sword, a lance or a mace changes what its
   // moves do (armed, above).
@@ -3083,7 +3150,7 @@ function yourAttackers(s) {
   const out = [], p = s.pieces[0];
   if (p && !p.taken) out.push({ p, kind: 'piece' });
   // Your pieces with a rabbit (2026-10-16) pin and threaten too.
-  s.pieces.forEach((q, i) => { if (i && q.ally && !q.taken) out.push({ p: q, kind: 'ally', i }); });
+  s.pieces.forEach((q, i) => { if (i && (q.ally || s.free) && !q.taken) out.push({ p: q, kind: 'ally', i }); });
   (s.stones || []).forEach((t, j) => out.push({ p: { ...t, taken: false }, kind: 'stone', j }));
   return out;
 }
@@ -3411,7 +3478,11 @@ function deploy(n, log) {
   const L = n.set.length;
   let j = ready[0];
   for (let d = 1; d <= L; d++) if (ready.includes((n.ci + d) % L)) { j = (n.ci + d) % L; break; }
-  n.pending = n.ci;
+  // Only some stay (rules.stayBehind 'some', Timothy, 2026-10-17: "no more
+  // leaving pieces behind outside of gear suits in the regular adventure"):
+  // a piece with a rabbit inside (which acts by itself only while it
+  // stands) or of Gears; the rest just turn into the next.
+  n.pending = n.day.rules.stayBehind !== 'some' || p.rabbit || p.suit === 'gears' ? n.ci : null;
   bringOn(n, j);
 }
 
@@ -3953,7 +4024,7 @@ export function stateKey(s) {
   if (s.gone.length) k += '|g' + s.gone.slice().sort((a, b) => a - b).join(',');
   if (s.shrunk?.length) k += '|s' + s.shrunk.slice().sort((a, b) => a - b).join(',');
   // Statues open in a fixed order; statues that can be taken go in any.
-  if (s.open?.length) k += '|o' + (s.day.rules.statuesTake ? s.open.slice().sort((a, b) => a - b).join(',') : s.open.length);
+  if (s.open?.length) k += '|o' + (s.day.rules.statuesTake || s.day.rules.hedges ? s.open.slice().sort((a, b) => a - b).join(',') : s.open.length);
   if (s.ghostGone?.length) k += '|g' + s.ghostGone.slice().sort((a, b) => a - b).join(',');
   if (s.clouds?.length) k += '|c' + s.clouds.map((c) => c.x + ',' + c.y).join(';') + 't' + s.t;
   if (s.day.gates?.size) k += '|u' + (s.t % 2);

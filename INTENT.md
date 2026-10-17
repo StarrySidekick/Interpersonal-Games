@@ -12,7 +12,23 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
-## 2026-10-17, newest: shields that slide, small boards, fewer words
+## 2026-10-17, newest: boards from rules, a run that ends, what carries on
+
+From Timothy, and built: Adventure's boards come from rules (tables in
+`adventure-levels.js`, measured by `level-report.mjs`, a `level-design`
+skill), harder every depth with a boss every fifth board, and the dark
+after a double bogey, so a run always ends; lanterns (lit by your deepest
+depth: capes, a choice of gift, vows) and a field guide of everything you
+can meet carry from run to run. Hedges for statues, no bare statues, no
+clouds, sentries and traps early; a set drawn without putting back; only
+Gears (and rabbits) stay behind, with Adventure Tactics as the other way;
+ornate score letters, flipping cards, teaching once, and a sequence for
+each new piece. In [`docs/adventure.md`](docs/adventure.md), "Boards from
+rules, a run that ends, and what carries on", and
+[`docs/adventure-levels.md`](docs/adventure-levels.md). The lantern list,
+the vows and the bosses were my calls, his to change.
+
+## 2026-10-17: shields that slide, small boards, fewer words
 
 From Timothy, and built: a shield's push slides until it hits something
 (both stunned) or goes off the edge (it falls, animated); the long mode

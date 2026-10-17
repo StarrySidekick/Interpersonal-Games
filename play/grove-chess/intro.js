@@ -49,7 +49,7 @@ const sided = (k) => /[fb]/.test(PIECES[k]?.betza || '');
  * A crumbling level gets a card of its own before the goal.
  * Resolves when the game should start, whether it ran or was skipped.
  */
-export async function playIntro(board, level, { goal = null, section = null, seen = null } = {}) {
+export async function playIntro(board, level, { goal = null, extra = [], section = null, seen = null } = {}) {
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   style();
   let skipped = false;
@@ -131,7 +131,10 @@ export async function playIntro(board, level, { goal = null, section = null, see
       title: level.rules.shrink === 'spiral' ? 'Shrinking, in a spiral' : 'Shrinking ground',
       text: SHRINK_DESC.replace('Every few moves', `Every ${level.rules.shrinkEvery > 1 ? `${level.rules.shrinkEvery} moves` : 'move'}`) +
         (level.rules.shrink === 'spiral' ? ' This one goes round the edge and inward, like a spiral.' : ' The square that goes next is shadowed.'), demo: false });
-    if (goal) cards.push({ ...goal, eyebrow: 'Your goal', demo: false });
+    // Things met for the first time (Adventure, 2026-10-17, Timothy: "teach
+    // things only the first time"): a rabbit's kind, a suit, hedges, the dark.
+    for (const c of extra) if (fresh(c.key)) cards.push({ demo: false, ...c });
+    if (goal) cards.push({ ...goal, eyebrow: goal.eyebrow || 'Your goal', demo: false });
     for (const c of cards) {
       if (skipped) break;
       await card(c, (fn) => { advance = fn; }, track, () => skipped);
@@ -188,7 +191,7 @@ async function card(c, setAdvance, track, isSkipped) {
 
   // The turning model.
   const t = makeTarget(60, 70), ctx = spin.getContext('2d');
-  const mesh = new Mesh().add(model(c.kind, c.side), 0, 0, 0, 1);
+  const mesh = new Mesh().add(model(c.kind, c.side, c.fur || undefined), 0, 0, 0, 1);
   let alive = true;
   const turn = (ts) => {
     if (!alive) return;

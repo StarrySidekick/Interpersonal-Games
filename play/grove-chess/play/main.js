@@ -11,7 +11,7 @@ import * as sfx from '../sounds.js';
 import {
   PIECES, descOf, CRUMBLE_DESC, SHRINK_DESC, STUMP_DESC, STATUE_ROW_DESC, statueAt, statueDesc, GHOST_DESC, GATE_DESC, WANDER_DESC, ghostAt, gateUp, cloudOver, hiddenFrom, HOLE_DESC, cloudDesc, sandAt, waterAt, SAND_DESC, WATER_DESC, movesFor, playerMove, respond, isOver, outcome, initialState,
   allMoves, holeOpen, crumbled, shrunk, apply, showdown, firstCaptures, onBoard, leaderDesc, placeRevived, hopIn, flagAt, carrierOf, rabbitChosen, EXIT_DESC, setView, setLeft, setReady, chooseInSet, firstReady,
-  rabbitIn, formOf, tacticalPins
+  rabbitIn, formOf, tacticalPins, HEDGE_DESC
 } from '../rules.js';
 import { suitIcon, rabbitIcon, weaponIcon, WEAPON_INK } from '../icons.js';
 import { pickMove } from '../choose.js';
@@ -48,6 +48,8 @@ import {
   chunkOf, readChunk, readLink as readDailyLink, makeLink as makeDailyLink, dailyNumber, shiftDate, PICK_UP
 } from '../daily5.js';
 import { cleanName } from '../vine.js';
+import { bossFor, darkAfter } from '../adventure-levels.js';
+import { LANTERNS, lit, capesOpen, VOWS, vowKey, SHORT, guideSections } from '../adventure-meta.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -127,6 +129,7 @@ function recordsLine() {
     return c?.played ? `${COURSES[M.courseName].name}: best ${c.best > 0 ? '+' : ''}${c.best} against par. Played ${c.played}.` : `${COURSES[M.courseName].name}: not played yet.`;
   }
   if (!r?.played) return test ? 'A test run: nothing is kept.' : '';
+  if (M.run === 'descent' && session?.vows?.length) return `Deepest: depth ${r.best}. With your vows: ${r.vows?.[vowKey(session.vows)] ? `depth ${r.vows[vowKey(session.vows)]}` : 'not tried yet'}. Descents: ${r.played}.`;
   if (M.run === 'descent') return `Deepest: depth ${r.best}. Descents: ${r.played}.`;
   if (M.run === 'course') return r.best != null ? `Best course: ${r.best > 0 ? '+' : ''}${r.best} against par. Courses played: ${r.played}.` : `Courses played: ${r.played}.`;
   if (M.run === 'rounds') return `Most rounds won: ${r.best}. Runs: ${r.played}.`;
@@ -154,7 +157,7 @@ function newSession() {
   // Adventure starts with your cat (Timothy, 2026-10-16: "it is your
   // starting piece"; a rook before that).
   if (M.upgrades === 'par') start.splice(0, start.length, 'cat');
-  session = { seed, n: 1, found: new Map(), seen: new Set(), strokes: [], lives: M.lives, wins: 0, caught: [], claimed: [], acorns: 0, deepestBefore: deepest() };
+  session = { seed, n: 1, found: new Map(), seen: new Set(), strokes: [], lives: M.lives, wins: 0, caught: [], claimed: [], acorns: 0, deepestBefore: deepest(), vows: vowsForRun(), advBefore: advDeepest() };
   // One upgrade a board (2026-10-12): they carry a lineup too, their King
   // and the rest dealt from their pool, as wide as the board.
   // From 2026-10-13 the lineup is not dealt: it is "You start with", in its
@@ -181,15 +184,72 @@ function newSession() {
     // A piece's card in the intro plays the first day it turns up, not every day.
     session.seen = new Set(dstore.seen || []);
   }
+  // Adventure (2026-10-17, Timothy: "teach things only the first time"):
+  // what you have met is remembered from run to run, so each card plays once.
+  if (M.upgrades === 'par' && !daily && !test) session.seen = new Set(loadSeen());
   // The set you were dealt: laying out your pieces opens once it changes.
   session.dealt = session.run ? JSON.stringify(session.run.hand) : null;
+}
+
+const SEEN = 'ig.grove.seen.v1';
+function loadSeen() { try { const s = JSON.parse(localStorage.getItem(SEEN)); return Array.isArray(s) ? s : []; } catch { return []; } }
+function saveSeen() { if (test || daily) return; try { localStorage.setItem(SEEN, JSON.stringify([...session.seen])); } catch { /* blocked */ } }
+
+// --- The field guide, lanterns and vows (adventure-meta.js, 2026-10-17). ------
+// Kept on this phone, only ever growing. The guide notes each thing the first
+// time you meet it; lanterns are lit by the deepest depth reached in
+// Adventure or Tactics; vows are rules you take on before a run.
+
+const GUIDE = 'ig.grove.guide.v1', VOWS_KEY = 'ig.grove.vows.v1';
+function loadGuide() { try { const g = JSON.parse(localStorage.getItem(GUIDE)); if (g && g.version === 1 && g.found) return g; } catch { /* blocked */ } return { version: 1, found: {} }; }
+const guide = loadGuide();
+const BRAIN_KIND = { possessed: 'robot', sentry: 'sentry', trap: 'trap', scared: 'scared', simple: 'simple', sentient: 'sentient' };
+/** Note what this board holds and your set carries, the first time each is
+    met (the depth, or 'd' for the daily). */
+function noteGuide(lv) {
+  if (test || M.upgrades !== 'par') return;
+  const keys = new Set();
+  for (const h of session.run?.hand || []) {
+    keys.add('piece:' + pieceOf(h, session.run.made).type);
+    if (h.suit) keys.add('suit:' + h.suit);
+    if (h.weapon) keys.add('weapon:' + h.weapon);
+    if (h.rabbit) keys.add('rabbit:' + h.rabbit);
+  }
+  for (const f of lv.foes) { if (BRAIN_KIND[f.brain]) keys.add('rabbit:' + BRAIN_KIND[f.brain]); if (f.suit) keys.add('suit:' + f.suit); }
+  if (lv.rules.hedges && lv.stumps.size) keys.add('ground:hedge');
+  if (lv.rules.starve) keys.add('rule:dark');
+  if (session.boss) keys.add('boss:' + session.boss.id);
+  let fresh = false;
+  for (const k of keys) if (!guide.found[k]) { guide.found[k] = daily ? 'd' : session.n; fresh = true; }
+  if (fresh) try { localStorage.setItem(GUIDE, JSON.stringify(guide)); } catch { /* blocked */ }
+}
+/** The deepest depth reached in Adventure or Tactics: it lights the lanterns. */
+const advDeepest = () => Math.max(records.adventure?.best || 0, records.tactics?.best || 0);
+function loadVows() { try { const v = JSON.parse(localStorage.getItem(VOWS_KEY)); return Array.isArray(v) ? v.filter((x) => VOWS.some((w) => w.id === x)) : []; } catch { return []; } }
+let vowsOn = loadVows();
+/** The vows a new run takes: none until their lantern is lit. */
+const vowsForRun = () => (M.upgrades === 'par' && !daily && !test && lit('vows', advDeepest()) ? [...vowsOn] : []);
+
+/** Cards for what this board has that you have not met (Adventure): a kind
+    of rabbit, a suit on theirs, hedges, the dark. The intro plays each the
+    first time (its key goes into session.seen). */
+function firstSightings(lv) {
+  const out = [], KIND = { possessed: 'robot', sentry: 'sentry', trap: 'trap', scared: 'scared', simple: 'simple', sentient: 'sentient' };
+  for (const f of lv.foes) {
+    const r = KIND[f.brain];
+    if (r && RABBITS[r] && !out.some((c) => c.key === 'rabbit:' + r)) out.push({ key: 'rabbit:' + r, kind: 'rabbit', side: 'foe', fur: RABBITS[r].colour, eyebrow: 'A new rabbit', title: `${RABBITS[r].name} rabbit`, text: RABBITS[r].desc });
+    if (f.suit && SUITS[f.suit] && !out.some((c) => c.key === 'suit:' + f.suit)) out.push({ key: 'suit:' + f.suit, kind: f.type, side: suitLook(f.suit), eyebrow: 'A suit', title: SUITS[f.suit].name, text: suitDesc(f.suit, true) });
+  }
+  if (lv.rules.hedges && lv.stumps.size) out.push({ key: 'ground:hedge', kind: 'hedge', side: 'you', eyebrow: 'The ground', title: 'Hedges', text: HEDGE_DESC });
+  if (lv.rules.starve) out.push({ key: 'rule:dark', kind: 'cat', side: lookOf(null), eyebrow: 'The dark', title: 'Par, then the dark', text: 'Run past par and the dark comes: from then on it takes a piece of yours every turn. Lose them all on one board and the adventure is over.' });
+  return out;
 }
 
 /** Adventure's set for board n: which of your pieces take turns on it
     (all of them, up to five; past that, five drawn at random). The same
     for the same pieces, so finding the board and playing it agree. Null
     outside Adventure: the whole hand plays. */
-const setFor = (n) => (M.upgrades === 'par' && session.run ? adventureSet(session.run, rng(`set:${session.seed}:${n}:${session.run.hand.length}`)) : null);
+const setFor = (n) => (M.upgrades === 'par' && session.run ? adventureSet(session.run, rng(`set:${session.seed}:${n}:${session.run.hand.length}`), n) : null);
 
 /** Has your set changed from the one you were dealt (a piece found, lost,
     swapped on the title, suited or fused)? Timothy, 2026-10-10: "you should
@@ -246,7 +306,7 @@ function find(n = session.n) {
 }
 
 function findOnce(n, hand, attempt, relax = 0, press = 0) {
-  const settings = levelSettings(M, { depth: n, hole: n, round: n, hand, veto: catalog.vetoed, invented: catalog.invented, relax: M.upgrades === 'par' ? relax : 0, press: M.upgrades === 'par' ? press : 0 },
+  const settings = levelSettings(M, { depth: n, hole: n, round: n, hand, veto: catalog.vetoed, invented: catalog.invented, relax: M.upgrades === 'par' ? relax : 0, press: M.upgrades === 'par' ? press : 0, runSeed: session.seed },
     rng(`${modeId}:${session.seed}:${n}${attempt ? ':' + attempt : ''}`));
   if (session.run?.jokers.includes('overtime') && settings.maxMoves) settings.maxMoves += 5;
   // One upgrade a board (2026-10-13, Timothy: "the calculation for balancing
@@ -326,10 +386,18 @@ function draw() {
 }
 
 function hud() {
-  if (M.upgrades === 'par' && session?.run) { setRow(); nextUp(); }
+  if (M.upgrades === 'par' && session?.run) { nextUp(); setRow(); }
   $('#movecount').textContent = now().t;
   const hop = hopIn(now());
   if (daily) { $('#movemax').textContent = `· par ${par}`; $('#goalpill').textContent = `${par + PICK_UP} moves at most`; return; }
+  // Adventure: par, and when the dark comes (2026-10-17); no move limit shown.
+  if (M.upgrades === 'par') {
+    const left = session.dark - now().t;
+    $('#movemax').textContent = `· par ${par}`;
+    $('#goalpill').textContent = left > 0 ? `The dark in ${left}` : 'The dark is here';
+    $('#goalpill').classList.toggle('dark', left <= 1);
+    return;
+  }
   $('#movemax').textContent = [level.rules.maxMoves && !(M.run === 'course' && par) ? `of ${level.rules.maxMoves}` : '', par ? `${M.run === 'course' ? 'of ' : '· '}par ${par}` : '', hop ? `· the rabbit hops ${hop === 1 ? 'next turn' : `in ${hop}`}` : ''].filter(Boolean).join(' ');
 }
 
@@ -435,8 +503,11 @@ async function readyUp(prev = null) {
     three of a kind to a piece. */
 function setRow() {
   const s = now(), box = $('#playhand');
-  const view = s.set ? setView(s).filter((v) => !v.lost) : s.pieces.slice(0, 1).map((p) => ({ p, on: true }));
-  box.replaceChildren(...view.map((v) => {
+  const view = s.set ? setView(s).filter((v) => !v.lost) : s.free ? s.pieces.filter((p) => !p.taken).map((p) => ({ p, on: true })) : s.pieces.slice(0, 1).map((p) => ({ p, on: true }));
+  // Tidier (2026-10-17, Timothy: "we should tidy"): while the strip under
+  // the board shows your set, it is not listed again down here.
+  const strip = !$('#nextup').hidden;
+  box.replaceChildren(...(strip ? [] : view).map((v) => {
     const p = v.p, cv = el('canvas', { class: 'pix', width: 30, height: 36 });
     cv.getContext('2d').drawImage(sprite(p.shape || p.type, lookOf(p)), 0, 0);
     const cell = el('div', { class: `handcell${v.on ? ' picked' : ''}` },
@@ -452,7 +523,7 @@ function setRow() {
   // The daily's set is the day's, all of it, and never grows.
   if (daily) return;
   const bench = session.run.hand.length - (session.pick?.length || session.run.hand.length);
-  if (bench > 0) box.append(el('div', { class: 'handcell' }, el('span', { class: 'dim' }, 'Resting'), el('span', {}, `${bench} more`), el('span', { class: 'small dim' }, 'next board, maybe')));
+  if (bench > 0) box.append(el('div', { class: 'handcell' }, el('span', { class: 'dim' }, 'Resting'), el('span', {}, `${bench} more`), el('span', { class: 'small dim' }, `${session.run.pile?.length ?? bench} still to play`)));
   const r = tallyCounts(s);
   if (r.length) box.append(el('div', { class: 'handcell' }, el('span', { class: 'dim' }, 'Three of a kind'),
     ...r.map((c) => el('span', { class: 'small' }, `${PIECES[c.type].name}: ${c.made ? `a new one${c.have ? ` + ${c.have}/${TAKE_FOR_PIECE}` : ''}` : `${c.have}/${TAKE_FOR_PIECE}`}`))));
@@ -518,13 +589,21 @@ async function startLevel() {
   // Adventure (2026-10-15): par is set by depth, and the board was dealt so
   // its best line is two or three under it (modes.js adventurePar).
   if (M.upgrades === 'par') par = daily ? found.par : adventurePar(session.n);
+  // The dark (Adventure, 2026-10-17): from par and two on, a piece of yours
+  // is taken every turn, so a board you cannot finish ends, and can end the run.
+  // A boss board (adventure-levels.js): its rule was dealt into the board; said here.
+  session.boss = M.upgrades === 'par' && !daily ? bossFor(session.n, session.seed) : null;
+  session.dark = par + (session.boss?.id === 'hurry' ? 0 : darkAfter(session.n)) - (session.vows?.includes('early') ? 1 : 0);
+  if (M.upgrades === 'par' && !daily) level.rules = { ...level.rules, starve: session.dark };
+  noteGuide(level);
   game = { states: [initialState(level)], moves: [] };
   // The daily: a board left part way picks up where it was.
   const resumed = daily && entry.moves.length && entry.results.length === session.n - 1 ? replay(entry.moves) : false;
   board = makeBoard($('#board'), level);
   board.lookOf = M.upgrades === 'par' ? lookOf : null;
   board.lookOfFoe = M.upgrades === 'par' ? (f) => suitLook(f?.suit) : null;
-  $('#drop').hidden = M.upgrades !== 'par'; dropArmed = false; $('#drop').textContent = 'Let the floor give way';
+  // (Adventure needs no button to give up since the dark came: the daily keeps it.)
+  $('#drop').hidden = !daily; dropArmed = false; $('#drop').textContent = 'Let the floor give way';
   board.reach = level.settings.showReach;
   board.reachMine = level.settings.showMyReach;
   board.guards = level.settings.showGuards;
@@ -549,6 +628,7 @@ async function startLevel() {
     if (hz.length) chips.append(el('span', { class: 'pill' }, hz.join(', ')));
     if ((session.tries?.[session.n] || 0) > 0) chips.append(el('span', { class: 'pill' }, `Try ${session.tries[session.n] + 1}`));
   }
+  if (session.boss) chips.append(el('span', { class: 'pill boss' }, `Boss: ${session.boss.name}`));
   if (level.rules.crumble) chips.append(el('span', { class: 'pill' }, 'Crumbling'));
   if (level.rules.shrink) chips.append(el('span', { class: 'pill' }, 'Shrinking'));
   if (level.rules.wrap) chips.append(el('span', { class: 'pill' }, 'Magic edges'));
@@ -566,7 +646,9 @@ async function startLevel() {
   $('#movecount').previousSibling.textContent = 'Move ';
   $('#controls').hidden = true;
   busy = true;
-  if (!resumed) await playIntro(board, level, { section: $('[data-screen=play]'), seen: session.seen, goal: daily ? dailyGoal() : goalCard() });
+  const bossCard = session.boss ? { kind: 'cat', side: lookOf(null), eyebrow: 'A boss', title: session.boss.name, text: `${session.boss.line} Clear it for one card more.` } : null;
+  if (!resumed) await playIntro(board, level, { section: $('[data-screen=play]'), seen: session.seen, extra: M.upgrades === 'par' ? firstSightings(level) : [], goal: daily ? dailyGoal() : bossCard || goalCard() });
+  saveSeen();
   if (daily) { dstore.seen = [...session.seen]; saveStore(dstore); }
   busy = false;
   if (isAuto()) return setUp();
@@ -581,6 +663,7 @@ async function startLevel() {
     status(`Board ${session.n} of ${today.boards.length}, where you left it.`); await readyUp(); return select(null);
   }
   if (daily) { status(`Board ${session.n} of ${today.boards.length}. Take them all, then the hole.`); return select(null); }
+  if (session.boss) { status(`${levelWord()} ${session.n}: ${session.boss.name}. ${session.boss.line}`); return select(null); }
   status(`${levelWord()} ${session.n}. ${$('#goalpill').textContent}.${now().cloudy ? (now().day.rules.cloudOwn ? ' For the first turn, a cloud in front of each side stops the other side.' : ' A cloud covers the second rows for the first turn.') : ''}`);
   select(null);
 }
@@ -719,7 +802,7 @@ function bonusLine(s) {
 /** One piece on the board (Adventure): its moves are always lit, with no
     tap needed (Timothy, 2026-10-15: "since we have one piece you shouldn't
     need to tap it to see where you can move"). */
-const solo = () => M.upgrades === 'par';
+const solo = () => M.upgrades === 'par' && !(game && now()?.free);
 
 function select(i) {
   const s0 = now(), auto = i == null && solo() && !placing && s0.pieces[0] && !s0.pieces[0].taken && !isOver(s0);
@@ -739,7 +822,7 @@ function select(i) {
     else info(`${nameOf({ type })}: ${descOf(type, now().day.rules)}${carriesText(p, M.upgrades === 'par')}${legal.length || p.stun ? '' : ' It has nowhere to go right now.'}`);
   }
   // Your set under the board (Adventure): what can be chosen now.
-  if (solo() && session?.run) { setRow(); nextUp(); }
+  if (solo() && session?.run) { nextUp(); setRow(); }
   draw();
 }
 
@@ -921,10 +1004,14 @@ function whatHappened(a, b, mv = null) {
     if (l.what === 'stone') bits.push(`Your stone takes ${theirs(l.k)}.`);
   }
   if (b.lifted) bits.push(`Your whole set has played: your pieces come off the board, and a new round starts from here.`);
+  // Tactics (2026-10-17): the set has played, and all of it moves freely now.
+  if (b.freed) bits.push('Your whole set has played. From now on, move any of them: tap one, then where it goes.');
+  const dark = (b.tlog || []).find((l) => l.what === 'starve');
+  if (dark && (dark.held || !b.arrived)) bits.push(dark.held ? `The dark reaches for your ${nameOf(b.pieces[dark.i]).toLowerCase()}, but its heart holds.` : `The dark takes your ${nameOf(b.pieces[dark.i]).toLowerCase()}.`);
   // A piece of your set taken (Adventure): gone, and the next comes on.
   if (b.arrived) {
     const t = b.foes.find((f) => !f.taken && f.ate === 0), left = setLeft(b);
-    bits.push(`${b.arrived.lost.vined ? 'A vine of theirs catches' : t ? `${cap(theirs(b.foes.indexOf(t)))} squashes` : 'They took'} your ${nameOf(b.arrived.lost).toLowerCase()}: it is out for this board. ${b.arrived.recalled ? `Your ${myName}, with its rabbit, is your piece again` : `Your ${myName} comes on in its place`}${left > 1 ? ` (${left} pieces left)` : ', your last piece: lose it and the adventure is over'}.`);
+    bits.push(`${dark && !dark.held ? 'The dark takes' : b.arrived.lost.vined ? 'A vine of theirs catches' : t ? `${cap(theirs(b.foes.indexOf(t)))} squashes` : 'They took'} your ${nameOf(b.arrived.lost).toLowerCase()}: it is out for this board. ${b.arrived.recalled ? `Your ${myName}, with its rabbit, is your piece again` : `Your ${myName} comes on in its place`}${left > 1 ? ` (${left} pieces left)` : ', your last piece: lose it and the adventure is over'}.`);
   }
   if (b.foeBonus === 'vines') bits.push('Their piece of Vines takes again.');
   if (b.foeBonus === 'stars') bits.push('Their piece of Stars moves twice.');
@@ -1263,7 +1350,12 @@ async function adventureOver(end) {
   const how = parVerdict(end.t, par, won), score = scoreName(end.t, par, won);
   // A piece given after this depth (a bishop after the first board, a knight
   // after the third), so you have a set to work with.
-  const gift = ADVENTURE_GIFTS[session.n] && roomFor(run) ? ADVENTURE_GIFTS[session.n] : null;
+  // With the "choice of gift" lantern you choose the first (bishop or
+  // knight) and the other comes after the third board; the "travel light"
+  // vow gives none.
+  const giftType = session.vows?.includes('light') ? null : session.n === 3 && run.firstGift === 'knight' ? 'bishop' : ADVENTURE_GIFTS[session.n];
+  const giftPick = giftType && session.n === 1 && lit('giftpick', advDeepest()) && roomFor(run) ? ['bishop', 'knight'] : null;
+  const gift = giftType && !giftPick && roomFor(run) ? giftType : null;
   if (gift) { run.hand.push({ base: gift }); run.found.push(gift); }
   session.n++; run.depth = session.n;
   if (!test) { const r = mine(); r.best = Math.max(r.best || 0, session.n); saveRecords(); }
@@ -1274,22 +1366,24 @@ async function adventureOver(end) {
   // jumping in"). Otherwise the floor gives way.
   if (won) await cheer(score, `${end.t} moves, par ${par}`);
   if (!calm()) { await sleep(won ? 150 : 400); if (won && board.intoHole) await board.intoHole(); else if (board.collapse) await board.collapse(); }
-  if (made.length || netted.length || gift) { sfx.fanfare(3); haptic([30, 40, 30, 40, 60]); }
-  const cards = adventureCards(run, PAR_CARDS[how], rng(`reward:${session.seed}:${session.n}`), taken);
-  const n = PAR_CARDS[how], count = ['', 'one', 'two', 'three', 'four'][n];
+  const n = Math.min(4, PAR_CARDS[how] + (session.boss && won ? 1 : 0)), count = ['', 'one', 'two', 'three', 'four'][n];
+  const cards = adventureCards(run, n, rng(`reward:${session.seed}:${session.n}`), taken);
   const note = `${score}: ${won ? `${end.t} moves, par ${par}.` : 'the floor gave way.'} `
-    + (PAR_AUTO[how] === 'all' ? 'One card, and it goes to a piece of chance\u2019s choosing.' : PAR_AUTO[how] === 'card' ? 'One card: choose the piece for it.' : `Choose one of ${count}.`);
+    + (n > 1 ? `Choose one of ${count}.` : PAR_AUTO[how] === 'all' ? 'One card, and it goes to a piece of chance\u2019s choosing.' : PAR_AUTO[how] === 'card' ? 'One card: choose the piece for it.' : `Choose one of ${count}.`);
   const a = (t) => (/^[aeiou]/i.test(PIECES[t].name) ? 'An' : 'A');
   const sub = [gift ? `${a(gift)} ${PIECES[gift].name.toLowerCase()} joins your set.` : '',
     fell.length ? `Taken on this board, back for the next: your ${fell.join(', ')}.` : '',
     ...netted.map((t) => `In your net: ${a(t).toLowerCase()} ${PIECES[t].name.toLowerCase()} joins your set.`),
     ...made.map((t) => `Three ${PIECES[t].name.toLowerCase()}s taken: ${a(t).toLowerCase()} ${PIECES[t].name.toLowerCase()} joins your set.`),
     [...netted.full, ...made.full].length ? `Your set is full, ${ADVENTURE_MAX} pieces: no room for the ${[...netted.full, ...made.full].map((t) => PIECES[t].name.toLowerCase()).join(' or the ')}.` : '',
-    run.hand.length > run.maxPieces ? `You have ${run.hand.length} pieces: each board, ${run.maxPieces} of them are your set, drawn at random.` : ''].filter(Boolean).join(' ');
+    run.hand.length > run.maxPieces ? `You have ${run.hand.length} pieces: each board draws ${run.maxPieces} of them, until all have played.` : '',
+    bossFor(session.n, session.seed) ? `Next, a boss: ${bossFor(session.n, session.seed).name}. ${bossFor(session.n, session.seed).line}` : ''].filter(Boolean).join(' ');
   // A rabbit your net caught is yours for certain: put it in a piece after
   // the card (each in turn), while some piece has none.
   const extra = sure.map((r) => ({ kind: 'rabbit', ...r }));
-  return between({ note: `Depth ${session.n}`, sub, rewards: true, cards, rewardNote: note, rewardAuto: PAR_AUTO[how] || null, fall: true, extra });
+  // Each new piece gets its own little sequence on the way down (forge).
+  const forged = [...(gift ? [{ type: gift, why: 'A gift for the road' }] : []), ...made.map((type) => ({ type, why: 'Three of a kind' })), ...netted.map((type) => ({ type, why: 'In your net' }))];
+  return between({ note: `Depth ${session.n}`, sub, rewards: true, cards, rewardNote: note, rewardAuto: n > 1 ? null : PAR_AUTO[how] || null, fall: true, extra, forged, giftPick });
 }
 
 // --- The daily (2026-10-18). ------------------------------------------------------
@@ -1429,11 +1523,51 @@ async function cheer(word, line) {
   box.hidden = true;
 }
 
+// --- A new piece made (2026-10-17, Timothy: "we need something more
+// celebratory to show that you've collected enough fragments to make a new
+// piece. like some sort of sequence to show that it's made"). Three pale
+// fragments of the piece fly in from round the screen, spin together and
+// merge in a flash; the piece itself rises out of it, turning, with its
+// name; then a fanfare. Tap to hurry it. Reduced motion: the piece and its
+// name, held a moment.
+
+function forge(type, why = 'Three of a kind') {
+  const name = PIECES[type]?.name || type, look = lookOf({});
+  const big = snapshot(model(type, look), { w: 120, h: 144, cx: 60, cy: 128, scale: 8 });
+  const piece = el('canvas', { class: 'pix forge-piece', width: 120, height: 144 });
+  piece.getContext('2d').drawImage(big, 0, 0);
+  const frag = () => { const c = el('canvas', { class: 'pix forge-frag', width: 30, height: 36 }); c.getContext('2d').drawImage(sprite(type, look), 0, 0); return c; };
+  const frags = [frag(), frag(), frag()];
+  const words = el('div', { class: 'forge-words' }, el('p', { class: 'forge-why' }, why), el('p', { class: 'forge-name' }, `A new ${name.toLowerCase()}`), el('p', { class: 'forge-sub' }, 'joins your set'));
+  const veil = el('div', { class: 'forge' }, el('div', { class: 'forge-rays' }), ...frags, el('div', { class: 'forge-flash' }), piece, words);
+  document.body.append(veil);
+  sfx.gain(); haptic([12, 40, 12]);
+  return new Promise((done) => {
+    let over = false;
+    const finish = () => { if (over) return; over = true; veil.classList.add('out'); setTimeout(() => { veil.remove(); done(); }, calm() ? 0 : 260); };
+    veil.addEventListener('click', finish);
+    if (calm()) { veil.classList.add('still'); return setTimeout(finish, 1600); }
+    // Fragments in from three sides, spinning, to the middle.
+    const from = [[-140, -170], [150, -120], [0, 190]];
+    frags.forEach((f, i) => f.animate([
+      { transform: `translate(${from[i][0]}px, ${from[i][1]}px) rotate(${i * 120}deg) scale(1.4)`, opacity: 0 },
+      { opacity: 0.85, offset: 0.25 },
+      { transform: 'translate(0, 0) rotate(720deg) scale(1)', opacity: 0.9 }
+    ], { duration: 900, delay: i * 90, easing: 'cubic-bezier(.55, 0, .3, 1)', fill: 'forwards' }));
+    setTimeout(() => {
+      sfx.transform(0); haptic([30, 30, 60]); veil.classList.add('merged');
+      frags.forEach((f) => f.animate([{ opacity: 0.9, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(.2)' }], { duration: 250, fill: 'forwards' }));
+    }, 1080);
+    setTimeout(() => sfx.fanfare(3), 1350);
+    setTimeout(finish, 3300);
+  });
+}
+
 // --- Between levels: the fall, and what you find. -------------------------------
 
 let fall = null;
 
-async function between({ note, sub = '', rewards = false, combine = false, shop: shopping = false, fall: falling = false, board: newBoard = false, won = false, cards: rewardCards = null, rewardNote = null, rewardAuto = null, extra = [] }) {
+async function between({ note, sub = '', rewards = false, combine = false, shop: shopping = false, fall: falling = false, board: newBoard = false, won = false, cards: rewardCards = null, rewardNote = null, rewardAuto = null, extra = [], forged = [], giftPick = null }) {
   show('between');
   $('#betweennote').textContent = note;
   $('#betweensub').textContent = sub;
@@ -1450,6 +1584,13 @@ async function between({ note, sub = '', rewards = false, combine = false, shop:
   } else [cv.width, cv.height] = [240, 300];
   fall = falling && !calm() && kinds.length ? startFall(cv, kinds) : null;
   cv.hidden = !fall;
+  for (const f of forged) await forge(f.type, f.why);
+  if (giftPick && session.run) {
+    const at = session.run.hand.length;
+    await reward({ k: 2, note: 'A gift for the road. Which comes first? The other follows after the third board.', cards: giftPick.map((type) => ({ kind: 'piece', type })), must: true });
+    const got = session.run.hand[at]?.base;
+    if (got) { session.run.firstGift = got; session.run.found.push(got); }
+  }
   if (rewards && session.run) await reward({ k: 0, note: rewardNote, cards: rewardCards, auto: rewardAuto });
   for (const card of extra) if (session.run?.hand.some((h) => !h.rabbit)) await reward({ k: 1, note: `In your net: a ${rabbitName(card.rabbit, card.suit).toLowerCase()}, yours.`, cards: [card], auto: 'card' });
   if (shopping && session.run) await shop();
@@ -1471,11 +1612,17 @@ async function between({ note, sub = '', rewards = false, combine = false, shop:
   startLevel();
 }
 
+/** A card's one line, for the back of it (2026-10-17): what it does, short
+    (adventure-meta.js, shared with the field guide). */
+const CARD_LINE = SHORT;
+const cardLine = (c) => (c.kind === 'suit' ? CARD_LINE[c.suit] : c.kind === 'weapon' ? CARD_LINE[c.weapon] : c.kind === 'piece' ? CARD_LINE[c.type] || PIECES[c.type]?.desc
+  : c.kind === 'rabbit' ? `A ${RABBITS[c.rabbit]?.name.toLowerCase()} rabbit: it acts by itself where it stands.` : '') || cardText(c, true).text;
+
 /** A suit or weapon card's name with its mark: "♥ Hearts". */
 const cardName = (c) => (c.kind === 'suit' ? `${SUITS[c.suit].mark} ${SUITS[c.suit].name}` : c.kind === 'rabbit' ? rabbitName(c.rabbit, c.suit) : `${WEAPONS[c.weapon].mark} ${WEAPONS[c.weapon].name}`);
 
 /** Offer the rewards for a finished level; resolves once one is taken. */
-function reward({ k = 0, note = null, cards: given = null, room = false, auto = false } = {}) {
+function reward({ k = 0, note = null, cards: given = null, room = false, auto = false, must = false } = {}) {
   const fairy = M.run !== 'descent' || session.n >= M.fairyFrom;
   const run = session.run, cards = (given || rewardsFor(run, rng(`reward:${session.seed}:${session.n}${k ? ':' + k : ''}`), catalog.vetoed, fairy))
     .filter((c) => c.kind !== 'joker' || M.jokers)
@@ -1571,15 +1718,26 @@ function reward({ k = 0, note = null, cards: given = null, room = false, auto = 
         return weaponIcon(c.weapon, size, cls);
       };
       const name = c.kind === 'suit' ? SUITS[c.suit].name : c.kind === 'rabbit' ? rabbitName(c.rabbit, c.suit) : c.kind === 'piece' ? PIECES[c.type].name : WEAPONS[c.weapon]?.name || cardText(c).title;
-      return el('button', { class: `pcard ${c.kind}`, style: `--pc:${colour};--i:${i}`, title: cardText(c, true).text, 'aria-label': name, onclick: () => choose(c) },
+      // Tap once to turn it over and read what it does, again to take it
+      // (Timothy, 2026-10-17: "we can do the flipping thing"); its face stays
+      // just the pip and the name, as he asked on 2026-10-16.
+      const b = el('button', { class: `pcard ${c.kind}`, style: `--pc:${colour};--i:${i}`, title: cardText(c, true).text, 'aria-label': `${name}: ${cardLine(c)}`, onclick: () => {
+        if (b.classList.contains('flipped')) return choose(c);
+        for (const o of box.querySelectorAll('.pcard.flipped')) o.classList.remove('flipped');
+        b.classList.remove('flipping'); void b.offsetWidth; b.classList.add('flipping');
+        setTimeout(() => b.classList.add('flipped'), calm() ? 0 : 130);
+        haptic(6);
+      } },
         el('span', { class: 'corner tl' }, pip(15, 'pip')),
         el('span', { class: 'face' }, pip(52, 'pip'), c.kind === 'rabbit' && SUITS[c.suit] ? suitIcon(c.suit, SUITS[c.suit].colour, 22, 'pip suitof') : null),
         el('span', { class: 'pname' }, name),
-        el('span', { class: 'corner br' }, pip(15, 'pip')));
+        el('span', { class: 'corner br' }, pip(15, 'pip')),
+        el('span', { class: 'back' }, el('b', {}, name), el('span', {}, cardLine(c)), el('em', {}, 'Tap to take')));
+      return b;
     };
     if (M.upgrades === 'par') {
       box.replaceChildren(el('p', { class: 'center' }, head), el('div', { class: 'cardrow' }, ...cards.map(pcard)),
-        el('div', { class: 'stack', style: 'margin-top:10px' }, el('button', { class: 'quiet', onclick: done }, 'Take nothing')));
+        must ? '' : el('div', { class: 'stack', style: 'margin-top:10px' }, el('button', { class: 'quiet', onclick: done }, 'Take nothing')));
       box.hidden = false;
       return;
     }
@@ -1861,6 +2019,7 @@ function runOver(why) {
   const r = mine(); r.played++;
   if (M.run === 'rounds') r.best = Math.max(r.best || 0, session.wins);
   if (M.run === 'descent') r.best = Math.max(r.best || 0, session.n);
+  if (M.upgrades === 'par' && session.vows?.length) { const k = vowKey(session.vows); (r.vows = r.vows || {})[k] = Math.max(r.vows[k] || 0, session.n); }
   saveRecords();
   show('over');
   $('#overeyebrow').textContent = M.run === 'descent' ? 'The descent ends' : 'The run ends';
@@ -1870,6 +2029,11 @@ function runOver(why) {
   if (session.run.lost.length) body.push(el('p', { class: 'small dim center' }, `Lost on the way: ${session.run.lost.map((h) => pieceOf(h, session.run.made).name).join(', ')}.`));
   if (session.run.jokers.length) body.push(el('p', { class: 'small dim center' }, `Jokers: ${session.run.jokers.map((j) => JOKERS[j].name).join(', ')}.`));
   if (session.caught.length) body.push(el('p', { class: 'small dim center' }, `Rabbits caught: ${session.caught.length}.`));
+  // Lanterns this run lit (Adventure): what the next run can do that this
+  // one could not.
+  const newly = M.upgrades === 'par' && !test && !daily ? LANTERNS.filter((l) => session.advBefore < l.depth && advDeepest() >= l.depth) : [];
+  for (const l of newly) body.push(el('div', { class: 'lanternlit' }, el('span', { class: 'stone', 'aria-hidden': 'true' }, '✦'), el('span', {}, el('b', {}, `A lantern is lit: ${l.name}.`), ` ${l.text}`)));
+  if (newly.length) setTimeout(() => { sfx.fanfare(2); haptic([20, 40, 20]); }, 900);
   $('#overbody').replaceChildren(...body);
   $('#again').textContent = M.run === 'descent' ? 'Descend again' : 'Again';
 }
@@ -1900,10 +2064,19 @@ async function prepareTitle() {
   $('#testnote').hidden = !test;
   if (test) $('#testnote').textContent = 'Settings from Chaos: a test run. Nothing is kept.';
   if (daily) dailyTitle();
+  // Adventure, or Adventure Tactics (Timothy, 2026-10-17: "maybe an option
+  // at the beginning to play like that").
+  const pick = $('#modepick');
+  pick.hidden = !(modeId === 'adventure' || modeId === 'tactics');
+  if (!pick.hidden) pick.replaceChildren(...[['adventure', 'Adventure'], ['tactics', 'Tactics']].map(([id, word]) =>
+    el('a', { href: `./?mode=${id}`, ...(id === modeId ? { 'aria-current': 'page' } : {}) }, word)));
   if (daily && !today) { $('#titlehand').replaceChildren(); $('#catpick').hidden = true; $('#begin').disabled = true; $('#begin').textContent = 'No daily today'; return; }
   titleHand();
   catPicker();
   waystoneList();
+  lanternList();
+  vowList();
+  $('#titleguide').hidden = M.upgrades !== 'par' || !!test;
   courseList();
   variantList();
   await previewFirst();
@@ -1958,7 +2131,7 @@ function titleHand() {
 
 /** Your cat's look, Adventure only: a feature at a time, kept on this
     device. Only the model changes; the cat moves as a king whatever it wears. */
-const CAT_WORD = { ears: 'Ears', tail: 'Tail', whiskers: 'Face', coat: 'Coat' };
+const CAT_WORD = { ears: 'Ears', tail: 'Tail', whiskers: 'Face', coat: 'Coat', cape: 'Cape' };
 function catPicker() {
   const box = $('#catpick');
   box.hidden = M.upgrades !== 'par';
@@ -1967,7 +2140,9 @@ function catPicker() {
   const big = snapshot(model('cat', lookOf(null)), { w: 90, h: 108, cx: 45, cy: 94, scale: 6 });
   $('#catcv').getContext('2d').clearRect(0, 0, 90, 108);
   $('#catcv').getContext('2d').drawImage(big, 0, 0);
-  $('#catopts').replaceChildren(...Object.entries(CAT_OPTIONS).map(([part, opts]) =>
+  const capes = capesOpen(advDeepest());
+  $('#catopts').replaceChildren(...Object.entries(CAT_OPTIONS).map(([part, all]) => [part, part === 'cape' ? all.filter(([id]) => capes.includes(id)) : all])
+    .filter(([, opts]) => opts.length > 1).map(([part, opts]) =>
     el('div', { class: 'catrow' }, el('b', {}, CAT_WORD[part]), ...opts.map(([id, word]) =>
       el('button', { class: look[part] === id ? 'on' : '', 'aria-pressed': String(look[part] === id), onclick: () => {
         setCatLook({ ...catLook(), [part]: id });
@@ -1975,6 +2150,60 @@ function catPicker() {
         haptic(8);
         catPicker(); titleHand();
       } }, word)))));
+}
+
+/** Adventure's lanterns, lit and not yet (adventure-meta.js). */
+function lanternList() {
+  const box = $('#lanterns');
+  box.replaceChildren();
+  box.hidden = M.upgrades !== 'par' || daily || !!test;
+  if (box.hidden) return;
+  const deep = advDeepest();
+  box.append(el('p', { class: 'eyebrow' }, `Lanterns · deepest ${deep ? `depth ${deep}` : 'none yet'}`));
+  for (const l of LANTERNS) {
+    const on = deep >= l.depth;
+    box.append(el('div', { class: `waystone lantern${on ? ' lit' : ''}` }, el('span', { class: 'stone', 'aria-hidden': 'true' }, on ? '✦' : '✧'),
+      el('span', {}, el('b', {}, `Depth ${l.depth}: ${l.name}. `), on ? l.text : `Reach depth ${l.depth} to light it.`)));
+  }
+}
+
+/** Vows, once their lantern is lit: tap to take one on for the next run. */
+function vowList() {
+  const box = $('#vows');
+  box.replaceChildren();
+  box.hidden = M.upgrades !== 'par' || daily || !!test || !lit('vows', advDeepest());
+  if (box.hidden) return;
+  box.append(el('p', { class: 'eyebrow' }, 'Vows for this run'), ...VOWS.map((v) => {
+    const on = vowsOn.includes(v.id);
+    return el('button', { class: `vow${on ? ' on' : ''}`, 'aria-pressed': String(on), onclick: () => {
+      vowsOn = on ? vowsOn.filter((x) => x !== v.id) : [...vowsOn, v.id];
+      try { localStorage.setItem(VOWS_KEY, JSON.stringify(vowsOn)); } catch { /* blocked */ }
+      session.vows = vowsForRun(); haptic(8);
+      vowList(); $('#records').textContent = recordsLine();
+    } }, el('b', {}, v.name), el('span', {}, v.text));
+  }));
+}
+
+/** The field guide: everything a run can bring, met or not yet. */
+function guidePic(pic) {
+  const cv = () => el('canvas', { class: 'pix', width: 30, height: 36 });
+  if (pic.piece) { const c = cv(); c.getContext('2d').drawImage(sprite(pic.piece, pic.piece === 'cat' ? lookOf(null) : 'you'), 0, 0); return c; }
+  if (pic.rabbit) { const c = cv(); c.getContext('2d').drawImage(sprite('rabbit', 'foe', RABBITS[pic.rabbit].colour), 0, 0); return c; }
+  if (pic.suit) return suitIcon(pic.suit, SUITS[pic.suit].colour, 30);
+  if (pic.weapon) return weaponIcon(pic.weapon, 30);
+  if (pic.ground === 'hedge') { const c = cv(); c.getContext('2d').drawImage(sprite('hedge', 'you'), 0, 0); return c; }
+  return el('span', { class: 'gglyph' }, pic.ground === 'dark' ? '☾' : '♚');
+}
+function fieldGuide() {
+  show('guide');
+  const secs = guideSections(), all = secs.flatMap((x) => x.entries), met = (e) => guide.found[e.key];
+  $('#guidecount').textContent = `${all.filter(met).length} of ${all.length} met. Each fills in the first time you meet it, in any run; nothing here can be missed for good.`;
+  $('#guidebody').replaceChildren(...secs.map((x) => el('div', { class: 'gsec' },
+    el('h3', {}, x.title, el('span', { class: 'dim' }, ` ${x.entries.filter(met).length} of ${x.entries.length}`)),
+    el('div', { class: 'glist' }, ...x.entries.map((e) => el('div', { class: `gentry${met(e) ? '' : ' unseen'}` },
+      el('span', { class: 'gpic' }, met(e) ? guidePic(e.pic) : el('span', { class: 'gglyph' }, '?')),
+      el('span', {}, el('b', {}, met(e) ? e.name : 'Not met yet'),
+        el('small', {}, met(e) ? `${e.line} ${met(e) === 'd' ? 'First met in the daily.' : `First met at depth ${met(e)}.`}` : e.hint))))))));
 }
 
 /** The waystones, lit and not yet. */
@@ -2039,6 +2268,8 @@ $('#begin').onclick = async () => {
   startLevel();
 };
 $('#again').onclick = () => { if (M.run === 'single') { session.n++; return startLevel(); } prepareTitle(); };
+$('#titleguide').onclick = () => fieldGuide();
+$('#closeguide').onclick = () => show('title');
 $('#titlepieces').onclick = async () => {
   const f = await find(1), L = makeLevel(f.settings, f.seed);
   $('#sheet-list').replaceChildren();

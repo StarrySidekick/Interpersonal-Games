@@ -32,7 +32,7 @@ const deal = (d, hand, sd, more = {}) => {
 // Statues and the Changeling (every one of theirs a statue, for this).
 let L = null;
 for (let sd = 1; sd < 200 && !L; sd++) {
-  const lv = deal(3, ['changeling'], sd, { still: 12, sentries: 0, scared: 0, crown: false });
+  const lv = deal(3, ['changeling'], sd, { still: 12, sentries: 0, scared: 0, traps: 0, crown: false, noStatues: false });
   if (R.movesFor(R.initialState(lv), 0).some((mv) => mv.cap)) L = lv;
 }
 ok(L, 'a board where the Changeling can take at once');
@@ -54,7 +54,9 @@ for (const d of [1, 2, 3, 5, 8, 11, 14]) for (let sd = 1; sd <= 12; sd++) {
   const st = R.initialState(lv), W = lv.W;
   const army = st.foes.filter((f) => f.type !== 'rabbit');
   ok(army.some((f) => f.brain === 'possessed'), `depth ${d} (${sd}): at least one of theirs walks a route`);
-  ok(army.every((f) => ['possessed', 'still', 'sentry', 'scared', ...(d >= 4 ? ['simple'] : []), ...(d >= 7 ? ['trap'] : []), ...(d >= 10 ? ['sentient'] : [])].includes(f.brain)), `depth ${d} (${sd}): theirs are statues, walkers, sentries or scared (simple from depth 4, traps from 7, sentient from 10); no leader`);
+  // (No bare statues since 2026-10-17: every one of theirs has a rabbit;
+  // traps from depth 2.)
+  ok(army.every((f) => ['possessed', 'sentry', 'scared', ...(d >= 2 ? ['trap'] : []), ...(d >= 4 ? ['simple'] : []), ...(d >= 10 ? ['sentient'] : [])].includes(f.brain)), `depth ${d} (${sd}): every one of theirs has a rabbit: walkers, sentries, scared (traps from depth 2, simple from 4, sentient from 10); no leader`);
   ok(army.every((f) => f.brain !== 'simple' || (f.dir && R.simpleNext(st, f, 'foe'))), `depth ${d} (${sd}): a simple rabbit has a line, and a move along it`);
   ok(army.every((f) => f.type !== 'pawn' || f.brain === 'still'), `depth ${d} (${sd}): pawns are statues`);
   ok(army.every((f) => !f.route || f.pattern.every(([dx, dy]) => dx || dy)), `depth ${d} (${sd}): walkers never rest (a step every turn)`);
@@ -139,7 +141,8 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
   run.hand[1].suit = 'hearts'; run.hand[1].lives = 2;
   // (Five by five, so the moves below have room: depth 2 deals three or
   // four squares a side since 2026-10-17.)
-  const lv = makeLevel({ ...levelSettings(M, { depth: 2, hand: handSettings(run) }, rng('cycle')), w: 5, h: 5, foeRows: 4 }, 31);
+  // (Every piece staying: the way the daily's first day plays, stayBehind 'all'.)
+  const lv = makeLevel({ ...levelSettings(M, { depth: 2, hand: handSettings(run) }, rng('cycle')), w: 5, h: 5, foeRows: 4, stayBehind: 'all' }, 31);
   let c = R.initialState(lv);
   ok(lv.pieces.length === 1 && lv.cycle?.length === 3, 'one piece on the board, three in the set');
   ok(R.initialState(lv).set[1].suit === 'hearts', 'each piece of the set keeps its suit while it waits');
@@ -303,6 +306,57 @@ ok(walkers > 60, `routes were dealt (${walkers})`);
   const off = R.movesFor(s, 0).find((q) => q.push && q.y === 4);
   ok(off && off.push[0].to === -1 && R.takesAny(off), 'pushed off the board, it is taken');
   ok(!WEAPON_ORDER.includes('shield') && R.canArm('knight', 'shield'), 'the shield is Adventure’s own, and any piece can carry one');
+}
+
+// Who stays where it moves (2026-10-17, Timothy: "no more leaving pieces
+// behind outside of gear suits in the regular adventure"), Adventure
+// Tactics ("once you play the three, you then can move them each one by one
+// like regular chess"), the dark ("a point at which your pieces start to get
+// eaten every turn ... like past a double bogey") and the deck ("you end up
+// using your entire deck eventually").
+{
+  const lvl = (mode, hand, more = {}) => { const MM = modeDefaults(mode), r = newRun(hand, MM.maxPieces); return makeLevel({ ...levelSettings(MM, { depth: 2, hand: handSettings(r) }, rng('m')), w: 6, h: 6, foeRows: 5, foes: 1, still: 0, sentries: 0, traps: 0, statues: 0, ...more }, 77); };
+  const quiet = (lv) => R.initialState({ ...lv, foes: [{ type: 'pawn', x: 5, y: 5, brain: 'still', target: true }], stumps: new Set() });
+  const safeMove = (s) => R.allMoves(s).find((m) => m.p >= 0 && !m.cap && !R.isOver(R.apply(s, m)));
+  let s = quiet(lvl('adventure', ['rook', 'bishop', 'knight']));
+  ok(s.day.rules.stayBehind === 'some', 'Adventure: only some of your set stay where they move');
+  s = R.apply(s, safeMove(s)); s = R.apply(s, safeMove(s));
+  ok(!R.alliesOf(s).length && s.pieces.filter((p) => !p.taken).length === 1, 'a piece with no rabbit and not of Gears just turns into the next');
+  let lv = lvl('adventure', ['rook', 'bishop', 'knight']);
+  lv = { ...lv, cycle: lv.cycle.map((e, j) => (j === 0 ? { ...e, rabbit: 'sentry' } : e)), pieces: [{ ...lv.pieces[0], rabbit: 'sentry' }] };
+  s = quiet(lv);
+  s = R.apply(s, R.allMoves(s).find((m) => m.p >= 0 && m.as === 0 && !m.cap)); s = R.apply(s, safeMove(s));
+  ok(R.alliesOf(s).length === 1, 'one with a rabbit stays, and acts by itself');
+  s = quiet(lvl('tactics', ['rook', 'bishop', 'knight']));
+  ok(s.day.rules.stayBehind === 'tactics' && s.set.length === 3, 'Tactics: a set of three');
+  for (let i = 0; i < 3; i++) s = R.apply(s, safeMove(s));
+  ok(s.free && !s.set && s.pieces.filter((p) => !p.taken).length === 3, 'Tactics: each moves once and stays; then all three stand, free');
+  ok(new Set(R.allMoves(s).filter((m) => m.p >= 0).map((m) => m.p)).size === 3, 'Tactics: any of the three may move');
+  lv = lvl('adventure', ['rook', 'bishop']); lv = { ...lv, rules: { ...lv.rules, starve: 2 } };
+  s = quiet(lv);
+  s = R.apply(s, safeMove(s));
+  ok(!s.tlog?.some((l) => l.what === 'starve'), 'the dark: nothing before it comes');
+  s = R.apply(s, safeMove(s));
+  ok(s.tlog?.some((l) => l.what === 'starve') && R.setLeft(s) === 1, 'the dark takes a piece once the moves run past it; the next comes on');
+  s = R.apply(s, safeMove(s) || { p: -1, x: 0, y: 0 });
+  ok(R.isOver(s) && R.outcome(s) === 'eaten', 'and taking the last loses the board');
+  const run = newRun(['cat', 'rook', 'bishop', 'knight', 'queen', 'painter', 'bard'], 4), seen = new Set();
+  for (let b = 1; b <= 2; b++) { const set = adventureSet(run, rng('d' + b), b); set.forEach((i) => seen.add(i)); ok(adventureSet(run, rng('x'), b).join() === set.join(), `the deck: board ${b} asked again gives the same set`); }
+  ok(seen.size === 7, 'the deck: two boards of four (the cat and three) use all seven');
+}
+
+// Hedges (2026-10-17, Timothy: "can be moved through if one has a sword,
+// otherwise can only be hopped over").
+{
+  const base = deal(1, ['rook'], 31, FIVE);
+  ok(base.rules.hedges, 'Adventure’s obstacles are hedges');
+  const day = { ...base, W: 5, H: 5, holes: new Set(), cycle: undefined, hole: null, stumps: new Set([10]), foes: [{ type: 'pawn', x: 4, y: 4, brain: 'still', target: true }] };
+  const st = (p) => R.initialState({ ...day, pieces: [p] });
+  ok(!R.movesFor(st({ type: 'rook', x: 0, y: 0 }), 0).some((m) => m.x === 0 && m.y >= 2), 'a slider stops at a hedge, and cannot stop on it');
+  const sw = st({ type: 'rook', x: 0, y: 0, weapon: 'sword', wl: 1 }), ms = R.movesFor(sw, 0);
+  ok(ms.some((m) => m.x === 0 && m.y === 3) && ms.find((m) => m.x === 0 && m.y === 2)?.cut === 10, 'a sword goes through, and may stop on it to cut it');
+  ok(R.playerMove(sw, { p: 0, ...ms.find((m) => m.x === 0 && m.y === 2) }).open.includes(10), 'a hedge stopped on with a sword is cut down');
+  ok(R.movesFor(st({ type: 'knight', x: 0, y: 1 }), 0).some((m) => m.x === 1 && m.y === 3) && !R.movesFor(st({ type: 'knight', x: 1, y: 0 }), 0).some((m) => m.x === 0 && m.y === 2), 'a knight hops over one, but cannot land on it');
 }
 
 // A shield's push slides (2026-10-17, Timothy: "shields causes enemy pieces

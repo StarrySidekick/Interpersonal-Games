@@ -1017,15 +1017,17 @@ export class Board3D extends Board {
     // Statues, falling with their squares when the floor goes.
     // A statue that has opened (a statue row) is gone; the one opening now
     // sinks and shrinks away.
+    // (A hedge instead, in Adventure since 2026-10-17: rules.hedges.)
+    const stumpModel = (sq) => (day.rules.hedges ? model('hedge') : model(statueKind(day, sq), 'stone'));
     for (const sq of day.stumps) {
       const x = sq % day.W, y = Math.floor(sq / day.W), c = tw?.collapse, sink = tw?.sinkStatue?.sq === sq ? tw.sinkStatue : null;
       if (s.open?.includes(sq) && !(sink && at < sink.t0 + sink.dur)) continue;
       if (sink && s.open?.includes(sq)) {
         const k = Math.max(0, Math.min(1, (at - sink.t0) / sink.dur));
-        stand(model(statueKind(day, sq), 'stone'), x, y, -k * 3, 400, { s: Math.max(0.02, 1 - k * k) });
+        stand(stumpModel(sq), x, y, -k * 3, 400, { s: Math.max(0.02, 1 - k * k) });
         continue;
       }
-      stand(model(statueKind(day, sq), 'stone'), x, y, 0, 400, c ? { s: away(at - c.t0 - c.delay(x, y)) } : {});
+      stand(stumpModel(sq), x, y, 0, 400, c ? { s: away(at - c.t0 - c.delay(x, y)) } : {});
     }
     // Neutral pieces (2026-10-13): ghosts in their side's colour, and gates,
     // up or down.

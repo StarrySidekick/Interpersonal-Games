@@ -23,6 +23,7 @@ import { clean, defaults as levelDefaults, crazy, SCHEMA, FAIRY, PARTS, part, GO
 import { VARIANTS, readFen } from './variants.js';
 import { PIECES } from './rules.js';
 import { CONFIG } from './config.js';
+import { recipe, spend, SUIT_FROM } from './adventure-levels.js';
 
 const opts = (...pairs) => pairs.map(([v, label]) => ({ v, label }));
 
@@ -196,7 +197,7 @@ export const MODES = {
     name: 'Adventure', blurb: 'Start with your cat. Take every piece, jump down the hole, and see how deep you go.',
     settings: {
       run: 'descent', roll: 'fixed', upgrades: 'par', startPieces: 1, maxPieces: 4, startPool: ['cat'], rewards: true, jokers: false, carry: false, keepsakes: false, outOfMoves: 'fall', fairyFrom: 4, ramp: 'steady',
-      goal: 'clear', captureN: 0, royal: false, showdown: false, promote: 'none', fullRow: false, lineup: false, inOrder: false, mineRows: 1, foeRows: 4, arrange: false, cloud: false, ghosts: false, cycle: true, swordAims: true, shieldSlide: true, squash: true, suitRabbits: true, tactics: true, wait: true,
+      goal: 'clear', captureN: 0, royal: false, showdown: false, promote: 'none', fullRow: false, lineup: false, inOrder: false, mineRows: 1, foeRows: 4, arrange: false, cloud: false, ghosts: false, cycle: true, swordAims: true, shieldSlide: true, stayBehind: 'some', squash: true, suitRabbits: true, tactics: true, wait: true,
       w: 5, h: 5, foes: 3, still: 2, foePool: ['knight', 'bishop', 'rook', 'king'], darkBrain: 'possessed', patterns: 'routes', routeKinds: ['Shuttle'], oneMove: false, kinds: 1, skill: '1', style: 'balanced', rabbitMind: 'pattern', rabbits: 0,
       foesCapture: true, statues: 0, clouds: 0, maxMoves: 40, parMin: 1, parMax: 12, difficulty: 'any', balance: 'off', minEngage: 0, minCeiling: 0
     }
@@ -276,6 +277,15 @@ MODES.today = {
   name: 'The daily', blurb: 'Three boards of Adventure, the same for everyone today. Share your card.',
   settings: { ...MODES.adventure.settings }
 };
+// Adventure Tactics (Timothy, 2026-10-17: "i want to try a version wherein
+// you have three pieces in a set, and you play them like you do now, and
+// they stay where the are, but then once you play the three, you then can
+// move them each one by one like regular chess, for the rest of the level
+// ... maybe this new version can be called adventure tactics just for now").
+MODES.tactics = {
+  name: 'Adventure Tactics', blurb: 'Adventure with a set of three: each moves once and stays where it lands, then all three move freely, like chess.',
+  settings: { ...MODES.adventure.settings, maxPieces: 3, stayBehind: 'tactics' }
+};
 // The first daily's practice boards keep their own name (its id stays, for links).
 MODES.daily.name = 'The rabbit: practice';
 // (Every blurb a sentence or two since 2026-10-17, Timothy: "the super long
@@ -298,7 +308,7 @@ export function modeSettings(id) {
   const mine = { ...(loadAll()[id] || {}) };
   // Adventure's set size is its own (2026-10-17, Timothy: "you roll a set of
   // four pieces by default instead of 5"): a size kept from before is let go.
-  if (id === 'adventure') delete mine.maxPieces;
+  if (id === 'adventure' || id === 'tactics') delete mine.maxPieces;
   return cleanMode({ ...modeDefaults(id), ...mine });
 }
 
@@ -557,7 +567,7 @@ export const adventurePar = (depth) => Math.min(15, 5 + Math.floor((Math.max(1, 
     best is two under (an eagle), or three (an albatross). */
 export const EAGLE_ROOM = 2;
 
-export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, veto = [], invented = [], relax = 0, press = 0 } = {}, rand = Math.random) {
+export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, veto = [], invented = [], relax = 0, press = 0, runSeed = null } = {}, rand = Math.random) {
   const pick = (a) => a[Math.floor(rand() * a.length)];
   const int = (a, b) => a + Math.floor(rand() * (b - a + 1));
   let S = { ...M };
@@ -635,87 +645,58 @@ export function levelSettings(M, { depth = 1, hole = 1, round = 1, hand = null, 
     // inside and walk a short route (patterns 'routes'), one of them on the
     // first board and more deeper, with longer routes as you go: there and
     // back first, then with rests, then round a square, then two there.
-    const d = depth;
-    // Small boards first (Timothy, 2026-10-17: "boards can start smaller
-    // that 5x5, down to 3x3"): three or four squares a side at first,
-    // growing to seven deep down.
-    const size = Math.min(7, (d === 1 ? pick([3, 4]) : d === 2 ? pick([3, 4, 4]) : d <= 4 ? pick([4, 4, 5]) : d <= 7 ? pick([4, 5, 6, 6]) : pick([5, 6, 6, 7])) + (press >= 2 ? 1 : 0));
+    // Since 2026-10-17 the board is made from the rules in
+    // adventure-levels.js (Timothy: "levels should be built based on a set
+    // of rules ... like hades or rogue legacy or balatro"): its place in
+    // its act, its threat budget, its size, hedges, loops and rabbits, and
+    // a boss's rule on the last board of an act. This works out how many
+    // pieces of theirs par asks for, and spends the budget on them.
+    const d = depth, R = recipe(d, rand, { runSeed });
+    const size = Math.min(7, R.size + (press >= 2 ? 1 : 0));
     // Par is set by depth (Timothy, 2026-10-15: "par should be 5 moves to
     // start ... every three levels the par goes up one (5,6,7,8) up to 15"),
     // and every board is dealt so its best line is two under par (an eagle)
-    // or three (an albatross): so an eagle is always there to find, and par
-    // leaves two moves to spare. Their number follows that best line: one or
-    // two fewer pieces than its moves (measured, 2026-10-15: a board's best
-    // line is about one move more than its pieces); `relax` takes more away
-    // when a deal finds nothing. Deep down a board holds at most eight (nine
-    // took the solver too long to vet, with a set of three to choose from),
-    // so the best line runs shorter than par allows and eagles come easier.
+    // or three (an albatross). Their number follows that best line: a hit a
+    // move, about; a piece of Hearts takes two. `press` asks for more when a
+    // deal came out short, `relax` for less when it found no win. At most
+    // eight of theirs (the most the solver can vet in time); past that the
+    // hits are hearts. (One more hit down to depth 6 since 2026-10-17,
+    // Timothy: "early levels should still be a smudge harder".)
     const best = adventurePar(d) - EAGLE_ROOM;
-    // How many hits that best line takes, a move each, less one; a piece of
-    // Hearts takes two (2026-10-16). `press` asks for more when a deal came
-    // out shorter than par wants (a strong set: chains, strikes, swaps and
-    // pieces with rabbits take more than one a move), two hits a step.
-    // Their pieces are those hits less some of Hearts, for variety from
-    // depth 4; past eight pieces (the most the solver can vet in time) the
-    // rest of the hits are hearts, so deep boards fill their par.
-    // (One more hit down to depth 6 since 2026-10-17, Timothy: "early levels
-    // should still be a smudge harder": three of theirs on the first boards,
-    // not two.)
-    const hits = Math.max(2, best - (d <= 6 ? 0 : 1) - int(0, 1) - relax + 2 * press);
-    const variety = d < 4 ? 0 : int(0, d < 10 ? 1 : 2);
-    const theirs = Math.max(2, Math.min(8, size + 1, hits - variety));
-    const hearts = d < 4 ? 0 : Math.max(0, Math.min(theirs, hits - theirs));
-    const movers = Math.max(1, Math.min(5, theirs - 1, 1 + Math.floor((d + 1) / 3) + (rand() < 0.4 ? 1 : 0)));
+    const hits = Math.max(2, best - (d <= 6 ? 0 : 1) - (d <= 3 ? 0 : int(0, 1)) - relax + 2 * press);
+    const variety = d < SUIT_FROM.hearts ? 0 : int(0, d < 10 ? 1 : 2);
+    let theirs = Math.max(2, Math.min(8, size + 1, hits - variety));
+    let hearts = d < SUIT_FROM.hearts ? 0 : Math.max(0, Math.min(theirs, hits - theirs));
+    // The Court of Hearts (a boss): every one two lives, so half as many.
+    if (R.allHearts) { theirs = Math.max(2, Math.min(8, size + 1, Math.ceil(hits / 2))); hearts = theirs; }
+    const { kinds, suitChance } = spend(R, d, theirs, rand);
     Object.assign(S, {
       w: size, h: size, shape: d < 3 ? 'rect' : pick(['rect', 'rect', 'diamond', 'round', 'cross', 'cheese']),
       ground: d < 6 ? 'solid' : pick(['solid', 'solid', 'solid', 'crumble']),
-      foes: theirs, still: Math.max(1, theirs - movers), foeRows: size - 1, mineRows: 1, lineup: false, fullRow: false,
-      // Loops that never rest (2026-10-16): no Doze.
-      routeKinds: d <= 2 ? ['Shuttle'] : d <= 5 ? ['Shuttle', 'Box step'] : ['Shuttle', 'Box step', 'Pace'],
+      // The robots walk loops; the rest (still) become the dearer kinds.
+      foes: theirs, still: theirs - kinds.robot, foeRows: size - 1, mineRows: 1, lineup: false, fullRow: false,
+      routeKinds: R.routes,
       // No pawns (Timothy, 2026-10-15: "pawns kind of can't be a thing in
-      // this mode due to them moving in one direction"): none of theirs, so
-      // no pawn rabbits, so never a pawn in your set.
-      // For now no fairy pieces but the troupe (Timothy, 2026-10-16: "for
-      // now, no fairy peices outside of our companion and other owns i
-      // define from here, for testing purposes"), from "Fairy pieces from
-      // depth" on; the queen from depth 8.
+      // this mode due to them moving in one direction"). No fairy pieces but
+      // the troupe (2026-10-16), from "Fairy pieces from depth" on; the queen
+      // from depth 8.
       foePool: classicUntil(d < M.fairyFrom, ['knight', 'bishop', 'rook', 'king'], ['thespian', 'scribe', 'painter', 'bard', 'dancer', ...(d >= 8 ? ['queen'] : [])]),
-      clouds: d >= 5 && rand() < 0.3 ? (d >= 9 && rand() < 0.4 ? 2 : 1) : 0,
-      // Tactics, one at a time (2026-10-15): a sentry from depth 2, a
-      // scared piece from 4. No crowned leader: it came in the same day
-      // and went out again (Timothy: "get rid of the leader thing i think
-      // that's what confusing me"); it is still a lab setting.
-      // (None at depth 3, where the hearts rabbit is new and is met alone.)
-      sentries: d < 2 || d === 3 ? 0 : d < 6 ? 1 : d < 10 ? int(1, 2) : int(2, 3),
-      scared: d < 3 ? 0 : d < 8 ? 1 : int(1, 2),
-      // Rabbits have a kind and a suit (Timothy, 2026-10-16): robots from
-      // depth 1, sentries from 2, scared from 3, and sentient ones, which
-      // think, "only ... in later levels": from 10. Their suits come one at
-      // a time, on some of them: hearts from 4, vines from 5, stars from 6,
-      // spirals from 8, gears from 10; more of them carry one deeper down.
-      sentient: d < 10 ? 0 : d < 15 ? 1 : int(1, 2),
-      // Simple rabbits (one move a turn along a line, all the way) from
-      // depth 4, traps (a sentry that stays where it takes) from 7
-      // (Timothy, 2026-10-16).
-      simple: d < 4 ? 0 : d < 9 ? 1 : int(1, 2),
-      traps: d < 7 ? 0 : d < 12 ? 1 : int(1, 2),
-      // (Hearts is dealt by count, `hearts`, above, since it adds a hit.)
-      hearts, rabbitKinds: [...(d >= 5 ? ['vines'] : []), ...(d >= 6 ? ['stars'] : []), ...(d >= 8 ? ['spirals'] : []), ...(d >= 10 ? ['gears'] : [])],
-      suitChance: d < 4 ? 0 : Math.min(70, 30 + d * 3),
-      crown: false,
-      statues: 0, maxMoves: 40, aim: 0
+      // No clouds (Timothy, 2026-10-17: "remove clouds from this mode");
+      // hedges for statues ("new obstacle to replace statues: hedges"); and
+      // every one of theirs with a rabbit ("static statues with no rabbit
+      // should basically be removed for now").
+      clouds: 0, hedges: true, noStatues: relax < 3,
+      statues: Math.min(Math.floor((size * size) / R.hedgeShare), R.hedges),
+      sentries: kinds.sentry, traps: kinds.trap, scared: kinds.scared, simple: kinds.simple, sentient: kinds.sentient,
+      hearts, rabbitKinds: R.starWalkers ? ['stars'] : R.suitKinds, suitChance: R.starWalkers ? 100 : suitChance,
+      crown: false, maxMoves: 40, aim: 0
     });
     // The first three boards take the whole best line asked (three moves),
     // never two (2026-10-17).
     S.parMax = best; S.parMin = d <= 3 ? best : Math.max(1, best - 1);
-    // Sentries and scared ones are made from their statues: keep enough
-    // statues for both (taking walkers if need be, never the last), so a
-    // hearts rabbit is not crowded out by the sentries.
-    S.still = Math.min(theirs - 1, Math.max(S.still, S.sentries + S.scared + S.sentient + S.simple + S.traps));
-    // A deal tried again for want of a winnable board (relax 3 on): no
-    // sentries, scared or sentient ones, the pieces most likely to leave no
-    // way through.
-    if (relax >= 3) { S.sentries = 0; S.scared = 0; S.sentient = 0; S.traps = 0; }
+    // A deal tried again for want of a winnable board (relax 3 on): robots
+    // only, and those with no loop stand as statues.
+    if (relax >= 3) { S.sentries = 0; S.scared = 0; S.sentient = 0; S.traps = 0; S.simple = 0; S.still = 0; }
   }
   if (M.run === 'descent' && M.realtime) {
     // Kung fu: their pieces rest less each level down; the ground stays

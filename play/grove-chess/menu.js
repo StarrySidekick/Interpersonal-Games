@@ -36,6 +36,7 @@ const VARIANT_IDS = new Set(['daily', 'descent', 'kungfu', 'tiles', 'autochess',
 export function fillMenu(nav, current, root = '') {
   if (VARIANT_IDS.has(current)) current = 'variants';
   if (current === 'chaos') current = 'custom';
+  if (current === 'tactics') current = 'adventure';
   nav.replaceChildren(...MENU.map((m) => el('a', { href: root + m.href || './', ...(m.id === current ? { 'aria-current': 'page' } : {}) }, m.label)));
   // Which release this is (version.js), under the menu on every page.
   if (!nav.nextElementSibling?.classList.contains('release')) nav.after(releaseLine());
