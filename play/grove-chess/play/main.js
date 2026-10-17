@@ -1282,7 +1282,8 @@ function reward({ k = 0, note = null, cards: given = null, room = false, auto = 
   const fairy = M.run !== 'descent' || session.n >= M.fairyFrom;
   const run = session.run, cards = (given || rewardsFor(run, rng(`reward:${session.seed}:${session.n}${k ? ':' + k : ''}`), catalog.vetoed, fairy))
     .filter((c) => c.kind !== 'joker' || M.jokers)
-    .filter((c) => (c.kind !== 'piece' && c.kind !== 'merge') || M.findPool.includes(c.type));
+    // (Adventure's pieces to find are its own, the troupe, 2026-10-17.)
+    .filter((c) => (c.kind !== 'piece' && c.kind !== 'merge') || (M.upgrades === 'par' && c.kind === 'piece') || M.findPool.includes(c.type));
   if (!cards.length) return Promise.resolve();
   const box = $('#offer');
   $('[data-screen=between]').classList.add('offering');
@@ -1335,6 +1336,13 @@ function reward({ k = 0, note = null, cards: given = null, room = false, auto = 
     if (auto === 'card' && cards.length === 1) { $('#betweensub').textContent = `${$('#betweensub').textContent} ${note || ''} The card: ${cardName(cards[0])}.`.trim(); return choose(cards[0]); }
     // Worse than a bogey (Adventure): the one card goes to a piece chosen by
     // chance, with nothing to choose.
+    if (auto === 'all' && cards.length === 1 && cards[0].kind === 'piece') {
+      const card = cards[0];
+      applyReward(run, card, [], catalog.vetoed); fall?.add(card.type); addToRoster(card.type);
+      haptic(14); sfx.gain();
+      $('#betweensub').textContent = `${$('#betweensub').textContent} ${note || ''} A ${PIECES[card.type].name.toLowerCase()} joins your deck.`.trim();
+      return sleep(2200).then(done);
+    }
     if (auto === 'all' && cards.length === 1) {
       const card = cards[0], fits = run.hand.map((h, i) => i).filter((i) => (card.kind === 'suit' ? !run.hand[i].suit : card.kind === 'rabbit' ? !run.hand[i].rabbit : canTakeWeapon(run.hand[i], card.weapon, run.made)));
       if (!fits.length) return done();
@@ -1353,13 +1361,19 @@ function reward({ k = 0, note = null, cards: given = null, room = false, auto = 
     // a weapon's or a rabbit's the same way. Its words are kept for a hold
     // or the mouse resting on it (title).
     const pcard = (c, i) => {
-      const colour = c.kind === 'suit' ? SUITS[c.suit].colour : c.kind === 'rabbit' ? RABBITS[c.rabbit].colour : WEAPON_INK[c.weapon] || '#a9d98b';
+      const colour = c.kind === 'suit' ? SUITS[c.suit].colour : c.kind === 'rabbit' ? RABBITS[c.rabbit].colour : c.kind === 'piece' ? '#5d8a4a' : WEAPON_INK[c.weapon] || '#a9d98b';
       const pip = (size, cls) => {
         if (c.kind === 'suit') return suitIcon(c.suit, colour, size, cls);
         if (c.kind === 'rabbit') return rabbitIcon(colour, size, cls);
+        // A piece to find (2026-10-17): the piece itself.
+        if (c.kind === 'piece') {
+          const cv = el('canvas', { class: `pix ${cls}`, width: 30, height: 36, style: `width:${Math.round(size * 0.84)}px;height:${size}px;image-rendering:pixelated` });
+          cv.getContext('2d').drawImage(sprite(c.type, 'you'), 0, 0);
+          return cv;
+        }
         return weaponIcon(c.weapon, size, cls);
       };
-      const name = c.kind === 'suit' ? SUITS[c.suit].name : c.kind === 'rabbit' ? rabbitName(c.rabbit, c.suit) : WEAPONS[c.weapon]?.name || cardText(c).title;
+      const name = c.kind === 'suit' ? SUITS[c.suit].name : c.kind === 'rabbit' ? rabbitName(c.rabbit, c.suit) : c.kind === 'piece' ? PIECES[c.type].name : WEAPONS[c.weapon]?.name || cardText(c).title;
       return el('button', { class: `pcard ${c.kind}`, style: `--pc:${colour};--i:${i}`, title: cardText(c, true).text, 'aria-label': name, onclick: () => choose(c) },
         el('span', { class: 'corner tl' }, pip(15, 'pip')),
         el('span', { class: 'face' }, pip(52, 'pip'), c.kind === 'rabbit' && SUITS[c.suit] ? suitIcon(c.suit, SUITS[c.suit].colour, 22, 'pip suitof') : null),

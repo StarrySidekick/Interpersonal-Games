@@ -305,7 +305,9 @@ function slideVecs(t, fwd) {
 /** Does piece type t slide (so a lance suits it, and its mace pushes)? */
 export const slides = (t) => slideVecs(t, 1).length > 0;
 /** Can piece type t carry weapon w? Any real piece can; a lance only one that slides. */
-export const canArm = (t, w) => !!PIECES[t]?.betza && WEAPON_KINDS.includes(w) && (w !== 'lance' || slides(t));
+// (The net only on your cat, 2026-10-17: Timothy, "net can only be equipped
+// by your cat".)
+export const canArm = (t, w) => !!PIECES[t]?.betza && WEAPON_KINDS.includes(w) && (w !== 'lance' || slides(t)) && (w !== 'net' || t === 'cat');
 
 /** The piece of the other side of `side` standing on square sq (not a rabbit
     riding a head, not a ball), or null. */
@@ -340,9 +342,12 @@ function armed(s, p, side, ms) {
   if (p.weapon === 'net') return ms;
   // Squash (rules.squash, Adventure, 2026-10-15, Timothy: "weapons no longer
   // disable the normal capturing ability, which is now called squash"): a
-  // sword or a lance still takes the ordinary way, by landing on a piece,
-  // as well as its own way.
-  const squash = !!s.day.rules.squash;
+  // sword or a lance still took the ordinary way, by landing on a piece, as
+  // well as its own way. Not since 2026-10-17 (Timothy: "for pieces with the
+  // shield weapon, always push, no squashing anymore. no squashing for sword
+  // or lance either changed my mind. still squashing for mace though"):
+  // in Adventure only the mace squashes.
+  const squash = !!s.day.rules.squash && !s.day.rules.suitRabbits;
   if (p.weapon === 'sword') {
     return ms.filter((m) => m.swap || !m.cap || squash).map((m) => {
       if (m.swap || m.cap) return m;
@@ -379,7 +384,7 @@ function armed(s, p, side, ms) {
     const stun = around(m, MACE[lv]).filter((q) => enemyOn(s, side, q));
     return stun.length ? { ...m, stun } : m;
   });
-  if (p.weapon === 'shield') return ms.concat(shoves(s, p, side, ms, lv));
+  if (p.weapon === 'shield') return (s.day.rules.suitRabbits ? ms.filter((m) => m.swap || !m.cap || !enemyOn(s, side, m.y * W + m.x)) : ms).concat(shoves(s, p, side, ms, lv));
   if (p.weapon === 'mace') {
     const along = (m) => vecs.some(([dx, dy]) => {
       const ex = m.x - p.x, ey = m.y - p.y, k = dx ? ex / dx : ey / dy;
@@ -1612,6 +1617,27 @@ function takeVine(n, side, x, y) {
   n.vines.splice(i, 1);
   return true;
 }
+/** A move through a vine (2026-10-17, Timothy: "it should leave a vine in
+    your paths and if enemy move through it in the next turn, they get
+    captured"): the first square on the way of piece p's move m, not where
+    it lands, with a vine of `side` on it, as a move that stops there (and
+    is caught there); null if there is none. Before, only landing on one
+    caught, which a slide could pass straight over. */
+function vineCut(s, side, p, m) {
+  if (!s.vines?.length || !s.day.rules.suitRabbits || m.swap || m.hop || m.wrapped) return null;
+  const W = s.day.W;
+  for (const q of between(W, p.x, p.y, m.x, m.y)) if (s.vines.some((v) => v.side === side && v.y * W + v.x === q)) return { x: q % W, y: Math.floor(q / W), cap: false };
+  return null;
+}
+/** Piece k of yours (one standing by itself) makes move m: a vine of
+    theirs on its way stops it, its weapon's work, landing, and a vine of
+    theirs where it stops catches it. Mutates. */
+function moveMine(s, k, m) {
+  const p = s.pieces[k];
+  m = vineCut(s, 'foe', p, m) || m;
+  armsBefore(s, 'you', k, m); landMine(s, k, m.x, m.y, m); armsAfter(s, 'you', k, m); settleRevivals(s);
+  if (s.day.rules.suitRabbits && !p.taken && s.vines && takeVine(s, 'foe', p.x, p.y)) { p.vined = true; if (!capturePiece(s, p, -1)) delete p.vined; settleRevivals(s); }
+}
 /** Where the next of your set comes on after a loss: the square the lost
     one was taken on (`e`), or the free square nearest it. */
 function entrySpot(n, e = n.day.pieces[0]) {
@@ -2019,6 +2045,9 @@ function enPassant(n, side, p, i, x, y, m) {
 function landFoe(s, f, x, y, m = null) {
   const k = s.foes.indexOf(f);
   delete f.bubble;
+  // A vine of yours on its way stops it there, to be caught (2026-10-17).
+  const cut = vineCut(s, 'you', f, { x, y, swap: m?.swap, hop: m?.hop, wrapped: m?.wrapped });
+  if (cut) { x = cut.x; y = cut.y; m = null; }
   enPassant(s, 'foe', f, k, x, y, m);
   // A rabbit of theirs hopping onto one of their heads rides there.
   const mate = f.type === 'bunny' ? s.foes.find((q) => q !== f && !q.taken && q.x === x && q.y === y) : null;
@@ -2669,7 +2698,7 @@ function mindStep(s, f, k, side, force = false, noTake = false) {
     return;
   }
   if (side === 'foe') foeLand(s, k, best);
-  else { armsBefore(s, 'you', k, best); landMine(s, k, best.x, best.y, best); armsAfter(s, 'you', k, best); settleRevivals(s); }
+  else moveMine(s, k, best);
 }
 
 /** The hole's hop: its pattern, bouncing off the edges like a rabbit, and
@@ -2914,8 +2943,10 @@ export function playerMove(s, mv) {
   if (n.ep?.side === 'foe') delete n.ep;
   if (mv.p >= 0) {
     // A move chosen under clouds may run into a hidden piece and take it.
-    const m = contact(s, 'you', s.pieces[mv.p], mv);
+    let m = contact(s, 'you', s.pieces[mv.p], mv);
     if (m.bumped) n.bumped = 'you';
+    // A vine of theirs on its way stops it there, to be caught (2026-10-17).
+    m = vineCut(n, 'foe', n.pieces[mv.p], m) || m;
     const p = n.pieces[mv.p], fx = p.x, fy = p.y;
     if (!m.swap) breakStatue(n, m.x, m.y);
     const gone = () => n.foes.filter((f) => f.taken).length;
@@ -3425,7 +3456,7 @@ function simpleStep(s, q, k, side, noTake = false) {
   if (!nx) { q.from = [q.x, q.y]; q.blocked = true; return false; }
   if (nx.turned) q.dir = [-q.dir[0], -q.dir[1]];
   if (side === 'foe') foeLand(s, k, nx.m);
-  else { q.from = [q.x, q.y]; armsBefore(s, 'you', k, nx.m); landMine(s, k, nx.m.x, nx.m.y, nx.m); armsAfter(s, 'you', k, nx.m); settleRevivals(s); }
+  else { q.from = [q.x, q.y]; moveMine(s, k, nx.m); }
   q.blocked = false;
   return true;
 }
@@ -3491,7 +3522,7 @@ function alliesAct(s, log) {
         const m = bestTake(s, a, 'you');
         if (!m) break;
         const f = fell();
-        armsBefore(s, 'you', k, m); landMine(s, k, m.x, m.y, m); armsAfter(s, 'you', k, m); settleRevivals(s);
+        moveMine(s, k, m);
         log.push({ what: 'ally', how: 'trap', i: k, held: !!a.bounced });
         if (fell() <= f) break;
       }
@@ -3527,7 +3558,7 @@ function alliesAct(s, log) {
         const near = s.foes.filter((f) => !f.taken);
         const gap = (m) => Math.min(99, ...near.map((f) => Math.max(Math.abs(f.x - m.x), Math.abs(f.y - m.y))));
         const ways = pieceMoves(s, a, 'you').filter((m) => !m.swap && !takesAny(m) && !danger.has(m.y * W + m.x)).sort((p, q) => gap(q) - gap(p) || q.y - p.y || p.x - q.x);
-        if (ways.length) { landMine(s, k, ways[0].x, ways[0].y, ways[0]); a.fled = true; log.push({ what: 'ally', how: 'run', i: k }); }
+        if (ways.length) { moveMine(s, k, ways[0]); a.fled = true; log.push({ what: 'ally', how: 'run', i: k }); }
         else { a.trapped = true; log.push({ what: 'ally', how: 'stuck', i: k }); }
       }
     } else if (a.rabbit === 'sentient') {
@@ -3541,7 +3572,7 @@ function alliesAct(s, log) {
         const m = bestTake(s, a, 'you');
         if (!m) break;
         const w = fell();
-        armsBefore(s, 'you', k, m); landMine(s, k, m.x, m.y, m); armsAfter(s, 'you', k, m);
+        moveMine(s, k, m);
         caught = fell() > w;
       }
       if (a.x !== start[0] || a.y !== start[1] || gone() > was) log.push({ what: 'ally', how: 'think', i: k });
@@ -3560,7 +3591,7 @@ function allyStep(s, a, k, noTake) {
     const [dx, dy] = a.pattern[a.i % a.pattern.length], tx = a.x + dx, ty = a.y + dy;
     const m = pieceMoves(s, a, 'you').find((q) => q.x === tx && q.y === ty && !q.swap && !q.push && (!noTake || !takesAny(q)));
     if (m) {
-      armsBefore(s, 'you', k, m); landMine(s, k, m.x, m.y, m); armsAfter(s, 'you', k, m); settleRevivals(s);
+      moveMine(s, k, m);
       if (!a.bounced) a.i = (a.i + 1) % a.pattern.length;
       return true;
     }

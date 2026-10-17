@@ -470,7 +470,7 @@ yellow, spirals purple, gears copper. Stone is gone ("stones - removed").
 | Suit | Both sides |
 |---|---|
 | Hearts | Two lives. Hit once, it stays where it is, its heart spent, and the piece that hit it goes back where it came from (a robot that bounced tries the same step again). A little heart floats over it while the heart is whole |
-| Vines | The vine trap as before: a trail where it moved; the other side's next move landing on it is caught |
+| Vines | The vine trap: a trail where it moved; on the other side's next turn, a piece that moves onto or through a vine is caught there (through since 2026-10-17) |
 | Stars | Two moves a turn, but it takes at most once ("can still only capture once"): if the first took, the second cannot. Their robots walk two steps |
 | Spirals | Chain captures for as long as it can take ("perpetual"); a sentry of spirals strikes all in its reach. On a capture only (since "Tuned to par again"): a hit that a heart holds sends the hitter back and ends the chain |
 | Gears | Trades squares with another piece, as its move. Yours: with any piece on the board, theirs too. Theirs: a scared one can run by trading with another of theirs out of your reach, and a sentient one may trade as its move |
@@ -482,7 +482,8 @@ to 70%: `suitChance`). Hearts is dealt by count instead, from depth 4 (see
 without suits are gray."
 
 **Weapons** ("weapon/tool defines capture style").
-- Sword and lance: as they were.
+- Sword and lance: as they were; since 2026-10-17 neither squashes (see
+  below).
 - Mace ("still stuns and no longer pushes anything, just adds the AOE stun
   to the landing (also make sure stun functionality actually works)"):
   every move, slide or not, stuns theirs round where it lands, by level.
@@ -494,7 +495,7 @@ without suits are gray."
   piece of theirs can push it one square on, the way it moved, and take its
   square; up to its level in a row go together; off the board, it is taken.
   Any piece can carry one (`shoves` in `rules.js`).
-- Net ("nothing new but you are guaranteed to get the corresponding rabbit
+- Net (only on your cat since 2026-10-17; "nothing new but you are guaranteed to get the corresponding rabbit
   of the peice you capture"): it still nets the piece whole, and the rabbit
   inside, if any, is yours: after the card you put it in a piece.
 - **More than one way onto a square** (Timothy, 2026-10-16: "getting some
@@ -526,6 +527,46 @@ kind".
   thespian's part), its rabbit, its suit, its weapon and how it stands now
   (a heart spent, stunned, pinned). Tapping a piece that is not a move shows
   it too.
+
+## Sets of four, weapons that do not squash, vines, the troupe to find (2026-10-17)
+
+Timothy's list, in his words, and what was built.
+- **"you roll a set of four pieces by default instead of 5"**: Adventure's
+  set is four (`maxPieces` in its preset). The code said three; a set size
+  kept in your browser from an older version (five) was winning, so
+  Adventure no longer reads a kept set size, and the panel no longer shows
+  it there.
+- **"for pieces with the shield weapon, always push, no squashing anymore.
+  no squashing for sword or lance either changed my mind. still squashing
+  for mace though"**: in Adventure a sword takes only with its strike, a
+  lance only what it slides through, a shield only by pushing (a piece with
+  nowhere to be pushed cannot be moved onto); a mace still squashes, and
+  stuns. Theirs the same.
+- **"also net can only be equipped by your cat"**: `canArm`; the card's
+  words say so, and no other piece can be chosen for it.
+- **Vines** ("it should leave a vine in your paths and if enemy move through
+  it in the next turn, they get captured. i may be wrong but i don't see it
+  happening"). He was right that it rarely happened: a vine caught only a
+  piece that landed exactly on it, so a slide passed straight over, and
+  their statues and sentries never land anywhere. Now a piece that moves
+  through a vine is stopped there and caught (`vineCut`), as well as one
+  that lands on it; theirs catch yours the same way, and your pieces
+  standing by themselves are caught by theirs too (`moveMine`; before, only
+  your piece in play was). Leapers jump: a knight is caught only where it
+  lands.
+- **"make it so you can find some of the new fairy pieces as part of your
+  deck"**: from depth 2, one offer in four (`PIECE_CHANCE`) holds a piece of
+  the troupe (thespian, scribe, painter, bard, dancer), one you do not have
+  if there is one, drawn on its playing card; take it and it joins your
+  deck, while the deck has room (sixteen). (The offer screen threw away
+  any piece not in the find pool setting, which the troupe is not in;
+  Adventure's are let through.)
+
+Par measured again with sets of four (51 boards a hand, depths 1 to 28):
+the plain hand 51 of 51 two or three under par, a deal 1.3 seconds in the
+middle, 8.5 for the slowest tenth, 29 at worst; the strong hand 31 of 51,
+from depth 8 on 4 to 7 under (the same open question: a bigger board for
+strong sets).
 
 ## The look of your pieces
 
