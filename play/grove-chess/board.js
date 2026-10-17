@@ -490,7 +490,7 @@ export class Board {
 
     // Everything that stands up, drawn back to front.
     const things = [];
-    for (const sq of day.stumps) if (!s.open?.includes(sq)) things.push({ img: sprite(statueKind(day, sq), 'stone'), x: sq % day.W, y: Math.floor(sq / day.W) });
+    for (const sq of day.stumps) if (!s.open?.includes(sq)) things.push({ img: day.rules.hedges ? sprite('hedge', 'you') : sprite(statueKind(day, sq), 'stone'), x: sq % day.W, y: Math.floor(sq / day.W) });
     // Neutral pieces (2026-10-13): ghosts, gates, and clouds over everything.
     for (const [sq] of day.ghosts || []) { const g = ghostAt(s, sq); if (g) things.push({ img: sprite('ghost', g), x: sq % day.W, y: Math.floor(sq / day.W) }); }
     for (const [sq] of day.gates || []) things.push({ img: sprite(gateUp(s, sq) ? 'gateUp' : 'gateDown', 'you'), x: sq % day.W, y: Math.floor(sq / day.W), under: !gateUp(s, sq) });
@@ -796,7 +796,10 @@ export class Board {
     const opened = (b.open || []).filter((q) => !(a.open || []).includes(q));
     const onIt = (q) => [...b.pieces, ...b.foes].some((p) => !p.taken && p.y * this.day.W + p.x === q);
     for (const q of opened.filter(onIt)) {
-      tw.poofs.push({ x: q % this.day.W, y: Math.floor(q / this.day.W), t0: tw.caughtAt ?? t, dur: 520, c1: '#8e918c', c2: '#d8d4c8' });
+      const hx = q % this.day.W, hy = Math.floor(q / this.day.W);
+      // A hedge cut down by a sword (2026-10-17): a burst of leaves.
+      if (this.day.rules.hedges) { tw.leaves.push(leafBurst(hx, hy, tw.caughtAt ?? t)); tw.poofs.push({ x: hx, y: hy, t0: tw.caughtAt ?? t, dur: 520, c1: '#5aa64c', c2: '#2f6a33' }); sfx.weapon('sword', at(tw.caughtAt ?? t)); continue; }
+      tw.poofs.push({ x: hx, y: hy, t0: tw.caughtAt ?? t, dur: 520, c1: '#8e918c', c2: '#d8d4c8' });
       sfx.smash(at(tw.caughtAt ?? t));
     }
     const sinking = opened.filter((q) => !onIt(q));

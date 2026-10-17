@@ -635,6 +635,121 @@ about 0.3 at depth 6, 7 at the slowest, as before. The daily's days from
 2026-10-18 were dealt again under these rules (its stored first day stays
 as it shipped).
 
+## Boards from rules, a run that ends, and what carries on (2026-10-17)
+
+Timothy's third list of the day, in his words, and what was built. The
+level rules have their own page, [`adventure-levels.md`](adventure-levels.md);
+the method behind them is the `level-design` skill.
+
+**A run, and between runs**
+
+- **"the game should get progressively harder until you lose, and then you
+  have some meta progression, like most rogue likes"**. Harder: the threat
+  budget rises every depth, a boss every fifth board, and the dark comes
+  sooner deep down (at par plus two, then plus one from depth 16, then at
+  par from 26), so every run ends. Between runs (`adventure-meta.js`):
+  - **Lanterns**, lit by the deepest depth you have reached in Adventure or
+    Tactics, never put out: depth 5 a moss cape for your cat, 8 your choice
+    of gift (after the first board, the bishop or the knight first; the
+    other after the third), 10 a night cape, 12 vows, 16 a gold cape, 20 a
+    rose cape. A run that lights one says so on its last screen, with a
+    fanfare.
+  - **Vows**: rules you take on before a run, each a little harder: "The
+    early dark" (the dark comes a move sooner) and "Travel light" (no
+    bishop or knight as gifts). Your deepest with each set of vows is kept
+    on its own.
+  - *Calls of mine, all his to change:* lanterns add options (looks, a
+    choice, harder rules), never strength, because a stronger start would
+    make the first boards trivial and move the skill into the save file
+    (the research in the skill: Hades' Mirror and Pact, Balatro's stakes,
+    Rogue Legacy's own postmortem). The depths and the six lanterns are
+    guesses to tune once he has played.
+- **"we need a field guide to view all the different things you can find
+  and stuff"**. The Field guide button on Adventure's title: 35 entries in
+  six sections (pieces for your set, their rabbits, suits, weapons, the
+  ground, bosses), each filled in the first time you meet it (in a run or
+  the daily) with a picture, a line and the depth you first met it; an
+  entry not met yet says where it turns up. Nothing in it can be missed
+  for good. Kept on the phone (`ig.grove.guide.v1`).
+- **"levels should be built based on a set of rules, not be the same every
+  run ... without Claude"**. `adventure-levels.js` holds every rule as a
+  table (acts, budgets, rabbit costs and depths, sizes, hedges, loops,
+  bosses, the dark); `level-report.mjs` deals boards as the page does and
+  prints what they hold; the `level-design` skill says how to change them.
+  Measured to depth 30: no deal failed. Deep down a deal is slow (several
+  seconds past depth 20), the next thing to tune.
+- **Bosses** (a call of mine, from the research: Balatro's boss blinds):
+  the fifth board of each act, one rule said on a card before it starts,
+  one card more after it. Six of them; see the rules page.
+
+**The board**
+
+- **"we need sentry and trap rabbit early and more"**. Sentries from depth
+  1, traps from 2, both weighted three times a plain pick.
+- **"robot rabbits also should move every turn ... (if they don't
+  already)"**. They already did.
+- **"just static statues with no rabbit should basically be removed for
+  now"**. Every piece of theirs has a rabbit (setting `noStatues`); the
+  pieces that used to stand still are sentries and traps.
+- **"new obstacle to replace statues: hedges. look like hedges in a maze.
+  can be moved through if one has a sword, otherwise can only be hopped
+  over"**. Hedges (setting `hedges`): a box hedge on soil, in the 3D board
+  and the flat one. Nothing can land on one or slide through it; a leaper
+  hops over it; a piece with a sword goes through hedges as if they were
+  open ground, and one it stops on it cuts down for the rest of the board
+  (leaves fly, a sword sound).
+- **"remove clouds from this mode"**. Gone from Adventure.
+- **"a move maximum to the board, or a point at which you peices start to
+  get eaten every turn or something, like last a double bogey"**. The
+  dark: from par plus two (a double bogey) it takes a piece of yours every
+  turn, the one in play (in Tactics, once all move freely, the first still
+  standing); the pill at the top counts down ("The dark in 3") and turns
+  dark at one. Lose them all on one board and the
+  run is over.
+
+**Your set**
+
+- **"every time you the are rolled and then used, they are expended u til
+  you've used you entire deck"**. With more pieces than a set holds, each
+  board's set is drawn from a pile without putting back, until every piece
+  has played; then the pile is shuffled again. The cat is in every set.
+- **"no more leaving pieces behind outside of gear suits in the regular
+  adventure"** (setting `stayBehind: 'some'`). A piece that has had its
+  turn now leaves the board for the next, unless it is of Gears. *Call of
+  mine:* a piece with a rabbit inside also stays, since its rabbit acts by
+  itself only while it stands, and a rabbit card would be worth nothing
+  otherwise. He may want rabbits out of this rule too.
+- **Adventure Tactics**: "three pieces in a set ... they stay where the
+  are, but then once you play the three, you then can move them each one
+  by one like regular chess, for the rest of the level ... maybe an option
+  at the beginning". A switch on Adventure's title, Adventure or Tactics.
+  In Tactics a set is three; each stays where it moved; once all three
+  have played, any of yours on the board moves, one a turn, for the rest
+  of the board (a rabbit inside no longer acts by itself). It keeps its own
+  records.
+
+**Feel**
+
+- **"the font declaring birdies/eagles/ etc should be more ornate"**.
+  Cinzel Decorative (SIL Open Font License, in `play/grove-chess/fonts/`),
+  gold, with a fleuron each side, for the score and the end of a run.
+- **"we can do the flipping thing"**. A card between boards flips at the
+  first tap to say what it does in a line; the second tap takes it.
+- **"we should tidy, and teach things only the first time"**. A new kind
+  of rabbit, a suit on theirs, hedges and the dark each get one card in the
+  intro the first time you meet them, kept from run to run; the row of
+  per-piece cells under the board goes when the set strip shows the same.
+- **"something more celebratory to show that you've collected enough
+  fragments to make a new piece"**. On the way down, for each new piece
+  (three of a kind, a net catch, a gift): three pale fragments of it fly in
+  spinning, meet in a flash and a ring of light, and the piece rises with
+  its name in the ornate letters ("A new rook joins your set"), with a
+  chime, a buzz and a fanfare. Tap to hurry it.
+- **"the collection growth is intended"**: left as it is.
+
+The daily's days from 2026-10-18 were dealt again under these rules (no
+dark and no bosses in the daily: it is three boards and a score).
+
 ## The look of your pieces
 
 In Adventure each piece of yours wears its suit. Timothy asked in steps on

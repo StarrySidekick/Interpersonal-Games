@@ -126,6 +126,9 @@ export const SCHEMA = [
       help: 'Adventure (Timothy, 2026-10-15: "the sword should be based on the direction you move, not just the space above"): a sword strikes the square beyond where it lands, in the direction it moved (and to either side of that, and between, at levels 2 and 3). Off: toward the other side, as in the descent.' },
     { key: 'shieldSlide', sub: 'yours', label: 'A shield\u2019s push slides', type: 'bool', def: false,
       help: 'Adventure (Timothy, 2026-10-17: "shields causes enemy pieces to slide perpetually like sliders"): what a shield pushes slides on the way it was pushed until something stops it. Into a piece, both are stunned; off the edge, it falls and is taken. Off: it goes one square, as before.' },
+    { key: 'stayBehind', sub: 'yours', label: 'Which of your set stay where they move', type: 'choice', def: 'all', options: opts(
+      ['all', 'Every piece'], ['some', 'Only pieces with a rabbit or of Gears'], ['tactics', 'All three, then move them freely (Tactics)']),
+      help: 'Adventure. Every piece: each moves, turns into the next, and is left standing (2026-10-16 to 17; the daily\u2019s first day). Only some (Timothy, 2026-10-17: "no more leaving pieces behind outside of gear suits"): the rest just turn into the next. Tactics ("adventure tactics"): a set of three each moves once and stays, then all three move freely, one a turn, like chess.' },
     { key: 'squash', sub: 'yours', label: 'Weapons can still squash', type: 'bool', def: false,
       help: 'Adventure (Timothy, 2026-10-15: "weapons no longer disable the normal capturing ability, which is now called squash"): a sword or a lance can still take by landing on a piece, as well as its own way. Off: they cannot move onto a piece, as in the descent.' },
     { key: 'foes', sub: 'theirs', label: 'Pieces', type: 'int', min: 0, max: 12, def: 3, help: 'Dark versions of chess and fairy pieces.' },
@@ -133,6 +136,10 @@ export const SCHEMA = [
     { key: 'foeDupes', sub: 'theirs', label: 'Repeats allowed', type: 'bool', def: true },
     { key: 'mirror', sub: 'theirs', label: 'Mirror your pieces instead', type: 'bool', def: false, help: 'They get a copy of your hand, facing you, like chess.' },
     { key: 'foeRows', sub: 'theirs', label: 'Start within the top', type: 'int', min: 1, max: 6, def: 1, unit: 'rows', help: 'Loose rabbits and the hole start up there too, lined up or not.' },
+    { key: 'noStatues', sub: 'theirs', label: 'Every one of theirs has a rabbit', type: 'bool', def: false,
+      help: 'Adventure (Timothy, 2026-10-17: "just static statues with no rabbit should basically be removed for now"): a piece left with no route and no rabbit becomes a sentry or a trap instead of a statue.' },
+    { key: 'hedges', sub: 'theirs', label: 'Statues are hedges', type: 'bool', def: false,
+      help: 'Adventure (Timothy, 2026-10-17: "hedges. look like hedges in a maze. can be moved through if one has a sword, otherwise can only be hopped over"): the board\u2019s obstacles are hedges. Nothing stops on one or slides through it, a leaper hops over, and a piece with a sword goes through and cuts down one it stops on.' },
     { key: 'still', sub: 'theirs', label: 'Of them, statues', type: 'int', min: 0, max: 12, def: 0,
       help: 'Adventure (Timothy, 2026-10-15: "enemy pieces don\u2019t move, and they are gray like statues"): this many of their pieces are grey statues. A statue never moves and never takes; it is there to be taken. The rest move as set.' },
     { key: 'tactics', sub: 'theirs', label: 'Pins, checks and flight', type: 'bool', def: false,
@@ -832,7 +839,10 @@ export function makeLevel(settings, seed) {
     // On a board of tiles, between the two lines, not in front of either.
     const between = T ? rows.filter((y) => y > T.home[0] + 1 && y < T.home[1] - 1) : null;
     const mid = T ? (between.length ? between : rows.filter((y) => y > T.home[0] && y < T.home[1])) : rows.slice(S.lineup ? 1 : S.mineRows, S.lineup ? -1 : -S.foeRows);
-    const pool = cells.filter((c) => (mid.length ? mid.includes(c[1]) : true) && free(c));
+    // Hedges (2026-10-17) are never next to where a piece of yours starts:
+    // on a narrow board one in front of you could wall you in.
+    const mine = S.hedges ? pieces.filter((p) => p.y !== undefined) : [];
+    const pool = cells.filter((c) => (mid.length ? mid.includes(c[1]) : true) && free(c) && !mine.some((p) => Math.max(Math.abs(p.x - c[0]), Math.abs(p.y - c[1])) <= 1));
     const kinds = ['pawn', 'rook', 'knight', 'bishop', 'king', 'queen'];
     day.statueKinds = new Map();
     for (let i = 0; i < S.statues && pool.length; i++) {
@@ -911,7 +921,7 @@ export function makeLevel(settings, seed) {
     goalKind: goal, hole,
     rules: { goal: ['king', 'rabbit', 'target'].includes(goal) ? 'target' : goal, maxMoves: S.maxMoves, wait: S.wait,
       foesCapture: S.foesCapture, rabbitsEat: S.rabbitsEat, royal: S.royal, ...(S.showdown ? { showdown: true } : {}), ...(S.oneMove ? { oneMove: true } : {}), ...(S.oneMove && !S.foesWait ? { foesMust: true } : {}), ...(day.cloud ? { cloud: true, ...(S.cloudOwn ? { cloudOwn: true } : {}) } : {}), ...(S.realtime ? { realtime: kungfuRules(S) } : {}), first: S.first, ballStops: S.ballStops, ballMove: S.ballMove,
-      ...(S.ballCaptures ? { ballCaptures: true } : {}), ...(S.swordAims ? { swordAims: true } : {}), ...(S.shieldSlide ? { shieldSlide: true } : {}), ...(S.squash ? { squash: true } : {}), ...(S.suitRabbits ? { suitRabbits: true } : {}), ...(S.tactics ? { tactics: true } : {}),
+      ...(S.ballCaptures ? { ballCaptures: true } : {}), ...(S.swordAims ? { swordAims: true } : {}), ...(S.shieldSlide ? { shieldSlide: true } : {}), ...(S.hedges ? { hedges: true } : {}), ...(S.stayBehind && S.stayBehind !== 'all' ? { stayBehind: S.stayBehind } : {}), ...(S.squash ? { squash: true } : {}), ...(S.suitRabbits ? { suitRabbits: true } : {}), ...(S.tactics ? { tactics: true } : {}),
       ...(S.magic !== 'none' ? { wrap: S.magic } : {}),
       ...(S.geared ? { geared: true } : {}),
       ...(S.movesPerTurn === 2 ? { movesPerTurn: 2 } : {}), ...(S.lazyFoes ? { lazyFoes: true } : {}),
@@ -996,6 +1006,27 @@ function dealRoutes(day, S, rand) {
       want--;
     } else { f.type = 'pawn'; s.foes[k] = { ...f, i: 0, taken: false }; }
   }
+  // No bare statues (noStatues, 2026-10-17) and one robot at least, so
+  // something walks: when no piece found a loop (a diamond or cross board,
+  // or pieces whose moves fit none), one becomes another of the pool that
+  // can walk one, as a pawn does above.
+  if (S.noStatues && want > 0 && !army.some((k) => day.foes[k].brain === 'possessed')) {
+    const can = [...new Set([...S.foePool, 'king', 'rook'])].filter((t) => t !== 'pawn' && t !== 'thespian' && PIECES[t]);
+    found: for (const k of shuffled(army, rand)) {
+      const f = day.foes[k], was = f.type;
+      for (const t of shuffled(can, rand)) {
+        f.type = t; s.foes[k] = { ...f, i: 0, taken: false };
+        const route = findRoute(s, k, used, routeKinds(S), rand, reach);
+        if (!route) continue;
+        Object.assign(f, { brain: 'possessed', pattern: route.steps, patternName: route.name, route: true, mx: 1, my: 1 });
+        for (const q of route.squares) used.add(q);
+        s.foes[k] = { ...f, i: 0, taken: false };
+        want--;
+        break found;
+      }
+      f.type = was; s.foes[k] = { ...f, i: 0, taken: false };
+    }
+  }
   // Tactics (2026-10-15): of the statues, the leader (a crowned King), then
   // sentries, then scared ones, as many as asked and there are statues.
   if (S.tactics) {
@@ -1015,13 +1046,20 @@ function dealRoutes(day, S, rand) {
       // Its bodyguards: the sentries are the statues nearest it.
       still = still.sort((a, b) => Math.max(Math.abs(day.foes[a].x - lead.x), Math.abs(day.foes[a].y - lead.y)) - Math.max(Math.abs(day.foes[b].x - lead.x), Math.abs(day.foes[b].y - lead.y)));
     }
-    for (let n = 0; n < S.sentries && still.length; n++) Object.assign(day.foes[still.shift()], { brain: 'sentry', patternName: 'Sentry' });
+    // With every one a rabbit (noStatues, 2026-10-17), sentries and traps
+    // take turns, so traps are not crowded out on small boards.
+    const SENTRY = { brain: 'sentry', patternName: 'Sentry' }, TRAP = { brain: 'trap', patternName: 'Trap' };
+    if (S.noStatues) for (let n = 0; n < Math.max(S.sentries, S.traps || 0); n++) for (const [k, as] of [[S.sentries, SENTRY], [S.traps || 0, TRAP]]) { if (n < k && still.length) Object.assign(day.foes[still.shift()], as); }
+    else for (let n = 0; n < S.sentries && still.length; n++) Object.assign(day.foes[still.shift()], SENTRY);
     for (let n = 0; n < S.scared && still.length; n++) Object.assign(day.foes[still.shift()], { brain: 'scared', patternName: 'Scared' });
     for (let n = 0; n < (S.sentient || 0) && still.length; n++) Object.assign(day.foes[still.shift()], { brain: 'sentient', patternName: 'Sentient', mind: { iq: 6, trait: 'hunter' } });
     // Simple rabbits and traps (2026-10-16). A simple one takes its line
     // when the board starts (initialState).
     for (let n = 0; n < (S.simple || 0) && still.length; n++) Object.assign(day.foes[still.shift()], { brain: 'simple', patternName: 'Simple' });
-    for (let n = 0; n < (S.traps || 0) && still.length; n++) Object.assign(day.foes[still.shift()], { brain: 'trap', patternName: 'Trap' });
+    if (!S.noStatues) for (let n = 0; n < (S.traps || 0) && still.length; n++) Object.assign(day.foes[still.shift()], { brain: 'trap', patternName: 'Trap' });
+    // No bare statues (noStatues, 2026-10-17): the rest are sentries and
+    // traps, by turns.
+    if (S.noStatues) still.forEach((k, n) => Object.assign(day.foes[k], n % 2 ? { brain: 'trap', patternName: 'Trap' } : { brain: 'sentry', patternName: 'Sentry' }));
   }
   // Rabbits were suits for part of 2026-10-16 (a walker's suit was its
   // rabbit, a sentry was stone and a scared one hearts).

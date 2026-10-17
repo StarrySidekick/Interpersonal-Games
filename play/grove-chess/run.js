@@ -716,14 +716,30 @@ export const TAKE_FOR_PIECE = 3;
 
 /** This board's set: indexes into run.hand, in the order you got them. All
     of them while they fit; past that, as many as fit, drawn at random. */
-export function adventureSet(run, rand) {
+export function adventureSet(run, rand, n = null) {
   const all = run.hand.map((_, i) => i);
   if (all.length <= run.maxPieces) return all;
+  // The same board asks again (finding it, playing it): the same set.
+  if (n != null && run.sets?.[n]) return run.sets[n];
   // Your cat is always one of them (2026-10-16).
   const cat = run.hand.findIndex((h) => h.base === 'cat');
-  const pool = all.filter((i) => i !== cat), out = cat >= 0 ? [cat] : [];
-  while (out.length < run.maxPieces) out.push(pool.splice(Math.floor(rand() * pool.length), 1)[0]);
-  return out.sort((a, b) => a - b);
+  const others = all.filter((i) => i !== cat), out = cat >= 0 ? [cat] : [];
+  // Drawn as from a deck (Timothy, 2026-10-17: "every time they are rolled
+  // and then used, they are expended until you've used your entire deck,
+  // so you end up using your entire deck eventually"): each board draws
+  // from what is left; when that runs out, the rest are shuffled back in.
+  // A piece new since the last draw goes into what is left.
+  run.pile = (run.pile || []).filter((i) => others.includes(i));
+  for (const i of others) if (!(run.dealt || []).includes(i)) run.pile.push(i);
+  run.dealt = others.slice();
+  while (out.length < run.maxPieces) {
+    if (!run.pile.length) run.pile = others.filter((i) => !out.includes(i));
+    if (!run.pile.length) break;
+    out.push(run.pile.splice(Math.floor(rand() * run.pile.length), 1)[0]);
+  }
+  out.sort((a, b) => a - b);
+  if (n != null) (run.sets = run.sets || {})[n] = out;
+  return out;
 }
 
 /** After an Adventure board: hearts spent stay spent. Since 2026-10-16
@@ -734,6 +750,9 @@ export function adventureSet(run, rand) {
     Returns { lost: hand indexes taken this board, all: whether every one
     was }. Mutates. */
 export function afterAdventure(run, end, pick) {
+  // Adventure Tactics, moving freely (2026-10-17): the set is gone from the
+  // state; what counts is whether any piece of yours is still standing.
+  if (end.free) return { lost: [], all: end.pieces.every((p) => p.taken) };
   const lost = [];
   pick.forEach((h, j) => {
     // A piece with a rabbit standing by itself (2026-10-16) is in end.pieces.

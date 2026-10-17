@@ -31,8 +31,17 @@
      the board in a burst of confetti. */
   .boardwrap { position: relative; max-width: 460px; margin: 0 auto; }
   #cheer { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; overflow: hidden; text-align: center; }
-  #cheer .word { font-size: clamp(36px, 12vw, 60px); font-weight: 800; line-height: 1; color: #fff6d8; letter-spacing: .02em;
-    text-shadow: 0 3px 0 #6b4a1c, 0 0 22px rgba(242, 193, 78, .85); animation: cheerpop .6s cubic-bezier(.3, 1.7, .5, 1) both; }
+  /* The score word (2026-10-17, Timothy: "the font declaring birdies/eagles/
+     etc should be more ornate"): Cinzel Decorative (SIL Open Font License,
+     fonts/OFL.txt), kept here so nothing loads from elsewhere; gold, with a
+     flourish either side. */
+  @font-face { font-family: 'Grove Ornate'; src: url('../fonts/cinzel-decorative-700.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+  #cheer .word { font-family: 'Grove Ornate', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif; font-size: clamp(34px, 11vw, 58px); font-weight: 700; line-height: 1.05; letter-spacing: .03em;
+    background: linear-gradient(180deg, #fff8dc 0%, #f6d77a 45%, #c8922e 55%, #f3cf6b 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 2px 0 #4a3210) drop-shadow(0 4px 10px rgba(0, 0, 0, .65)); animation: cheerpop .55s cubic-bezier(.3, 1.6, .6, 1) both; }
+  #cheer .word::before, #cheer .word::after { content: '\2766'; font-family: Georgia, serif; font-size: .42em; vertical-align: .38em; margin: 0 .28em; color: #f2c14e; -webkit-text-fill-color: #f2c14e; }
+  #cheer .word::before { display: inline-block; transform: scaleX(-1); }
+  #cheer .line { font-family: 'Grove Ornate', Georgia, serif; letter-spacing: .06em; }
   #cheer .line { margin-top: 6px; font-size: 16px; font-weight: 700; color: #fff6d8; text-shadow: 0 1px 4px #000; animation: cheerpop .5s .15s ease-out both; }
   #cheer i { position: absolute; left: 50%; top: 50%; width: 8px; height: 8px; background: var(--c); animation: confetti 1.2s var(--d) ease-out both; }
   @keyframes cheerpop { from { transform: scale(.3); opacity: 0; } to { transform: none; opacity: 1; } }
@@ -49,6 +58,12 @@
   #nextup .slot.used { opacity: .35; }
   #nextup .slot[disabled] { cursor: default; }
   #nextup canvas { width: 76px; height: 72px; }
+  /* Adventure or Adventure Tactics (2026-10-17), on the title. */
+  .modepick { display: flex; justify-content: center; gap: 6px; margin: 4px 0 10px; }
+  .modepick a { padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line); color: var(--text); text-decoration: none; font-weight: 600; font-size: 14px; }
+  .modepick a[aria-current] { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+  #goalpill.dark { background: #2a1c2e; color: #f3e6ff; border-color: #6b4f78; }
+  .pill.boss { background: #3b2a4a; color: #f5e9ff; border-color: #6b4f78; }
   /* A set of four in one row on a phone (2026-10-17): less padding, the pieces as big. */
   @media (max-width: 440px) { #nextup { gap: 5px; } #nextup .slot { min-width: 0; padding: 4px 2px; } }
   @media (max-width: 360px) { #nextup .slot { min-width: 60px; min-height: 70px; padding: 2px 4px; } #nextup canvas { width: 57px; height: 54px; } }
@@ -118,6 +133,39 @@
   .pcard .pname { font-weight: 800; font-size: 13px; line-height: 1.15; padding: 0 10px; text-align: center; }
   .pcard:hover, .pcard:focus-visible { transform: translateY(-4px); box-shadow: 0 0 0 3px var(--pc), 0 10px 20px rgba(0, 0, 0, .5); }
   .pcard canvas { image-rendering: pixelated; }
+  /* Turned over (2026-10-17): what the card does, then tap again to take it. */
+  .pcard .back { display: none; position: absolute; inset: 5px; overflow: hidden; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-align: center; font-size: clamp(9px, 2.5vw, 11.5px); line-height: 1.2; color: #2a2218; }
+  .pcard .back b { font-size: clamp(10.5px, 2.9vw, 13px); }
+  .pcard .back em { font-style: normal; font-size: clamp(8.5px, 2.3vw, 10px); color: #7a6a4a; margin-top: 1px; }
+  .pcard.flipped .back { display: flex; }
+  .pcard.flipped .face, .pcard.flipped .pname, .pcard.flipped .corner { visibility: hidden; }
+  .pcard.flipped { box-shadow: 0 0 0 3px var(--pc), 0 10px 20px rgba(0, 0, 0, .5); transform: translateY(-4px); }
+  .pcard.flipping { animation: cardflip .26s ease-in-out; }
+  @keyframes cardflip { 0% { transform: rotateY(0); } 50% { transform: rotateY(90deg); } 100% { transform: rotateY(0) translateY(-4px); } }
+  #overbig { font-family: 'Grove Ornate', Georgia, serif; }
+  /* A new piece made (2026-10-17): fragments merge, the piece rises. */
+  .forge { position: fixed; inset: 0; z-index: 60; display: grid; grid-template: 100% / 100%; overflow: hidden; place-items: center; background: radial-gradient(circle at 50% 45%, rgba(40, 32, 12, .78), rgba(5, 8, 6, .92)); cursor: pointer; animation: forgein .25s ease-out both; }
+  .forge.out { animation: forgeout .26s ease-in both; }
+  .forge > * { grid-area: 1 / 1; }
+  .forge-frag { width: 60px; height: 72px; opacity: 0; filter: grayscale(1) brightness(1.7) drop-shadow(0 0 8px #f6d77a); }
+  .forge-flash { width: 40px; height: 40px; border-radius: 50%; background: radial-gradient(circle, #fffbe6, rgba(246, 215, 122, .9) 40%, rgba(246, 215, 122, 0) 70%); opacity: 0; }
+  .forge-rays { width: min(100vmin, 520px); height: min(100vmin, 520px); border-radius: 50%; opacity: 0;
+    background: repeating-conic-gradient(rgba(246, 215, 122, .22) 0 8deg, rgba(246, 215, 122, 0) 8deg 22deg); -webkit-mask: radial-gradient(circle, #000 20%, transparent 68%); mask: radial-gradient(circle, #000 20%, transparent 68%); }
+  .forge-piece { width: 180px; height: 216px; opacity: 0; transform: translateY(26px) scale(.4); filter: drop-shadow(0 6px 18px rgba(246, 215, 122, .55)); margin-top: -40px; }
+  .forge-words { align-self: end; margin-bottom: 18vh; text-align: center; opacity: 0; color: #fff6d8; text-shadow: 0 2px 8px #000; }
+  .forge-why { margin: 0; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: #f2c14e; }
+  .forge-name { margin: 4px 0 0; font-family: 'Grove Ornate', Georgia, serif; font-size: clamp(28px, 8vw, 40px); }
+  .forge-sub { margin: 2px 0 0; font-size: 15px; color: rgba(255, 246, 216, .8); }
+  .forge.merged .forge-flash { animation: flash .6s ease-out both; }
+  .forge.merged .forge-rays { animation: rays 3s linear both; }
+  .forge.merged .forge-piece { animation: rise .7s .12s cubic-bezier(.3, 1.5, .6, 1) both; }
+  .forge.merged .forge-words { animation: forgein .5s .45s ease-out both; }
+  .forge.still .forge-piece, .forge.still .forge-words { opacity: 1; transform: none; }
+  @keyframes forgein { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes forgeout { to { opacity: 0; } }
+  @keyframes flash { 0% { opacity: 0; transform: scale(.3); } 25% { opacity: 1; transform: scale(5); } 100% { opacity: 0; transform: scale(9); } }
+  @keyframes rays { 0% { opacity: 0; transform: rotate(0) scale(.6); } 15% { opacity: 1; } 100% { opacity: .8; transform: rotate(60deg) scale(1); } }
+  @keyframes rise { from { opacity: 0; transform: translateY(26px) scale(.4); } to { opacity: 1; transform: none; } }
   @keyframes deal { from { transform: translateY(40px) rotate(-8deg); opacity: 0; } to { transform: none; opacity: 1; } }
   @media (prefers-reduced-motion: reduce) { .cardrow .pcard { animation: none; } }
   .sicon { display: inline-flex; align-items: center; justify-content: center; line-height: 0; vertical-align: middle; }
@@ -197,6 +245,27 @@
   .waystone .stone { font-size: 18px; color: var(--line); }
   .waystone.lit { color: var(--text); }
   .waystone.lit .stone { color: #5fd0d8; text-shadow: 0 0 8px #5fd0d8; }
+  /* Adventure's lanterns, vows and field guide (2026-10-17). */
+  .lanterns { margin-top: 14px; }
+  .waystone.lantern.lit .stone, .lanternlit .stone { color: #f2c14e; text-shadow: 0 0 8px #f2c14e; }
+  .lanternlit { display: flex; gap: 10px; align-items: baseline; justify-content: center; margin: 10px 0; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(242, 193, 78, .5); background: rgba(242, 193, 78, .08); animation: lanternin .8s .6s ease-out both; }
+  @keyframes lanternin { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .vows { display: grid; gap: 6px; margin: 4px 0 12px; }
+  .vow { display: grid; gap: 2px; text-align: left; padding: 8px 12px; min-height: 0; font-size: 14px; }
+  .vow span { color: var(--dim); font-size: 13px; font-weight: normal; }
+  .vow.on { border-color: #f2c14e; box-shadow: 0 0 0 2px #f2c14e inset; }
+  .gsec { margin: 14px 0 0; }
+  .gsec h3 { font-size: 16px; margin: 0 0 6px; }
+  .gsec h3 .dim { font-size: 13px; font-weight: normal; }
+  .glist { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+  .gentry { display: grid; grid-template-columns: 34px 1fr; gap: 8px; align-items: center; padding: 7px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); }
+  .gentry b { display: block; font-size: 14px; }
+  .gentry small { display: block; color: var(--dim); font-size: 12px; line-height: 1.3; }
+  .gentry.unseen b { color: var(--dim); }
+  .gpic { display: grid; place-items: center; width: 34px; height: 40px; }
+  .gpic canvas { width: 32px; height: 38px; }
+  .gglyph { font-size: 26px; color: var(--dim); }
+  .gentry:not(.unseen) .gglyph { color: #f2c14e; }
   .courses { display: grid; gap: 6px; margin: 4px 0 12px; }
   .coursecard { display: grid; gap: 2px; text-align: left; width: 100%; min-height: 0; padding: 10px 12px; font: inherit; color: var(--text);
     background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
@@ -237,6 +306,7 @@
       <p class="eyebrow">Hikari Garden</p>
       <h1 id="modename"></h1>
       <p class="dim" id="modeblurb"></p>
+      <div class="modepick" id="modepick" hidden></div>
       <details class="partsbox"><summary>This mode in eight parts</summary><div id="modeparts"></div></details>
     </div>
     <canvas id="preview" class="pix" aria-label="The first level, turning"></canvas>
@@ -251,13 +321,23 @@
       <div id="catopts"></div>
     </div>
     <div id="waystones" class="waystones" hidden></div>
+    <div id="vows" class="vows" hidden></div>
     <div class="stack"><button class="primary" id="begin" disabled>Finding the first level…</button></div>
     <div class="row" style="margin-top:10px">
       <button class="quiet" id="opensettings">Settings</button>
       <button class="quiet" id="titlepieces">The pieces here</button>
     </div>
+    <div class="stack" style="margin-top:8px"><button class="quiet" id="titleguide" hidden>Field guide</button></div>
+    <div id="lanterns" class="waystones lanterns" hidden></div>
     <p class="small dim center" id="testnote" hidden></p>
     <nav class="modes" id="modes" aria-label="Ways to play"></nav>
+  </section>
+
+  <section data-screen="guide" hidden>
+    <h2>Field guide</h2>
+    <p class="small dim" id="guidecount"></p>
+    <div id="guidebody"></div>
+    <div class="stack" style="margin-top:12px"><button class="primary" id="closeguide">Done</button></div>
   </section>
 
   <section data-screen="settings" hidden>

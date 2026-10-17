@@ -696,6 +696,21 @@ MODELS.gateUp = () => gateModel(true);
 MODELS.gateDown = () => gateModel(false);
 MODELS.gate = MODELS.gateUp;
 
+// A hedge (Adventure, 2026-10-17, Timothy: "new obstacle to replace
+// statues: hedges. look like hedges in a maze"): a clipped block of leaves,
+// square to its square like a maze's walls, darker low down where the sun
+// does not reach, with a few tufts standing proud of the clipping.
+MODELS.hedge = () => {
+  const m = new Model(), deep = '#2f6a33', leaf = '#3f8a3e', light = '#5aa64c', soil = '#3b2c1c';
+  m.box(0, 0.2, 0, 7.8, 0.4, 7.8, soil);
+  m.box(0, 1.6, 0, 7.4, 2.4, 7.4, deep);
+  m.box(0, 4.0, 0, 7.4, 2.6, 7.4, leaf);
+  m.box(0, 5.55, 0, 7.0, 0.5, 7.0, light);
+  for (const [x, y, z, w] of [[-2.2, 5.9, 1.6, 1.4], [1.9, 5.85, -2.0, 1.2], [2.4, 3.2, 3.55, 1.0], [-3.55, 2.6, -1.2, 1.1], [0.4, 4.4, -3.6, 1.0], [3.6, 4.6, 0.8, 0.9]])
+    m.box(x, y, z, w, w * 0.8, w, light);
+  return m;
+};
+
 // The hole's flag, so a moving hole can be seen from across the board.
 MODELS.flag = () => {
   const m = new Model();
@@ -1047,14 +1062,18 @@ export const CAT_OPTIONS = {
   ears: [['pointed', 'Pointed'], ['folded', 'Folded'], ['tufted', 'Tufted']],
   tail: [['long', 'Long'], ['curled', 'Curled'], ['fluffy', 'Fluffy']],
   whiskers: [['yes', 'Whiskers'], ['no', 'None']],
-  coat: [['tabby', 'Tabby'], ['plain', 'Plain'], ['socks', 'Socks']]
+  coat: [['tabby', 'Tabby'], ['plain', 'Plain'], ['socks', 'Socks']],
+  // Capes past the first are lit by Adventure's lanterns (adventure-meta.js,
+  // 2026-10-17): the plain one takes the side's colour, the rest their own.
+  cape: [['bark', 'Plain'], ['moss', 'Moss'], ['night', 'Night'], ['gold', 'Gold'], ['rose', 'Rose']]
 };
-const CAT_DEFAULT = { ears: 'pointed', tail: 'long', whiskers: 'yes', coat: 'tabby' };
+const CAPE = { moss: '#4c7d3a', night: '#2c3d70', gold: '#c4962c', rose: '#b4506c' };
+const CAT_DEFAULT = { ears: 'pointed', tail: 'long', whiskers: 'yes', coat: 'tabby', cape: 'bark' };
 let CAT = { ...CAT_DEFAULT };
 /** Your cat's features now. */
 export const catLook = () => ({ ...CAT });
 /** A short key for them, for caches of drawn cats. */
-export const catKey = () => `${CAT.ears}.${CAT.tail}.${CAT.whiskers}.${CAT.coat}`;
+export const catKey = () => `${CAT.ears}.${CAT.tail}.${CAT.whiskers}.${CAT.coat}.${CAT.cape}`;
 /** Change your cat's features (only known choices are taken); every cat
     built before is thrown away. */
 export function setCatLook(o = {}) {
@@ -1088,7 +1107,7 @@ function catShape() {
     m.ellipsoid(sx * 1.66, 5.9, 0.1, 0.4, 1.25, 0.44, P.wood);                 // arms at its sides
     m.ball(sx * 1.7, 4.65, 0.25, 0.38, paw, { seg: 6, rings: 4 });             // and paws
   }
-  m.box(0, 5.0, -1.25, 2.9, 4.9, 0.22, P.woodDark, { rx: 0.1 });              // the cape
+  m.box(0, 5.0, -1.25, 2.9, 4.9, 0.22, CAPE[c.cape] || P.woodDark, { rx: 0.1 }); // the cape
   m.box(0, 2.62, -1.48, 2.95, 0.3, 0.26, P.gold, { rx: 0.1 });                 // its hem
   m.lathe([[1.08, 7.55], [1.0, 8.0]], P.moss, { seg: 10 });                    // the gorget
   m.ellipsoid(0, 9.15, 0.4, 1.6, 1.4, 1.45, P.wood);                            // head
