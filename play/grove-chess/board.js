@@ -630,6 +630,34 @@ export class Board {
         if (f.taken || f0.taken || (f.x === f0.x && f.y === f0.y) || b.t !== a.t) return;
         tw.foes[k] = { from: [f0.x, f0.y], to: [f.x, f.y], t0: t + tw.piece.dur * 0.7, dur: 220 * slow };
       });
+      // A shield's slide (2026-10-17): what it pushed slides on, taking
+      // longer the further it goes, with a thump where it stops against
+      // something; pushed off, it slides over the edge and drops away
+      // (tw.falls, drawn by the 3D board).
+      if (mv.shove && mv.slid != null) {
+        const W = this.day.W, t1 = t + tw.piece.dur * 0.7, run = (d) => (110 + 80 * d) * slow;
+        for (const f of Object.values(tw.foes)) { f.t0 = t1; f.dur = run(Math.max(Math.abs(f.to[0] - f.from[0]), Math.abs(f.to[1] - f.from[1]))); }
+        sfx.slide(at(t1));
+        if (mv.bump?.length) {
+          const end = t1 + run(mv.slid);
+          for (const q of mv.bump) tw.poofs.push({ x: q % W, y: (q / W) | 0, t0: end, dur: 420, c1: '#fff6d8', c2: '#8fa6bd' });
+          sfx.bump(at(end));
+          tw.pushEnd = end;
+        }
+        if (mv.slid === -1) {
+          tw.falls = mv.push.map((e) => {
+            const k = a.foes.findIndex((f) => !f.taken && f.y * W + f.x === e.from);
+            if (k < 0) return null;
+            const f = a.foes[k], [dx, dy] = mv.dir;
+            let d = 1;
+            while (d < 16 && onBoard(this.day, f.x + dx * d, f.y + dy * d) && !(a.gone || []).includes((f.y + dy * d) * W + f.x + dx * d)) d++;
+            const look = f.brain === 'still' && !(f.suit && this.lookOfFoe) ? 'grey' : this.lookOfFoe ? this.lookOfFoe(f) : 'foe';
+            return { k, kind: f.shape || f.type, look, fur: this.fur(f), from: [f.x, f.y], dir: [dx, dy], d, t0: t1, slide: run(d - 0.5), drop: 560 * slow };
+          }).filter(Boolean);
+          for (const fl of tw.falls) sfx.sink(at(fl.t0 + fl.slide));
+          tw.pushEnd = Math.max(...tw.falls.map((fl) => fl.t0 + fl.slide + fl.drop * 0.6));
+        }
+      }
       // On crumbling ground the square it left falls away as it goes.
       if (b.gone?.length > (a.gone?.length || 0)) {
         tw.crumble = { sq: b.gone[b.gone.length - 1], t0: t + 60 * slow, dur: 420 * slow };
@@ -692,10 +720,12 @@ export class Board {
       sfx.caught(at(t));
       t += hold + dur;
     } else if (tw.caught.size) {
-      for (const k of tw.caught) tw.poofs.push({ x: a.foes[k].x, y: a.foes[k].y, t0: t, dur: 480, c1: '#ffffff', c2: '#f2c14e' });
+      for (const k of tw.caught) if (!tw.falls?.some((fl) => fl.k === k)) tw.poofs.push({ x: a.foes[k].x, y: a.foes[k].y, t0: t, dur: 480, c1: '#ffffff', c2: '#f2c14e' });
       sfx.capture(at(t));
       t += b.won ? 480 : 200;
     }
+    // Wait for a shield's slide to finish (and a fall to drop out of sight).
+    if (tw.pushEnd) t = Math.max(t, tw.pushEnd);
     // The last rabbit caught: the hole's cover opens. (On a cleared board,
     // Adventure, the hole appears beside your piece, opening.)
     if ((a.hole && !holeOpen(a) && holeOpen(b)) || (!a.hole && b.hole)) {

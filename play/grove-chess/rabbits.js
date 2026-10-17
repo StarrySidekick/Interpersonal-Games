@@ -55,7 +55,7 @@ export const ROUTE_SAY = {
 /** "A tangerine rabbit inside walks it there and back, ..." */
 // (Since 2026-10-16 the rabbit, its kind and its suit, is said by the page;
 // this is only the loop it walks.)
-export const routeText = (f) => `Its loop is a ${(f.patternName || 'loop').toLowerCase()}: it walks it ${ROUTE_SAY[f.patternName] || 'round and round'}, and takes what stands where it steps next. The whole loop is drawn on the board, its next square framed.`;
+export const routeText = (f) => `Its loop is a ${(f.patternName || 'loop').toLowerCase()}: it walks it ${ROUTE_SAY[f.patternName] || 'round and round'}, and takes what stands where it steps next. Its next square is framed in its colour.`;
 
 const KEY = 'ig.grove.rabbits.v1';
 

@@ -568,6 +568,73 @@ middle, 8.5 for the slowest tenth, 29 at worst; the strong hand 31 of 51,
 from depth 8 on 4 to 7 under (the same open question: a bigger board for
 strong sets).
 
+## Shields that slide, small boards, fewer words (2026-10-17)
+
+Timothy's list, in his words, and what was built.
+
+- **"shields causes enemy pieces to slide perpetually like sliders, not
+  just move the space relative to the pusher. so even if the pushing piece
+  moves one space, if it pushes a piece that piece slide until it hits
+  something. if it hits a piece both peices get stunned, if it hits the
+  edge of the board it falls off"**. Built (`shieldSlides` in `rules.js`,
+  a new setting `shieldSlide`, on in Adventure). The shield still lands on
+  the square of the piece it pushes, and the pushed piece slides on the way
+  the shield moved (to the nearest of the eight directions, as before)
+  until something stops it:
+  - into a piece, of either side (a statue too): it stops against it, and
+    both are stunned (each sits out its side's next turn);
+  - off the edge, or onto fallen ground: it falls, and is taken;
+  - into anything else (none in Adventure today): it stops, stunned.
+  *Calls of mine:* at shield level 2 or 3 a row of pieces slides together,
+  as it was pushed together before, and if the row goes off the edge all of
+  it falls; a piece with something right behind it cannot move at all, so
+  it cannot be pushed (as before). Their shields push yours the same way.
+  The first daily day (2026-10-17) keeps the one-square push it shipped
+  with: the setting is off in its stored board.
+- **"animation of a pieces sliding off the baked for shield captures"**.
+  The pushed piece slides along its line, taking longer the further it
+  goes; where it stops against something, a thump and a puff on both; one
+  pushed off slides to the edge, tips over it and drops away, tumbling
+  (`tw.falls` in `board.js`, drawn in `board3d.js`). The caption says it:
+  "Your shield sends their rook sliding into their knight: both are
+  stunned", or "Your shield pushes their knight off the edge".
+- **"the super long descriptions for the modes need to go"**. Every mode's
+  title blurb is a sentence or two (Adventure's was about 170 words), and
+  so is every goal card (Adventure's was about 350). The eight parts,
+  folded away on each title screen, and holding a piece still say the rest.
+- **"take away the arrows describing where robot peices will go, just keep
+  the color coded cell highlight"**. A robot's loop, its arrows and its dots
+  are gone; its next square is framed in its rabbit's colour, as before.
+  *Call of mine:* a simple rabbit keeps its one bold line to where it goes,
+  since standing anywhere on that line is what gets you taken.
+- **"boards can start smaller that 5x5, down to 3x3"**. Depth 1 and 2 are
+  three or four squares a side; 3 and 4, four or five; 5 to 7, four to six;
+  then five to seven (the table above).
+- **"early levels should still be a smudge harder"**. Down to depth 6, one
+  more hit asked of a board (three of theirs on the first boards, not two);
+  the first three boards take the whole three-move best line, never two;
+  the box step from depth 3, not 4. With the smaller boards that puts their
+  pieces closer to yours.
+- **"on my phone the upgrade screen is a bit too long and the button at
+  the bottom gets cut off"**. The screen between boards now covers the
+  whole screen, top bar included, at the screen's own height, scrolling
+  inside if it ever must; the cards shrink on a short screen. Checked at
+  375 x 560, 390 x 664, 390 x 844 and 430 x 740: the bottom button is whole
+  on all four, cards and piece picker alike.
+- **"when a friendly peice gets captured, it leaves your set until the next
+  level. if you are reduced to zero peices in that set in the level you
+  lose the game"**. This was already so, and `adventure-check.mjs` proves
+  both halves: a piece taken (in play or standing) is out of the set for
+  that board and back the next; the last of the set taken loses the board,
+  and with it the adventure.
+
+Measured (node, dealt as the page deals, a plain hand, 8 seeds a depth):
+every board at depths 1 to 3 has a best line of exactly 3 (par 5), 4 and 5
+exactly 4 (par 6); a deal takes 0.1 seconds in the middle at depth 1 and
+about 0.3 at depth 6, 7 at the slowest, as before. The daily's days from
+2026-10-18 were dealt again under these rules (its stored first day stays
+as it shipped).
+
 ## The look of your pieces
 
 In Adventure each piece of yours wears its suit. Timothy asked in steps on
@@ -725,13 +792,16 @@ use them too.
   depth 13 and 14 took 17 to 19 seconds, the cost of dealing again. Open:
   dealing faster, or a bigger board for strong sets deep down.
 
+Since 2026-10-17 (see "Shields that slide, small boards, fewer words"):
+
 | Depth | Par | Best line | Board | Theirs | Routes | Clouds |
 |---|---|---|---|---|---|---|
-| 1 | 5 | 2-3 | 5 x 5 | 2 | Shuttle | none |
-| 2-3 | 5 | 2-3 | 5 x 5, odd shapes from 3 | 2 | + Doze | none |
-| 4-6 | 6 | 3-4 | 5 x 5 or 6 x 6 | 2-3 | + Box step | some, from 5 |
-| 7-9 | 7 | 4-5 | 6 x 6 or 7 x 7 from 8, crumbling from 6 | 3-4 | + Pace | some |
-| 10+ | 8 to 15 | par minus 2 or 3 | 6 x 6 or 7 x 7 | up to 8 | all | some, sometimes 2 |
+| 1 | 5 | 3 | 3 x 3 or 4 x 4 | 2-3 | Shuttle | none |
+| 2 | 5 | 3 | 3 x 3 or 4 x 4 | 2-3 | Shuttle | none |
+| 3-4 | 5-6 | 3, then 3-4 | 4 x 4 or 5 x 5, odd shapes from 3 | 2-4 | + Box step | none |
+| 5-7 | 6-7 | 3-5 | 4 x 4 to 6 x 6, crumbling from 6 | 3-4 | + Pace from 6 | some, from 5 |
+| 8-9 | 7 | 4-5 | 5 x 5 to 7 x 7 | 3-4 | all | some |
+| 10+ | 8 to 15 | par minus 2 or 3 | 5 x 5 to 7 x 7 | up to 8 | all | some, sometimes 2 |
 
 Harder from the start since 2026-10-15 (Timothy: "early levels should be a
 bit harder"): one more of theirs and one more walking at every depth, the

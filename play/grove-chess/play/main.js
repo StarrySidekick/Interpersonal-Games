@@ -481,24 +481,26 @@ function goalCard() {
   if (session.seen.has('goal')) return null;
   session.seen.add('goal');
   let text = {
-    descent: M.upgrades === 'par' ? 'Take every piece of theirs. When the last one goes, a hole opens beside you and you jump down it to the next board. Before each move, choose which piece of your set you are, from the icons under the board. It moves, then turns into the next of your set where it landed; when that one moves on, the one before stays standing there. Each must have its turn before any goes again; when the whole set has played, they come off the board and a new round starts. Landing on a piece of theirs squashes it, as in chess; a weapon adds a way of its own. A grey statue never moves. A piece with a rabbit inside moves by itself, and the colour of its plinth says how: a robot (tangerine) walks a short loop, drawn on the board with its next square framed; a sentry (red) strikes anything of yours in its red reach; a scared one (sky blue) runs when you attack it, one a turn, so fork it; a simple one (lime) makes one move a turn along its line, all the way; a trap (magenta) strikes like a sentry and stays where it took; a sentient one (ink, deeper down) thinks and moves like a player. Rabbits eat playing cards, so a rabbit may carry a suit, the colour of its piece, and a suit works the same on either side: Hearts is two lives (hit, it stays and the hitter goes back), Vines leaves a trail that catches, Stars moves twice but takes once, Spirals takes again while it can (a heart that holds ends it), Gears trades squares with another piece. Take three of a kind and that piece joins your set, up to sixteen; a net catches one whole, with its rabbit. Now and then you win a rabbit of your own: put it in a piece, and while that piece stands on the board it acts by itself. Hold any piece, or rest the mouse on it, to see all it does.'
-      : M.upgrades === 'tiles' ? 'Take their King to win the round. After each round you each turn over a tile at the edge of the board, the winner first: the board grows by that square, and the suit or weapon on the tile is yours. When the board has as many squares as the next size up, both sides get the same new piece. Every piece starts each round in a bubble: nothing can take it until it moves. Four statues stand in the middle; either side can break one by taking it. Keep your King: if they take it, the run is over.'
-      : M.upgrades === 'each' && M.goal === 'carrier' ? `A rabbit rides one of their pieces. ${M.rabbitMove === 'random' ? `Every ${M.rabbitHop === 1 ? 'turn' : `${M.rabbitHop} turns`} it hops to another, at random.` : 'They can move it to another of their pieces, but that is their move for the turn.'} Take the piece it is on to fall to the next board, where you choose a suit or a weapon and they get one too. Keep your King: if they take it, the descent is over. Anything else of yours they take comes back on the next board.${M.promote === 'copy' ? ' A pawn that reaches the far row becomes a copy of another of your pieces.' : ''}`
-      : M.upgrades === 'each' ? 'Take their King to fall to the next board, where each side gets an upgrade. Keep yours: if they take your King, the descent is over. Anything else of yours they take comes back on the next board. One rabbit leads their side, riding on their King: tap it to see what kind it is.'
-      : M.goal === 'king' ? 'Take their King to fall to the next level, where you find something. Keep yours: if they take your King, the descent is over. Any other piece of yours that is taken is gone for good.'
-      : 'Take every piece of theirs to fall to the next level, where you find something. A piece of yours that is taken is gone for good; when they are all gone, so is the descent.',
-    course: 'Your pieces are the clubs: move one into the ball and it slides on the same way until something stops it. Sink it in the hole at par or better to go on to the next hole; over par, you play the hole again. Sand stops the ball dead, water sends it back to the tee, gates rise and fall, and clouds drift and stop it.',
+    // A sentence or two each (Timothy, 2026-10-17: "the super long
+    // descriptions for the modes need to go"); holding a piece says the rest.
+    descent: M.upgrades === 'par' ? 'Take every piece of theirs, then jump into the hole. Each turn, choose which of your set moves; each has its turn before any goes again, and stays standing where it moved. Pieces on a coloured plinth move by themselves. Hold any piece to see what it does.'
+      : M.upgrades === 'tiles' ? 'Take their King to win the round, then turn over a tile at the edge: the board grows, and its upgrade is yours. Keep your King.'
+      : M.upgrades === 'each' && M.goal === 'carrier' ? 'Take the piece their rabbit rides to fall to the next board, where you choose an upgrade. Keep your King.'
+      : M.upgrades === 'each' ? 'Take their King to fall to the next board, where each side gets an upgrade. Keep yours.'
+      : M.goal === 'king' ? 'Take their King to fall to the next level. Keep yours; a piece taken is gone for good.'
+      : 'Take every piece of theirs to fall to the next level. A piece taken is gone for good.',
+    course: 'Move a piece into the ball and it slides on until something stops it. Sink it at par or better; over par, the hole again.',
     rounds: 'Put rabbits in your pieces and let them fight. Win the round to grow your side; a lost round costs a life.',
     single: 'One level. Win it how it says above.'
   }[M.run];
   // A chess variant: its own goal, and what Grove Chess plays differently.
-  if (M.realtime && M.run === 'descent') text = text + ' Kung fu: there are no turns. Move any piece of yours whenever it is ready, and so do they. A move takes time to travel, so a piece can dodge one coming for it, and a piece that has moved rests for a moment: the ring under it runs down.';
+  if (M.realtime && M.run === 'descent') text = text + ' No turns: move any piece whenever it is ready; the ring under it shows its rest.';
   const V = VARIANTS[M.variant];
   if (V && M.run === 'single') return { kind: 'king', side: 'foe', title: V.name, text: [V.blurb, ...differs(V)].join(' ') };
   if (M.position && M.run === 'single' && M.goal === 'flag') return { kind: 'flag', side: 'you', title: MODE.name,
-    text: 'A rabbit sits in the middle of the board. Take it, and the piece that took it carries it on its head: bring that piece back to your first row to win. If they take the piece carrying it, the rabbit rides theirs, and they win by carrying it to their first row. There are no Kings: the rabbit is the whole game.' };
+    text: 'Take the rabbit in the middle and carry it back to your first row. If they take the piece carrying it, they carry it home instead.' };
   if (M.position && M.run === 'single') return { kind: 'king', side: 'foe', title: MODE.name,
-    text: 'A layout from the piece trials: the same army on each side, theirs thinking. Take their King and keep yours. A King left where it can be taken is lost: there is no check, and no checkmate.' };
+    text: 'Take their King and keep yours. There is no check: a King left where it can be taken is lost.' };
   return { kind: M.run === 'course' ? 'flag' : 'rabbit', side: M.run === 'course' ? 'you' : 'foe', title: MODE.name, text };
 }
 
@@ -857,8 +859,16 @@ function noteCatches(a, b) {
   b.foes.forEach((f, k) => { if (f.taken && !a.foes[k].taken && ['classic', 'fairy'].includes(PIECES[f.type]?.kind)) session.claimed.push(f.type); });
 }
 
-function whatHappened(a, b) {
+function whatHappened(a, b, mv = null) {
   const bits = [];
+  // A shield's push (2026-10-17): what it sent sliding, and what stopped it.
+  const shoved = mv?.shove ? new Set(mv.push.map((e) => e.from)) : null;
+  if (mv?.shove && mv.slid !== -1 && M.upgrades === 'par') {
+    const W = a.day.W, at = (q) => a.foes.find((f) => !f.taken && f.y * W + f.x === q) || a.pieces.find((p, i) => i && !p.taken && p.y * W + p.x === q);
+    const front = at(mv.push[mv.push.length - 1].from), hit = mv.bump?.[1] != null ? at(mv.bump[1]) : null;
+    const whose = (p) => (a.foes.includes(p) ? 'their' : 'your');
+    if (front) bits.push(`Your shield sends their ${nameOf(front).toLowerCase()} sliding${hit ? ` into ${whose(hit)} ${nameOf(hit).toLowerCase()}: both are stunned` : mv.bump?.length ? ': it hits something and is stunned' : ''}.`);
+  }
   b.foes.forEach((f, k) => {
     if (!f.taken || a.foes[k].taken) return;
     if (M.upgrades === 'par' && session?.run) {
@@ -873,7 +883,8 @@ function whatHappened(a, b) {
       const ally = b.pieces.find((p, i) => i && p.ally && (at(p) || (b.tlog || []).some((l) => l.what === 'ally' && l.how === 'strike' && l.k === k && b.pieces[l.i] === p)));
       const squashed = at(b.pieces[0] || {}), vined = (b.tlog || []).some((l) => l.what === 'vine' && l.k === k);
       const three = c && c.made > (was?.made || 0);
-      bits.push(`${vined ? 'Your vine catches' : ally ? `Your ${nameOf(ally).toLowerCase()} takes` : squashed ? 'You squash' : 'You take'} their ${name}${r ? `, and the ${RABBITS[r].name.toLowerCase()} rabbit in it` : ''}.${daily ? '' : ' '}${daily ? '' : three ? (roomFor(session.run) ? `That is three: ${/^[aeiou]/.test(name) ? 'an' : 'a'} ${name} joins your set after this board.` : `That is three, but your set is full (${ADVENTURE_MAX}).`) : `(${PIECES[f.type].name}s taken: ${c?.have || 0} of ${TAKE_FOR_PIECE}.)`}`);
+      const pushedOff = shoved?.has(a.foes[k].y * a.day.W + a.foes[k].x);
+      bits.push(`${pushedOff ? 'Your shield pushes' : vined ? 'Your vine catches' : ally ? `Your ${nameOf(ally).toLowerCase()} takes` : squashed ? 'You squash' : 'You take'} their ${name}${pushedOff ? ' off the edge' : ''}${r ? `, and the ${RABBITS[r].name.toLowerCase()} rabbit in it` : ''}.${daily ? '' : ' '}${daily ? '' : three ? (roomFor(session.run) ? `That is three: ${/^[aeiou]/.test(name) ? 'an' : 'a'} ${name} joins your set after this board.` : `That is three, but your set is full (${ADVENTURE_MAX}).`) : `(${PIECES[f.type].name}s taken: ${c?.have || 0} of ${TAKE_FOR_PIECE}.)`}`);
       return;
     }
     bits.push(f.brain === 'leader' ? `You took the rabbit that leads them.` : f.mind || f.brain === 'possessed' ? `You took their ${nameOf(f)}, and the rabbit inside is yours.` : `You took their ${nameOf(f)}.`);
@@ -953,7 +964,7 @@ function whatHappened(a, b) {
     if (b.foes.some((f, k) => f.taken && !a.foes[k].taken && hidA.has(k))) bits.push('You ran into one of theirs hiding in a cloud, and took it.');
   }
   if (!bits.length) bits.push('Your move.');
-  return bits.join(' ');
+  return [...new Set(bits)].join(' ');
 }
 
 /** A piece of yours that came back from a heart (2026-10-13): while set,
@@ -1007,7 +1018,7 @@ async function play(mv) {
   if (daily && !b.bonus && b.t >= par + PICK_UP) return levelOver({ ...b, gaveUp: true, pickedUp: true });
   // A suit left the turn open (Vines, Stars): the same piece goes again.
   if (b.bonus) { haptic([12, 30, 12]); sfx.gain(); status(bonusLine(b)); return select(b.bonus.p); }
-  status(whatHappened(a, b));
+  status(whatHappened(a, b, mv));
   // Your set (Adventure): a ready piece comes on, as a start.
   await readyUp(a);
   // Hearts: one of yours is back on your first row; you may put it on
@@ -1302,7 +1313,7 @@ function replay(moves) {
 function dailyGoal() {
   if (session.seen.has('goal')) return null;
   session.seen.add('goal');
-  return { kind: 'cat', side: lookOf(null), title: 'The daily', text: 'Take every piece of theirs, then jump into the hole that opens. Each turn, choose which of your set moves, from the pieces under the board; each has its turn before any goes again, and each stays standing where it moved once the next moves on. Grey statues never move. A piece on a coloured plinth has a rabbit inside and moves by itself: a robot walks the loop drawn on the board, a sentry strikes anything in its red reach, a scared one runs. Hold any piece to see what it does. Three boards; par for each is the best line we found, plus two.' };
+  return { kind: 'cat', side: lookOf(null), title: 'The daily', text: 'Take every piece of theirs, then jump into the hole. Each turn, choose which of your set moves; each has its turn before any goes again. Pieces on a coloured plinth move by themselves. Hold any piece to see what it does.' };
 }
 
 /** A daily board is over: cleared, or the floor gave way. */
