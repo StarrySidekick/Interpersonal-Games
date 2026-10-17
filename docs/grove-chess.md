@@ -16,6 +16,13 @@ models and colours) in [`grove-pieces.md`](grove-pieces.md).
 
 ## The game
 
+**Since 2026-10-17 this is the first daily, "The rabbit", listed under
+Variants.** The daily is now three boards of Adventure a day
+(`play/grove-chess/daily/`, version 5): see
+[`grove-five-doors.md`](grove-five-doors.md). This page still plays, and
+its links still open; its stored boards end on 2026-10-17, after which it
+deals its version 3 boards, as `daily4.js` always meant to.
+
 One board a day, the same for everyone. A 5x5 or 6x6 board in light green and
 cream, three or four of your pieces, and one rabbit. **Catch the rabbit** by
 moving a piece onto its square.
