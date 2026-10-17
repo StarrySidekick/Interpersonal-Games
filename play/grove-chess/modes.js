@@ -268,6 +268,17 @@ export const MODES = {
   }
 };
 
+// The daily from 2026-10-18 (Timothy, 2026-10-17: "adapt daily mode to be
+// a 5 minute or less version of adventure you can play and share"):
+// Adventure's rules, on three stored boards a day (daily5.js). Its boards
+// are made ahead of time, so these settings only set how it plays.
+MODES.today = {
+  name: 'The daily', blurb: 'Three boards of Adventure a day, the same for everyone. Take every piece in as few moves as you can, scored like golf, and share your card.',
+  settings: { ...MODES.adventure.settings }
+};
+// The first daily's practice boards keep their own name (its id stays, for links).
+MODES.daily.name = 'The rabbit: practice';
+
 // Timothy's changes to the presets, from config.js (the settings console).
 for (const [id, over] of Object.entries(CONFIG.modes || {})) if (MODES[id] && over) Object.assign(MODES[id].settings, over);
 

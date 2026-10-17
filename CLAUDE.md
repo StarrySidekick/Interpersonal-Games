@@ -27,14 +27,20 @@ release: confirm the live site serves the new files before saying it is live.
   home page and under every Grove Chess menu, so Timothy can see which push
   the live site is on. Every push to `main` is a release and gets one.
 
-- `node play/grove-chess/check-daily.mjs`: run it. It proves the daily
-  boards have not changed, the stored named ones (from 2026-10-09)
-  included. Before stored boards run out, make more with
-  `make-daily.mjs` (see `docs/grove-chess.md`, version 4). **For now a change to the daily is allowed**
+- `node play/grove-chess/check-daily.mjs`: run it. It proves the first
+  daily's boards (the rabbit, now a variant) have not changed, the stored
+  named ones (2026-10-09 to 2026-10-17) included; after those it deals its
+  version 3 boards, so it needs no more made. **For now a change to it is allowed**
   (Timothy, 2026-10-07: "don't worry about messing up the daily board, we
   will hone in on that after we get a solid game loop built"): if it fails,
   say so plainly in the merge and to Timothy, rather than versioning the
   dealer. Once the daily is redesigned, this goes back to must-pass.
+- `node play/grove-chess/check-daily5.mjs` must pass. It proves every
+  stored day of the daily (three Adventure boards, from 2026-10-17) still
+  deals exactly as it shipped. Days are stored through 2026-12-31; before
+  they run out, make more with `make-daily5.mjs` (see
+  `docs/grove-five-doors.md`). A change to how Adventure deals or plays
+  that moves a stored board is a new dealer, not an edit.
 - `node play/changeling/check.mjs` must pass. It proves Changeling's first
   400 daily boards still deal exactly as stored (2026-10-15). A change to
   its dealing is a new version in `VERSIONS` (`play/changeling/rules.js`).

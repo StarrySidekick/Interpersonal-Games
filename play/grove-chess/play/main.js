@@ -41,6 +41,13 @@ import { setupPanel, setupState, playOut } from '../autosetup.js';
 import { VARIANTS, VARIANT_ORDER, differs } from '../variants.js';
 import { startKungFu } from '../kungfu.js';
 import { describeMeasure } from '../metrics.js';
+import { todayStr } from '../day.js';
+import { logSitting } from '../../../engine/record.js';
+import {
+  loadToday, boardLevel, card, strokesOf, scoreWord, markOf, vsText, loadStore, saveStore, dayEntry, myName, setMyName,
+  chunkOf, readChunk, readLink as readDailyLink, makeLink as makeDailyLink, dailyNumber, shiftDate, PICK_UP
+} from '../daily5.js';
+import { cleanName } from '../vine.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -57,6 +64,30 @@ const test = decodeLevel(location.hash)?.settings || null;
 let M = test ? cleanMode({ ...modeSettings(modeId), ...test, run: modeSettings(modeId).run, roll: 'fixed' }) : modeSettings(modeId);
 const catalog = loadCatalog();
 registerInvented(catalog.invented);
+
+// The daily (2026-10-17, Timothy: "adapt daily mode to be a 5 minute or
+// less version of adventure you can play and share"): Adventure's runner
+// with three stored boards a day (daily5.js). `today` is the day, `entry`
+// what this browser has of it. `?test` adds a way between days and the
+// best-move button, which the daily otherwise hides: a shared score means
+// nothing if a button can play it.
+const daily = modeId === 'today';
+const dailyTest = daily && new URLSearchParams(location.search).has('test');
+let today = null, dstore = null, entry = null, ddate = null;
+async function initDaily() {
+  const link = readDailyLink();
+  ddate = link.date || todayStr();
+  today = await loadToday(ddate);
+  dstore = loadStore();
+  entry = dayEntry(dstore, ddate);
+  // Friends on the link: kept for good; and the branch you came in on, until
+  // you finish (your share goes on the end of it).
+  if (link.players.length && link.date) {
+    for (const p of link.players) if (!entry.seen.includes(p.chunk)) entry.seen.push(p.chunk);
+    if (!entry.done) entry.branch = link.players.map((p) => p.chunk).join('~');
+    saveStore(dstore);
+  }
+}
 
 // --- Records: only ever go up (nothing decays, no streaks). -----------------
 
@@ -89,6 +120,8 @@ const courseOpen = (id) => { const k = COURSE_ORDER.indexOf(id); return k <= 0 |
 
 function recordsLine() {
   const r = records[modeId];
+  // The daily: days played, never days in a row.
+  if (daily) return r?.played ? `Days played: ${r.played}. Best card: ${vsText(r.best)}.` : '';
   if (M.run === 'course' && COURSES[M.courseName]) {
     const c = r?.courses?.[M.courseName];
     return c?.played ? `${COURSES[M.courseName].name}: best ${c.best > 0 ? '+' : ''}${c.best} against par. Played ${c.played}.` : `${COURSES[M.courseName].name}: not played yet.`;
@@ -140,6 +173,14 @@ function newSession() {
   if (M.pawnRow && oneBoard() && session.run) for (const list of [session.run.hand, session.run.foes]) for (let i = 0; i < M.w; i++) list.push({ base: 'pawn', row: 1 });
   // Tile Chess (2026-10-14): the board is carried too, and no rabbit.
   if (M.upgrades === 'tiles' && session.run) { session.run.tiles = newTiles(M.w, M.h); session.run.foeRabbit = false; }
+  // The daily: the day's set, the same for everyone, and the board you are on.
+  if (daily && today) {
+    session.seed = dailyNumber(ddate);
+    session.run.hand = today.set.map((h) => ({ ...h }));
+    session.n = Math.min(today.boards.length, entry.results.length + 1);
+    // A piece's card in the intro plays the first day it turns up, not every day.
+    session.seen = new Set(dstore.seen || []);
+  }
   // The set you were dealt: laying out your pieces opens once it changes.
   session.dealt = session.run ? JSON.stringify(session.run.hand) : null;
 }
@@ -159,6 +200,11 @@ const setChanged = () => !!session.run && JSON.stringify(session.run.hand) !== s
 /** The level for level number n of this session, found on a background
     thread (and kept, so asking again is free). */
 function find(n = session.n) {
+  // The daily: its stored board, no dealing.
+  if (daily) {
+    const b = today.boards[n - 1], lv = boardLevel(b);
+    return Promise.resolve({ settings: lv.settings, seed: lv.seed, par: b.par, line: null, measure: null, autoBest: null, setups: null, passed: true });
+  }
   const hand = session.run ? handSettings(session.run, setFor(n)) : null;
   if (hand && session.run.tiles) hand.tiles = layout(session.run.tiles);
   const key = `${n}|${JSON.stringify(hand?.hand || null)}|${JSON.stringify(hand?.handMods || null)}|${JSON.stringify(hand?.foeHand || null)}|${JSON.stringify(hand?.foeMods || null)}|${(session.run?.jokers || []).join(',')}|${hand?.tiles ? hand.tiles.open.join('.') : ''}`;
@@ -283,6 +329,7 @@ function hud() {
   if (M.upgrades === 'par' && session?.run) { setRow(); nextUp(); }
   $('#movecount').textContent = now().t;
   const hop = hopIn(now());
+  if (daily) { $('#movemax').textContent = `· par ${par}`; $('#goalpill').textContent = `${par + PICK_UP} moves at most`; return; }
   $('#movemax').textContent = [level.rules.maxMoves && !(M.run === 'course' && par) ? `of ${level.rules.maxMoves}` : '', par ? `${M.run === 'course' ? 'of ' : '· '}par ${par}` : '', hop ? `· the rabbit hops ${hop === 1 ? 'next turn' : `in ${hop}`}` : ''].filter(Boolean).join(' ');
 }
 
@@ -402,6 +449,8 @@ function setRow() {
   if (fell.length) box.append(el('div', { class: 'handcell' }, el('span', { class: 'dim' }, 'Lost'), ...fell.map((e) => el('span', { class: 'small dim' }, el('s', {}, nameOf(e))))));
   const netted = s.foes.filter((f) => f.taken && f.netted);
   if (netted.length) box.append(el('div', { class: 'handcell' }, el('span', { class: 'dim' }, `${WEAPONS.net.mark} Netted`), ...netted.map((f) => el('span', { class: 'small' }, nameOf(f)))));
+  // The daily's set is the day's, all of it, and never grows.
+  if (daily) return;
   const bench = session.run.hand.length - (session.pick?.length || session.run.hand.length);
   if (bench > 0) box.append(el('div', { class: 'handcell' }, el('span', { class: 'dim' }, 'Resting'), el('span', {}, `${bench} more`), el('span', { class: 'small dim' }, 'next board, maybe')));
   const r = tallyCounts(s);
@@ -466,8 +515,10 @@ async function startLevel() {
   if (M.run === 'course' && par) { par += session.n <= 2 ? 2 : 1; level.rules = { ...level.rules, maxMoves: par }; }
   // Adventure (2026-10-15): par is set by depth, and the board was dealt so
   // its best line is two or three under it (modes.js adventurePar).
-  if (M.upgrades === 'par') par = adventurePar(session.n);
+  if (M.upgrades === 'par') par = daily ? found.par : adventurePar(session.n);
   game = { states: [initialState(level)], moves: [] };
+  // The daily: a board left part way picks up where it was.
+  const resumed = daily && entry.moves.length && entry.results.length === session.n - 1 ? replay(entry.moves) : false;
   board = makeBoard($('#board'), level);
   board.lookOf = M.upgrades === 'par' ? lookOf : null;
   board.lookOfFoe = M.upgrades === 'par' ? (f) => suitLook(f?.suit) : null;
@@ -482,8 +533,8 @@ async function startLevel() {
   board.fur = furOf;
   sel = null; legal = []; shown = null;
   $('#sheet-list').replaceChildren();
-  openSheet = piecesSheet($('#sheet'), $('#sheet-list'), level, { when: `${levelWord()} ${session.n}` });
-  $('#modepill').textContent = M.run === 'single' ? MODE.name : `${levelWord()} ${session.n}`;
+  openSheet = piecesSheet($('#sheet'), $('#sheet-list'), level, { when: daily ? `Board ${session.n} of ${today.boards.length}` : `${levelWord()} ${session.n}` });
+  $('#modepill').textContent = daily ? `Board ${session.n} of ${today.boards.length}` : M.run === 'single' ? MODE.name : `${levelWord()} ${session.n}`;
   $('#goalpill').textContent = level.rules.race ? 'Race to the top row' : level.rules.hill ? 'Take their King, or the hill' : GOAL_PILL[level.goalKind] || '';
   const chips = $('#chips');
   chips.replaceChildren(el('span', { class: 'pill' }, `${level.W} × ${level.H}`));
@@ -513,12 +564,21 @@ async function startLevel() {
   $('#movecount').previousSibling.textContent = 'Move ';
   $('#controls').hidden = true;
   busy = true;
-  await playIntro(board, level, { section: $('[data-screen=play]'), seen: session.seen, goal: goalCard() });
+  if (!resumed) await playIntro(board, level, { section: $('[data-screen=play]'), seen: session.seen, goal: daily ? dailyGoal() : goalCard() });
+  if (daily) { dstore.seen = [...session.seen]; saveStore(dstore); }
   busy = false;
   if (isAuto()) return setUp();
   if (level.settings.arrange && level.pieces.length && setChanged()) await arrange();
   if (level.rules.realtime) return beginKungFu();
   $('#controls').hidden = false;
+  $('#best').hidden = daily && !dailyTest;
+  if (daily && resumed) {
+    // Left during the cheer, or at the last move allowed: finish the board.
+    if (isOver(now())) return levelOver(now());
+    if (!now().bonus && now().t >= par + PICK_UP) return levelOver({ ...now(), gaveUp: true, pickedUp: true });
+    status(`Board ${session.n} of ${today.boards.length}, where you left it.`); await readyUp(); return select(null);
+  }
+  if (daily) { status(`Board ${session.n} of ${today.boards.length}. Take them all, then the hole.`); return select(null); }
   status(`${levelWord()} ${session.n}. ${$('#goalpill').textContent}.${now().cloudy ? (now().day.rules.cloudOwn ? ' For the first turn, a cloud in front of each side stops the other side.' : ' A cloud covers the second rows for the first turn.') : ''}`);
   select(null);
 }
@@ -813,7 +873,7 @@ function whatHappened(a, b) {
       const ally = b.pieces.find((p, i) => i && p.ally && (at(p) || (b.tlog || []).some((l) => l.what === 'ally' && l.how === 'strike' && l.k === k && b.pieces[l.i] === p)));
       const squashed = at(b.pieces[0] || {}), vined = (b.tlog || []).some((l) => l.what === 'vine' && l.k === k);
       const three = c && c.made > (was?.made || 0);
-      bits.push(`${vined ? 'Your vine catches' : ally ? `Your ${nameOf(ally).toLowerCase()} takes` : squashed ? 'You squash' : 'You take'} their ${name}${r ? `, and the ${RABBITS[r].name.toLowerCase()} rabbit in it` : ''}. ${three ? (roomFor(session.run) ? `That is three: ${/^[aeiou]/.test(name) ? 'an' : 'a'} ${name} joins your set after this board.` : `That is three, but your set is full (${ADVENTURE_MAX}).`) : `(${PIECES[f.type].name}s taken: ${c?.have || 0} of ${TAKE_FOR_PIECE}.)`}`);
+      bits.push(`${vined ? 'Your vine catches' : ally ? `Your ${nameOf(ally).toLowerCase()} takes` : squashed ? 'You squash' : 'You take'} their ${name}${r ? `, and the ${RABBITS[r].name.toLowerCase()} rabbit in it` : ''}.${daily ? '' : ' '}${daily ? '' : three ? (roomFor(session.run) ? `That is three: ${/^[aeiou]/.test(name) ? 'an' : 'a'} ${name} joins your set after this board.` : `That is three, but your set is full (${ADVENTURE_MAX}).`) : `(${PIECES[f.type].name}s taken: ${c?.have || 0} of ${TAKE_FOR_PIECE}.)`}`);
       return;
     }
     bits.push(f.brain === 'leader' ? `You took the rabbit that leads them.` : f.mind || f.brain === 'possessed' ? `You took their ${nameOf(f)}, and the rabbit inside is yours.` : `You took their ${nameOf(f)}.`);
@@ -926,6 +986,7 @@ async function play(mv) {
   if (!mid.won && thinks(mid)) { status('They are thinking…'); await sleep(30); }
   const b = respond(mid);
   game.moves.push(mv); game.states.push(b);
+  if (daily) { entry.moves.push({ ...mv, ci: a.ci }); saveStore(dstore); }
   shown = null;
   noteCatches(a, b);
   haptic(b.won ? [20, 40, 30] : b.arrived || b.pieces.some((p, i) => p.taken && a.pieces[i] && !a.pieces[i].taken) ? [40, 30, 40] : 10);
@@ -941,6 +1002,9 @@ async function play(mv) {
   } else if (!b.won && !b.bonus) await board.animate(mid, b, { p: -1 });
   busy = false;
   if (isOver(b)) return levelOver(b);
+  // The daily: par and two more, not cleared, and the floor gives way (a
+  // double bogey whatever came after, so no board eats the five minutes).
+  if (daily && !b.bonus && b.t >= par + PICK_UP) return levelOver({ ...b, gaveUp: true, pickedUp: true });
   // A suit left the turn open (Vines, Stars): the same piece goes again.
   if (b.bonus) { haptic([12, 30, 12]); sfx.gain(); status(bonusLine(b)); return select(b.bonus.p); }
   status(whatHappened(a, b));
@@ -1120,6 +1184,7 @@ async function levelOver(end) {
     if (M.shop) return between({ note: `Round ${session.n}`, shop: true });
     return between({ note: `Round ${session.n}`, rewards: won && M.rewards });
   }
+  if (daily) return dailyOver(end);
   if (M.upgrades === 'par') return adventureOver(end);
   // A descent.
   const allGone = end.pieces.every((p) => p.taken);
@@ -1214,6 +1279,127 @@ async function adventureOver(end) {
   // the card (each in turn), while some piece has none.
   const extra = sure.map((r) => ({ kind: 'rabbit', ...r }));
   return between({ note: `Depth ${session.n}`, sub, rewards: true, cards, rewardNote: note, rewardAuto: PAR_AUTO[how] || null, fall: true, extra });
+}
+
+// --- The daily (2026-10-18). ------------------------------------------------------
+// Three stored boards of Adventure (daily5.js), scored as golf, shared as a
+// link that carries each friend's moves per board.
+
+/** Play kept moves back onto this board (the daily, picking up where you
+    left off): each as play() made it, the piece of the set it was first. */
+function replay(moves) {
+  let s = now();
+  for (const mv of moves) {
+    if (isOver(s)) break;
+    if (s.set && !s.bonus && mv.ci != null && mv.ci !== s.ci && setReady(s, mv.ci)) s = chooseInSet(s, mv.ci);
+    const b = respond(playerMove(s, mv));
+    game.moves.push(mv); game.states.push(b); s = b;
+  }
+  return game.moves.length > 0;
+}
+
+/** The first board's card, for someone who has never played Adventure. */
+function dailyGoal() {
+  if (session.seen.has('goal')) return null;
+  session.seen.add('goal');
+  return { kind: 'cat', side: lookOf(null), title: 'The daily', text: 'Take every piece of theirs, then jump into the hole that opens. Each turn, choose which of your set moves, from the pieces under the board; each has its turn before any goes again, and each stays standing where it moved once the next moves on. Grey statues never move. A piece on a coloured plinth has a rabbit inside and moves by itself: a robot walks the loop drawn on the board, a sentry strikes anything in its red reach, a scared one runs. Hold any piece to see what it does. Three boards; par for each is the best line we found, plus two.' };
+}
+
+/** A daily board is over: cleared, or the floor gave way. */
+async function dailyOver(end) {
+  const b = today.boards[session.n - 1], won = !!end.won, res = { t: end.t, won };
+  entry.results[session.n - 1] = res; entry.moves = [];
+  const last = session.n >= today.boards.length;
+  if (last) entry.done = true;
+  saveStore(dstore);
+  const d = strokesOf(res, b.par) - b.par, word = scoreWord(d);
+  status(won ? `${word}! A hole opens: down you go.` : end.pickedUp ? `Par and two more, not cleared: the floor gives way. ${word}.`
+    : end.gaveUp ? `You let the floor give way. ${word}.` : `They took your whole set: the floor gives way. ${word}.`);
+  if (won) await cheer(word, `${end.t} moves, par ${b.par}`);
+  if (!calm()) { await sleep(won ? 150 : 400); if (won && board.intoHole) await board.intoHole(); else if (board.collapse) await board.collapse(); }
+  if (last) return dailyDone(true);
+  session.n++;
+  return between({ note: `Board ${session.n} of ${today.boards.length}`, sub: `${word} on that one: ${vsText(card(today, entry.results).vs)} so far.`, fall: true });
+}
+
+/** A player's row on the card: name, a mark a board, and the total. */
+function vineRow(name, results, me = false) {
+  const c = card(today, results);
+  return el('tr', { class: me ? 'me' : '' }, el('td', {}, me ? el('b', {}, name) : name),
+    el('td', { class: 'marks5' }, c.rows.map((r) => (r.d == null ? '·' : markOf(r.d))).join(' ')),
+    el('td', {}, vsText(c.vs)));
+}
+
+/** The day's card: your score, board by board, a share, and your vine. */
+function dailyDone(fresh = false) {
+  const c = card(today, entry.results);
+  if (fresh && !dailyTest) {
+    const r = mine(); r.played = (r.played || 0) + 1; r.best = r.best == null ? c.vs : Math.min(r.best, c.vs); saveRecords();
+    logSitting({ game: 'grove-chess', data: { date: ddate, daily: 5, number: today.number, vs: c.vs, strokes: c.strokes, par: c.par, results: entry.results } });
+    sfx.fanfare(c.vs <= -4 ? 3 : c.vs <= 0 ? 2 : 1); haptic([30, 40, 30, 40, 60]);
+  }
+  show('over');
+  $('#overeyebrow').textContent = `Hikari Garden daily #${today.number}`;
+  $('#overbig').textContent = c.vs === 0 ? 'Even par' : `${Math.abs(c.vs)} ${c.vs < 0 ? 'under' : 'over'} par`;
+  $('#overwhy').textContent = `${c.strokes} moves, par ${c.par}. ${today.name}.`;
+  const table = el('table', { class: 'score' },
+    el('tr', {}, el('th', {}, 'Board'), el('th', {}, 'Par'), el('th', {}, 'Moves'), el('th', {}, '')),
+    ...c.rows.map((r, i) => el('tr', {}, el('td', {}, String(i + 1)), el('td', {}, String(r.par)), el('td', {}, r.strokes == null ? '·' : String(r.strokes)),
+      el('td', {}, r.d == null ? '' : `${markOf(r.d)} ${scoreWord(r.d).toLowerCase()}${r.won ? '' : ', not cleared'}`))));
+  // Share: your name, then the link (the branch you came in on, then you).
+  const name = el('input', { type: 'text', id: 'd5name', maxlength: 14, placeholder: 'Your name', value: myName(), 'aria-label': 'Your name' });
+  const note = el('p', { class: 'small dim center' });
+  const share = el('button', { class: 'primary', onclick: async () => {
+    const who = cleanName(name.value);
+    if (!who) { note.textContent = 'Add a name first, so your friends know whose card it is.'; name.focus(); return; }
+    setMyName(who);
+    const mineChunk = chunkOf(who, entry.results);
+    const branch = (entry.branch ? entry.branch.split('~') : []).filter((ch) => readChunk(ch) && readChunk(ch).name !== who);
+    const url = makeDailyLink(new URL('../daily/', location.href).href, ddate, [...branch, mineChunk]);
+    const text = `Hikari Garden daily #${today.number}: ${today.name}\n${c.rows.map((r) => markOf(r.d)).join(' ')}  ${vsText(c.vs)} (${c.strokes} moves, par ${c.par})`;
+    paintVine(who);
+    if (navigator.share) {
+      try { await navigator.share({ text, url }); note.textContent = 'Sent.'; return; } catch (e) { if (e.name === 'AbortError') return; }
+    }
+    try { await navigator.clipboard.writeText(`${text}\n${url}`); note.textContent = 'Copied. Paste it into your chat.'; }
+    catch { note.replaceChildren('Copy this: ', el('input', { type: 'text', value: `${text} ${url}`, readonly: true })); }
+  } }, 'Share your card');
+  const vine = el('div', {});
+  const paintVine = (who = cleanName(name.value) || 'You') => {
+    const others = entry.seen.map(readChunk).filter((p) => p && p.name !== who);
+    vine.replaceChildren(el('h3', { class: 'center' }, 'Your vine'),
+      el('p', { class: 'small dim center' }, others.length ? 'Everyone whose card reached you today, then you.' : 'Share your card: whoever plays from your link joins your vine, and you see theirs when they send it back.'),
+      el('table', { class: 'score vine5' }, ...others.map((p) => vineRow(p.name, p.results)), vineRow(who, entry.results, true)));
+  };
+  paintVine(myName() || 'You');
+  $('#overbody').replaceChildren(table, el('div', { class: 'stack', style: 'margin-top:14px' }, name, share), note, vine,
+    el('p', { class: 'small dim center' }, 'A new one tomorrow. The week climbs: Monday is gentle, Sunday is not.'));
+  $('#again').textContent = 'Play Adventure';
+  $('#again').onclick = () => { location.href = './?mode=adventure'; };
+  $('#oversettings').hidden = true;
+}
+
+/** The title for the daily: the date, the name, the set, and how far you are. */
+function dailyTitle() {
+  const date = new Date(`${ddate}T12:00:00`).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+  $('#modename').textContent = today ? today.name : 'The daily';
+  $('#modeblurb').textContent = today
+    ? `Daily #${today.number}, ${date}. Three boards of Adventure, the same for everyone today. Take every piece in as few moves as you can: par is ${card(today, []).par} across the three. About five minutes.`
+    : `There is no daily made for ${date} yet.`;
+  $('.partsbox').hidden = true;
+  $('#opensettings').hidden = true;
+  const friends = entry.seen.map(readChunk).filter(Boolean);
+  $('#records').textContent = [recordsLine(), friends.length ? `On your vine: ${friends.slice(-3).map((p) => `${p.name} ${vsText(card(today, p.results).vs)}`).join(', ')}.` : ''].filter(Boolean).join(' ');
+  $('#handnote').hidden = !today;
+  $('#handnote').textContent = 'Today’s set. Hold a piece to see what it does.';
+  if (dailyTest) {
+    $('#testnote').hidden = false;
+    const go = (d) => { location.hash = `d=${d}`; location.reload(); };
+    $('#testnote').replaceChildren('Test: ', el('button', { class: 'quiet', onclick: () => go(shiftDate(ddate, -1)) }, 'Day before'), ' ',
+      el('button', { class: 'quiet', onclick: () => go(shiftDate(ddate, 1)) }, 'Day after'), ' ',
+      el('button', { class: 'quiet', onclick: () => go(todayStr()) }, 'Today'), ' ',
+      el('button', { class: 'quiet', onclick: () => { delete dstore.days[ddate]; saveStore(dstore); location.reload(); } }, 'Clear this day'));
+  }
 }
 
 /** A board cleared (Adventure, 2026-10-16, Timothy: "animations for ...
@@ -1702,6 +1888,8 @@ async function prepareTitle() {
   $('#records').textContent = recordsLine();
   $('#testnote').hidden = !test;
   if (test) $('#testnote').textContent = 'Settings from Chaos: a test run. Nothing is kept.';
+  if (daily) dailyTitle();
+  if (daily && !today) { $('#titlehand').replaceChildren(); $('#catpick').hidden = true; $('#begin').disabled = true; $('#begin').textContent = 'No daily today'; return; }
   titleHand();
   catPicker();
   waystoneList();
@@ -1715,7 +1903,7 @@ let previewTicket = 0;
 async function previewFirst() {
   $('#begin').disabled = true; $('#begin').textContent = 'Finding the first level…';
   const ticket = ++previewTicket;
-  const f = await find(1);
+  const f = await find(daily ? session.n : 1);
   if (ticket !== previewTicket) return; // a newer hand asked since
   const first = makeLevel(f.settings, f.seed);
   pframe = sceneFrame(first, pitch, pscale);
@@ -1725,6 +1913,7 @@ async function previewFirst() {
   pmesh = scene(first, initialState(first), furOf);
   $('#begin').disabled = false;
   $('#begin').textContent = { descent: 'Descend', course: 'Tee off', rounds: 'Begin', single: 'Play' }[M.run];
+  if (daily) $('#begin').textContent = entry.done ? 'See your card' : entry.results.length || entry.moves.length ? `Carry on: board ${session.n} of ${today.boards.length}` : 'Play today\u2019s three';
 }
 
 /** The hand on the title. With carrying on, tap a piece to swap it for any
@@ -1825,6 +2014,7 @@ $('#closesettings').onclick = () => prepareTitle();
 $('#resetsettings').onclick = () => { resetModeSettings(modeId); M = modeSettings(modeId); updateForm?.(); };
 $('#begin').onclick = async () => {
   haptic(12);
+  if (daily && entry.done) return dailyDone(false);
   // Keepsakes from the waystones: upgrades of your choice before the first level.
   const n = carries() && M.keepsakes ? litWaystones(deepest()).filter((w) => w.id.startsWith('keepsake')).length : 0;
   if (n && session.run) {
@@ -1848,6 +2038,7 @@ $('.topbar .pill').before(soundToggle(), themeToggle());
 $('#modepill').textContent = MODE.name;
 document.title = `Grove Chess: ${MODE.name}`;
 fillMenu($('#modes'), modeId, '../');
+if (daily) await initDaily();
 prepareTitle();
 requestAnimationFrame(previewFrame);
 

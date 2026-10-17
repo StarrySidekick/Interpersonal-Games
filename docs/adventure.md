@@ -907,6 +907,11 @@ as game over.
 
 ## Open, and Timothy's
 
+A pass of the whole mode on 2026-10-17 (what works, what a playtest found,
+a path audit and nine ideas ranked) is in
+[`grove-five-doors.md`](grove-five-doors.md), "Adventure: a pass". The
+daily is now three boards of Adventure (the same doc).
+
 - From 2026-10-16 (later): whether a sentry of yours should strike
   anything in its reach (as now, so a sentry by a row of statues clears
   them one a turn) or only what moves into it, as stones did. Whether your

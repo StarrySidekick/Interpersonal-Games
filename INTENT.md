@@ -12,7 +12,23 @@ invariants — the other docs win, always.
 When something here is done, or turns out to be wrong, **edit it**. A stale
 intent file is worse than no intent file.
 
-## 2026-10-17, newest: sets of four, no squashing, vines, the troupe to find
+## 2026-10-17, newest: five doors, and a daily of three Adventure boards
+
+From Timothy: a general pass of the chess, centred on Adventure; the daily
+as "a 5 minute or less version of adventure you can play and share"; and
+the finished app as five things: "Daily, Adventure, Golf, Custom, and
+Variants" (variants by others and by him). Built: Chess of the Grove opens
+on those five doors, with Variants in two lists (ours, and the classics);
+the menu everywhere is the same five. The new daily is three stored boards
+of Adventure a day with a set of the day, scored like golf and shared as a
+link that carries each friend's moves per board (`play/grove-chess/daily/`,
+#1 today). The first daily is a variant now, "The rabbit". The pass of
+Adventure (what works, what the playtest found, a path audit, nine ideas
+ranked) and every call I made on the daily are in
+[`docs/grove-five-doors.md`](docs/grove-five-doors.md). The ideas are
+his to choose from.
+
+## 2026-10-17: sets of four, no squashing, vines, the troupe to find
 
 From Timothy, and built: a set of four; the shield always pushes, and the
 sword and lance no longer squash (the mace still does); the net only on

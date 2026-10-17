@@ -20,6 +20,7 @@ import { newRun, handSettings, SUITS } from '../grove-chess/run.js';
 import { newTiles, layout } from '../grove-chess/tiles.js';
 import { loadDay } from '../grove-chess/daily4.js';
 import { todayStr } from '../grove-chess/day.js';
+import { loadToday, boardLevel } from '../grove-chess/daily5.js';
 import { FUR } from '../grove-chess/rabbits.js';
 import { VARIANTS, VARIANT_ORDER } from '../grove-chess/variants.js';
 
@@ -76,7 +77,18 @@ function firstLevel(id, seed = 7) {
 }
 
 
+// Adventure's walkers wear their rabbits' colours, as in play.
+const adventureFur = (f) => (['possessed', 'sentry', 'scared'].includes(f.brain) && (SUITS[f.suit]?.colour || FUR[f.patternName])) || null;
+
 const PREVIEW = {
+  // The daily (2026-10-17): today's first board.
+  today: async () => {
+    const day = await loadToday(todayStr());
+    if (!day) return [firstLevel('adventure'), adventureFur];
+    const lv = boardLevel(day.boards[0]);
+    return [makeLevel(lv.settings, lv.seed), adventureFur];
+  },
+  // The first daily, the rabbit.
   daily: async () => {
     const day = await loadDay(todayStr());
     return [day, (f) => ((f.brain === 'pattern' || f.brain === 'possessed' || f.mind) && FUR[f.patternName]) || null];
@@ -88,9 +100,9 @@ const PREVIEW = {
   }
 };
 for (const id of ['adventure', 'descent', 'kungfu', 'tiles', 'golf', 'flag', 'autochess', 'chaos']) PREVIEW[id] = () => [firstLevel(id)];
-// Adventure's walkers wear their rabbits' colours, as in play.
-PREVIEW.adventure = () => [firstLevel('adventure'), (f) => (['possessed', 'sentry', 'scared'].includes(f.brain) && (SUITS[f.suit]?.colour || FUR[f.patternName])) || null];
+PREVIEW.adventure = () => [firstLevel('adventure'), adventureFur];
 for (const id of VARIANT_ORDER) PREVIEW[`v:${id}`] = () => [makeLevel({ ...modeDefaults('variants'), variant: id }, 1)];
+PREVIEW.variants = PREVIEW[`v:${VARIANT_ORDER[0]}`];
 
 // Draw each preview when its card comes into view, one at a time.
 const queue = [];
@@ -118,32 +130,29 @@ const seen = new IntersectionObserver((entries) => {
 }, { rootMargin: '200px' });
 
 // --- The list. -------------------------------------------------------------------------
-// Ours, grouped by how you play them; then the classics.
+// Five doors (Timothy, 2026-10-17: "so Daily, Adventure, Golf, Custom, and
+// Variants"), then the variants: ours, and the classics.
 
-const OURS = [
-  { head: 'Every day', say: 'The same board for everyone, once a day. Share how you did.', items: [
-    { id: 'daily', href: '../grove-chess/', name: 'The rabbit', line: 'Catch the day\'s rabbit, which hops in a hidden pattern. Friends who play from your link join your vine.', tags: ['daily', 'shared'], hot: true }
-  ] },
-  { head: 'Runs', say: 'Down through the Grove, board after board, until you fall. Different every time.', items: [
-    { id: 'adventure', href: '../grove-chess/play/?mode=adventure', name: 'Adventure', line: 'Start with your cat. Take every piece and jump down the hole. Pieces with a rabbit inside walk short routes; three rabbits of a kind make you that piece, and you choose which of your three goes each turn.', tags: ['roguelite', 'new'], hot: true },
-    { id: 'descent', href: '../grove-chess/play/?mode=descent', name: MODES.descent.name, line: 'A full army each, as in chess. Take the piece the rabbit rides to fall to the next board, and choose a suit or a weapon.', tags: ['roguelite', 'armies'] },
-    { id: 'tiles', href: '../grove-chess/play/?mode=tiles', name: MODES.tiles.name, line: 'Win a round, turn over a tile at the edge: the board grows, and the suit or weapon on it is yours.', tags: ['rounds', 'armies'] },
-    { id: 'kungfu', href: '../grove-chess/play/?mode=kungfu', name: MODES.kungfu.name, line: 'The descent with no turns: move any piece whenever it is ready, and so do they.', tags: ['real time'] }
-  ] },
-  { head: 'More ways to play', say: 'One idea each, played out.', items: [
-    { id: 'golf', href: '../grove-chess/play/?mode=golf', name: MODES.golf.name, line: 'Your sliders are the clubs. Knock the ball into the hole at par or better.', tags: ['puzzle', 'a course'] },
-    { id: 'flag', href: '../grove-chess/play/?mode=flag', name: MODES.flag.name, line: 'Capture the flag, with a rabbit for the flag. Carry it home to your first row.', tags: ['armies'] },
-    { id: 'autochess', href: '../grove-chess/play/?mode=autochess', name: MODES.autochess.name, line: MODES.autochess.blurb, tags: ['watch them fight'] }
-  ] },
-  { head: 'The workshop', say: 'For trying ideas out.', items: [
-    { id: 'chaos', href: '../grove-chess/lab/', name: 'Custom', line: 'Any pieces, any board, any rules. Play it, let bots simulate it, or have them find the most playable layout.', tags: ['every setting'] },
-    { id: 'pieces', href: '../grove-chess/pieces/', name: 'The pieces', line: 'Every piece in the Grove, classic and fairy, with its history and how it moves. New: the Changeling, which takes on the moves of whatever it takes.', tags: ['catalog'] }
-  ] }
+const DOORS = [
+  { id: 'today', href: '../grove-chess/daily/', name: 'The daily', line: 'Three boards of Adventure, the same for everyone today: about five minutes, scored like golf. Share your card, and friends who play from your link join your vine.', tags: ['every day', 'shared'], hot: true, hero: true },
+  { id: 'adventure', href: '../grove-chess/play/?mode=adventure', name: 'Adventure', line: 'Start with your cat. Take every piece and jump down the hole, board after board. Pieces with a rabbit inside move by themselves; beat par for suits and weapons, and grow your set as you go.', tags: ['roguelite'] },
+  { id: 'golf', href: '../grove-chess/play/?mode=golf', name: MODES.golf.name, line: 'Your sliders are the clubs. Knock the ball into the hole at par or better, course by course.', tags: ['puzzle', 'courses'] },
+  { id: 'chaos', href: '../grove-chess/lab/', name: 'Custom', line: 'Any pieces, any board, any rules. Play it, let bots simulate it, or have them find the most playable layout.', tags: ['every setting'] },
+  { id: 'variants', href: '#variants', name: 'Variants', line: 'Other ways to play: ours, made along the way, and the classics from the history of chess.', tags: [`${VARIANT_ORDER.length + 6} to play`] }
 ];
 
-function card({ id, href, name, line, tags = [], hot = false, who = '', onclick = null }) {
+const OURS = [
+  { id: 'daily', href: '../grove-chess/', name: 'The rabbit', line: 'The first daily: catch the day\'s rabbit, which hops in a hidden pattern. Friends who play from your link join your vine.', tags: ['a board a day'] },
+  { id: 'descent', href: '../grove-chess/play/?mode=descent', name: MODES.descent.name, line: 'A full army each, as in chess. Take the piece the rabbit rides to fall to the next board, and choose a suit or a weapon.', tags: ['roguelite', 'armies'] },
+  { id: 'tiles', href: '../grove-chess/play/?mode=tiles', name: MODES.tiles.name, line: 'Win a round, turn over a tile at the edge: the board grows, and the suit or weapon on it is yours.', tags: ['rounds', 'armies'] },
+  { id: 'kungfu', href: '../grove-chess/play/?mode=kungfu', name: MODES.kungfu.name, line: 'The descent with no turns: move any piece whenever it is ready, and so do they.', tags: ['real time'] },
+  { id: 'flag', href: '../grove-chess/play/?mode=flag', name: MODES.flag.name, line: 'Capture the flag, with a rabbit for the flag. Carry it home to your first row.', tags: ['armies'] },
+  { id: 'autochess', href: '../grove-chess/play/?mode=autochess', name: MODES.autochess.name, line: MODES.autochess.blurb, tags: ['watch them fight'] }
+];
+
+function card({ id, href, name, line, tags = [], hot = false, hero = false, who = '', onclick = null }) {
   const cv = el('canvas', { 'data-preview': id, 'aria-hidden': 'true' });
-  const box = el(onclick ? 'button' : 'a', { class: 'mode', ...(onclick ? { type: 'button', onclick } : { href }) },
+  const box = el(onclick ? 'button' : 'a', { class: `mode${hero ? ' hero' : ''}`, ...(onclick ? { type: 'button', onclick } : { href }) },
     el('div', { class: 'prev' }, cv),
     el('div', {},
       who ? el('p', { class: 'who' }, who) : null,
@@ -154,8 +163,8 @@ function card({ id, href, name, line, tags = [], hot = false, who = '', onclick 
   return box;
 }
 
-$('#ours').replaceChildren(...OURS.map((g) => el('section', { class: 'group' },
-  el('h2', {}, g.head), el('p', { class: 'dim' }, g.say), el('div', { class: 'list' }, ...g.items.map(card)))));
+$('#doors').replaceChildren(...DOORS.map(card));
+$('#ours').replaceChildren(...OURS.map(card));
 
 /** Who made a variant and when: the first sentence of its history. */
 const whoMade = (v) => (v.history || '').split(/(?<=\.)\s/)[0];

@@ -38,6 +38,10 @@
   .mode .tags span.hot { color: var(--accent-ink); background: var(--accent); border-color: transparent; }
   .mode .who { font-size: 13px; color: var(--warm); font-weight: 600; margin: 0 0 2px; }
   .classic { margin-top: 34px; padding-top: 20px; border-top: 1px solid var(--line); }
+  .classic .sub { margin: 20px 0 8px; font-size: 17px; }
+  .doors { margin-top: 18px; }
+  .doors .mode.hero { border-color: var(--accent); }
+  @media (min-width: 700px) { .doors .mode.hero { grid-column: 1 / -1; } }
   .classic .mode { background: var(--panel-2); }
 </style>
 </head>
@@ -50,15 +54,21 @@
 
   <p class="eyebrow">Hikari Garden</p>
   <h1>Chess of the Grove</h1>
-  <p class="dim lede">Every chess game made for the Grove, and the old variants they grew from.</p>
+  <p class="dim lede">Chess, found in the middle of a forest. A daily to share, a long way down, a golf course, a workshop, and every variant we have played.</p>
 
-  <div id="ours"></div>
+  <div class="list doors" id="doors"></div>
 
-  <section class="classic">
-    <h2>Classic variants, to learn</h2>
-    <p class="dim">Real variants from the history of chess, mostly on small boards, each against a side that thinks. A good way to learn how the pieces work together. Each one says who made it and when.</p>
+  <section class="classic" id="variants">
+    <h2>Variants</h2>
+    <p class="dim">Other ways to play. Ours first, made along the way; then the classics from the history of chess.</p>
+    <h3 class="sub">Ours</h3>
+    <div class="list" id="ours"></div>
+    <h3 class="sub">From the history of chess</h3>
+    <p class="dim">Real variants, mostly on small boards, each against a side that thinks. A good way to learn how the pieces work together. Each says who made it and when.</p>
     <div class="list" id="classic"></div>
   </section>
+
+  <p class="small dim center" style="margin-top:26px"><a href="../grove-chess/pieces/">The pieces</a>: every piece in the Grove, classic and fairy, with its history and how it moves.</p>
 
 </div>
 <script type="module" src="hub.js"></script>
